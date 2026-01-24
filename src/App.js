@@ -434,6 +434,35 @@ const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
 
   const filtered = files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const subjectFiles = files.filter(f => f.subject === currentSubject);
+  // 📂 Open subject / folder (with history support for mobile back)
+const openSubject = (subject) => {
+  setCurrentSubject(subject);
+  setView('files');
+
+  // 🔹 Browser history me ek fake page add
+  window.history.pushState(
+    { page: 'files', subject },
+    '',
+    `#subject-${subject}`
+  );
+};
+// 📱 Handle mobile BACK button (WhatsApp / browser issue fix)
+useEffect(() => {
+  const handlePopState = () => {
+    // Agar files view open hai to sirf folder close karo
+    if (view === 'files') {
+      setView('subjects');
+      setCurrentSubject('');
+    }
+    // warna browser normal back karega (WhatsApp, etc.)
+  };
+
+  window.addEventListener('popstate', handlePopState);
+
+  return () => {
+    window.removeEventListener('popstate', handlePopState);
+  };
+}, [view]);
 
   return (
     <div className={`max-w-6xl mx-auto space-y-8 animate-fade-in`}>
