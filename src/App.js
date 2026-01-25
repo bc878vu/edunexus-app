@@ -10,9 +10,9 @@ import {
   HelpCircle, FileOutput, UserPlus, Quote, Target, Camera, Newspaper, 
   Calendar, Plus, FolderPlus, Inbox, XOctagon, Loader, Layers, Volume2, 
   StopCircle, ArrowRight, ArrowLeft, Activity, LayoutDashboard, 
-  Image as ImageIcon, Clock, Save, RefreshCw, ToggleLeft, ToggleRight,
-  Eye, EyeOff, Move, Maximize2, Copy, FileDown
-} from 'lucide-react';
+  Image as ImageIcon, Clock, Save, RefreshCw, ToggleLeft, ToggleRight, 
+   Eye, EyeOff, Move, Maximize2,  Copy, FileDown
+  } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
 import { 
@@ -22,7 +22,7 @@ import {
 } from 'firebase/auth';
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
-  serverTimestamp, doc, updateDoc, increment, deleteDoc, where,
+  serverTimestamp, doc,  increment, deleteDoc, where, updateDoc,
   getDoc, setDoc, arrayUnion
 } from 'firebase/firestore';
 
@@ -41,7 +41,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "edunexus-live"; // Static App ID for your live site
-const apiKey = "AIzaSyBKSuzUtk63NXVoeckE3HD50iQBB7OHCqU"; // Add your Gemini API Key here if you have one, otherwise leave empty
+const apiKey = "AIzaSyDNufOZFcW0cV1hsQ_nb5fAsHT8b4RUrmY"; // Add your Gemini API Key here if you have one, otherwise leave empty
 
 // --- Constants ---
 const WHATSAPP_LINK = "https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW";
@@ -104,30 +104,57 @@ const formatDate = (timestamp) => {
   }).format(date);
 };
 
-const callGemini = async (prompt, useSearch = false) => {
+// ❌ FRONTEND GEMINI CALL (BLOCKED BY GOOGLE)
+/*
+const callGemini = async (prompt) => {
   if (!apiKey) return "AI features require an API Key.";
+
   try {
-    const payload = { contents: [{ parts: [{ text: prompt }] }] };
-    if (useSearch) payload.tools = [{ google_search: {} }];
+    const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+    };
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       }
     );
+
     const data = await response.json();
-    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-      throw new Error("No valid response from AI");
-    }
     return data.candidates[0].content.parts[0].text;
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return "AI is currently unavailable.";
+    return "AI request failed";
   }
 };
+*/
+// ✅ BACKEND BASED GEMINI CALL (SAFE)
+const callGemini = async (prompt) => {
+  try {
+    const res = await fetch("http://localhost:5000/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("Backend error:", data);
+      return "AI request failed. " + (data.error || "");
+    }
+
+    return data.text || "AI did not return a valid response.";
+  } catch (error) {
+    console.error("Frontend fetch error:", error);
+    return "AI request failed";
+  }
+};
+
+
+
 
 const useTheme = () => {
   const [isDark, setIsDark] = useState(true);
@@ -327,82 +354,154 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
   );
 };
 
-// 4. Discussion Forum
-const PostItem = ({ post, theme, isAdmin, onDelete }) => {
-  const [summary, setSummary] = useState('');
-  const [summarizing, setSummarizing] = useState(false);
-  
-  const handleSummarize = async () => { 
-    try {
-      setSummarizing(true); 
-      // Simplified prompt for concise summary
-      const res = await callGemini(`Provide a very simple, clear, and short 1-sentence summary (max 12 words) of this student post: "${post.content}"`);
-      setSummary(res);
-    } catch(e) {
-      console.error(e);
-    } finally {
-      setSummarizing(false);
-    }
-  };
+// 6. Discussion Forum (Student side)
 
-  return (
-    <div className={`${theme.card} p-5 rounded-xl border ${theme.border} relative group`}>
-      <div className="flex items-center gap-3 mb-2">
-        <div className="h-8 w-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-xs">S</div>
-        <div><h4 className={`font-bold ${theme.text} text-sm`}>Student</h4><p className={`text-xs ${theme.textMuted}`}>{formatDate(post.createdAt)}</p></div>
-      </div>
-      {summary && <div className="bg-indigo-500/10 p-3 rounded-lg mb-4 text-sm text-indigo-400 border border-indigo-500/20 animate-fade-in"><strong>✨ AI Summary:</strong> {String(summary)}</div>}
-      <p className={`${theme.text} whitespace-pre-wrap`}>{String(post.content)}</p>
-      <button onClick={handleSummarize} disabled={summarizing} className={`mt-3 text-xs flex items-center gap-1 ${theme.textMuted} hover:text-indigo-500 transition-colors`}><Sparkles size={12}/> {summarizing ? 'Summarizing...' : 'Summarize with AI'}</button>
-    </div>
-  );
-};
-
-const Forum = ({ user, isAdmin, theme, showToast }) => {
+const Forum = ({ user, theme, showToast }) => {
   const [posts, setPosts] = useState([]);
-  const [newPost, setNewPost] = useState('');
-  const [isPolishing, setIsPolishing] = useState(false);
+  const [newPost, setNewPost] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'discussions'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, s => setPosts(s.docs.map(d => ({id: d.id, ...d.data()}))), err => console.log("Forum sync skipped"));
-    return () => unsubscribe();
-  }, [user]);
+    // sab ko posts dikh sakti hain (anon user bhi), is liye user check optional hai
+    const q = query(
+      collection(db, "artifacts", appId, "public", "data", "discussions"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsub = onSnapshot(q, (s) =>
+      setPosts(s.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+
+    return () => unsub();
+  }, []);
 
   const handlePost = async () => {
-    if (!newPost.trim()) return;
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'discussions'), { content: newPost, author: 'Student', createdAt: serverTimestamp() });
-    setNewPost('');
-    showToast("Discussion posted!", "success");
-  };
-
-  const handlePolish = async () => {
-    if(!newPost.trim()) return;
-    setIsPolishing(true);
-    try {
-      const polished = await callGemini(`Rewrite this forum post to be clear, polite, and grammatically correct: "${newPost}"`);
-      setNewPost(polished); 
-    } catch (e) {
-      showToast("Failed to polish text", "error");
+    if (!user) {
+      showToast("Login required to post in discussion.", "error");
+      return;
     }
-    setIsPolishing(false);
+
+    if (!newPost.trim()) return;
+
+    try {
+      setLoading(true);
+      await addDoc(
+        collection(db, "artifacts", appId, "public", "data", "discussions"),
+        {
+          content: newPost.trim(),
+          createdAt: serverTimestamp(),
+          userId: user.uid || null,
+          userName: user.displayName || "Student",
+          userEmail: user.email || "",
+        }
+      );
+      setNewPost("");
+      showToast("Post added to discussion!", "success");
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to post. Try again.", "error");
+    }
+    setLoading(false);
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-      <h2 className={`text-3xl font-bold ${theme.text} text-center`}>Student Discussion</h2>
-      <div className={`${theme.card} p-4 rounded-xl border ${theme.border}`}>
-        <textarea value={newPost} onChange={e=>setNewPost(e.target.value)} placeholder="Ask a question..." className={`w-full ${theme.input} p-3 rounded-lg h-24 mb-2 ${theme.text} outline-none`} />
-        <div className="flex justify-between items-center">
-          <button onClick={handlePolish} disabled={!newPost.trim() || isPolishing} className="text-indigo-500 text-sm font-bold flex items-center gap-1 hover:underline"><Sparkles size={14}/> {isPolishing ? 'Polishing...' : 'AI Polish'}</button>
-          <button onClick={handlePost} className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors">Post</button>
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className={`text-3xl font-extrabold ${theme.text}`}>
+            Discussion Forum
+          </h1>
+          <p className={theme.textMuted}>
+            Ask questions, discuss concepts, and see admin replies.
+          </p>
+        </div>
+
+        <div className="hidden md:flex items-center gap-2 text-xs">
+          <MessageSquare className="text-indigo-500" size={18} />
+          <span className={theme.textMuted}>
+            Be respectful • No spam • Study related only
+          </span>
         </div>
       </div>
-      <div className="space-y-4">{posts.map(post => <PostItem key={post.id} post={post} theme={theme} isAdmin={isAdmin} onDelete={()=>{}} />)}</div>
+
+      {/* New Post Box */}
+      <div className={`${theme.card} p-4 rounded-2xl border ${theme.border}`}>
+        <textarea
+          value={newPost}
+          onChange={(e) => setNewPost(e.target.value)}
+          rows={3}
+          placeholder={
+            user
+              ? "Start a new discussion or ask a question..."
+              : "Login to start a discussion..."
+          }
+          className={`w-full ${theme.input} p-3 rounded mb-3`}
+        />
+
+        <div className="flex justify-between items-center gap-3">
+          <span className={`text-xs ${theme.textMuted}`}>
+            Tips: Mention subject code, lesson, or topic for better replies.
+          </span>
+          <button
+            onClick={handlePost}
+            disabled={loading || !newPost.trim()}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 disabled:opacity-40"
+          >
+            {loading ? "Posting..." : "Post"}
+            <Send size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* Posts List */}
+      <div className="space-y-4">
+        {posts.length === 0 && (
+          <div
+            className={`text-center py-8 border-2 border-dashed ${theme.border} rounded-xl ${theme.textMuted}`}
+          >
+            No discussions yet. Be the first to post!
+          </div>
+        )}
+
+        {posts.map((p) => (
+          <div
+            key={p.id}
+            className={`${theme.card} p-4 rounded-2xl border ${theme.border} space-y-3`}
+          >
+            <div className="flex justify-between gap-3">
+              <div>
+                <p className={`font-semibold ${theme.text}`}>
+                  {String(p.userName || "Student")}
+                </p>
+                <p className={`text-xs ${theme.textMuted}`}>
+                  {p.userEmail ? String(p.userEmail) + " • " : ""}
+                  {p.createdAt?.toDate
+                    ? p.createdAt.toDate().toLocaleString()
+                    : ""}
+                </p>
+              </div>
+            </div>
+
+            <p className={theme.text}>{String(p.content)}</p>
+
+            {/* Admin reply agar available ho */}
+            {p.adminReply && (
+              <div className="mt-3 border-l-4 border-emerald-500 pl-3 bg-emerald-500/5 rounded">
+                <p className="text-xs font-bold text-emerald-500 flex items-center gap-1 mb-1">
+                  <Shield size={12} /> Admin Reply
+                </p>
+                <p className={`text-sm ${theme.text}`}>
+                  {String(p.adminReply)}
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
+
 
 // 5. Academic Hub
 const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
@@ -431,6 +530,17 @@ const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
     const unsubscribe = onSnapshot(q, s => setFiles(s.docs.map(d => ({id: d.id, ...d.data()}))), err => console.log("Files sync skipped"));
     return () => unsubscribe();
   }, [user]);
+    // Mobile/Browser back button: pehle folders view par le jao
+  useEffect(() => {
+    const handlePopState = () => {
+      setView('subjects');
+      setCurrentSubject('');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
 
   const filtered = files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const subjectFiles = files.filter(f => f.subject === currentSubject);
@@ -473,17 +583,27 @@ useEffect(() => {
           <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="Search all files..." className={`w-full ${theme.input} pl-10 p-3 rounded-xl outline-none ${theme.text}`} />
         </div>
       </div>
-      {searchTerm && (
-        <div className="space-y-4">
-          <h3 className={`text-xl font-bold ${theme.text}`}>Search Results</h3>
-          {filtered.map(file => <FileItem key={file.id} file={file} theme={theme} isAdmin={isAdmin} onDelete={()=>{}} />)}
-          {filtered.length === 0 && <p className={theme.textMuted}>No files found.</p>}
-        </div>
-      )}
+          {searchTerm && (
+      <p className={theme.textMuted}>
+        Search "{searchTerm}" ke results yahan baad me dikhayenge.
+      </p>
+    )}
+
       {!searchTerm && view === 'subjects' && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {subjects.map(sub => (
-            <div key={sub} onClick={() => { setCurrentSubject(sub); setView('files'); }} className={`${theme.card} p-8 rounded-2xl border ${theme.border} hover:border-indigo-500 cursor-pointer transition-all hover:-translate-y-1 shadow-sm text-center group`}>
+            <div key={sub} onClick={() => {
+  setCurrentSubject(sub);
+  setView('files');
+
+  // history me ek step add karo taa ke back se is view se bahar aa saken
+  window.history.pushState(
+    { page: 'academic', view: 'files', subject: sub },
+    '',
+    `#${encodeURIComponent(sub)}`
+  );
+}}
+ className={`${theme.card} p-8 rounded-2xl border ${theme.border} hover:border-indigo-500 cursor-pointer transition-all hover:-translate-y-1 shadow-sm text-center group`}>
               <Folder className="h-12 w-12 text-yellow-500 mx-auto mb-4 group-hover:scale-110 transition-transform" />
               <h3 className={`text-xl font-bold ${theme.text}`}>{String(sub)}</h3>
               <p className={`text-xs ${theme.textMuted} mt-2`}>{files.filter(f=>f.subject===sub).length} Files</p>
@@ -494,7 +614,22 @@ useEffect(() => {
       {!searchTerm && view === 'files' && (
         <div className="space-y-6 animate-slide-up">
           <div className="flex justify-between items-center">
-            <button onClick={()=>setView('subjects')} className={`flex items-center gap-2 ${theme.textMuted} hover:${theme.text} font-bold`}><ChevronRight className="rotate-180" size={16}/> Back to Folders</button>
+            <button
+              onClick={() => {
+                // React state pehle subjects view pe
+                setView('subjects');
+                setCurrentSubject('');
+
+                // agar history me state hai to ek step peeche jao
+                if (window.history.state) {
+                  window.history.back();
+                }
+              }}
+              className={`flex items-center gap-2 ${theme.textMuted} hover:${theme.text} font-bold`}
+            >
+              <ChevronRight className="rotate-180" size={16}/> Back to Folders
+            </button>
+
           </div>
           <h3 className={`text-2xl font-bold ${theme.text} flex items-center gap-2`}><Folder className="text-yellow-500" /> {currentSubject} Files</h3>
           <div className="grid gap-3">
@@ -506,81 +641,279 @@ useEffect(() => {
   );
 };
 
-const FileItem = ({ file, theme, isAdmin, onDelete }) => (
-  <div className={`${theme.card} p-5 rounded-xl border ${theme.border} flex justify-between items-center hover:shadow-md transition-shadow relative group`}>
-    <div className="flex items-center gap-4">
-      <div className="h-10 w-10 bg-red-100 rounded-lg flex items-center justify-center text-red-600 font-bold">PDF</div>
-      <div>
-        <h4 className={`font-bold ${theme.text}`}>{String(file.name)}</h4>
-        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">{String(file.subject)}</span>
-      </div>
-    </div>
-    <div className="flex items-center gap-3">
-      <a href={file.url} download target="_blank" rel="noopener noreferrer" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-colors"><Download size={18} /> Download</a>
-    </div>
-  </div>
-);
-
-// 6. Portfolio
-const Portfolio = ({ user, isAdmin, theme }) => {
-  const [picUrl, setPicUrl] = useState("https://api.dicebear.com/7.x/avataaars/svg?seed=Asad1&backgroundColor=1e293b");
-  const [techStack, setTechStack] = useState('');
-  const [ideas, setIdeas] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    const fetchProfile = async () => {
-      try {
-        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'profile', 'main');
-        const snap = await getDoc(docRef);
-        if (snap.exists()) setPicUrl(snap.data().picUrl);
-      } catch(e) { console.log("Profile fetch error", e); }
-    };
-    fetchProfile();
-  }, [user]);
-
-  const generateIdeas = async () => {
-    if (!techStack.trim()) return;
-    setLoading(true);
+// Single file card (Academic Hub downloads)
+const FileItem = ({ file, theme, isAdmin, onDelete }) => {
+  const handleFileDownload = async () => {
     try {
-      const res = await callGemini(`Give me 3 unique, advanced portfolio project ideas for a developer skilled in: ${techStack}. For each, provide a Title, One-line Description, and a 'Killer Feature'.`);
-      setIdeas(res);
-    } catch(e) {
-      console.error(e);
+      if (!file?.url) return;
+
+      const response = await fetch(file.url);
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+
+      const safeName =
+        (file.name && String(file.name).trim()) || "downloaded_file";
+
+      link.download = safeName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download error:", error);
+      alert("Download failed on this device. Please try again.");
     }
-    setLoading(false);
   };
 
   return (
-    <div className={`max-w-5xl mx-auto space-y-12 animate-fade-in`}>
-      <div className="flex flex-col md:flex-row items-center gap-10">
-        <img src={picUrl} className="w-48 h-48 rounded-full border-4 border-indigo-500 object-cover" alt="Profile" />
-        <div className="text-center md:text-left">
-          <h1 className={`text-5xl font-extrabold ${theme.text} mb-4`}>Asad Amanat Ali</h1>
-          <p className="text-xl text-indigo-500 font-bold mb-6">Software Engineer | Web Developer | Network Specialist</p>
-          <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-            <a href="mailto:a.m.a63425@gmail.com" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"><Mail size={18}/> Contact Me</a>
-            <div className={`${theme.card} border ${theme.border} ${theme.text} px-6 py-2 rounded-lg font-bold flex items-center gap-2`}><Phone size={18}/> 0309-8851445</div>
-          </div>
+    <div
+      className={`${theme.card} p-5 rounded-xl border ${theme.border} flex items-center justify-between gap-4 hover:shadow-md transition-shadow relative group`}
+    >
+      <div className="flex items-center gap-4">
+        <div className="h-10 w-10 bg-red-100 rounded-lg flex items-center justify-center text-red-600 font-bold">
+          PDF
+        </div>
+        <div>
+          <h4 className={`font-bold ${theme.text}`}>{String(file.name)}</h4>
+          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">
+            {String(file.subject)}
+          </span>
         </div>
       </div>
-      <div className={`${theme.card} p-8 rounded-2xl border ${theme.border} shadow-lg`}>
-        <div className="flex items-center gap-3 mb-4"><Lightbulb className="h-8 w-8 text-yellow-400" /><h3 className={`text-2xl font-bold ${theme.text}`}>AI Project Advisor</h3></div>
-        <p className={`${theme.textMuted} mb-6`}>Stuck on what to build? Enter your skills (e.g., React, Python) and get unique project ideas.</p>
-        <div className="flex gap-4 mb-6">
-          <input value={techStack} onChange={e => setTechStack(e.target.value)} placeholder="Enter skills..." className={`flex-1 ${theme.input} p-3 rounded-lg outline-none ${theme.text}`} />
-          <button onClick={generateIdeas} disabled={loading || !techStack} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-lg font-bold flex items-center gap-2 disabled:opacity-50 transition-colors"><Zap size={18} /> {loading ? 'Generating...' : 'Get Ideas'}</button>
-        </div>
-        {ideas && <div className={`p-6 rounded-xl border ${theme.border} bg-opacity-50 ${theme.bg} ${theme.text} whitespace-pre-wrap`}>{String(ideas)}</div>}
-      </div>
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className={`${theme.card} p-8 rounded-2xl border ${theme.border}`}><h3 className={`text-2xl font-bold ${theme.text} mb-6 flex items-center gap-2`}><Code className="text-indigo-500"/> Core Skills</h3><div className="flex flex-wrap gap-3">{['HTML/CSS/JS', 'React.js', 'Node.js', 'Python', 'C++', 'Networking (CCNA)', 'Windows Server', 'Cyber Security'].map(s => <span key={s} className="bg-indigo-500/10 text-indigo-500 px-3 py-1 rounded-full font-bold text-sm border border-indigo-500/20">{s}</span>)}</div></div>
-        <div className={`${theme.card} p-8 rounded-2xl border ${theme.border}`}><h3 className={`text-2xl font-bold ${theme.text} mb-6 flex items-center gap-2`}><Briefcase className="text-indigo-500"/> Experience</h3><div className="mb-4"><h4 className={`font-bold ${theme.text} text-lg`}>IT Support Officer</h4><p className="text-indigo-500 text-sm">Future Fashion Pvt. Ltd. (1 Year)</p><ul className={`list-disc pl-5 mt-2 text-sm ${theme.textMuted}`}><li>Managed Windows Server 2012/16/19</li><li>Network Troubleshooting</li><li>System Optimization</li></ul></div></div>
+
+      <div className="flex items-center gap-3">
+        {/* MAIN DOWNLOAD BUTTON */}
+        <button
+          type="button"
+          onClick={handleFileDownload}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+        >
+          <Download size={18} /> Download
+        </button>
+
+        {/* DRIVE LINK BUTTON – sirf jab driveLink ho */}
+        {file.driveLink && file.driveLink.trim() !== "" && (
+          <a
+            href={file.driveLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border border-indigo-400 text-indigo-500 hover:bg-indigo-50 transition-colors"
+          >
+            <ExternalLink size={16} /> Open Link
+          </a>
+        )}
       </div>
     </div>
   );
 };
+
+
+
+
+/// PORTFOLIO PAGE – PROFILE + AI PROJECT IDEAS GENERATOR
+const Portfolio = ({ user, isAdmin, theme }) => {
+  // Profile fields
+  const [picUrl, setPicUrl] = useState(
+    "https://api.dicebear.com/7.x/avataaars/svg?seed=Asad1&backgroundColor=1e293b"
+  );
+  const [fullName, setFullName] = useState("Asad Amanat Ali");
+  const [title, setTitle] = useState(
+    "Software Engineer | Web Developer | Network Specialist"
+  );
+  const [about, setAbout] = useState(
+    "I love building AI-powered tools, learning platforms, and automation systems that make student life easier."
+  );
+  const [contactEmail, setContactEmail] = useState("a.m.a63425@gmail.com");
+  const [contactPhone, setContactPhone] = useState("0309-8851445");
+
+  // AI ideas generator state
+  const [techStack, setTechStack] = useState("");
+  const [ideas, setIdeas] = useState("");
+  const [loadingIdeas, setLoadingIdeas] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const snap = await getDoc(
+          doc(db, "artifacts", appId, "public", "data", "profile", "main")
+        );
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.picUrl) setPicUrl(data.picUrl);
+          if (data.fullName) setFullName(data.fullName);
+          if (data.title) setTitle(data.title);
+          if (data.about) setAbout(data.about);
+          if (data.contactEmail) setContactEmail(data.contactEmail);
+          if (data.contactPhone) setContactPhone(data.contactPhone);
+        }
+      } catch (e) {
+        console.error("Profile fetch error", e);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const handleGenerateIdeas = async () => {
+    if (!techStack.trim()) return;
+    setLoadingIdeas(true);
+    try {
+      const prompt = `
+You are an expert project mentor. Based on the following skills or interests:
+
+"${techStack}"
+
+Generate 3–5 unique, practical project ideas that a university student can build. 
+For each idea, include:
+- Project title
+- 2–3 line description
+- Mention key technologies.
+
+Return the answer in bullet list.
+`;
+      const resText = await callGemini(prompt);
+      setIdeas(resText);
+    } catch (e) {
+      console.error(e);
+      setIdeas("AI request failed.");
+    } finally {
+      setLoadingIdeas(false);
+    }
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-10 animate-fade-in">
+      {/* Top Profile Card */}
+      <div className={`${theme.card} p-6 md:p-8 rounded-2xl border ${theme.border} grid md:grid-cols-[auto,1fr] gap-6 items-center`}>
+        <div className="relative">
+          <img
+            src={picUrl}
+            alt="Portfolio Avatar"
+            className="w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-indigo-500 shadow-xl"
+          />
+          <span className="absolute -bottom-2 -right-2 bg-indigo-600 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
+            <Sparkles size={14} /> Live
+          </span>
+        </div>
+
+        <div>
+          <h1 className={`text-2xl md:text-3xl font-extrabold ${theme.text}`}>
+            {fullName}
+          </h1>
+          <p className="mt-1 text-sm md:text-base font-semibold text-indigo-500">
+            {title}
+          </p>
+          <p className={`mt-2 text-xs md:text-sm ${theme.textMuted}`}>
+            {about}
+          </p>
+
+          <div className="mt-4 flex flex-wrap gap-3 text-xs md:text-sm">
+            <a
+              href={`mailto:${contactEmail}`}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-500 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500 hover:text-white transition-colors"
+            >
+              <Mail size={14} />
+              {contactEmail}
+            </a>
+            <a
+              href={`https://wa.me/${contactPhone.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500 hover:text-white transition-colors"
+            >
+              <Phone size={14} />
+              {contactPhone}
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Skills & Experience */}
+      <div className="grid md:grid-cols-3 gap-6">
+        <div className={`${theme.card} p-5 rounded-2xl border ${theme.border}`}>
+          <h3 className={`font-bold mb-2 flex items-center gap-2 ${theme.text}`}>
+            <Brain size={18} /> Core Skills
+          </h3>
+          <ul className={`text-xs md:text-sm space-y-1 ${theme.textMuted}`}>
+            <li>• React, Tailwind CSS, Firebase (Firestore & Auth)</li>
+            <li>• REST APIs, AI Integration, Prompt Engineering</li>
+            <li>• Networking Basics, OSI Model, Subnetting</li>
+            <li>• UI/UX for dashboards & education platforms</li>
+          </ul>
+        </div>
+
+        <div className={`${theme.card} p-5 rounded-2xl border ${theme.border}`}>
+          <h3 className={`font-bold mb-2 flex items-center gap-2 ${theme.text}`}>
+            <Cpu size={18} /> Tech Stack
+          </h3>
+          <ul className={`text-xs md:text-sm space-y-1 ${theme.textMuted}`}>
+            <li>• JavaScript (ES6+), React</li>
+            <li>• Firebase, Firestore, Auth</li>
+            <li>• Tailwind CSS</li>
+            <li>• Git & GitHub</li>
+          </ul>
+        </div>
+
+        <div className={`${theme.card} p-5 rounded-2xl border ${theme.border}`}>
+          <h3 className={`font-bold mb-2 flex items-center gap-2 ${theme.text}`}>
+            <Briefcase size={18} /> Experience
+          </h3>
+          <ul className={`text-xs md:text-sm space-y-1 ${theme.textMuted}`}>
+            <li>• EduNexus – AI-powered student portal</li>
+            <li>• AI Quiz & Study Planner tools</li>
+            <li>• File management & academic resource systems</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* AI PROJECT IDEAS GENERATOR (old wali functionality wapis) */}
+      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+        <div className="flex items-center gap-3 mb-3">
+          <Lightbulb size={22} className="text-yellow-400" />
+          <h3 className={`text-lg md:text-xl font-bold ${theme.text}`}>
+            AI Project Advisor – Ideas Generator
+          </h3>
+        </div>
+
+        <p className={`${theme.textMuted} text-xs md:text-sm mb-4`}>
+          Apni skills ya interest likho (e.g. <strong>React + Firebase</strong>,{" "}
+          <strong>Networking</strong>, <strong>AI + Education</strong>) aur AI
+          aap ke liye project ideas suggest karega.
+        </p>
+
+        <div className="flex flex-col md:flex-row gap-3 mb-4">
+          <input
+            value={techStack}
+            onChange={(e) => setTechStack(e.target.value)}
+            placeholder="e.g. React, Firebase, Tailwind, AI chatbot..."
+            className={`flex-1 ${theme.input} p-3 rounded-lg text-sm`}
+          />
+          <button
+            onClick={handleGenerateIdeas}
+            disabled={loadingIdeas}
+            className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-60"
+          >
+            {loadingIdeas ? "Thinking..." : "Generate Ideas"}
+          </button>
+        </div>
+
+        {ideas && (
+          <div className="mt-3 text-xs md:text-sm whitespace-pre-wrap bg-slate-900/40 border border-slate-700 rounded-xl p-4">
+            {ideas}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 
 // 7. Flashcards
 const FlashcardGenerator = ({ theme, showToast }) => {
@@ -1551,76 +1884,285 @@ const AdminPanel = ({ theme, user, showToast }) => {
   };
 
   const AcademicTab = () => {
-    const [uName, setUName] = useState('');
-    const [uFile, setUFile] = useState(null);
-    const [newFolder, setNewFolder] = useState('');
-    const [subjects, setSubjects] = useState(DEFAULT_FOLDERS);
-    const [selSubject, setSelSubject] = useState('General');
-    const [files, setFiles] = useState([]);
+  const [uName, setUName] = useState("");
+  const [uFile, setUFile] = useState(null);
+  const [uDriveLink, setUDriveLink] = useState("");
+  const [newFolder, setNewFolder] = useState("");
+  const [subjects, setSubjects] = useState(DEFAULT_FOLDERS);
+  const [selSubject, setSelSubject] = useState("General");
+  const [files, setFiles] = useState([]);
 
-    useEffect(() => {
-      getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'folders')).then(s => {
-        if(s.exists()) {
+  const [editingFolder, setEditingFolder] = useState(null);
+  const [editingName, setEditingName] = useState("");
+
+  useEffect(() => {
+    getDoc(doc(db, "artifacts", appId, "public", "data", "meta", "folders")).then(
+      (s) => {
+        if (s.exists()) {
           const dbFolders = s.data().list || [];
           setSubjects([...new Set([...DEFAULT_FOLDERS, ...dbFolders])]);
         }
-      });
-      const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'files'), orderBy('createdAt', 'desc'));
-      const unsub = onSnapshot(q, s => setFiles(s.docs.map(d => ({id: d.id, ...d.data()}))));
-      return () => unsub();
-    }, []);
+      }
+    );
 
-    const handleUpload = async () => {
-      if(!uName) return;
-      const fakeUrl = uFile ? URL.createObjectURL(uFile) : '#';
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'files'), {
-        name: uName, subject: selSubject, url: fakeUrl, type: uFile?.type || 'link', uploadedBy: 'Admin', createdAt: serverTimestamp()
-      });
-      showToast("File Uploaded", "success"); setUName(''); setUFile(null);
-    };
+    const q = query(
+      collection(db, "artifacts", appId, "public", "data", "files"),
+      orderBy("createdAt", "desc")
+    );
+    const unsub = onSnapshot(q, (s) =>
+      setFiles(s.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+    return () => unsub();
+  }, []);
 
-    const handleAddFolder = async () => {
-      if(!newFolder) return;
-      const newList = [...new Set([...subjects, newFolder])];
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'folders'), { list: newList });
-      setSubjects(newList); setNewFolder(''); showToast("Folder Added", "success");
-    };
+  const saveFoldersToDb = async (updatedSubjects) => {
+    // sirf custom folders ko db me rakho
+    const custom = updatedSubjects.filter(
+      (f) => !DEFAULT_FOLDERS.includes(f)
+    );
+    await setDoc(
+      doc(db, "artifacts", appId, "public", "data", "meta", "folders"),
+      { list: custom }
+    );
+  };
 
-    return (
-      <div className="space-y-6">
-        <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-          <h3 className={`font-bold ${theme.text} mb-4`}>Upload & Folders</h3>
-          <div className="flex flex-col md:flex-row gap-4 mb-4">
-            <input value={newFolder} onChange={e=>setNewFolder(e.target.value)} placeholder="New Folder Name" className={`${theme.input} p-2 rounded flex-1`} />
-            <button onClick={handleAddFolder} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold">Add Folder</button>
-          </div>
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <select value={selSubject} onChange={e=>setSelSubject(e.target.value)} className={`${theme.input} p-2 rounded text-slate-800 dark:text-slate-200`}>
-              <option>General</option>
-              {subjects.map(s=><option key={s}>{String(s)}</option>)}
-            </select>
-            <input value={uName} onChange={e=>setUName(e.target.value)} placeholder="File Name" className={`${theme.input} p-2 rounded flex-1`} />
-            <div className="relative">
-              <input type="file" onChange={e=>setUFile(e.target.files[0])} className="hidden" id="adminFile" />
-              <label htmlFor="adminFile" className="bg-slate-700 text-white px-4 py-2 rounded cursor-pointer block">{uFile ? 'File Selected' : 'Choose File'}</label>
-            </div>
-            <button onClick={handleUpload} className="bg-green-600 text-white px-4 py-2 rounded font-bold">Upload</button>
-          </div>
+  const handleUpload = async () => {
+    if (!uName) return;
+
+    const fakeUrl = uFile ? URL.createObjectURL(uFile) : uDriveLink || "#";
+
+    await addDoc(
+      collection(db, "artifacts", appId, "public", "data", "files"),
+      {
+        name: uName,
+        subject: selSubject,
+        url: fakeUrl,
+        type: uFile?.type || (uDriveLink ? "link" : "unknown"),
+        uploadedBy: "Admin",
+        createdAt: serverTimestamp(),
+      }
+    );
+
+    showToast("File Uploaded", "success");
+    setUName("");
+    setUFile(null);
+    setUDriveLink("");
+  };
+
+  const handleAddFolder = async () => {
+    if (!newFolder.trim()) return;
+    const folderName = newFolder.trim();
+
+    const newList = [...new Set([...subjects, folderName])];
+    setSubjects(newList);
+    await saveFoldersToDb(newList);
+    setNewFolder("");
+    showToast("Folder Added", "success");
+  };
+
+  const startRenameFolder = (name) => {
+    if (DEFAULT_FOLDERS.includes(name)) {
+      showToast("Default folders ko rename nahi kar sakte", "error");
+      return;
+    }
+    setEditingFolder(name);
+    setEditingName(name);
+  };
+
+  const handleRenameFolder = async () => {
+    if (!editingFolder || !editingName.trim()) return;
+    const newName = editingName.trim();
+
+    const updated = subjects.map((s) => (s === editingFolder ? newName : s));
+    setSubjects(updated);
+    await saveFoldersToDb(updated);
+    showToast("Folder renamed", "success");
+    setEditingFolder(null);
+    setEditingName("");
+  };
+
+  const handleDeleteFolder = async (name) => {
+    if (DEFAULT_FOLDERS.includes(name)) {
+      showToast("Default folders ko delete nahi kar sakte", "error");
+      return;
+    }
+    const updated = subjects.filter((s) => s !== name);
+    setSubjects(updated);
+    await saveFoldersToDb(updated);
+    showToast("Folder deleted", "success");
+
+    if (selSubject === name) {
+      setSelSubject("General");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Upload + Folder controls */}
+      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+        <h3 className={`font-bold ${theme.text} mb-4`}>Upload & Folders</h3>
+
+        {/* New folder add */}
+        <div className="flex flex-col md:flex-row gap-4 mb-4">
+          <input
+            value={newFolder}
+            onChange={(e) => setNewFolder(e.target.value)}
+            placeholder="New Folder Name"
+            className={`${theme.input} p-2 rounded flex-1`}
+          />
+          <button
+            onClick={handleAddFolder}
+            className="bg-indigo-600 text-white px-4 py-2 rounded font-bold"
+          >
+            Add Folder
+          </button>
         </div>
-        <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-          <h3 className={`font-bold ${theme.text} mb-4`}>Manage Files</h3>
-          <div className="h-64 overflow-y-auto space-y-2">
-            {files.map(f => (
-              <div key={f.id} className="flex justify-between items-center p-3 border rounded">
-                <div><p className={`font-bold ${theme.text}`}>{String(f.name)}</p><p className={`text-xs ${theme.textMuted}`}>{String(f.subject)}</p></div>
-                <button onClick={()=>deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', f.id))} className="text-red-500 hover:bg-red-100 p-2 rounded"><Trash2 size={16}/></button>
+
+        {/* Folder list with rename/delete */}
+        <div className="mb-4">
+          <h4 className={`text-sm font-bold mb-2 ${theme.text}`}>
+            Folders (rename / delete)
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {subjects.map((s) => (
+              <div
+                key={s}
+                className="flex items-center gap-2 px-3 py-1 rounded-full border text-xs bg-slate-50 dark:bg-slate-800"
+              >
+                <span className={theme.text}>{String(s)}</span>
+
+                {!DEFAULT_FOLDERS.includes(s) && (
+                  <>
+                    <button
+                      className="text-xs text-blue-500 hover:underline"
+                      onClick={() => startRenameFolder(s)}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      className="text-xs text-red-500 hover:underline"
+                      onClick={() => handleDeleteFolder(s)}
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             ))}
           </div>
+
+          {editingFolder && (
+            <div className="mt-3 flex gap-2 items-center">
+              <input
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                className={`${theme.input} p-2 rounded flex-1`}
+                placeholder="New folder name"
+              />
+              <button
+                onClick={handleRenameFolder}
+                className="bg-green-600 text-white px-3 py-2 rounded text-xs font-bold"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setEditingFolder(null);
+                  setEditingName("");
+                }}
+                className="px-3 py-2 rounded text-xs border"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Upload form */}
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          <select
+            value={selSubject}
+            onChange={(e) => setSelSubject(e.target.value)}
+            className={`${theme.input} p-2 rounded text-slate-800 dark:text-slate-200`}
+          >
+            <option>General</option>
+            {subjects.map((s) => (
+              <option key={s}>{String(s)}</option>
+            ))}
+          </select>
+
+          <input
+            value={uName}
+            onChange={(e) => setUName(e.target.value)}
+            placeholder="File Name"
+            className={`${theme.input} p-2 rounded flex-1`}
+          />
+
+          <div className="relative">
+            <input
+              type="file"
+              onChange={(e) => setUFile(e.target.files[0])}
+              className="hidden"
+              id="adminFile"
+            />
+            <label
+              htmlFor="adminFile"
+              className="bg-slate-700 text-white px-4 py-2 rounded cursor-pointer block text-sm"
+            >
+              {uFile ? "File Selected" : "Choose File"}
+            </label>
+          </div>
+
+          <input
+            value={uDriveLink}
+            onChange={(e) => setUDriveLink(e.target.value)}
+            placeholder="OR Google Drive / Any Link"
+            className={`${theme.input} p-2 rounded flex-1`}
+          />
+
+          <button
+            onClick={handleUpload}
+            className="bg-green-600 text-white px-4 py-2 rounded font-bold"
+          >
+            Upload
+          </button>
         </div>
       </div>
-    );
-  };
+
+      {/* Files list */}
+      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+        <h3 className={`font-bold ${theme.text} mb-4`}>Manage Files</h3>
+        <div className="h-64 overflow-y-auto space-y-2">
+          {files.map((f) => (
+            <div
+              key={f.id}
+              className="flex justify-between items-center p-3 border rounded"
+            >
+              <div>
+                <p className={`font-bold ${theme.text}`}>{String(f.name)}</p>
+                <p className={`text-xs ${theme.textMuted}`}>
+                  {String(f.subject)}
+                </p>
+              </div>
+              <button
+                onClick={() =>
+                  deleteDoc(
+                    doc(db, "artifacts", appId, "public", "data", "files", f.id)
+                  )
+                }
+                className="text-red-500 hover:bg-red-100 p-2 rounded"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 
   const BlogTab = () => {
     const [arts, setArts] = useState([]);
@@ -1693,94 +2235,549 @@ const AdminPanel = ({ theme, user, showToast }) => {
     );
   };
 
-  const ForumTab = () => {
-    const [posts, setPosts] = useState([]);
-    const [editId, setEditId] = useState(null);
-    const [editText, setEditText] = useState('');
+  // ADMIN PANEL – DISCUSSION MODERATION WITH REPLY ADD / EDIT / DELETE
+const ForumTab = ({ theme, showToast }) => {
+  const [posts, setPosts] = useState([]);
+  const [editId, setEditId] = useState(null);     // jis post ka reply edit ho raha hai
+  const [replyText, setReplyText] = useState(""); // current reply text
+  const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-      const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'discussions'), orderBy('createdAt', 'desc'));
-      const unsub = onSnapshot(q, s => setPosts(s.docs.map(d => ({id: d.id, ...d.data()}))));
-      return () => unsub();
-    }, []);
-
-    const handleUpdate = async () => {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'discussions', editId), { content: editText });
-      showToast("Post Updated", "success"); setEditId(null);
-    };
-
-    return (
-      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-        <h3 className={`font-bold ${theme.text} mb-4`}>Moderate Discussions</h3>
-        <div className="space-y-4">{posts.map(p => (<div key={p.id} className="p-4 border rounded">{editId === p.id ? (<div className="flex gap-2"><input value={editText} onChange={e=>setEditText(e.target.value)} className={`${theme.input} p-2 rounded flex-1`} /><button onClick={handleUpdate} className="bg-green-600 text-white px-3 rounded">Save</button><button onClick={()=>setEditId(null)} className="bg-slate-500 text-white px-3 rounded">X</button></div>) : (<p className={`${theme.text}`}>{String(p.content)}</p>)}<div className="flex justify-between items-center mt-2"><p className={`text-xs ${theme.textMuted}`}>by {String(p.author)}</p><div className="flex gap-2"><button onClick={()=>{setEditId(p.id);setEditText(p.content)}} className="text-indigo-500 p-1"><Edit size={16}/></button><button onClick={()=>deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'discussions', p.id))} className="text-red-500 p-1"><Trash2 size={16}/></button></div></div></div>))}</div>
-      </div>
+  // Live discussions sync
+  useEffect(() => {
+    const qRef = query(
+      collection(db, "artifacts", appId, "public", "data", "discussions"),
+      orderBy("createdAt", "desc")
     );
+
+    const unsub = onSnapshot(qRef, (snap) => {
+      setPosts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Post delete (user ka message delete)
+  const handleDeletePost = async (id) => {
+    if (!window.confirm("Delete this post?")) return;
+    try {
+      await deleteDoc(
+        doc(db, "artifacts", appId, "public", "data", "discussions", id)
+      );
+      showToast("Post deleted", "info");
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to delete post", "error");
+    }
   };
 
-  const ProfileTab = () => {
-    const [newUrl, setNewUrl] = useState('');
-    const [currUrl, setCurrUrl] = useState('');
-    const [uploading, setUploading] = useState(false);
+  // Reply edit start
+  const startEdit = (post) => {
+    setEditId(post.id);
+    setReplyText(post.adminReply || "");
+  };
 
-    useEffect(() => {
-      getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'profile', 'main')).then(s => s.exists() && setCurrUrl(s.data().picUrl));
-    }, []);
+  // Edit cancel
+  const cancelEdit = () => {
+    setEditId(null);
+    setReplyText("");
+  };
 
-    const handleSave = async (urlToSave) => {
-      if(!urlToSave) return;
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'profile', 'main'), { picUrl: urlToSave });
-      setCurrUrl(urlToSave); showToast("Profile Picture Updated", "success"); setNewUrl('');
-    };
+  // Reply delete (sirf adminReply remove hoga)
+  const handleDeleteReply = async (id) => {
+    setSaving(true);
+    try {
+      await updateDoc(
+        doc(db, "artifacts", appId, "public", "data", "discussions", id),
+        {
+          adminReply: "",
+          adminReplyAt: null,
+        }
+      );
+      showToast("Reply deleted", "info");
+      if (editId === id) {
+        setEditId(null);
+        setReplyText("");
+      }
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to delete reply", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-    const handleFileUpload = (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        if (file.size > 1000000) { showToast("File too large (Max 1MB)", "error"); return; }
-        const reader = new FileReader();
-        reader.onloadend = () => { handleSave(reader.result); };
-        reader.readAsDataURL(file);
+  // Reply save (add / update)
+  const handleSaveReply = async () => {
+    if (!editId) return;
+
+    // agar reply empty hai to delete treat kar do
+    if (!replyText.trim()) {
+      await handleDeleteReply(editId);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateDoc(
+        doc(db, "artifacts", appId, "public", "data", "discussions", editId),
+        {
+          adminReply: replyText.trim(),
+          adminReplyAt: serverTimestamp(),
+        }
+      );
+      showToast("Reply saved", "success");
+      setEditId(null);
+      setReplyText("");
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to save reply", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+      <h3 className={`font-bold text-lg mb-4 ${theme.text}`}>
+        Moderate Discussions
+      </h3>
+
+      {posts.length === 0 && (
+        <div className="text-sm text-slate-500 py-8 text-center border border-dashed rounded-xl">
+          No posts yet.
+        </div>
+      )}
+
+      <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+        {posts.map((p) => (
+          <div
+            key={p.id}
+            className="border rounded-xl p-4 flex flex-col gap-2 bg-slate-900/10"
+          >
+            <div className="flex justify-between items-start gap-4">
+              <div>
+                <p className={`text-xs ${theme.textMuted}`}>
+                  {formatDate(p.createdAt)}
+                </p>
+                <p className={`${theme.text} mt-1 whitespace-pre-wrap`}>
+                  {String(p.content)}
+                </p>
+              </div>
+
+              <button
+                onClick={() => handleDeletePost(p.id)}
+                className="text-red-500 text-xs font-bold hover:underline"
+              >
+                Delete
+              </button>
+            </div>
+
+            {/* Admin reply (user side pe bhi yahi field use hoti hai) */}
+            {p.adminReply && editId !== p.id && (
+              <div className="mt-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2 text-xs">
+                <p className="font-semibold text-emerald-400 mb-1 flex items-center gap-1">
+                  <Shield size={12} /> Admin Reply
+                </p>
+                <p className="whitespace-pre-wrap">{String(p.adminReply)}</p>
+              </div>
+            )}
+
+            {/* EDIT MODE */}
+            {editId === p.id ? (
+              <div className="mt-2 space-y-2">
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Type admin reply..."
+                  className={`w-full ${theme.input} p-2 rounded text-sm`}
+                  rows={3}
+                />
+                <div className="flex gap-2 justify-end flex-wrap">
+                  <button
+                    onClick={handleSaveReply}
+                    disabled={saving}
+                    className="bg-emerald-600 text-white px-3 py-1 rounded text-xs font-bold"
+                  >
+                    {saving ? "Saving..." : "Save reply"}
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteReply(p.id)}
+                    disabled={saving}
+                    className="text-xs px-3 py-1 rounded border border-red-500 text-red-500"
+                  >
+                    Delete reply
+                  </button>
+
+                  <button
+                    onClick={cancelEdit}
+                    className="text-xs px-3 py-1 rounded border border-slate-500"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => startEdit(p)}
+                className="self-end text-xs text-indigo-400 hover:underline mt-1"
+              >
+                {p.adminReply ? "Edit reply" : "Add reply"}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+
+
+/// 15. Admin Panel – Profile / Portfolio Manager (FULL PROFILE)
+
+const ProfileTab = ({ theme, user, showToast }) => {
+  const [currUrl, setCurrUrl] = useState("");
+  const [newUrl, setNewUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  // full profile fields
+  const [fullName, setFullName] = useState("");
+  const [title, setTitle] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [about, setAbout] = useState("");
+
+  const defaultUrl =
+    "https://api.dicebear.com/7.x/avataaars/svg?seed=Asad1&backgroundColor=1e293b";
+
+  // profile doc path
+  const profileRef = doc(
+    db,
+    "artifacts",
+    appId,
+    "public",
+    "data",
+    "profile",
+    "main"
+  );
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const snap = await getDoc(profileRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          setCurrUrl(data.picUrl || "");
+          setFullName(data.fullName || "");
+          setTitle(data.title || "");
+          setTagline(data.tagline || "");
+          setContactEmail(data.contactEmail || user?.email || "");
+          setContactPhone(data.contactPhone || "");
+          setAbout(data.about || "");
+        } else {
+          setContactEmail(user?.email || "");
+        }
+      } catch (e) {
+        console.error(e);
       }
     };
 
-    const handleReset = async () => {
-      const defaultUrl = "https://api.dicebear.com/7.x/avataaars/svg?seed=Asad1&backgroundColor=1e293b";
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'profile', 'main'), { picUrl: defaultUrl });
-      setCurrUrl(defaultUrl); showToast("Profile Picture Reset", "info");
+    fetchProfile();
+  }, [user]);
+
+  const saveProfile = async (overrides = {}) => {
+    try {
+      const payload = {
+        picUrl: overrides.picUrl ?? (currUrl || defaultUrl),
+        fullName,
+        title,
+        tagline,
+        contactEmail,
+        contactPhone,
+        about,
+      };
+
+      await setDoc(profileRef, payload);
+      showToast("Profile updated", "success");
+    } catch (e) {
+      console.error(e);
+      showToast("Profile save error", "error");
+    }
+  };
+
+  const handleSavePictureFromUrl = async () => {
+    if (!newUrl) return;
+    setCurrUrl(newUrl);
+    await saveProfile({ picUrl: newUrl });
+    setNewUrl("");
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 1024 * 1024) {
+      showToast("File too large (Max 1MB)", "error");
+      return;
     }
 
-    return (
-      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} text-center`}>
-        <h3 className={`font-bold ${theme.text} mb-6`}>Portfolio Profile Manager</h3>
-        <div className="mb-8">
-          <img src={currUrl || "https://api.dicebear.com/7.x/avataaars/svg?seed=Asad1"} className="w-40 h-40 rounded-full mx-auto mb-4 border-4 border-indigo-500 object-cover shadow-xl" />
-          <p className={`text-sm ${theme.textMuted}`}>Current Profile Picture</p>
-        </div>
-        <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
-          <div className={`p-6 border rounded-xl ${theme.border}`}>
-            <h4 className={`font-bold ${theme.text} mb-3`}>Option 1: Upload File</h4>
-            <div className="relative group cursor-pointer bg-indigo-50 dark:bg-slate-800 border-2 border-dashed border-indigo-300 rounded-lg p-6 hover:bg-indigo-100 transition-colors">
-              <input type="file" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
-              <div className="flex flex-col items-center gap-2 text-indigo-500">
-                <Upload size={24} />
-                <span className="font-bold">Click to Upload</span>
-                <span className="text-xs text-slate-500">Max 1MB</span>
-              </div>
-            </div>
+    const reader = new FileReader();
+    setUploading(true);
+    reader.onloadend = async () => {
+      const dataUrl = reader.result;
+      setCurrUrl(dataUrl);
+      await saveProfile({ picUrl: dataUrl });
+      setUploading(false);
+      showToast("Profile picture updated", "success");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleReset = async () => {
+    try {
+      // basically delete / reset profile
+      await setDoc(profileRef, {
+        picUrl: defaultUrl,
+        fullName: "",
+        title: "",
+        tagline: "",
+        contactEmail: user?.email || "",
+        contactPhone: "",
+        about: "",
+      });
+      setCurrUrl("");
+      setFullName("");
+      setTitle("");
+      setTagline("");
+      setContactEmail(user?.email || "");
+      setContactPhone("");
+      setAbout("");
+      setNewUrl("");
+      showToast("Profile reset to default", "success");
+    } catch (e) {
+      console.error(e);
+      showToast("Reset failed", "error");
+    }
+  };
+
+  const displayName = user?.displayName || "EduNexus Admin";
+  const email = user?.email || contactEmail || "admin@example.com";
+  const initials = displayName
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+
+  const previewUrl = currUrl || defaultUrl;
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      {/* LEFT – Picture */}
+      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+        <h3 className={`font-bold text-lg mb-1 ${theme.text}`}>
+          Portfolio Picture Manager
+        </h3>
+        <p className={`text-xs mb-4 ${theme.textMuted}`}>
+          Ye image <strong>Portfolio page</strong> pe bhi use ho rahi hai.
+        </p>
+
+        <div className="flex items-center gap-4 mb-4">
+          <div className="relative">
+            <img
+              src={previewUrl}
+              alt="Admin Avatar"
+              className="w-20 h-20 rounded-full object-cover border-4 border-indigo-500 shadow-lg"
+            />
+            <span className="absolute -bottom-2 -right-2 bg-indigo-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+              <Camera size={12} /> Pic
+            </span>
           </div>
-          <div className={`p-6 border rounded-xl ${theme.border}`}>
-            <h4 className={`font-bold ${theme.text} mb-3`}>Option 2: Image URL</h4>
+          <div>
+            <p className={`font-bold ${theme.text}`}>{displayName}</p>
+            <p className={`text-xs ${theme.textMuted}`}>{email}</p>
+            <p className="text-[10px] text-indigo-500 mt-1">
+              Profile image + text sab yahan se control hoga.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-6">
+          {/* Option 1 */}
+          <div>
+            <h4 className={`font-bold ${theme.text} mb-2`}>
+              Option 1: Upload from Device
+            </h4>
+            <label className="inline-flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg cursor-pointer text-sm font-semibold hover:bg-slate-700">
+              <Upload size={16} />
+              <span>{uploading ? "Uploading..." : "Choose Image"}</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+            </label>
+          </div>
+
+          {/* Option 2 */}
+          <div>
+            <h4 className={`font-bold ${theme.text} mb-2`}>
+              Option 2: Image URL
+            </h4>
             <div className="flex flex-col gap-3">
-              <input value={newUrl} onChange={e=>setNewUrl(e.target.value)} placeholder="https://example.com/image.png" className={`${theme.input} p-3 rounded-lg`} />
-              <button onClick={()=>handleSave(newUrl)} className="bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors">Update from URL</button>
+              <input
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                placeholder="https://example.com/image.png"
+                className={`${theme.input} p-3 rounded-lg`}
+              />
+              <button
+                onClick={handleSavePictureFromUrl}
+                className="bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+              >
+                Update from URL
+              </button>
             </div>
           </div>
         </div>
+
         <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
-          <button onClick={handleReset} className="text-red-500 flex items-center gap-2 mx-auto hover:bg-red-50 dark:hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors font-bold"><Trash2 size={18}/> Remove / Reset to Default</button>
+          <button
+            onClick={handleReset}
+            className="text-red-500 flex items-center gap-2 mx-auto hover:bg-red-50 dark:hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors font-bold"
+          >
+            <Trash2 size={18} /> Remove / Reset Full Profile
+          </button>
         </div>
       </div>
-    );
-  };
+
+      {/* RIGHT – Full profile text fields */}
+      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+        <h3 className={`font-bold text-lg mb-4 ${theme.text}`}>
+          Full Portfolio Profile
+        </h3>
+
+        <div className="space-y-3 text-sm">
+          <div>
+            <label className={`block text-xs mb-1 ${theme.textMuted}`}>
+              Full Name
+            </label>
+            <input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className={`${theme.input} p-2 rounded w-full`}
+              placeholder="e.g. Asad Amanat Ali"
+            />
+          </div>
+
+          <div>
+            <label className={`block text-xs mb-1 ${theme.textMuted}`}>
+              Title / Role
+            </label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className={`${theme.input} p-2 rounded w-full`}
+              placeholder="Software Engineer | Web Developer | Network Specialist"
+            />
+          </div>
+
+          <div>
+            <label className={`block text-xs mb-1 ${theme.textMuted}`}>
+              Short Tagline
+            </label>
+            <input
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
+              className={`${theme.input} p-2 rounded w-full`}
+              placeholder="Building smart tools for smart students."
+            />
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <label className={`block text-xs mb-1 ${theme.textMuted}`}>
+                Contact Email
+              </label>
+              <input
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+                className={`${theme.input} p-2 rounded w-full`}
+                placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <label className={`block text-xs mb-1 ${theme.textMuted}`}>
+                WhatsApp / Phone
+              </label>
+              <input
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                className={`${theme.input} p-2 rounded w-full`}
+                placeholder="0300-0000000"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={`block text-xs mb-1 ${theme.textMuted}`}>
+              Short About / Bio
+            </label>
+            <textarea
+              rows={4}
+              value={about}
+              onChange={(e) => setAbout(e.target.value)}
+              className={`${theme.input} p-2 rounded w-full`}
+              placeholder="2–3 lines about your skills, focus and vision."
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            onClick={() => {
+              // just revert local without touching DB
+              setFullName("");
+              setTitle("");
+              setTagline("");
+              setContactPhone("");
+              setAbout("");
+            }}
+            className="px-4 py-2 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-600"
+          >
+            Clear Fields
+          </button>
+
+          <button
+            onClick={() => saveProfile()}
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700"
+          >
+            Save Full Profile
+          </button>
+        </div>
+
+        <div className={`${theme.card} mt-6 p-4 rounded-xl border ${theme.border}`}>
+          <h4 className={`font-bold ${theme.text} mb-2 flex items-center gap-2`}>
+            <Info size={16} /> Tips
+          </h4>
+          <ul className={`text-xs space-y-1 ${theme.textMuted}`}>
+            <li>• Ye data Portfolio page pe use ho raha hai.</li>
+            <li>• Agar doc empty ho to static default text show hoga.</li>
+            <li>• Reset button ka matlab delete / default par wapas.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 👆 YAHAN tak naya ProfileTab component
+
+
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -1808,8 +2805,16 @@ const AdminPanel = ({ theme, user, showToast }) => {
         {activeTab === 'highlights' && <HighlightsTab />}
         {activeTab === 'academic' && <AcademicTab />}
         {activeTab === 'blog' && <BlogTab />}
-        {activeTab === 'forum' && <ForumTab />}
-        {activeTab === 'profile' && <ProfileTab />}
+       {activeTab === 'forum' && (
+  <ForumTab theme={theme} showToast={showToast} />
+)}
+
+
+
+        {activeTab === 'profile' && (
+  <ProfileTab theme={theme} user={user} showToast={showToast} />
+)}
+
       </div>
     </div>
   );
