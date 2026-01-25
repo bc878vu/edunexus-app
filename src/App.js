@@ -41,7 +41,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "edunexus-live"; // Static App ID for your live site
-const apiKey = "AIzaSyDNufOZFcW0cV1hsQ_nb5fAsHT8b4RUrmY"; // Add your Gemini API Key here if you have one, otherwise leave empty
+const apiKey = process.env.REACT_APP_GEMINI_API_KEY;// Add your Gemini API Key here if you have one, otherwise leave empty
 
 // --- Constants ---
 const WHATSAPP_LINK = "https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW";
