@@ -25,6 +25,12 @@ import {
   serverTimestamp, doc,  increment, deleteDoc, where, updateDoc,
   getDoc, setDoc, arrayUnion
 } from 'firebase/firestore';
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from "firebase/storage";
 
 // --- Configuration (YOUR KEYS) ---
 const firebaseConfig = {
@@ -37,9 +43,13 @@ const firebaseConfig = {
 };
 
 // --- Initialize Firebase ---
+const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET;
+console.log("CLOUDINARY ENV:", CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET);
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app); 
 const appId = "edunexus-live"; // Static App ID for your live site
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY;// Add your Gemini API Key here if you have one, otherwise leave empty
 
@@ -503,220 +513,369 @@ const Forum = ({ user, theme, showToast }) => {
 };
 
 
-// 5. Academic Hub
+// ================= AcademicHub (user side) =================
 const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
-  const [view, setView] = useState('subjects');
   const [files, setFiles] = useState([]);
-  const [subjects, setSubjects] = useState(DEFAULT_FOLDERS);
-  const [currentSubject, setCurrentSubject] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [currentSubject, setCurrentSubject] = useState("");
+  const [view, setView] = useState("subjects"); // "subjects" | "files"
+  const [searchTerm, setSearchTerm] = useState("");
+  const [customFolders, setCustomFolders] = useState([]);
 
+  // 🔹 Firestore se files + folders dono ko realtime load karo
   useEffect(() => {
-    const fetchFolders = async () => {
-      try {
-        const s = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'folders'));
-        if(s.exists()) {
-          const dbFolders = s.data().list || [];
-          setSubjects([...new Set([...DEFAULT_FOLDERS, ...dbFolders])]);
+    // 1) Files
+    const filesCol = collection(
+      db,
+      "artifacts",
+      appId,
+      "public",
+      "data",
+      "files"
+    );
+    const qFiles = query(filesCol, orderBy("createdAt", "desc"));
+
+    const unsubFiles = onSnapshot(
+      qFiles,
+      (snap) => {
+        const list = [];
+        snap.forEach((docSnap) => {
+          list.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        setFiles(list);
+        setLoading(false);
+      },
+      (err) => {
+        console.error(err);
+        setLoading(false);
+        showToast && showToast("Failed to load files", "error");
+      }
+    );
+
+    // 2) Custom folders (meta/folders)
+    const foldersRef = doc(
+      db,
+      "artifacts",
+      appId,
+      "public",
+      "data",
+      "meta",
+      "folders"
+    );
+    const unsubFolders = onSnapshot(
+      foldersRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setCustomFolders(docSnap.data().list || []);
+        } else {
+          setCustomFolders([]);
         }
-      } catch(e) { console.log("Folders sync: No custom folders yet"); }
-    };
-    if (user) fetchFolders();
-  }, [user]);
+      },
+      (err) => {
+        console.error("folders meta error:", err);
+      }
+    );
 
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'files'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, s => setFiles(s.docs.map(d => ({id: d.id, ...d.data()}))), err => console.log("Files sync skipped"));
-    return () => unsubscribe();
-  }, [user]);
-    // Mobile/Browser back button: pehle folders view par le jao
-  useEffect(() => {
-    const handlePopState = () => {
-      setView('subjects');
-      setCurrentSubject('');
+    return () => {
+      unsubFiles();
+      unsubFolders();
     };
+  }, [showToast]);
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+  // 🔹 Subjects (folders) = DEFAULT_FOLDERS + custom + jin files ka subject hai
+  const subjectsFromFiles = Array.from(
+    new Set(files.map((f) => f.subject).filter(Boolean))
+  );
+
+  const subjects = Array.from(
+    new Set([...DEFAULT_FOLDERS, ...customFolders, ...subjectsFromFiles])
+  ).sort();
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  // Current subject ke files
+  const subjectFiles = files.filter((f) =>
+    currentSubject ? f.subject === currentSubject : true
+  );
+
+  // Search results (all files)
+  const searchResults = normalizedSearch
+    ? files.filter((f) => {
+        const name = (f.name || "").toLowerCase();
+        const subject = (f.subject || "").toLowerCase();
+        return (
+          name.includes(normalizedSearch) || subject.includes(normalizedSearch)
+        );
+      })
+    : [];
+
+  const openSubject = (sub) => {
+    setCurrentSubject(sub);
+    setView("files");
+    window.history.pushState(
+      { page: "academic", subject: sub },
+      "",
+      `#${encodeURIComponent(sub)}`
+    );
+  };
+
+  const goBackToFolders = () => {
+    setView("subjects");
+    setCurrentSubject("");
+  };
+
+  // Mobile back button ka basic handler (optional)
+  useEffect(() => {
+    const handlePop = (event) => {
+      const st = event.state;
+      if (st && st.subject && st.page === "academic") {
+        setView("files");
+        setCurrentSubject(st.subject);
+      } else {
+        setView("subjects");
+        setCurrentSubject("");
+      }
+    };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
   }, []);
 
-
-  const filtered = files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  const subjectFiles = files.filter(f => f.subject === currentSubject);
-  // 📂 Open subject / folder (with history support for mobile back)
-const openSubject = (subject) => {
-  setCurrentSubject(subject);
-  setView('files');
-
-  // 🔹 Browser history me ek fake page add
-  window.history.pushState(
-    { page: 'files', subject },
-    '',
-    `#subject-${subject}`
-  );
-};
-// 📱 Handle mobile BACK button (WhatsApp / browser issue fix)
-useEffect(() => {
-  const handlePopState = () => {
-    // Agar files view open hai to sirf folder close karo
-    if (view === 'files') {
-      setView('subjects');
-      setCurrentSubject('');
+  const handleDelete = async (fileId) => {
+    if (!isAdmin) return;
+    if (!window.confirm("Delete this file?")) return;
+    try {
+      const ref = doc(
+        db,
+        "artifacts",
+        appId,
+        "public",
+        "data",
+        "files",
+        fileId
+      );
+      await deleteDoc(ref);
+      showToast && showToast("File deleted", "info");
+    } catch (e) {
+      console.error(e);
+      showToast && showToast("Delete failed", "error");
     }
-    // warna browser normal back karega (WhatsApp, etc.)
   };
-
-  window.addEventListener('popstate', handlePopState);
-
-  return () => {
-    window.removeEventListener('popstate', handlePopState);
-  };
-}, [view]);
 
   return (
-    <div className={`max-w-6xl mx-auto space-y-8 animate-fade-in`}>
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        <h2 className={`text-3xl font-bold ${theme.text} flex items-center gap-2`}><BookOpen className="text-indigo-500 h-8 w-8"/> Academic Hub</h2>
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3 top-3 text-slate-400" size={18} />
-          <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="Search all files..." className={`w-full ${theme.input} pl-10 p-3 rounded-xl outline-none ${theme.text}`} />
-        </div>
-      </div>
-          {searchTerm && (
-      <p className={theme.textMuted}>
-        Search "{searchTerm}" ke results yahan baad me dikhayenge.
+    <section>
+      <h1 className={`text-3xl font-extrabold mb-4 ${theme.text}`}>
+        Academic Hub
+      </h1>
+
+      <p className={`mb-4 ${theme.textMuted}`}>
+        Find and download study material for all your courses.
       </p>
-    )}
 
-      {!searchTerm && view === 'subjects' && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {subjects.map(sub => (
-            <div key={sub} onClick={() => {
-  setCurrentSubject(sub);
-  setView('files');
-
-  // history me ek step add karo taa ke back se is view se bahar aa saken
-  window.history.pushState(
-    { page: 'academic', view: 'files', subject: sub },
-    '',
-    `#${encodeURIComponent(sub)}`
-  );
-}}
- className={`${theme.card} p-8 rounded-2xl border ${theme.border} hover:border-indigo-500 cursor-pointer transition-all hover:-translate-y-1 shadow-sm text-center group`}>
-              <Folder className="h-12 w-12 text-yellow-500 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-              <h3 className={`text-xl font-bold ${theme.text}`}>{String(sub)}</h3>
-              <p className={`text-xs ${theme.textMuted} mt-2`}>{files.filter(f=>f.subject===sub).length} Files</p>
-            </div>
-          ))}
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div
+          className={`flex items-center gap-3 ${theme.card} border ${theme.border} rounded-2xl px-4 py-2`}
+        >
+          <Search size={18} className={theme.textMuted} />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search all files..."
+            className={`flex-1 bg-transparent outline-none ${theme.text}`}
+          />
         </div>
-      )}
-      {!searchTerm && view === 'files' && (
-        <div className="space-y-6 animate-slide-up">
-          <div className="flex justify-between items-center">
+        {normalizedSearch && (
+          <p className={`mt-1 text-xs ${theme.textMuted}`}>
+            Search "{searchTerm}" Your file is HERE.....
+          </p>
+        )}
+      </div>
+
+      {loading ? (
+        <p className={theme.textMuted}>Loading files...</p>
+      ) : files.length === 0 && subjects.length === 0 ? (
+        <p className={theme.textMuted}>No files or folders yet.</p>
+      ) : normalizedSearch ? (
+        // 🔎 Search view
+        <div className="space-y-4">
+          <h3 className={`text-xl font-bold ${theme.text}`}>
+            Search Results
+          </h3>
+          {searchResults.length > 0 ? (
+            searchResults.map((file) => (
+              <FileItem
+                key={file.id}
+                file={file}
+                theme={theme}
+                isAdmin={isAdmin}
+                onDelete={() => handleDelete(file.id)}
+              />
+            ))
+          ) : (
+            <p className={theme.textMuted}>No files found.</p>
+          )}
+        </div>
+      ) : view === "subjects" ? (
+        // 📁 Folders view
+        <div className="space-y-4">
+          <h3 className={`text-xl font-bold ${theme.text}`}>Folders</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {subjects.map((sub) => (
+              <button
+                key={sub}
+                onClick={() => openSubject(sub)}
+                className={`${theme.card} border ${theme.border} rounded-xl p-4 flex items-center gap-3 hover:shadow-md transition-shadow`}
+              >
+                <Folder size={24} className="text-indigo-400" />
+                <div className="text-left">
+                  <p className={`font-semibold ${theme.text}`}>{sub}</p>
+                  <p className={`text-xs ${theme.textMuted}`}>
+                    {
+                      files.filter((f) => f.subject === sub).length
+                    }{" "}
+                    files
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+           ) : (
+        // 📂 Files in current subject
+        <div className="space-y-4">
+          {/* ✅ Top bar: back + folder name */}
+          <div className="flex items-center justify-between mb-2">
             <button
-              onClick={() => {
-                // React state pehle subjects view pe
-                setView('subjects');
-                setCurrentSubject('');
-
-                // agar history me state hai to ek step peeche jao
-                if (window.history.state) {
-                  window.history.back();
-                }
-              }}
-              className={`flex items-center gap-2 ${theme.textMuted} hover:${theme.text} font-bold`}
+              onClick={goBackToFolders}
+              className={`flex items-center gap-2 text-xs md:text-sm ${theme.textMuted} hover:${theme.text}`}
             >
-              <ChevronRight className="rotate-180" size={16}/> Back to Folders
+              ← Back to Folders
             </button>
+            <span className={`text-sm md:text-base font-semibold ${theme.text}`}>
+              {currentSubject || "All Files"}
+            </span>
+          </div>
 
-          </div>
-          <h3 className={`text-2xl font-bold ${theme.text} flex items-center gap-2`}><Folder className="text-yellow-500" /> {currentSubject} Files</h3>
-          <div className="grid gap-3">
-            {subjectFiles.length > 0 ? subjectFiles.map(file => <FileItem key={file.id} file={file} theme={theme} isAdmin={isAdmin} onDelete={()=>{}} />) : <div className={`text-center py-12 ${theme.card} rounded-xl border ${theme.border} border-dashed`}><p className={theme.textMuted}>No files in this folder.</p></div>}
-          </div>
+          {subjectFiles.length > 0 ? (
+            subjectFiles.map((file) => (
+              <FileItem
+                key={file.id}
+                file={file}
+                theme={theme}
+                isAdmin={isAdmin}
+                onDelete={() => handleDelete(file.id)}
+              />
+            ))
+          ) : (
+            <p className={theme.textMuted}>No files in this folder.</p>
+          )}
         </div>
       )}
-    </div>
+
+    </section>
   );
 };
-
-// Single file card (Academic Hub downloads)
 const FileItem = ({ file, theme, isAdmin, onDelete }) => {
-  const handleFileDownload = async () => {
-    try {
-      if (!file?.url) return;
+  const url = file?.url || "";
 
-      const response = await fetch(file.url);
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
+  // Google Drive / Docs detect
+  const isDriveLink =
+    url.includes("drive.google.com") || url.includes("docs.google.com");
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+  // Firestore ka flag + domain check
+  const isLinkOnly = file?.isLinkOnly === true || isDriveLink;
 
-      const link = document.createElement("a");
-      link.href = url;
-
-      const safeName =
-        (file.name && String(file.name).trim()) || "downloaded_file";
-
-      link.download = safeName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Download error:", error);
-      alert("Download failed on this device. Please try again.");
-    }
-  };
+  // badge text
+  const badgeText =
+    (file?.ext || file?.name?.split(".").pop() || "").toUpperCase() ||
+    (isLinkOnly ? "LINK" : "FILE");
 
   return (
     <div
-      className={`${theme.card} p-5 rounded-xl border ${theme.border} flex items-center justify-between gap-4 hover:shadow-md transition-shadow relative group`}
+      className={`${theme.card} p-5 rounded-xl border ${theme.border} flex justify-between items-center hover:shadow-md transition-shadow`}
     >
+      {/* Left side: icon + name */}
       <div className="flex items-center gap-4">
-        <div className="h-10 w-10 bg-red-100 rounded-lg flex items-center justify-center text-red-600 font-bold">
-          PDF
+        <div className="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 font-bold text-xs">
+          {badgeText}
         </div>
         <div>
-          <h4 className={`font-bold ${theme.text}`}>{String(file.name)}</h4>
-          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">
-            {String(file.subject)}
-          </span>
+          <h4 className={`font-bold ${theme.text}`}>
+            {String(file.name || "Untitled file")}
+          </h4>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            {file.subject && (
+              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">
+                {String(file.subject)}
+              </span>
+            )}
+            {file.uploadedBy && (
+              <span className={`text-[10px] ${theme.textMuted}`}>
+                by {file.uploadedBy}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
+            {/* Right side: actions */}
       <div className="flex items-center gap-3">
-        {/* MAIN DOWNLOAD BUTTON */}
-        <button
-          type="button"
-          onClick={handleFileDownload}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
-        >
-          <Download size={18} /> Download
-        </button>
+        {url ? (
+          isLinkOnly ? (
+            // 🔗 Sirf link (Drive etc.) → Visit Drive
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-indigo-500 text-indigo-500 hover:bg-indigo-50 transition-colors"
+            >
+              <ExternalLink size={18} /> Visit Drive
+            </a>
+          ) : (
+            // 📄 Normal file → View + Download
+            <>
+              {/* View (sirf open kare, browser me) */}
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-indigo-500 text-indigo-500 hover:bg-indigo-50 transition-colors"
+              >
+                <ExternalLink size={18} /> View
+              </a>
 
-        {/* DRIVE LINK BUTTON – sirf jab driveLink ho */}
-        {file.driveLink && file.driveLink.trim() !== "" && (
-          <a
-            href={file.driveLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border border-indigo-400 text-indigo-500 hover:bg-indigo-50 transition-colors"
+              {/* Direct download same name/extension ke sath */}
+              <a
+                href={url}
+                download
+                className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+              >
+                <Download size={18} /> Download
+              </a>
+            </>
+          )
+        ) : (
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-slate-400 text-slate-400 cursor-not-allowed"
           >
-            <ExternalLink size={16} /> Open Link
-          </a>
+            <Download size={18} /> No link
+          </button>
+        )}
+
+        {isAdmin && (
+          <button
+            onClick={onDelete}
+            className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+          >
+            <Trash2 size={16} /> Delete
+          </button>
         )}
       </div>
+
     </div>
   );
 };
-
-
-
 
 /// PORTFOLIO PAGE – PROFILE + AI PROJECT IDEAS GENERATOR
 const Portfolio = ({ user, isAdmin, theme }) => {
@@ -1655,6 +1814,7 @@ const AdminPanel = ({ theme, user, showToast }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [feedbacks, setFeedbacks] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
+  
 
   useEffect(() => {
     if (!user) return;
@@ -1896,15 +2056,17 @@ const AdminPanel = ({ theme, user, showToast }) => {
   const [editingName, setEditingName] = useState("");
 
   useEffect(() => {
-    getDoc(doc(db, "artifacts", appId, "public", "data", "meta", "folders")).then(
-      (s) => {
-        if (s.exists()) {
-          const dbFolders = s.data().list || [];
-          setSubjects([...new Set([...DEFAULT_FOLDERS, ...dbFolders])]);
-        }
+    // folders meta load
+    getDoc(
+      doc(db, "artifacts", appId, "public", "data", "meta", "folders")
+    ).then((s) => {
+      if (s.exists()) {
+        const dbFolders = s.data().list || [];
+        setSubjects([...new Set([...DEFAULT_FOLDERS, ...dbFolders])]);
       }
-    );
+    });
 
+    // files list load
     const q = query(
       collection(db, "artifacts", appId, "public", "data", "files"),
       orderBy("createdAt", "desc")
@@ -1926,28 +2088,118 @@ const AdminPanel = ({ theme, user, showToast }) => {
     );
   };
 
-  const handleUpload = async () => {
-    if (!uName) return;
+        // ✅ Cloudinary-based upload (raw files + drive links)
+  const handleUploadFile = async () => {
+    console.log("UPLOAD CLICKED", { selSubject, uFile, uDriveLink, uName });
 
-    const fakeUrl = uFile ? URL.createObjectURL(uFile) : uDriveLink || "#";
+    // folder + file ya link required
+    if (!selSubject || (!uFile && !uDriveLink.trim())) {
+      showToast(
+        "Please select a folder and either choose a file or paste a link",
+        "error"
+      );
+      return;
+    }
 
-    await addDoc(
-      collection(db, "artifacts", appId, "public", "data", "files"),
-      {
-        name: uName,
+    try {
+      let fileUrl = uDriveLink.trim();
+      let finalName = uName;
+      let ext = "";
+      let isLinkOnly = false;
+
+      // 1) Agar admin ne actual file select ki hai → Cloudinary pe upload
+      if (uFile) {
+        console.log("Using Cloudinary:", CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET);
+
+        if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+          alert("Cloudinary env variables missing");
+          throw new Error("Cloudinary env missing");
+        }
+
+        // extension nikaalo (pdf, docx, etc.)
+        ext = uFile.name.split(".").pop().toLowerCase();
+
+        const formData = new FormData();
+          formData.append("file", uFile);
+          formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+          const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`;
+
+          const res = await fetch(uploadUrl, {
+            method: "POST",
+            body: formData,
+          });
+
+
+        const data = await res.json();
+        console.log("Cloudinary response:", data);
+
+        if (!res.ok || data.error) {
+          throw new Error(
+            data.error?.message || "Cloudinary upload failed"
+          );
+        }
+
+        fileUrl = data.secure_url;
+        if (!fileUrl) {
+          throw new Error("No URL returned from Cloudinary");
+        }
+
+        if (!finalName)
+          finalName = data.original_filename || uFile.name;
+
+        if (!ext)
+          ext =
+            (data.format || "").toLowerCase() ||
+            uFile.name.split(".").pop().toLowerCase();
+
+        isLinkOnly = false; // ye actual file upload hai
+      } else {
+        // 2) Sirf Drive ya koi bhi external link
+        isLinkOnly = true;
+        if (!finalName) finalName = "Drive link";
+      }
+
+      if (!fileUrl) {
+        showToast("Please paste a valid link", "error");
+        return;
+      }
+
+      const filesCol = collection(
+        db,
+        "artifacts",
+        appId,
+        "public",
+        "data",
+        "files"
+      );
+
+      await addDoc(filesCol, {
+        name: finalName,
         subject: selSubject,
-        url: fakeUrl,
-        type: uFile?.type || (uDriveLink ? "link" : "unknown"),
+        url: fileUrl,
+        ext,
+        isLinkOnly,
         uploadedBy: "Admin",
         createdAt: serverTimestamp(),
-      }
-    );
+      });
 
-    showToast("File Uploaded", "success");
-    setUName("");
-    setUFile(null);
-    setUDriveLink("");
+      showToast("File saved successfully", "success");
+
+      setUName("");
+      setUFile(null);
+      setUDriveLink("");
+
+      console.log("UPLOAD DONE");
+    } catch (error) {
+      console.error("Upload error:", error);
+      showToast("Upload failed. Please try again.", "error");
+      alert("Upload failed: " + (error.message || error));
+    }
   };
+
+
+
 
   const handleAddFolder = async () => {
     if (!newFolder.trim()) return;
@@ -2078,7 +2330,7 @@ const AdminPanel = ({ theme, user, showToast }) => {
           )}
         </div>
 
-        {/* Upload form */}
+               {/* Upload form */}
         <div className="flex flex-col md:flex-row gap-4 items-center">
           <select
             value={selSubject}
@@ -2121,7 +2373,8 @@ const AdminPanel = ({ theme, user, showToast }) => {
           />
 
           <button
-            onClick={handleUpload}
+            type="button"               // 👈 IMPORTANT: submit nahi, sirf normal button
+            onClick={handleUploadFile}  // 👈 yahan function bind hai
             className="bg-green-600 text-white px-4 py-2 rounded font-bold"
           >
             Upload
@@ -2147,7 +2400,15 @@ const AdminPanel = ({ theme, user, showToast }) => {
               <button
                 onClick={() =>
                   deleteDoc(
-                    doc(db, "artifacts", appId, "public", "data", "files", f.id)
+                    doc(
+                      db,
+                      "artifacts",
+                      appId,
+                      "public",
+                      "data",
+                      "files",
+                      f.id
+                    )
                   )
                 }
                 className="text-red-500 hover:bg-red-100 p-2 rounded"
@@ -2161,6 +2422,7 @@ const AdminPanel = ({ theme, user, showToast }) => {
     </div>
   );
 };
+
 
 
 
@@ -2869,6 +3131,62 @@ const App = () => {
   const [secretClicks, setSecretClicks] = useState(0);
   const [toast, setToast] = useState(null);
   const { isDark, setIsDark, theme } = useTheme();
+    // ✅ saare pages ki list (routing ke liye)
+  const PAGES = [
+    'home',
+    'articles',
+    'academic',
+    'planner',
+    'flashcards',
+    'forum',
+    'aiquiz',
+    'portfolio',
+    'about',
+    'contact',
+    'admin'
+  ];
+
+  // ✅ central navigation function (har jagah isi ko use karna hai)
+  const navigate = (targetPage) => {
+    if (!PAGES.includes(targetPage)) targetPage = 'home';
+
+    setPage(targetPage);
+    setIsMenuOpen(false); // mobile menu close
+
+    // browser history me page push karo → back button work karega
+    window.history.pushState(
+      { page: targetPage },
+      '',
+      `#${targetPage}`
+    );
+  };
+
+    // ✅ back button & direct link (#about, #aiquiz, etc.) handle
+  useEffect(() => {
+    // page decide karo: agar URL me #page hai to use, warna 'home'
+    const hash = window.location.hash.replace('#', '');
+    const initialPage = PAGES.includes(hash) ? hash : 'home';
+
+    setPage(initialPage);
+    window.history.replaceState(
+      { page: initialPage },
+      '',
+      `#${initialPage}`
+    );
+
+    const handlePopState = (event) => {
+      const nextPage = event.state?.page;
+      if (nextPage && PAGES.includes(nextPage)) {
+        setPage(nextPage);
+      } else {
+        setPage('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
 
   useEffect(() => {
     const initAuth = async () => {
@@ -2895,7 +3213,7 @@ const App = () => {
 
   const handleLogoutAdmin = () => {
     setIsAdminMode(false);
-    setPage('home');
+    navigate('home');
     showToast("Admin Session Ended", "info");
   };
 
@@ -2905,11 +3223,11 @@ const App = () => {
       
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <Navbar page={page} setPage={setPage} user={user} isAdmin={isAdminMode} isDark={isDark} setIsDark={setIsDark} theme={theme} toggleMenu={()=>setIsMenuOpen(!isMenuOpen)} isMenuOpen={isMenuOpen} />
+      <Navbar page={page} setPage={navigate} user={user} isAdmin={isAdminMode} isDark={isDark} setIsDark={setIsDark} theme={theme} toggleMenu={()=>setIsMenuOpen(!isMenuOpen)} isMenuOpen={isMenuOpen} />
       <Announcements user={user} />
       
       <main className="max-w-7xl mx-auto px-4 py-8 pb-24 w-full flex-grow">
-        {page === 'home' && <HomePage setPage={setPage} theme={theme} showToast={showToast} user={user} />}
+        {page === 'home' && <HomePage setPage={navigate} theme={theme} showToast={showToast} user={user} />}
         {page === 'academic' && <AcademicHub user={user} isAdmin={isAdminMode} theme={theme} showToast={showToast} />}
         {page === 'exam' && <ExamPrep theme={theme} />}
         {page === 'aiquiz' && <QuizGenerator theme={theme} user={user} showToast={showToast} />}
@@ -2943,7 +3261,7 @@ const App = () => {
         </div>
       </footer>
 
-      {showAdminLogin && <AdminLogin onClose={() => setShowAdminLogin(false)} setPage={setPage} setIsAdminMode={setIsAdminMode} showToast={showToast} />}
+      {showAdminLogin && <AdminLogin onClose={() => setShowAdminLogin(false)} setPage={navigate} setIsAdminMode={setIsAdminMode} showToast={showToast} />}
     </div>
   );
 };
