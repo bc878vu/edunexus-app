@@ -612,11 +612,12 @@ const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
   const openSubject = (sub) => {
     setCurrentSubject(sub);
     setView("files");
-    window.history.pushState(
+        window.history.pushState(
       { page: "academic", subject: sub },
       "",
-      `#${encodeURIComponent(sub)}`
+      `/academic/${encodeURIComponent(sub)}`
     );
+
   };
 
   const goBackToFolders = () => {
@@ -3131,7 +3132,8 @@ const App = () => {
   const [secretClicks, setSecretClicks] = useState(0);
   const [toast, setToast] = useState(null);
   const { isDark, setIsDark, theme } = useTheme();
-    // ✅ saare pages ki list (routing ke liye)
+
+  // ✅ saare pages ki list (routing ke liye)
   const PAGES = [
     'home',
     'articles',
@@ -3161,7 +3163,7 @@ const App = () => {
     );
   };
 
-    // ✅ back button & direct link (#about, #aiquiz, etc.) handle
+  // ✅ back button & direct link (#about, #aiquiz, etc.) handle
   useEffect(() => {
     // page decide karo: agar URL me #page hai to use, warna 'home'
     const hash = window.location.hash.replace('#', '');
@@ -3187,10 +3189,9 @@ const App = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-
+  // ✅ auth wala effect
   useEffect(() => {
     const initAuth = async () => {
-      // Local Auth Logic (Standard)
       try {
         await signInAnonymously(auth);
       } catch (error) {
@@ -3200,15 +3201,27 @@ const App = () => {
     initAuth();
     return onAuthStateChanged(auth, u => {
       setUser(u);
-      if(u?.email === ADMIN_EMAIL) setIsAdminMode(true);
+      if (u?.email === ADMIN_EMAIL) setIsAdminMode(true);
     });
   }, []);
+
+  // ✅ GA4 page view tracking – har page change par event
+  useEffect(() => {
+    if (window.gtag) {
+      window.gtag("event", "page_view", {
+        page_path: window.location.pathname + window.location.hash,
+      });
+    }
+  }, [page]);
 
   const showToast = (message, type = 'info') => setToast({ message, type });
 
   const handleFooterClick = () => {
     setSecretClicks(prev => prev + 1);
-    if (secretClicks + 1 === 5) { setShowAdminLogin(true); setSecretClicks(0); }
+    if (secretClicks + 1 === 5) {
+      setShowAdminLogin(true);
+      setSecretClicks(0);
+    }
   };
 
   const handleLogoutAdmin = () => {
@@ -3220,51 +3233,140 @@ const App = () => {
   return (
     <div className={`min-h-screen ${theme.bg} transition-colors duration-300 font-sans flex flex-col`}>
       <style>{customStyles}</style>
-      
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <Navbar page={page} setPage={navigate} user={user} isAdmin={isAdminMode} isDark={isDark} setIsDark={setIsDark} theme={theme} toggleMenu={()=>setIsMenuOpen(!isMenuOpen)} isMenuOpen={isMenuOpen} />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      <Navbar
+        page={page}
+        setPage={navigate}
+        user={user}
+        isAdmin={isAdminMode}
+        isDark={isDark}
+        setIsDark={setIsDark}
+        theme={theme}
+        toggleMenu={() => setIsMenuOpen(!isMenuOpen)}
+        isMenuOpen={isMenuOpen}
+      />
+
       <Announcements user={user} />
-      
+
       <main className="max-w-7xl mx-auto px-4 py-8 pb-24 w-full flex-grow">
-        {page === 'home' && <HomePage setPage={navigate} theme={theme} showToast={showToast} user={user} />}
-        {page === 'academic' && <AcademicHub user={user} isAdmin={isAdminMode} theme={theme} showToast={showToast} />}
+        {page === 'home' && (
+          <HomePage
+            setPage={navigate}
+            theme={theme}
+            showToast={showToast}
+            user={user}
+          />
+        )}
+        {page === 'academic' && (
+          <AcademicHub
+            user={user}
+            isAdmin={isAdminMode}
+            theme={theme}
+            showToast={showToast}
+          />
+        )}
         {page === 'exam' && <ExamPrep theme={theme} />}
-        {page === 'aiquiz' && <QuizGenerator theme={theme} user={user} showToast={showToast} />}
-        {page === 'flashcards' && <FlashcardGenerator theme={theme} showToast={showToast} />}
-        {page === 'planner' && <StudyPlanner theme={theme} showToast={showToast} />}
-        {page === 'portfolio' && <Portfolio user={user} isAdmin={isAdminMode} theme={theme} />}
-        {page === 'forum' && <Forum user={user} isAdmin={isAdminMode} theme={theme} showToast={showToast} />}
-        {page === 'articles' && <ArticlesPage user={user} isAdmin={isAdminMode} theme={theme} showToast={showToast} />}
+        {page === 'aiquiz' && (
+          <QuizGenerator
+            theme={theme}
+            user={user}
+            showToast={showToast}
+          />
+        )}
+        {page === 'flashcards' && (
+          <FlashcardGenerator
+            theme={theme}
+            showToast={showToast}
+          />
+        )}
+        {page === 'planner' && (
+          <StudyPlanner
+            theme={theme}
+            showToast={showToast}
+          />
+        )}
+        {page === 'portfolio' && (
+          <Portfolio
+            user={user}
+            isAdmin={isAdminMode}
+            theme={theme}
+          />
+        )}
+        {page === 'forum' && (
+          <Forum
+            user={user}
+            isAdmin={isAdminMode}
+            theme={theme}
+            showToast={showToast}
+          />
+        )}
+        {page === 'articles' && (
+          <ArticlesPage
+            user={user}
+            isAdmin={isAdminMode}
+            theme={theme}
+            showToast={showToast}
+          />
+        )}
         {page === 'about' && <AboutUs theme={theme} />}
         {page === 'contact' && <ContactUs theme={theme} />}
-        {page === 'admin' && isAdminMode && <AdminPanel theme={theme} user={user} showToast={showToast} />}
+        {page === 'admin' && isAdminMode && (
+          <AdminPanel
+            theme={theme}
+            user={user}
+            showToast={showToast}
+          />
+        )}
       </main>
 
       <FloatingAIChat theme={theme} />
-      
+
       <footer className={`border-t ${theme.border} py-8 ${theme.card} mt-auto`}>
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
           {/* Secret Trigger Area */}
-          <p className={`${theme.textMuted} cursor-default select-none transition-colors hover:text-indigo-500`} onClick={handleFooterClick}>
+          <p
+            className={`${theme.textMuted} cursor-default select-none transition-colors hover:text-indigo-500`}
+            onClick={handleFooterClick}
+          >
             © 2026 EduNexus | Developed by Asad Amanat Ali.
           </p>
           <div className="flex items-center gap-4">
             {isAdminMode && (
-              <button onClick={handleLogoutAdmin} className="text-red-500 font-bold flex items-center gap-1 hover:underline">
-                <LogOut size={14}/> Exit Admin
+              <button
+                onClick={handleLogoutAdmin}
+                className="text-red-500 font-bold flex items-center gap-1 hover:underline"
+              >
+                <LogOut size={14} /> Exit Admin
               </button>
             )}
-            <a href="#" className={`${theme.textMuted} hover:${theme.text}`}>Privacy Policy</a>
-            <a href="#" className={`${theme.textMuted} hover:${theme.text}`}>Terms of Service</a>
+            <a href="#" className={`${theme.textMuted} hover:${theme.text}`}>
+              Privacy Policy
+            </a>
+            <a href="#" className={`${theme.textMuted} hover:${theme.text}`}>
+              Terms of Service
+            </a>
           </div>
         </div>
       </footer>
 
-      {showAdminLogin && <AdminLogin onClose={() => setShowAdminLogin(false)} setPage={navigate} setIsAdminMode={setIsAdminMode} showToast={showToast} />}
+      {showAdminLogin && (
+        <AdminLogin
+          onClose={() => setShowAdminLogin(false)}
+          setPage={navigate}
+          setIsAdminMode={setIsAdminMode}
+          showToast={showToast}
+        />
+      )}
     </div>
   );
 };
 
 export default App;
-
