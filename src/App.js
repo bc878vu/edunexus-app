@@ -1,18 +1,81 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Home, BookOpen, MessageSquare, Briefcase, User, LogOut, LogIn, Menu,
-  X, Send, Search, Download, Upload, ExternalLink, Sparkles, Heart, Share2, 
-  CheckCircle, Database, Code, Cpu, GraduationCap, Shield, FileText,
-  Bell, Trash2, Edit3, Edit, Github, Linkedin, Mail, Phone, Lightbulb, Brain, 
-  CheckSquare, MessageCircle, XCircle, PlayCircle, Folder, ChevronRight, 
-  Lock, AlertCircle, File, Bot, Zap, Sun, Moon, ThumbsUp, 
-  MessageCircle as CommentIcon, Megaphone, Star, Trophy, Info, MapPin,
-  HelpCircle, FileOutput, UserPlus, Quote, Target, Camera, Newspaper, 
-  Calendar, Plus, FolderPlus, Inbox, XOctagon, Loader, Layers, Volume2, 
-  StopCircle, ArrowRight, ArrowLeft, Activity, LayoutDashboard, 
-  Image as ImageIcon, Clock, Save, RefreshCw, ToggleLeft, ToggleRight, 
-   Eye, EyeOff, Move, Maximize2,  Copy, FileDown
-  } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  Home,
+  BookOpen,
+  MessageSquare,
+  Briefcase,
+  User,
+  LogOut,
+  Calculator,
+  LogIn,
+  MessagesSquare,
+  User2,
+  Menu,
+  X,
+  Lock,
+  Send,
+  Search,
+  Download,
+  HelpCircle,
+  Upload,
+  ExternalLink,
+  Sparkles,
+  CheckCircle,
+  Trash2,
+  Edit,
+  Github,
+  Linkedin,
+  Mail,
+  Phone,
+  Brain,
+  Megaphone,
+  Calendar,
+  Plus,
+  Folder,
+  File,
+  Loader,
+  Layers,
+  ArrowRight,
+  ArrowLeft,
+  Image as ImageIcon,
+  Eye,
+  EyeOff,
+
+  // 🔽 ADD THESE (errors fix)
+  Code,
+  Trophy,
+  Star,
+  Info,
+  AlertCircle,
+  FileText,
+  PlayCircle,
+  Shield,
+  Cpu,
+  Sun,
+  Moon,
+  Heart,
+  Share2,
+  Newspaper,
+  Lightbulb,
+  Bot,
+  GraduationCap,
+  Inbox,
+  Activity,
+  Camera,
+  LayoutDashboard,
+  RefreshCw,
+  Save,
+  Copy,
+  FileDown,
+  Edit3,
+  Target,
+  Zap,
+  CheckSquare,
+  MessageCircle,
+  Clock,
+  Minus,
+} from 'lucide-react';
+
 
 import { initializeApp } from 'firebase/app';
 import { 
@@ -55,7 +118,13 @@ const apiKey = process.env.REACT_APP_GEMINI_API_KEY;// Add your Gemini API Key h
 
 // --- Constants ---
 const WHATSAPP_LINK = "https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW";
-const ADMIN_EMAIL = "admin@edunexus.com";
+// 🔐 Admin credentials (email + password)
+const ADMIN_EMAIL =
+  process.env.REACT_APP_ADMIN_EMAIL || "veducator4@gmail.com";
+
+const ADMIN_PASSWORD =
+  process.env.REACT_APP_ADMIN_PASSWORD || "Asad0099@.";
+
 const DEFAULT_FOLDERS = ['PHY101', 'CS101', 'MGT101', 'ENG101', 'CS201', 'MTH101', 'ISL201', 'PAK301'];
 
 // --- Icon Map for Dynamic Rendering ---
@@ -140,10 +209,16 @@ const callGemini = async (prompt) => {
   }
 };
 */
-// ✅ BACKEND BASED GEMINI CALL (SAFE)
+// helper: backend ka base URL (local vs production)
+const API_BASE =
+  process.env.NODE_ENV === "production"
+    ? ""                          // production = same domain (Vercel) → /api/gemini
+    : "http://localhost:5000";    // local development
+
+// ✅ BACKEND BASED GEMINI CALL (SAFE + works on live)
 const callGemini = async (prompt) => {
   try {
-    const res = await fetch("http://localhost:5000/api/gemini", {
+    const res = await fetch(`${API_BASE}/api/gemini`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt }),
@@ -162,6 +237,7 @@ const callGemini = async (prompt) => {
     return "AI request failed";
   }
 };
+
 
 
 
@@ -202,56 +278,231 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
-// 1. Navbar
-const Navbar = ({ page, setPage, user, isAdmin, isDark, setIsDark, theme, toggleMenu, isMenuOpen }) => {
-  const items = [
-    {id: 'home', label: 'Home', icon: Home},
-    {id: 'articles', label: 'Articles', icon: Newspaper},
-    {id: 'academic', label: 'Academic Hub', icon: Folder},
-    {id: 'planner', label: 'Study Planner', icon: Calendar},
-    {id: 'flashcards', label: 'Flashcards', icon: Layers},
-    {id: 'forum', label: 'Discussion', icon: MessageSquare},
-    {id: 'aiquiz', label: 'AI Quiz', icon: Brain},
-    {id: 'portfolio', label: 'Portfolio', icon: User},
-    {id: 'about', label: 'About', icon: Info},
-    {id: 'contact', label: 'Contact', icon: Mail},
-    ...(isAdmin ? [{id: 'admin', label: 'Admin Panel', icon: Shield}] : [])
+// Modern + Safe Navbar (replace your old Navbar with this)
+
+const Navbar = ({
+  page,
+  setPage,
+  user,
+  isAdmin,
+  theme,      // still receive, but header apna safe color use karega
+  toggleMenu,
+  isMenuOpen,
+}) => {
+  const MAIN_ITEMS = [
+    { id: "home", label: "Home" },
+    { id: "articles", label: "Articles" },
+    { id: "cgpa", label: "CGPA Calc" },
+    { id: "forum", label: "Discussion" },
+    { id: "portfolio", label: "Portfolio" },
+    { id: "about", label: "About" },
+    { id: "contact", label: "Contact" },
   ];
 
+  const ALL_ITEMS = [
+    { id: "home", label: "Home" },
+    { id: "articles", label: "Articles" },
+    { id: "cgpa", label: "CGPA Calc" },
+    { id: "forum", label: "Discussion" },
+    { id: "portfolio", label: "Portfolio" },
+    { id: "about", label: "About" },
+    { id: "contact", label: "Contact" },
+    { id: "academic", label: "Academic Hub" },
+    { id: "planner", label: "Study Planner" },
+    { id: "flashcards", label: "AI Flashcards" },
+    { id: "aiquiz", label: "AI Quiz" },
+  ];
+
+  const handleNavClick = (targetPage) => {
+    setPage(targetPage);
+    if (isMenuOpen) toggleMenu();
+  };
+
+  const isActive = (id) => page === id;
+
   return (
-    <nav className={`${theme.nav} backdrop-blur-md border-b ${theme.border} sticky top-0 z-40 transition-colors shadow-sm`}>
-      <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={()=>setPage('home')}>
-          <div className="bg-indigo-600 p-1.5 rounded-lg"><Cpu className="text-white h-5 w-5" /></div>
-          <span className={`font-bold text-xl ${theme.text}`}>EduNexus</span>
-        </div>
-        <div className="hidden xl:flex items-center gap-1 mx-4">
-          {items.map(i => (
-            <button key={i.id} onClick={()=>setPage(i.id)} className={`px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${page===i.id ? 'bg-indigo-600 text-white' : `${theme.textMuted} hover:${theme.text} hover:bg-slate-100 dark:hover:bg-slate-800`}`}>
-              <i.icon size={16}/> {i.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={()=>setIsDark(!isDark)} className={`p-2 rounded-full ${theme.text} hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors`}>
-            {isDark ? <Sun size={18}/> : <Moon size={18}/>}
+    <>
+      {/* 🔹 Top header / navbar */}
+      <header
+        className="
+          sticky top-0 z-50
+          border-b border-slate-800
+          bg-slate-950/90
+          backdrop-blur
+          text-white
+        "
+      >
+        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
+          {/* Brand */}
+          <button
+            onClick={() => handleNavClick("home")}
+            className="flex items-center gap-3 group"
+          >
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-lg">
+              <GraduationCap className="h-6 w-6" />
+            </div>
+
+            <div className="flex flex-col items-start">
+              <span
+                className="
+                  text-lg md:text-xl font-extrabold tracking-tight
+                  bg-gradient-to-r from-indigo-400 via-sky-400 to-violet-500
+                  bg-clip-text text-transparent
+                "
+              >
+                EduNexus
+              </span>
+              <span className="hidden sm:block text-[11px] md:text-xs text-slate-300">
+                Study Material • Mock Tests • AI Tools
+              </span>
+            </div>
           </button>
-          {isAdmin && <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold animate-pulse">ADMIN MODE</span>}
-          <button className="xl:hidden" onClick={toggleMenu}><Menu className={theme.text}/></button>
+
+          {/* Desktop links */}
+          <nav className="hidden lg:flex items-center gap-1">
+  {MAIN_ITEMS.map((item) => (
+    <button
+      key={item.id}
+      onClick={() => handleNavClick(item.id)}
+      className={`
+        px-4 py-2.5 rounded-full
+        text-[15px] font-semibold tracking-wide
+        transition-all
+        ${
+          isActive(item.id)
+            ? "bg-indigo-500 text-white shadow-md"
+            : "text-slate-200 hover:bg-slate-800/80"
+        }
+      `}
+    >
+      {item.label}
+    </button>
+  ))}
+</nav>
+
+
+          {/* Right side desktop */}
+          <div className="hidden lg:flex items-center gap-3">
+            {isAdmin && (
+              <span className="text-[11px] px-2 py-1 rounded-full border border-emerald-400/70 text-emerald-300 bg-emerald-500/10">
+                Admin mode
+              </span>
+            )}
+            {user && (
+              <span className="text-xs text-slate-200">
+                Hi, {user.displayName || "Dear"}
+              </span>
+            )}
+          </div>
+
+          {/* Mobile menu button */}
+          <button
+            onClick={toggleMenu}
+            className="
+              lg:hidden inline-flex items-center justify-center
+              h-9 w-9 rounded-full border
+              border-slate-600 bg-slate-900/90 text-slate-100
+              shadow-sm
+            "
+            aria-label="Toggle navigation"
+          >
+            {isMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
-      </div>
-      {isMenuOpen && (
-        <div className={`xl:hidden p-4 border-t ${theme.border} ${theme.bg} animate-slide-down`}>
-          <div className="grid grid-cols-2 gap-2">
-            {items.map(i => (
-              <button key={i.id} onClick={()=>{setPage(i.id);toggleMenu()}} className={`text-left p-3 ${theme.card} rounded-lg border ${theme.border} ${theme.text} flex items-center gap-3 active:scale-95 transition-transform`}>
-                <i.icon size={16} className="text-indigo-500"/> <span className="text-sm font-bold">{i.label}</span>
+      </header>
+
+      {/* 🔹 Mobile drawer */}
+      <div
+        className={`
+          lg:hidden fixed inset-0
+          z-50
+          transition-opacity duration-200
+          ${isMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}
+        `}
+      >
+        {/* Dark overlay */}
+        <div
+          className="absolute inset-0 bg-black/45"
+          onClick={toggleMenu}
+        />
+
+        {/* Drawer panel */}
+        <div
+          className={`
+            absolute inset-y-0 left-0
+            w-72 max-w-[80vw]
+            bg-slate-950 text-slate-100
+            border-r border-slate-800
+            shadow-2xl
+            transform transition-transform duration-200
+            ${isMenuOpen ? "translate-x-0" : "-translate-x-full"}
+            flex flex-col
+          `}
+        >
+          {/* Drawer header */}
+          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-base">
+                E
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold">EduNexus</span>
+                <span className="text-[11px] text-slate-400">
+                  Quick navigation
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={toggleMenu}
+              className="
+                h-8 w-8 rounded-full flex items-center justify-center
+                border border-slate-700 text-slate-300
+              "
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Drawer links */}
+          <nav className="flex-1 overflow-y-auto mt-2 pb-2">
+            {ALL_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleNavClick(item.id)}
+                className={`
+                  w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left
+                  ${
+                    isActive(item.id)
+                      ? "bg-indigo-600 text-white"
+                      : "text-slate-100 hover:bg-slate-800"
+                  }
+                `}
+              >
+                <span
+                  className={`
+                    h-6 w-6 rounded-full border text-[11px]
+                    flex items-center justify-center
+                    ${
+                      isActive(item.id)
+                        ? "border-white/80"
+                        : "border-slate-600 text-slate-400"
+                    }
+                  `}
+                >
+                  {item.label.charAt(0)}
+                </span>
+                <span>{item.label}</span>
               </button>
             ))}
+          </nav>
+
+          {/* Drawer footer */}
+          <div className="px-4 py-3 border-t border-slate-800 text-[11px] text-slate-500">
+            Made for students · EduNexus
           </div>
         </div>
-      )}
-    </nav>
+      </div>
+    </>
   );
 };
 
@@ -259,14 +510,21 @@ const Navbar = ({ page, setPage, user, isAdmin, isDark, setIsDark, theme, toggle
 const Announcements = ({ user }) => {
   const [news, setNews] = useState([]);
   
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'announcements'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, s => setNews(s.docs.map(d => d.data())), err => console.log("Announcements sync skipped"));
-    return () => unsubscribe();
-  }, [user]);
+    useEffect(() => {
+    const q = query(
+      collection(db, 'artifacts', appId, 'public', 'data', 'announcements'),
+      orderBy('createdAt', 'desc')
+    );
 
-  if (news.length === 0) return null;
+    const unsubscribe = onSnapshot(
+      q,
+      (s) => setNews(s.docs.map((d) => d.data())),
+      (err) => console.log('Announcements sync skipped', err)
+    );
+
+    return () => unsubscribe();
+  }, []); // 🔁 user dependency hata di
+
   
   return (
     <div className="bg-indigo-600 text-white text-xs font-bold py-2 overflow-hidden whitespace-nowrap relative z-30">
@@ -277,16 +535,42 @@ const Announcements = ({ user }) => {
   );
 };
 
+// ✅ Cloudinary image optimize helper (ArticlesPage se bilkul upar rakhna hai)
+const optimizeImageUrl = (url) => {
+  if (!url || !url.includes("/upload/")) return url;
+  return url.replace("/upload/", "/upload/f_auto,q_auto,w_800/");
+};
+
 // 3. Articles
 const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
   const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true); // ✅ skeleton control
 
   useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, s => setArticles(s.docs.map(d => ({id: d.id, ...d.data()}))), err => console.log("Articles sync skipped"));
+    const q = query(
+      collection(db, "artifacts", appId, "public", "data", "articles"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (s) => {
+        setArticles(
+          s.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }))
+        );
+        setLoading(false); // ✅ data aate hi skeleton band
+      },
+      (err) => {
+        console.log("Articles sync skipped", err);
+        setLoading(false); // ✅ error pe bhi band
+      }
+    );
+
     return () => unsubscribe();
-  }, [user]);
+  }, []);
 
   const handleLike = async (art) => {
     if (!user) return;
@@ -294,19 +578,22 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
       showToast("You have already liked this article.", "info");
       return;
     }
-    
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', art.id), { 
-      likes: increment(1),
-      likedBy: arrayUnion(user.uid)
-    });
+
+    await updateDoc(
+      doc(db, "artifacts", appId, "public", "data", "articles", art.id),
+      {
+        likes: increment(1),
+        likedBy: arrayUnion(user.uid),
+      }
+    );
     showToast("Liked!", "success");
   };
 
   const handleShare = async (art) => {
     const shareData = {
       title: art.title,
-      text: art.content.substring(0, 100) + '...',
-      url: window.location.href 
+      text: art.content.substring(0, 100) + "...",
+      url: window.location.href,
     };
 
     if (navigator.share) {
@@ -320,7 +607,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
       document.body.appendChild(textArea);
       textArea.select();
       try {
-        document.execCommand('copy');
+        document.execCommand("copy");
         showToast("Article content copied to clipboard!", "success");
       } catch (err) {
         showToast("Failed to copy content", "error");
@@ -330,39 +617,125 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+    <div className="max-w-4xl mx-auto space-y-8">
+      {/* Heading */}
       <div className="text-center mb-8">
-        <h1 className={`text-4xl font-extrabold ${theme.text} mb-2`}>Knowledge Base</h1>
-        <p className={theme.textMuted}>Official articles, news, and updates from EduNexus.</p>
+        <h1 className={`text-4xl font-extrabold ${theme.text} mb-2`}>
+          Knowledge Base
+        </h1>
+        <p className={theme.textMuted}>
+          Official articles, news, and updates from EduNexus.
+        </p>
       </div>
+
+      {/* ✅ Yahi jagah hai jahan skeleton + real cards aayenge */}
       <div className="space-y-6">
-        {articles.map(art => (
-          <div key={art.id} className={`${theme.card} p-8 rounded-2xl border ${theme.border} hover:shadow-lg transition-shadow relative group`}>
-            {art.imageUrl && (
-              <div className="mb-6 rounded-xl overflow-hidden w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex justify-center">
-                <img src={art.imageUrl} alt={art.title} className="w-full h-auto max-h-[600px] object-contain transition-transform duration-500" />
+        {/* 🔹 Skeletons jab tak Firestore se data aa raha hai */}
+        {loading && (
+          <>
+            {[1, 2].map((i) => (
+              <div
+                key={i}
+                className={`${theme.card} p-8 rounded-2xl border ${theme.border} animate-pulse space-y-4`}
+              >
+                <div className="h-40 rounded-xl bg-slate-800/40" />
+                <div className="h-5 bg-slate-800/60 rounded w-3/4" />
+                <div className="h-4 bg-slate-800/40 rounded w-full" />
+                <div className="h-4 bg-slate-800/40 rounded w-5/6" />
               </div>
-            )}
-            <div className="flex justify-between items-start mb-2">
-              <h2 className={`text-2xl font-bold ${theme.text}`}>{String(art.title)}</h2>
+            ))}
+          </>
+        )}
+
+        {/* 🔹 Real articles jab loading false ho */}
+        {!loading &&
+          articles.map((art, idx) => (
+            <div
+              key={art.id}
+              className={`${theme.card} p-8 rounded-2xl border ${theme.border} hover:shadow-lg transition-shadow relative group`}
+            >
+              {/* IMAGE TOP – no white frame */}
+              {art.imageUrl && (
+  <div className="mt-6 flex justify-center">
+    <img
+      src={optimizeImageUrl(art.imageUrl)}
+      alt={art.title}
+      // 🔹 First article = eager + high priority
+      loading={idx === 0 ? "eager" : "lazy"}
+      fetchpriority={idx === 0 ? "high" : "low"}
+      decoding="async"
+      className="
+        w-full
+        max-w-3xl mx-auto
+        aspect-[16/9]
+        object-contain
+        rounded-xl
+        bg-slate-900/30
+      "
+    />
+  </div>
+)}
+
+
+              {/* TITLE */}
+              <div className="flex justify-between items-start mb-2">
+                <h2 className={`text-2xl font-bold ${theme.text}`}>
+                  {String(art.title)}
+                </h2>
+              </div>
+
+              {/* META */}
+              <div
+                className={`flex items-center gap-2 text-xs ${theme.textMuted} mb-4`}
+              >
+                <span className="bg-red-500 text-white px-2 py-0.5 rounded font-bold">
+                  OFFICIAL
+                </span>
+                <span>• {formatDate(art.createdAt)}</span>
+              </div>
+
+              {/* DESCRIPTION */}
+              <p
+                className={`${theme.text} leading-relaxed whitespace-pre-wrap mb-6`}
+              >
+                {String(art.content)}
+              </p>
+
+              {/* ACTIONS */}
+              <div
+                className={`flex items-center gap-6 border-t ${theme.border} pt-4 mt-2`}
+              >
+                <button
+                  onClick={() => handleLike(art)}
+                  className={`flex items-center gap-2 transition-colors ${
+                    art.likedBy?.includes(user?.uid)
+                      ? "text-red-500 cursor-default"
+                      : `${theme.textMuted} hover:text-red-500`
+                  }`}
+                >
+                  <Heart
+                    size={20}
+                    className={
+                      art.likedBy?.includes(user?.uid) ? "fill-current" : ""
+                    }
+                  />
+                  {art.likes} Likes
+                </button>
+
+                <button
+                  onClick={() => handleShare(art)}
+                  className={`flex items-center gap-2 ${theme.textMuted} hover:text-green-500 transition-colors`}
+                >
+                  <Share2 size={20} /> Share
+                </button>
+              </div>
             </div>
-            <div className={`flex items-center gap-2 text-xs ${theme.textMuted} mb-4`}>
-              <span className="bg-red-500 text-white px-2 py-0.5 rounded font-bold">OFFICIAL</span>
-              <span>• {formatDate(art.createdAt)}</span>
-            </div>
-            <p className={`${theme.text} leading-relaxed whitespace-pre-wrap mb-6`}>{String(art.content)}</p>
-            <div className={`flex items-center gap-6 border-t ${theme.border} pt-4`}>
-              <button onClick={()=>handleLike(art)} className={`flex items-center gap-2 transition-colors ${art.likedBy?.includes(user?.uid) ? 'text-red-500 cursor-default' : `${theme.textMuted} hover:text-red-500`}`}>
-                <Heart size={20} className={art.likedBy?.includes(user?.uid) ? "fill-current" : ""}/> {art.likes} Likes
-              </button>
-              <button onClick={()=>handleShare(art)} className={`flex items-center gap-2 ${theme.textMuted} hover:text-green-500 transition-colors`}><Share2 size={20}/> Share</button>
-            </div>
-          </div>
-        ))}
+          ))}
       </div>
     </div>
   );
 };
+
 
 // 6. Discussion Forum (Student side)
 
@@ -1103,10 +1476,25 @@ const FlashcardGenerator = ({ theme, showToast }) => {
     <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
       <div className="text-center"><h2 className={`text-3xl font-bold ${theme.text} flex items-center justify-center gap-2`}><Layers className="h-8 w-8 text-pink-500" /> AI Flashcards</h2><p className={theme.textMuted}>Master any subject.</p></div>
       <div className={`${theme.card} p-8 rounded-2xl border ${theme.border} shadow-lg`}>
-        <div className="flex gap-4 mb-8">
-          <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter topic..." className={`flex-1 ${theme.input} p-3 rounded-xl outline-none ${theme.text}`} onKeyPress={(e) => e.key === 'Enter' && generateCards()} />
-          <button onClick={generateCards} disabled={loading || !topic.trim()} className="bg-pink-600 hover:bg-pink-700 text-white px-6 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 transition-colors">{loading ? <Loader className="animate-spin" size={20}/> : <Sparkles size={20}/>} Generate ✨</button>
-        </div>
+              <div className="flex flex-col md:flex-row gap-3 mb-8">
+        <input
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="Enter topic..."
+          className={`flex-1 ${theme.input} p-3 rounded-xl outline-none ${theme.text}`}
+          onKeyPress={(e) => e.key === "Enter" && generateCards()}
+        />
+
+        <button
+          onClick={generateCards}
+          disabled={loading || !topic.trim()}
+          className="w-full md:w-auto bg-pink-600 hover:bg-pink-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-colors"
+        >
+          {loading ? <Loader className="animate-spin" size={20} /> : <Sparkles size={20} />}
+          {loading ? "Generating..." : "Generate ✨"}
+        </button>
+      </div>
+
         {cards.length > 0 ? (
           <div className="flex flex-col items-center">
             <div className="w-full h-64 relative perspective-1000 cursor-pointer group" onClick={() => setIsFlipped(!isFlipped)}>
@@ -1562,24 +1950,92 @@ const ContactUs = ({ theme }) => (
 const HomePage = ({setPage, theme, showToast, user}) => {
   const [highlights, setHighlights] = useState([]);
   const [showSection, setShowSection] = useState(true);
+    const renderHighlightDesc = (desc) => {
+    if (!desc) return null;
 
-  useEffect(() => {
-    if (!user) return;
+    // lines ko split karo (ENTER se jo tum admin panel me likhte ho)
+    const lines = desc
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
 
-    const unsubConfig = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'highlightsConfig'), (docSnap) => {
+    // agar sirf ek line ho → normal paragraph
+    if (lines.length <= 1) {
+      return (
+        <p
+          className={`text-sm ${theme.textMuted} leading-relaxed whitespace-pre-line`}
+        >
+          {desc}
+        </p>
+      );
+    }
+
+    // check: kya har line list jesi hai? (-, •, 1. , 1) se start)
+    const looksLikeList = lines.every((line) =>
+      /^[-•]/.test(line) || /^\d+[\.\)]/.test(line)
+    );
+
+    if (looksLikeList) {
+      // ✅ Proper bullets / numbering
+      return (
+        <ul
+          className={`text-sm ${theme.textMuted} leading-relaxed list-disc pl-5 space-y-1`}
+        >
+          {lines.map((line, idx) => (
+            <li
+              key={idx}
+            >
+              {line
+                .replace(/^[-•]\s*/, '')
+                .replace(/^\d+[\.\)]\s*/, '')}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    // warna multi-line paragraph
+    return (
+      <p
+        className={`text-sm ${theme.textMuted} leading-relaxed whitespace-pre-line`}
+      >
+        {desc}
+      </p>
+    );
+  };
+
+
+    useEffect(() => {
+    const unsubConfig = onSnapshot(
+      doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'highlightsConfig'),
+      (docSnap) => {
         if (docSnap.exists()) {
-            setShowSection(docSnap.data().isVisible !== false);
+          setShowSection(docSnap.data().isVisible !== false);
         }
-    }, (error) => console.log("Highlights Config Error", error));
+      },
+      (error) => console.log('Highlights Config Error', error)
+    );
 
-    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), orderBy('createdAt', 'desc'));
-    const unsubList = onSnapshot(q, (snapshot) => {
-        const items = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+    const q = query(
+      collection(db, 'artifacts', appId, 'public', 'data', 'highlights'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubList = onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         setHighlights(items);
-    }, (error) => console.log("Highlights List Error", error));
+      },
+      (error) => console.log('Highlights List Error', error)
+    );
 
-    return () => { unsubConfig(); unsubList(); };
-  }, [user]);
+    return () => {
+      unsubConfig();
+      unsubList();
+    };
+  }, []); // 🔁 user dependency remove
+
 
   return (
     <div className="animate-fade-in space-y-16">
@@ -1598,44 +2054,84 @@ const HomePage = ({setPage, theme, showToast, user}) => {
         </div>
         
         <div className="mt-8">
-          <a href="https://vulms.vu.edu.pk/" target="_blank" className="inline-flex items-center gap-2 text-indigo-500 hover:underline font-bold text-lg">
-            <GraduationCap size={24} /> Go to VU LMS
+          <a href="https://vulms.vu.edu.pk/" target="_blank" className="inline-flex items-center gap-3 text-indigo-600 hover:text-indigo-700 font-extrabold text-xl md:text-2xl hover:underline">
+            <GraduationCap size={36} /> Go to VU LMS
           </a>
         </div>
       </div>
 
-      {showSection && highlights.length > 0 && (
+            {showSection && highlights.length > 0 && (
         <div className="max-w-6xl mx-auto px-4">
-            <h2 className={`text-2xl font-bold ${theme.text} mb-6 flex items-center gap-2`}><Megaphone className="text-red-500"/> Campus Highlights</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {highlights.map((post) => {
-                const IconComponent = ICON_MAP[post.iconName] || Calendar;
-                const CardContent = (
-                    <>
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${post.color || "bg-blue-100 text-blue-700"}`}>
-                            <IconComponent size={24} />
-                        </div>
-                        <h3 className={`font-bold ${theme.text} mb-2`}>{post.title}</h3>
-                        <p className={`text-sm ${theme.textMuted}`}>{post.desc}</p>
-                        {post.link && <div className="mt-4 flex items-center gap-1 text-xs font-bold text-indigo-500 group-hover:underline">Visit Link <ExternalLink size={12}/></div>}
-                    </>
-                );
+          <div className="flex items-center justify-between mb-6">
+            <h2
+              className={`text-2xl font-bold flex items-center gap-2 ${theme.text}`}
+            >
+              <Megaphone className="text-red-500" />
+              Campus Highlights
+            </h2>
+          </div>
 
-                return (
-                    post.link ? (
-                        <a key={post.id} href={post.link} target="_blank" rel="noopener noreferrer" className={`${theme.card} p-6 rounded-2xl border ${theme.border} hover:-translate-y-1 transition-transform shadow-sm cursor-pointer group block`}>
-                            {CardContent}
-                        </a>
-                    ) : (
-                        <div key={post.id} className={`${theme.card} p-6 rounded-2xl border ${theme.border} hover:-translate-y-1 transition-transform shadow-sm`}>
-                            {CardContent}
-                        </div>
-                    )
-                );
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {highlights.map((post) => {
+              const IconComponent = ICON_MAP[post.iconName] || Calendar;
+
+              const CardInner = (
+                <div className="flex flex-col h-full">
+                  {/* Icon */}
+                  <div
+                    className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${
+                      post.color || 'bg-indigo-100 text-indigo-700'
+                    }`}
+                  >
+                    <IconComponent size={24} />
+                  </div>
+
+                  {/* Title */}
+                  <h3
+                    className={`font-semibold text-base md:text-lg mb-3 ${theme.text}`}
+                  >
+                    {post.title}
+                  </h3>
+
+                  {/* Description / bullets */}
+                  <div className="flex-1">
+                    {renderHighlightDesc(post.desc)}
+                  </div>
+
+                  {/* Visit link */}
+                  {post.link && (
+                    <div className="mt-4">
+                      <span className="inline-flex items-center gap-1 text-sm font-medium text-indigo-400 group-hover:text-indigo-300 group-hover:underline">
+                        Visit Link
+                        <ExternalLink size={12} />
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+
+              const cardClasses = `${theme.card} border ${theme.border} rounded-2xl p-5 shadow-sm hover:shadow-md transition-transform hover:-translate-y-1 group`;
+
+              return post.link ? (
+                <a
+                  key={post.id}
+                  href={post.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cardClasses}
+                >
+                  {CardInner}
+                </a>
+              ) : (
+                <div key={post.id} className={cardClasses}>
+                  {CardInner}
+                </div>
+              );
             })}
-            </div>
+          </div>
         </div>
       )}
+
 
       <Feedback theme={theme} showToast={showToast} />
     </div>
@@ -1739,7 +2235,14 @@ const FloatingAIChat = ({ theme }) => {
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setInput(''); setLoading(true);
     try {
-      const prompt = `You are EduBot, an advanced, polite, and highly intelligent academic AI assistant for University students. Your goal is to provide the best possible explanations, detailed answers, and helpful guidance. Be encouraging and formal yet friendly. Student Query: ${userMsg}`;
+      const prompt = `You are EduBot, an academic assistant for university students.
+
+Rules:
+- Answer in maximum 5 – 6 short lines.
+- Reply only to what the student asks, no extra info.
+- No long  conclusions.
+
+Student question: ${userMsg}`;
       const reply = await callGemini(prompt, true);
       setMessages(prev => [...prev, { role: 'ai', text: reply }]);
     } catch(e) {
@@ -3083,34 +3586,128 @@ const ProfileTab = ({ theme, user, showToast }) => {
   );
 };
 
-// 16. Admin Login
+// 🔐 Admin login modal – email + password required
 const AdminLogin = ({ onClose, setPage, setIsAdminMode, showToast }) => {
-  const [email, setEmail] = useState('');
-  const [pass, setPass] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const handleAuth = async (e) => { 
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setLoading(true); setError('');
-    if (email.toLowerCase() === ADMIN_EMAIL && pass.length >= 6) {
-      setIsAdminMode(true); onClose(); setPage('admin'); showToast("Welcome back, Admin!", "success");
-    } else {
-      setError("Invalid Credentials.");
+    if (!email.trim() || !password) {
+      showToast("Email and password required.", "error");
+      return;
     }
+
+    setLoading(true);
+
+    const enteredEmail = email.trim().toLowerCase();
+
+    // ✅ Sirf tumhara email + password
+    if (
+      enteredEmail === ADMIN_EMAIL.toLowerCase() &&
+      password === ADMIN_PASSWORD
+    ) {
+      setIsAdminMode(true);
+      setPage("admin");
+      showToast("Admin mode enabled.", "success");
+      onClose();
+    } else {
+      showToast("Invalid admin credentials.", "error");
+    }
+
     setLoading(false);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
-      <div className="bg-slate-900 p-8 rounded-2xl border border-slate-700 w-96 relative shadow-2xl">
-        <button onClick={onClose} className="absolute top-4 right-4 text-white hover:text-red-400"><X size={20}/></button>
-        <div className="text-center mb-6"><Shield className="h-12 w-12 text-red-500 mx-auto mb-2" /><h2 className="text-xl font-bold text-white">Admin Access</h2></div>
-        {error && <div className="bg-red-500/20 border border-red-500 text-red-300 p-3 rounded mb-4 text-sm text-center">{error}</div>}
-        <form onSubmit={handleAuth} className="space-y-4">
-          <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full bg-slate-800 border border-slate-600 p-3 rounded-lg text-white outline-none focus:border-red-500 placeholder-slate-400" required />
-          <input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="Password" className="w-full bg-slate-800 border border-slate-600 p-3 rounded-lg text-white outline-none focus:border-red-500 placeholder-slate-400" required />
-          <button disabled={loading} className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-bold disabled:opacity-50">Login</button>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-2xl shadow-2xl border border-slate-700/50 bg-slate-900 text-slate-100 relative overflow-hidden">
+        {/* Header */}
+        <div className="px-5 py-3 border-b border-slate-700 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Shield size={18} className="text-indigo-400" />
+            <span className="font-semibold text-sm">EduNexus Admin Login</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-slate-800 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+          <p className="text-xs text-slate-400">
+            Restricted area. Only the site owner can access the admin panel
+            using the registered admin email and secret password.
+          </p>
+
+          {/* Email */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-300">
+              Admin Email
+            </label>
+            <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2 border border-slate-700 focus-within:border-indigo-500">
+              <Mail size={14} className="text-slate-400" />
+              <input
+                type="email"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
+                placeholder="Enter admin Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-300">
+              Admin Password
+            </label>
+            <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2 border border-slate-700 focus-within:border-indigo-500">
+              <Lock size={14} className="text-slate-400" />
+              <input
+                type="password"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
+                placeholder="Enter admin password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+        
+
+          {/* Buttons */}
+          <div className="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-xs px-3 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {loading ? (
+                <>
+                  <Loader size={14} className="animate-spin" />
+                  Checking…
+                </>
+              ) : (
+                <>
+                  <LogIn size={14} />
+                  Enter Admin Panel
+                </>
+              )}
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -3121,6 +3718,441 @@ const AdminLogin = ({ onClose, setPage, setIsAdminMode, showToast }) => {
 const ExamPrep = ({ theme }) => (
   <div className={`max-w-4xl mx-auto ${theme.card} p-8 rounded-2xl border ${theme.border} text-center`}><h2 className={`text-2xl font-bold ${theme.text}`}>PHY101 Prep</h2><p className={theme.textMuted}>Modules loaded.</p><button className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">Start</button></div>
 );
+// CGPACalculator.jsx (ya jahan bhi tum ne CGPA component rakha hai)
+
+// 🔐 VU-style grading helper
+const getGradeInfo = (score) => {
+  const s = Number.isFinite(score) ? score : 0;
+
+  if (s >= 90)
+    return { grade: "A+", gpa: 4.0, tone: "good", range: "90–100%" };
+  if (s >= 85)
+    return { grade: "A", gpa: 4.0, tone: "good", range: "85–89%" };
+  if (s >= 80)
+    return { grade: "A-", gpa: 3.8, tone: "good", range: "80–84%" };
+  if (s >= 75)
+    return { grade: "B+", gpa: 3.5, tone: "ok", range: "75–79%" };
+  if (s >= 71)
+    return { grade: "B", gpa: 3.15, tone: "ok", range: "71–74%" };
+  if (s >= 68)
+    return { grade: "B-", gpa: 2.8, tone: "ok", range: "68–70%" };
+  if (s >= 61)
+    return { grade: "C", gpa: 2.3, tone: "warn", range: "61–67%" };
+  if (s >= 50)
+    return { grade: "D", gpa: 1.3, tone: "warn", range: "50–60%" };
+  return { grade: "F", gpa: 0.0, tone: "bad", range: "< 50%" };
+};
+
+// 🔊 Overall status (short message)
+const getStatus = (cgpa, hasFail) => {
+  if (!cgpa || cgpa <= 0) {
+    return { tone: "neutral", label: "Start planning 📚" };
+  }
+  if (hasFail) {
+    return { tone: "bad", label: "Bounce back 💪" };
+  }
+  if (cgpa >= 3.5) {
+    return { tone: "good", label: "On fire 🔥" };
+  }
+  if (cgpa >= 3.0) {
+    return { tone: "good", label: "Great going 🎓" };
+  }
+  if (cgpa >= 2.5) {
+    return { tone: "ok", label: "On track 👍" };
+  }
+  if (cgpa >= 2.0) {
+    return { tone: "warn", label: "Careful edge ⚠️" };
+  }
+  return { tone: "bad", label: "Needs rescue 🚑" };
+};
+
+// Status banner colors (light / dark)
+const STATUS_CLASSES = {
+  good: {
+    light: "bg-emerald-50 border-emerald-200 text-emerald-800",
+    dark: "bg-emerald-900/25 border-emerald-500/40 text-emerald-100",
+  },
+  ok: {
+    light: "bg-sky-50 border-sky-200 text-sky-800",
+    dark: "bg-sky-900/25 border-sky-500/40 text-sky-100",
+  },
+  warn: {
+    light: "bg-amber-50 border-amber-200 text-amber-800",
+    dark: "bg-amber-900/25 border-amber-500/40 text-amber-100",
+  },
+  bad: {
+    light: "bg-rose-50 border-rose-200 text-rose-800",
+    dark: "bg-rose-900/25 border-rose-500/40 text-rose-100",
+  },
+  neutral: {
+    light: "bg-slate-50 border-slate-200 text-slate-700",
+    dark: "bg-slate-900/40 border-slate-600/60 text-slate-100",
+  },
+};
+
+// Grade badge colors
+const GRADE_BADGE_CLASSES = {
+  good: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/40",
+  ok: "bg-sky-500/10 text-sky-300 border border-sky-500/40",
+  warn: "bg-amber-500/10 text-amber-300 border border-amber-500/40",
+  bad: "bg-rose-500/10 text-rose-300 border border-rose-500/40",
+};
+
+// CGPA Calculator – clean + VU-style grades (A+, A, A-, ...)
+
+const gradeBands = [
+  { min: 90, label: "A+", gpa: 4.0, range: "90–100%" },
+  { min: 85, label: "A",  gpa: 4.0, range: "85–89%" },
+  { min: 80, label: "A-", gpa: 3.8, range: "80–84%" },
+  { min: 75, label: "B+", gpa: 3.5, range: "75–79%" },
+  { min: 71, label: "B",  gpa: 3.15, range: "71–74%" },
+  { min: 68, label: "B-", gpa: 2.8, range: "68–70%" },
+  { min: 61, label: "C",  gpa: 2.3, range: "61–67%" },
+  { min: 50, label: "D",  gpa: 1.3, range: "50–60%" },
+  { min: 0,  label: "F",  gpa: 0.0, range: "< 50%" },
+];
+
+const getBandForScore = (score) => {
+  const s = Number.isFinite(score) ? score : 0;
+  return gradeBands.find((b) => s >= b.min) ?? gradeBands[gradeBands.length - 1];
+};
+
+const CGPACalculator = ({ theme, isDark }) => {
+  const [subjects, setSubjects] = React.useState([
+    { name: "CS101", credits: 3, score: 0 },
+  ]);
+
+  // 🔹 Subject change helper (clamps values)
+  const handleSubjectChange = (index, field, rawValue) => {
+    setSubjects((prev) =>
+      prev.map((sub, i) => {
+        if (i !== index) return sub;
+        const updated = { ...sub };
+
+        if (field === "name") {
+          updated.name = rawValue;
+        } else if (field === "credits") {
+          let v = parseInt(rawValue, 10);
+          if (isNaN(v)) v = 0;
+          v = Math.max(1, Math.min(3, v)); // 1–3 credits
+          updated.credits = v;
+        } else if (field === "score") {
+          let v = parseInt(rawValue, 10);
+          if (isNaN(v)) v = 0;
+          v = Math.max(0, Math.min(100, v)); // 0–100 marks
+          updated.score = v;
+        }
+
+        return updated;
+      })
+    );
+  };
+
+  const addSubject = () => {
+    setSubjects((prev) => [
+      ...prev,
+      { name: "", credits: 3, score: 0 },
+    ]);
+  };
+
+  const removeSubject = (index) => {
+    setSubjects((prev) =>
+      prev.length === 1 ? prev : prev.filter((_, i) => i !== index)
+    );
+  };
+
+  // 🔹 Overall CGPA / percentage / credits
+  const { overallGPA, overallPercent, totalCredits, failedCount } =
+    React.useMemo(() => {
+      let creditSum = 0;
+      let gpaWeighted = 0;
+      let percentWeighted = 0;
+      let fails = 0;
+
+      subjects.forEach((sub) => {
+        const c = Number(sub.credits) || 0;
+        const s = Number(sub.score) || 0;
+        if (c <= 0) return;
+
+        const band = getBandForScore(s);
+        creditSum += c;
+        gpaWeighted += band.gpa * c;
+        percentWeighted += s * c;
+        if (band.label === "F") fails += 1;
+      });
+
+      const gpa =
+        creditSum > 0 ? parseFloat((gpaWeighted / creditSum).toFixed(2)) : 0;
+      const perc =
+        creditSum > 0 ? parseFloat((percentWeighted / creditSum).toFixed(1)) : 0;
+
+      return {
+        overallGPA: gpa,
+        overallPercent: perc,
+        totalCredits: creditSum,
+        failedCount: fails,
+      };
+    }, [subjects]);
+
+  // 🔹 Short result message (top center)
+  let resultTitle = "Start planning 📚";
+  let resultSub = "Add your courses to see CGPA and percentage.";
+
+  if (totalCredits > 0) {
+    if (overallGPA >= 3.3 && failedCount === 0) {
+      resultTitle = "Great going 🎓";
+      resultSub = "Strong CGPA – keep this momentum for distinction!";
+    } else if (overallGPA >= 2.5 && failedCount === 0) {
+      resultTitle = "On track ✨";
+      resultSub = "Decent performance – a little more effort and you’ll shine.";
+    } else if (failedCount === 0) {
+      resultTitle = "Keep pushing 💪";
+      resultSub = "You’re passing – focus on weak areas for a better CGPA.";
+    } else {
+      resultTitle = "Stay hopeful 💡";
+      resultSub =
+        "Some courses are below passing range. Fix weak spots and plan a fresh attempt.";
+    }
+  }
+
+  const infoCardBase =
+    "rounded-2xl p-5 flex flex-col justify-between border";
+  const infoCardBg = isDark
+    ? "bg-slate-900/70 border-slate-700"
+    : "bg-white border-slate-200";
+
+  const inputBase =
+    "rounded-xl px-3 py-2 text-sm outline-none border transition-colors";
+  const inputBg = isDark
+    ? "bg-slate-900/70 border-slate-700 text-slate-100 placeholder:text-slate-500"
+    : "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400";
+
+  const chipBg = isDark
+    ? "bg-slate-900/70 border-slate-700 text-slate-100"
+    : "bg-white border-slate-300 text-slate-900";
+
+  return (
+    <section className="space-y-8">
+      {/* 🔹 Top result message */}
+      <div
+        className={`max-w-3xl mx-auto text-center rounded-2xl px-5 py-4 ${
+          isDark
+            ? "bg-emerald-500/10 border border-emerald-500/40 text-emerald-200"
+            : "bg-emerald-50 border border-emerald-200 text-emerald-800"
+        }`}
+      >
+        <h2 className="text-sm md:text-base font-semibold">
+          {resultTitle}
+        </h2>
+        <p className="text-xs md:text-sm mt-1 opacity-80">
+          {resultSub}
+        </p>
+      </div>
+
+      {/* 🔹 Intro text */}
+      <p className={`text-xs md:text-sm ${theme.textMuted}`}>
+        Add all subjects with credit hours and marks (0–100). We approximate
+        CGPA on a 4.0 scale using VU-style letter grades. Always confirm with
+        your official grade book.
+      </p>
+
+      {/* 🔹 Summary cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className={`${infoCardBase} ${infoCardBg}`}>
+          <div>
+            <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">
+              CGPA (approx)
+            </p>
+            <p className="mt-2 text-3xl font-bold text-emerald-400">
+              {overallGPA.toFixed(2)}
+            </p>
+          </div>
+          <p className={`mt-3 text-xs ${theme.textMuted}`}>
+            out of 4.00 — weighted average of all subject grade points.
+          </p>
+        </div>
+
+        <div className={`${infoCardBase} ${infoCardBg}`}>
+          <div>
+            <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide">
+              Overall percentage
+            </p>
+            <p className="mt-2 text-3xl font-bold text-indigo-400">
+              {overallPercent.toFixed(1)}%
+            </p>
+          </div>
+          <p className={`mt-3 text-xs ${theme.textMuted}`}>
+            Credit-weighted average of all subject marks.
+          </p>
+        </div>
+
+        <div className={`${infoCardBase} ${infoCardBg}`}>
+          <div>
+            <p className="text-xs font-semibold text-sky-400 uppercase tracking-wide">
+              Total credits
+            </p>
+            <p className="mt-2 text-3xl font-bold text-sky-400">
+              {totalCredits}
+            </p>
+          </div>
+          <p className={`mt-3 text-xs ${theme.textMuted}`}>
+            Sum of all entered credit hours.
+          </p>
+        </div>
+      </div>
+
+      {/* 🔹 Subjects table */}
+      <div
+        className={`${isDark ? "bg-slate-900/70" : "bg-white"} rounded-2xl border ${
+          isDark ? "border-slate-800" : "border-slate-200"
+        } overflow-hidden`}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/40">
+          <h3 className="text-sm font-semibold">Subjects / Courses</h3>
+          <button
+            type="button"
+            onClick={addSubject}
+            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+          >
+            <span className="text-lg leading-none">＋</span>
+            Add subject
+          </button>
+        </div>
+
+        <div className="px-4 py-4 space-y-3">
+          {/* Header row */}
+          <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)_auto] gap-3 text-[11px] uppercase tracking-wide text-slate-400">
+            <span>Course / Subject</span>
+            <span className="text-center">Credit hours</span>
+            <span className="text-center">Score (0–100)</span>
+            <span className="text-center">Letter grade</span>
+            <span className="text-right">Remove</span>
+          </div>
+
+          {/* Subject rows */}
+          {subjects.map((sub, idx) => {
+            const band = getBandForScore(sub.score);
+            const isFail = band.label === "F";
+
+            return (
+              <div
+                key={idx}
+                className="grid grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)_auto] gap-3 items-center"
+              >
+                {/* Name */}
+                <input
+                  type="text"
+                  value={sub.name}
+                  onChange={(e) =>
+                    handleSubjectChange(idx, "name", e.target.value)
+                  }
+                  className={`${inputBase} ${inputBg}`}
+                  placeholder="e.g., CS101"
+                />
+
+                {/* Credits (1–3) – sirf number input with arrows */}
+                <input
+                  type="number"
+                  min={1}
+                  max={3}
+                  step={1}
+                  value={sub.credits}
+                  onChange={(e) =>
+                    handleSubjectChange(idx, "credits", e.target.value)
+                  }
+                  className={`${inputBase} ${inputBg} text-center w-20 mx-auto`}
+                />
+
+                {/* Score (0–100) */}
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={sub.score}
+                  onChange={(e) =>
+                    handleSubjectChange(idx, "score", e.target.value)
+                  }
+                  className={`${inputBase} ${inputBg} text-center w-24 mx-auto`}
+                />
+
+                {/* Letter grade display */}
+                <div
+                  className={`flex items-center justify-center gap-2 rounded-full px-3 py-1 border text-xs ${
+                    isFail
+                      ? isDark
+                        ? "border-rose-500/60 bg-rose-500/10 text-rose-200"
+                        : "border-rose-300 bg-rose-50 text-rose-700"
+                      : chipBg
+                  }`}
+                >
+                  <span className="font-semibold">{band.label}</span>
+                  <span className="opacity-80">
+                    GPA {band.gpa.toFixed(2)} · {band.range}
+                  </span>
+                </div>
+
+                {/* Remove */}
+                <button
+                  type="button"
+                  onClick={() => removeSubject(idx)}
+                  className="text-[11px] text-rose-400 hover:text-rose-500 flex items-center justify-end gap-1"
+                >
+                  <span>✕</span>
+                  <span>Remove</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Bottom tip */}
+        <div
+          className={`px-4 py-3 text-[11px] border-t ${
+            isDark ? "border-slate-800 text-slate-500" : "border-slate-200 text-slate-500"
+          }`}
+        >
+          Tip: This tool is only an estimate. Universities (including VU) may
+          use slightly different mappings for letter grades and CGPA. Always
+          rely on your official transcript / grade book for final results.
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// 🔆 Floating theme toggle – copy this full component
+const ThemeFloatingToggle = ({ isDark, setIsDark }) => {
+  const handleToggle = () => setIsDark(!isDark);
+
+  return (
+    <button
+      type="button"
+      onClick={handleToggle}
+      className={`
+        fixed 
+        top-[88px]    /* Navbar ke thoda neeche */
+        right-4
+        z-[60]        /* mobile menu se upar */
+        inline-flex items-center justify-center
+        h-10 w-10 rounded-full shadow-lg border
+        transition-all duration-200
+        ${isDark
+          ? "bg-amber-400/10 border-amber-300/40 text-amber-200 hover:bg-amber-400/20"
+          : "bg-slate-900 text-amber-300 border-slate-900 hover:bg-slate-800"
+        }
+      `}
+      aria-label="Toggle dark / light mode"
+    >
+      {isDark ? (
+        <Sun className="h-5 w-5" />
+      ) : (
+        <Moon className="h-5 w-5" />
+      )}
+    </button>
+  );
+};
+
 
 // Main App
 const App = () => {
@@ -3129,24 +4161,25 @@ const App = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isAdminMode, setIsAdminMode] = useState(false);
-  const [secretClicks, setSecretClicks] = useState(0);
+  const [footerClicks, setFooterClicks] = useState(0);
   const [toast, setToast] = useState(null);
   const { isDark, setIsDark, theme } = useTheme();
-
+   const currentYear = new Date().getFullYear();
   // ✅ saare pages ki list (routing ke liye)
   const PAGES = [
-    'home',
-    'articles',
-    'academic',
-    'planner',
-    'flashcards',
-    'forum',
-    'aiquiz',
-    'portfolio',
-    'about',
-    'contact',
-    'admin'
-  ];
+  'home',
+  'articles',
+  'academic',
+  'planner',
+  'flashcards',
+  'forum',
+  'aiquiz',
+  'cgpa',       // ⭐ NEW
+  'portfolio',
+  'about',
+  'contact',
+  'admin'
+];
 
   // ✅ central navigation function (har jagah isi ko use karna hai)
   const navigate = (targetPage) => {
@@ -3217,12 +4250,23 @@ const App = () => {
   const showToast = (message, type = 'info') => setToast({ message, type });
 
   const handleFooterClick = () => {
-    setSecretClicks(prev => prev + 1);
-    if (secretClicks + 1 === 5) {
+  setFooterClicks((prev) => {
+    const next = prev + 1;
+    if (next >= 5) {
       setShowAdminLogin(true);
-      setSecretClicks(0);
+      return 0;
     }
-  };
+    return next;
+  });
+};
+
+useEffect(() => {
+  if (!footerClicks) return;
+  const t = setTimeout(() => setFooterClicks(0), 5000);
+  return () => clearTimeout(t);
+}, [footerClicks]);
+
+
 
   const handleLogoutAdmin = () => {
     setIsAdminMode(false);
@@ -3243,20 +4287,22 @@ const App = () => {
       )}
 
       <Navbar
-        page={page}
-        setPage={navigate}
-        user={user}
-        isAdmin={isAdminMode}
-        isDark={isDark}
-        setIsDark={setIsDark}
-        theme={theme}
-        toggleMenu={() => setIsMenuOpen(!isMenuOpen)}
-        isMenuOpen={isMenuOpen}
-      />
+  page={page}
+  setPage={navigate}
+  user={user}
+  isAdmin={isAdminMode}
+  theme={theme}
+  toggleMenu={() => setIsMenuOpen(!isMenuOpen)}
+  isMenuOpen={isMenuOpen}
+/>
 
-      <Announcements user={user} />
+      {/* 🔆 Global theme toggle – top right, har page par */}
+    <ThemeFloatingToggle isDark={isDark} setIsDark={setIsDark} />
 
-      <main className="max-w-7xl mx-auto px-4 py-8 pb-24 w-full flex-grow">
+        {/* <Announcements user={user} /> */}
+
+  <main className="max-w-7xl mx-auto px-4 py-8 pb-24 w-full flex-grow">
+
         {page === 'home' && (
           <HomePage
             setPage={navigate}
@@ -3281,7 +4327,11 @@ const App = () => {
             showToast={showToast}
           />
         )}
-        {page === 'flashcards' && (
+        {page === 'cgpa' && (
+        <CGPACalculator theme={theme} isDark={isDark} />
+      )}
+
+           {page === 'flashcards' && (
           <FlashcardGenerator
             theme={theme}
             showToast={showToast}
@@ -3329,33 +4379,219 @@ const App = () => {
 
       <FloatingAIChat theme={theme} />
 
-      <footer className={`border-t ${theme.border} py-8 ${theme.card} mt-auto`}>
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
-          {/* Secret Trigger Area */}
-          <p
-            className={`${theme.textMuted} cursor-default select-none transition-colors hover:text-indigo-500`}
-            onClick={handleFooterClick}
-          >
-            © 2026 EduNexus | Developed by Asad Amanat Ali.
-          </p>
-          <div className="flex items-center gap-4">
-            {isAdminMode && (
-              <button
-                onClick={handleLogoutAdmin}
-                className="text-red-500 font-bold flex items-center gap-1 hover:underline"
-              >
-                <LogOut size={14} /> Exit Admin
-              </button>
-            )}
-            <a href="#" className={`${theme.textMuted} hover:${theme.text}`}>
-              Privacy Policy
-            </a>
-            <a href="#" className={`${theme.textMuted} hover:${theme.text}`}>
-              Terms of Service
-            </a>
+           <footer
+  className={`mt-auto border-t ${theme.border} ${
+    isDark ? "bg-slate-950/95" : "bg-slate-50"
+  }`}
+>
+  <div className="max-w-7xl mx-auto px-4 py-10 space-y-8">
+    {/* Top strip / CTA */}
+    <div
+      className={`rounded-2xl px-5 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+        isDark ? "bg-indigo-500/15" : "bg-indigo-50"
+      } border border-indigo-500/30`}
+    >
+      <div className="space-y-1">
+        <p className={`text-sm font-semibold ${theme.text}`}>
+          Study updates & bug report?
+        </p>
+        <p className={`text-xs md:text-sm ${theme.textMuted}`}>
+          If you find any issue in notes, quizzes or AI tools, just email us –
+          we improve EduNexus continuously so Google AdSense & students both
+          stay happy. 🙂
+        </p>
+      </div>
+            <a
+        href="https://mail.google.com/mail/u/0/?view=cm&fs=1&to=a.m.a63425@gmail.com&su=EduNexus%20Support%20Request"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+      >
+        <Mail size={16} />
+        Contact Support
+      </a>
+
+
+
+    </div>
+
+    {/* Main footer grid */}
+    <div
+      className={`grid gap-8 md:grid-cols-4 ${
+        isDark ? "text-slate-200" : "text-slate-800"
+      }`}
+    >
+      {/* Brand / description */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="bg-indigo-600 p-2 rounded-xl text-white">
+            <Cpu size={18} />
           </div>
+          <span className="font-bold text-lg">EduNexus</span>
         </div>
-      </footer>
+        <p className={`text-sm leading-relaxed ${theme.textMuted}`}>
+          Smart study hub for Virtual University students  notes, quizzes,
+          files, and AI tools in one place. EduNexus is an independent platform
+          and is <span className="font-semibold">not officially affiliated</span> with VU.
+        </p>
+
+        {/* Socials */}
+        <div className="flex items-center gap-3 pt-2">
+          <a
+            href="https://github.com/Asad2327"
+            target="_blank"
+            rel="noreferrer"
+            className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
+          >
+            <Github size={16} />
+          </a>
+          <a
+            href="https://www.linkedin.com"
+            target="_blank"
+            rel="noreferrer"
+            className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
+          >
+            <Linkedin size={16} />
+          </a>
+        </div>
+      </div>
+
+      {/* Quick links */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold tracking-wide">Quick Links</h3>
+        <ul className="space-y-2 text-sm">
+          <li>
+            <button
+              onClick={() => navigate("home")}
+              className="hover:text-indigo-500 transition-colors"
+            >
+              Home
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => navigate("academic")}
+              className="hover:text-indigo-500 transition-colors"
+            >
+              Academic Hub
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => navigate("articles")}
+              className="hover:text-indigo-500 transition-colors"
+            >
+              Articles
+            </button>
+          </li>
+            <li>
+          <button
+            onClick={() => navigate("cgpa")}
+            className="hover:text-indigo-500 transition-colors"
+          >
+            CGPA Calculator
+          </button>
+        </li>
+
+        </ul>
+      </div>
+
+      {/* Study tools */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold tracking-wide">Study Tools</h3>
+        <ul className="space-y-2 text-sm">
+          <li>
+            <button
+              onClick={() => navigate("flashcards")}
+              className="hover:text-indigo-500 transition-colors"
+            >
+              AI Flashcards
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => navigate("planner")}
+              className="hover:text-indigo-500 transition-colors"
+            >
+              Study Planner
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => navigate("aiquiz")}
+              className="hover:text-indigo-500 transition-colors"
+            >
+              AI Quiz Generator
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      {/* Contact + AdSense note */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold tracking-wide">
+          Contact & Support
+        </h3>
+        <div className="space-y-2 text-sm">
+          <p className="flex items-center gap-2">
+            <Mail size={14} />
+          <a
+          href="https://mail.google.com/mail/u/0/?view=cm&fs=1&to=a.m.a63425@gmail.com&su=EduNexus%20Support%20Request"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-indigo-500 transition-colors"
+        >
+          support@edunexus.app
+        </a>
+
+          </p>
+          <p className="flex items-center gap-2">
+            <HelpCircle size={14} />
+            <span>For study help only (no official VU support).</span>
+          </p>
+        </div>
+        <p className={`text-xs ${theme.textMuted} leading-relaxed pt-2`}>
+          This site may display Google AdSense ads to support free study
+          resources. We avoid deceptive placements, misleading clicks, and
+          auto-downloads to stay compliant with Google policies.
+        </p>
+      </div>
+    </div>
+
+    {/* Bottom bar */}
+    <div className="border-t border-slate-700/40 pt-4 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+      {/* 🔐 Secret admin trigger area */}
+      <p
+        className={`cursor-pointer select-none transition-colors ${
+          theme.textMuted
+        } hover:text-indigo-500`}
+        onClick={handleFooterClick}
+      >
+          © {currentYear} EduNexus · Developed by Asad Amanat Ali.
+      </p>
+
+      <div className="flex flex-wrap items-center gap-4">
+        {isAdminMode && (
+          <button
+            onClick={handleLogoutAdmin}
+            className="text-red-500 font-semibold flex items-center gap-1 hover:underline"
+          >
+            <LogOut size={12} /> Exit Admin
+          </button>
+        )}
+        <a href="#" className={`${theme.textMuted} hover:text-indigo-500`}>
+          Privacy Policy
+        </a>
+        <a href="#" className={`${theme.textMuted} hover:text-indigo-500`}>
+          Terms of Service
+        </a>
+        <span className={`${theme.textMuted}`}>
+          Made for students · Light & Dark mode supported
+        </span>
+      </div>
+    </div>
+  </div>
+</footer>
 
       {showAdminLogin && (
         <AdminLogin

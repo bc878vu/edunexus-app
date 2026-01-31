@@ -2,54 +2,64 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+
+    <!-- Favicon -->
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+
+    <!-- Responsive -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
-    />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
+    <!-- SEO Meta -->
     <title>EduNexus – Virtual University Study Hub</title>
 
     <meta
       name="description"
-      content="EduNexus – Virtual University (VU) students ke liye smart study hub. Notes, quizzes, files, AI tools, discussion & academic resources ek hi jagah."
+      content="EduNexus is a smart study hub for Virtual University (VU) students. Get notes, handouts, past papers, quizzes, AI tools, discussions and academic resources in one place."
     />
+
     <meta
       name="keywords"
-      content="Virtual University, VU, VULMS, VU Students, EduNexus, Study Material, Notes, Quizzes, Online Learning"
+      content="Virtual University, VU, VULMS, EduNexus, VU Students, Study Material, Notes, Handouts, Past Papers, Quizzes, Mock Tests, Online Learning, AI Study Tools"
     />
+
     <meta name="author" content="EduNexus" />
     <meta name="robots" content="index, follow" />
-      <!-- Google AdSense -->
-      <script
-        async
-        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5179042048080611"
-        crossorigin="anonymous">
-      </script>
 
-    <!-- 🔹 Google Analytics 4 (GA4) -->
+    <!-- Apple & PWA -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- ✅ Google AdSense -->
     <script
       async
-      src="https://www.googletagmanager.com/gtag/js?id=G-FSF0S8G12W"
-    ></script>
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5179042048080611"
+      crossorigin="anonymous">
+    </script>
+
+    <!-- ✅ Google Analytics 4 -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-FSF0S8G12W">
+    </script>
+
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag() {
         dataLayer.push(arguments);
       }
       gtag("js", new Date());
-      gtag("config", "G-FSF0S8G12W", {
-        send_page_view: true,
-      });
+      gtag("config", "G-FSF0S8G12W");
     </script>
-    <!-- 🔹 GA4 code end -->
+    <!-- GA4 End -->
+
   </head>
+
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>
+      You need to enable JavaScript to run this application.
+    </noscript>
+
     <div id="root"></div>
   </body>
 </html>
