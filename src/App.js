@@ -543,8 +543,19 @@ const optimizeImageUrl = (url) => {
 
 // 3. Articles
 const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
-  const [articles, setArticles] = useState([]);
-  const [loading, setLoading] = useState(true); // ✅ skeleton control
+  // 🔹 Pehli dafa component load hote hi localStorage se data lene ki koshish
+  const [articles, setArticles] = useState(() => {
+    try {
+      const cached = localStorage.getItem("edunexus_articles");
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      console.log("Articles cache read error", e);
+      return [];
+    }
+  });
+
+  // 🔹 Agar cache khali hai to hi loading true hoga
+  const [loading, setLoading] = useState(articles.length === 0); // ✅ skeleton control
 
   useEffect(() => {
     const q = query(
@@ -555,12 +566,24 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
     const unsubscribe = onSnapshot(
       q,
       (s) => {
-        setArticles(
-          s.docs.map((d) => ({
-            id: d.id,
-            ...d.data(),
-          }))
-        );
+        const newArticles = s.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+
+        // state update
+        setArticles(newArticles);
+
+        // 🔹 cache update
+        try {
+          localStorage.setItem(
+            "edunexus_articles",
+            JSON.stringify(newArticles)
+          );
+        } catch (e) {
+          console.log("Articles cache save error", e);
+        }
+
         setLoading(false); // ✅ data aate hi skeleton band
       },
       (err) => {
@@ -571,6 +594,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
 
     return () => unsubscribe();
   }, []);
+
 
   const handleLike = async (art) => {
     if (!user) return;
@@ -1253,14 +1277,17 @@ const FileItem = ({ file, theme, isAdmin, onDelete }) => {
 
 /// PORTFOLIO PAGE – PROFILE + AI PROJECT IDEAS GENERATOR
 const Portfolio = ({ user, isAdmin, theme }) => {
-  // Profile fields
-  const [picUrl, setPicUrl] = useState(
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=Asad1&backgroundColor=1e293b"
-  );
+  // ✅ NEW: picUrl ab empty se start hoga (sirf real photo use hogi)
+  const [picUrl, setPicUrl] = useState("");
+  const [imageLoaded, setImageLoaded] = useState(false); // ✅ NEW state
+
+  // baaki tumhari states same rahengi:
   const [fullName, setFullName] = useState("Asad Amanat Ali");
   const [title, setTitle] = useState(
     "Software Engineer | Web Developer | Network Specialist"
   );
+  // ...
+
   const [about, setAbout] = useState(
     "I love building AI-powered tools, learning platforms, and automation systems that make student life easier."
   );
@@ -1326,15 +1353,28 @@ Return the answer in bullet list.
       {/* Top Profile Card */}
       <div className={`${theme.card} p-6 md:p-8 rounded-2xl border ${theme.border} grid md:grid-cols-[auto,1fr] gap-6 items-center`}>
         <div className="relative">
-          <img
-            src={picUrl}
-            alt="Portfolio Avatar"
-            className="w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-indigo-500 shadow-xl"
-          />
-          <span className="absolute -bottom-2 -right-2 bg-indigo-600 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
-            <Sparkles size={14} /> Live
-          </span>
-        </div>
+  {/* Skeleton loader – jab tak image load nahi hoti */}
+  {!imageLoaded && (
+    <div className="w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-indigo-500 shadow-xl bg-slate-700 animate-pulse" />
+  )}
+
+  {/* Real profile photo with fade-in */}
+  {picUrl && (
+    <img
+      src={picUrl}
+      alt="Portfolio Avatar"
+      onLoad={() => setImageLoaded(true)}
+      className={`w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-indigo-500 shadow-xl transition-opacity duration-500 ${
+        imageLoaded ? "opacity-100" : "opacity-0"
+      }`}
+    />
+  )}
+
+  <span className="absolute -bottom-2 -right-2 bg-indigo-500 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
+    <Sparkles size={14} /> Live
+  </span>
+</div>
+
 
         <div>
           <h1 className={`text-2xl md:text-3xl font-extrabold ${theme.text}`}>
@@ -4019,92 +4059,166 @@ const CGPACalculator = ({ theme, isDark }) => {
           </button>
         </div>
 
-        <div className="px-4 py-4 space-y-3">
-          {/* Header row */}
-          <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)_auto] gap-3 text-[11px] uppercase tracking-wide text-slate-400">
-            <span>Course / Subject</span>
-            <span className="text-center">Credit hours</span>
-            <span className="text-center">Score (0–100)</span>
-            <span className="text-center">Letter grade</span>
-            <span className="text-right">Remove</span>
-          </div>
+       {/* Subjects table – single row per subject, all devices */}
+<div className="px-4 py-4 space-y-3">
+  {/* Header row */}
+  <div
+  className={`
+      grid
+      grid-cols-[0.3fr_1.4fr_0.7fr_0.8fr_1.6fr_auto]
+      gap-2
+      text-[10px]
+      sm:text-[11px]
+      uppercase
+      tracking-wide
+      ${isDark ? "text-slate-300" : "text-slate-700"}
+    `}
+>
 
-          {/* Subject rows */}
-          {subjects.map((sub, idx) => {
-            const band = getBandForScore(sub.score);
-            const isFail = band.label === "F";
+  <span className="text-center">#</span>
+  <span>Course / Subject</span>
+  <span className="text-center">Credit hours</span>
+  <span className="text-center">Score (0–100)</span>
+  <span className="text-center">Grade / GPA / %</span>
+  <span className="text-right">Remove</span>
+</div>
 
-            return (
-              <div
-                key={idx}
-                className="grid grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)_auto] gap-3 items-center"
-              >
-                {/* Name */}
-                <input
-                  type="text"
-                  value={sub.name}
-                  onChange={(e) =>
-                    handleSubjectChange(idx, "name", e.target.value)
-                  }
-                  className={`${inputBase} ${inputBg}`}
-                  placeholder="e.g., CS101"
-                />
 
-                {/* Credits (1–3) – sirf number input with arrows */}
-                <input
-                  type="number"
-                  min={1}
-                  max={3}
-                  step={1}
-                  value={sub.credits}
-                  onChange={(e) =>
-                    handleSubjectChange(idx, "credits", e.target.value)
-                  }
-                  className={`${inputBase} ${inputBg} text-center w-20 mx-auto`}
-                />
+    {subjects.map((sub, idx) => {
+  const band = getBandForScore(sub.score);
+  const isFail = band.label === "F";
 
-                {/* Score (0–100) */}
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={sub.score}
-                  onChange={(e) =>
-                    handleSubjectChange(idx, "score", e.target.value)
-                  }
-                  className={`${inputBase} ${inputBg} text-center w-24 mx-auto`}
-                />
+  const gradeColor = isFail
+  ? isDark
+    ? "border-rose-500/60 bg-rose-500/10 text-rose-200"
+    : "border-rose-500 bg-rose-50 text-rose-700"
+  : band.gpa >= 3.5
+  ? isDark
+    ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-200"
+    : "border-emerald-500 bg-emerald-50 text-emerald-700"
+  : band.gpa >= 2.3
+  ? isDark
+    ? "border-sky-500/60 bg-sky-500/10 text-sky-200"
+    : "border-sky-500 bg-sky-50 text-sky-700"
+  : isDark
+  ? "border-amber-500/60 bg-amber-500/10 text-amber-200"
+  : "border-amber-500 bg-amber-50 text-amber-700";
 
-                {/* Letter grade display */}
-                <div
-                  className={`flex items-center justify-center gap-2 rounded-full px-3 py-1 border text-xs ${
-                    isFail
-                      ? isDark
-                        ? "border-rose-500/60 bg-rose-500/10 text-rose-200"
-                        : "border-rose-300 bg-rose-50 text-rose-700"
-                      : chipBg
-                  }`}
-                >
-                  <span className="font-semibold">{band.label}</span>
-                  <span className="opacity-80">
-                    GPA {band.gpa.toFixed(2)} · {band.range}
-                  </span>
-                </div>
 
-                {/* Remove */}
-                <button
-                  type="button"
-                  onClick={() => removeSubject(idx)}
-                  className="text-[11px] text-rose-400 hover:text-rose-500 flex items-center justify-end gap-1"
-                >
-                  <span>✕</span>
-                  <span>Remove</span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
+  return (
+    <div
+      key={idx}
+      className="
+        grid
+        grid-cols-[0.3fr_1.4fr_0.7fr_0.8fr_1.6fr_auto]
+        gap-2
+        items-center
+        text-[10px]
+        sm:text-xs
+        md:text-sm
+      "
+    >
+      {/* Row number */}
+      <div className="min-w-0 flex justify-center">
+        <span
+  className={`px-2 py-1 rounded-full text-[10px] sm:text-xs ${
+    isDark
+      ? "bg-slate-800/70 text-slate-100"
+      : "bg-slate-200 text-slate-700"
+  }`}
+>
+  {idx + 1}
+</span>
+
+      </div>
+
+      {/* Course / Subject */}
+      <div className="min-w-0">
+        <input
+          type="text"
+          value={sub.name}
+          onChange={(e) =>
+            handleSubjectChange(idx, "name", e.target.value)
+          }
+          className={`${inputBase} ${inputBg} w-full py-1.5 text-xs sm:text-sm`}
+          placeholder="CS101"
+        />
+      </div>
+
+      {/* Credit hours */}
+      <div className="min-w-0">
+        <input
+          type="number"
+          min={1}
+          max={3}
+          step={1}
+          value={sub.credits}
+          onChange={(e) =>
+            handleSubjectChange(idx, "credits", e.target.value)
+          }
+          className={`${inputBase} ${inputBg} w-full py-1.5 text-center text-xs sm:text-sm`}
+        />
+      </div>
+
+      {/* Score */}
+      <div className="min-w-0">
+        <input
+          type="number"
+          min={0}
+          max={100}
+          step={1}
+          value={sub.score}
+          onChange={(e) =>
+            handleSubjectChange(idx, "score", e.target.value)
+          }
+          className={`${inputBase} ${inputBg} w-full py-1.5 text-center text-xs sm:text-sm`}
+        />
+      </div>
+
+     {/* Grade / GPA / % chips */}
+<div className="min-w-0">
+  <div className="flex flex-wrap items-center justify-center gap-1">
+    {/* Grade */}
+    <div
+      className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
+    >
+      <span className="font-semibold">Grade {band.label}</span>
+    </div>
+
+    {/* Exact GPA for this subject */}
+    <div
+      className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
+    >
+      <span>GPA {band.gpa.toFixed(2)}</span>
+    </div>
+
+    {/* Exact percentage (entered marks) */}
+    <div
+      className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
+    >
+      <span>{(Number(sub.score) || 0).toFixed(0)}%</span>
+    </div>
+  </div>
+</div>
+
+
+      {/* Remove button */}
+      <div className="min-w-0 flex justify-end">
+        <button
+          type="button"
+          onClick={() => removeSubject(idx)}
+          className="text-[10px] sm:text-[11px] text-rose-400 hover:text-rose-500 flex items-center gap-1 whitespace-nowrap"
+        >
+          <span>✕</span>
+          <span>Remove</span>
+        </button>
+      </div>
+    </div>
+  );
+})}
+
+</div>
+
 
         {/* Bottom tip */}
         <div
@@ -4181,32 +4295,51 @@ const App = () => {
   'admin'
 ];
 
-  // ✅ central navigation function (har jagah isi ko use karna hai)
+    // ✅ central navigation function (har jagah isi ko use karna hai)
   const navigate = (targetPage) => {
     if (!PAGES.includes(targetPage)) targetPage = 'home';
 
     setPage(targetPage);
     setIsMenuOpen(false); // mobile menu close
 
+    // 🔹 base path (normally "/")
+    const basePath = window.location.pathname || '/';
+
+    // 🔹 URL me ab hash nahi hoga:
+    // home => "/" , baaki => "/?page=cgpa" etc.
+    const newUrl =
+      targetPage === 'home'
+        ? basePath
+        : `${basePath}?page=${targetPage}`;
+
     // browser history me page push karo → back button work karega
     window.history.pushState(
       { page: targetPage },
       '',
-      `#${targetPage}`
+      newUrl
     );
   };
 
-  // ✅ back button & direct link (#about, #aiquiz, etc.) handle
+  // ✅ back button & direct link (clean URL: /?page=cgpa) handle
   useEffect(() => {
-    // page decide karo: agar URL me #page hai to use, warna 'home'
-    const hash = window.location.hash.replace('#', '');
-    const initialPage = PAGES.includes(hash) ? hash : 'home';
+    // 🔹 URL ke query se page nikaal lo: /?page=cgpa
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('page') || '';
 
+    const initialPage = PAGES.includes(fromQuery) ? fromQuery : 'home';
     setPage(initialPage);
+
+    const basePath = window.location.pathname || '/';
+    const initialUrl =
+      initialPage === 'home'
+        ? basePath
+        : `${basePath}?page=${initialPage}`;
+
+    // 🔹 URL ko clean form pe set karo (hash hata ke)
     window.history.replaceState(
       { page: initialPage },
       '',
-      `#${initialPage}`
+      initialUrl
     );
 
     const handlePopState = (event) => {
@@ -4221,6 +4354,7 @@ const App = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
 
   // ✅ auth wala effect
   useEffect(() => {
@@ -4579,19 +4713,27 @@ useEffect(() => {
             <LogOut size={12} /> Exit Admin
           </button>
         )}
-        <a href="#" className={`${theme.textMuted} hover:text-indigo-500`}>
+       <button
+          type="button"
+          className={`${theme.textMuted} hover:text-indigo-500`}
+        >
           Privacy Policy
-        </a>
-        <a href="#" className={`${theme.textMuted} hover:text-indigo-500`}>
+        </button>
+
+        <button
+          type="button"
+          className={`${theme.textMuted} hover:text-indigo-500`}
+        >
           Terms of Service
-        </a>
+        </button>
+
         <span className={`${theme.textMuted}`}>
           Made for students · Light & Dark mode supported
         </span>
-      </div>
-    </div>
-  </div>
-</footer>
+        </div>
+        </div>
+        </div>
+        </footer>
 
       {showAdminLogin && (
         <AdminLogin
