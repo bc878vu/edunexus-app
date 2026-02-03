@@ -507,41 +507,44 @@ const Navbar = ({
   );
 };
 // ===============================
-// ✅ Reusable Google AdSense Banner
+//  ✅  Smart AdSense Banner (Dynamic Height)
 // ===============================
 const AdBanner = ({ slot, className = "", layout = "in-article" }) => {
-  const [canShowAd, setCanShowAd] = useState(false);
+  const [isAdLoaded, setIsAdLoaded] = useState(false);
 
   useEffect(() => {
+    // 1. Check karo ke Production mode hai aur AdSense script loaded hai
     if (
       typeof window !== "undefined" &&
       window.adsbygoogle &&
       process.env.NODE_ENV === "production"
     ) {
       try {
+        // 2. Ad push karo
         window.adsbygoogle.push({});
-        setCanShowAd(true); // ✅ ad allowed
+        setIsAdLoaded(true);
       } catch (e) {
         console.log("Adsense error:", e);
       }
     }
   }, []);
 
-  // ❌ AdSense load nahi hua → kuch render hi mat karo
-  if (!canShowAd) return null;
+  // 🔴 AGAR Production nahi hai, ya AdBlocker on hai -> RETURN NULL (0 height)
+  if (process.env.NODE_ENV !== "production") return null;
 
   return (
-    <div className={`w-full flex justify-center ${className}`}>
-      <ins
-        className="adsbygoogle"
-        style={{ display: "block", textAlign: "center" }}
-        data-ad-client="ca-pub-5179042048080611"
-        data-ad-slot={slot}
-        data-ad-format="auto"
-        data-ad-layout={layout}
-        data-full-width-responsive="true"
-      />
-    </div>
+    // 🟢 Wrapper DIV hata diya hai.
+    // ClassName ab direct <ins> par lagega.
+    // Jab Google isko 'display: none' karega, to Margin b khtam ho jayega.
+    <ins
+      className={`adsbygoogle ${className}`} // 👈 Aapki margin classes yahan apply hongi
+      style={{ display: "block", textAlign: "center" }}
+      data-ad-client="ca-pub-5179042048080611"
+      data-ad-slot={slot}
+      data-ad-format="auto"
+      data-ad-layout={layout}
+      data-full-width-responsive="true"
+    />
   );
 };
 
