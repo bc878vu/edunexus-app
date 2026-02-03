@@ -510,23 +510,33 @@ const Navbar = ({
 // ✅ Reusable Google AdSense Banner
 // ===============================
 const AdBanner = ({ slot, className = "", layout = "in-article" }) => {
+  const [canShowAd, setCanShowAd] = useState(false);
+
   useEffect(() => {
-    try {
-      if (window.adsbygoogle && process.env.NODE_ENV === "production") {
+    if (
+      typeof window !== "undefined" &&
+      window.adsbygoogle &&
+      process.env.NODE_ENV === "production"
+    ) {
+      try {
         window.adsbygoogle.push({});
+        setCanShowAd(true); // ✅ ad allowed
+      } catch (e) {
+        console.log("Adsense error:", e);
       }
-    } catch (e) {
-      console.log("Adsense error:", e);
     }
   }, []);
 
+  // ❌ AdSense load nahi hua → kuch render hi mat karo
+  if (!canShowAd) return null;
+
   return (
-    <div className={className}>
+    <div className={`w-full flex justify-center ${className}`}>
       <ins
         className="adsbygoogle"
         style={{ display: "block", textAlign: "center" }}
         data-ad-client="ca-pub-5179042048080611"
-        data-ad-slot={slot}   // 👈 yahan REAL Ad Slot ID aayegi
+        data-ad-slot={slot}
         data-ad-format="auto"
         data-ad-layout={layout}
         data-full-width-responsive="true"
