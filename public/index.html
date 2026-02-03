@@ -1,65 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
+<head>
+  <meta charset="utf-8" />
 
-    <!-- Favicon -->
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+  <!-- Primary SEO -->
+  <title>EduNexus | Smart Study Hub for Students</title>
 
-    <!-- Responsive -->
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+  <meta
+    name="description"
+    content="EduNexus is a free smart study hub for Virtual University (VU) and online students. Get VU notes, handouts, past papers, quizzes, CGPA calculator and AI study tools in one place."
+  />
 
-    <!-- SEO Meta -->
-    <title>EduNexus – Virtual University Study Hub</title>
+  <meta
+    name="keywords"
+    content="EduNexus, study hub, VU notes, VU handouts, VU past papers, Virtual University students, VULMS resources, online study portal, CGPA calculator, GPA calculator, quizzes, mock tests, AI study tools, exam preparation Pakistan"
+  />
 
-    <meta
-      name="description"
-      content="EduNexus is a smart study hub for Virtual University (VU) students. Get notes, handouts, past papers, quizzes, AI tools, discussions and academic resources in one place."
-    />
+  <meta name="author" content="EduNexus" />
+  <meta
+    name="robots"
+    content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"
+  />
 
-    <meta
-      name="keywords"
-      content="Virtual University, VU, VULMS, EduNexus, VU Students, Study Material, Notes, Handouts, Past Papers, Quizzes, Mock Tests, Online Learning, AI Study Tools"
-    />
+  <!-- Canonical & Sitemap -->
+  <link rel="canonical" href="https://edunexus.indevs.in/" />
+  <link
+    rel="sitemap"
+    type="application/xml"
+    href="https://edunexus.indevs.in/sitemap.xml"
+  />
 
-    <meta name="author" content="EduNexus" />
-    <meta name="robots" content="index, follow" />
+  <!-- Language / Region -->
+  <link rel="alternate" hreflang="en" href="https://edunexus.indevs.in/" />
 
-    <!-- Apple & PWA -->
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+  <!-- Responsive / Theme -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
 
-    <!-- ✅ Google AdSense -->
-    <script
-      async
-      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5179042048080611"
-      crossorigin="anonymous">
-    </script>
+  <!-- Favicon & PWA -->
+  <!-- 🔹 Yahan apna EduNexus wala favicon.ico & logo192.png rakhna hai
+       taake React ka blue logo na aaye -->
+  <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
-    <!-- ✅ Google Analytics 4 -->
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-FSF0S8G12W">
-    </script>
+  <!-- Open Graph (Facebook / WhatsApp) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="EduNexus" />
+  <meta property="og:title" content="EduNexus | Smart Study Hub for Students" />
+  <meta
+    property="og:description"
+    content="Free study hub for VU and online students: notes, handouts, past papers, quizzes, CGPA calculator and AI tools."
+  />
+  <meta property="og:url" content="https://edunexus.indevs.in/" />
+  <!-- og-image: public/og-image.png (apna custom banner) -->
+  <meta property="og:image" content="https://edunexus.indevs.in/og-image.png" />
+  <meta property="og:locale" content="en_PK" />
 
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="EduNexus | Smart Study Hub for Students" />
+  <meta
+    name="twitter:description"
+    content="EduNexus – notes, handouts, past papers, quizzes, CGPA calculator and AI-powered study tools for university students."
+  />
+  <meta name="twitter:image" content="https://edunexus.indevs.in/og-image.png" />
+
+  <!-- Google AdSense (white-hat, as per policy) -->
+  <script
+    async
+    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5179042048080611"
+    crossorigin="anonymous"
+  ></script>
+
+  <!-- Google Analytics 4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-FSF0S8G12W"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag("js", new Date());
+    gtag("config", "G-FSF0S8G12W");
+  </script>
+
+  <!-- Structured Data: Organization -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "EduNexus",
+      "url": "https://edunexus.indevs.in",
+      "logo": "https://edunexus.indevs.in/logo.png",
+      "description": "Study hub for university students with notes, handouts, past papers, quizzes, CGPA calculator and AI tools.",
+      "sameAs": []
+    }
+  </script>
+
+  <!-- Structured Data: Website + Search -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "EduNexus",
+      "url": "https://edunexus.indevs.in",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://edunexus.indevs.in/search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
       }
-      gtag("js", new Date());
-      gtag("config", "G-FSF0S8G12W");
-    </script>
-    <!-- GA4 End -->
+    }
+  </script>
+</head>
 
-  </head>
+<body>
+  <noscript>You need to enable JavaScript to run this application.</noscript>
 
-  <body>
-    <noscript>
-      You need to enable JavaScript to run this application.
-    </noscript>
-
-    <div id="root"></div>
-  </body>
+  <!-- React app yahan mount hogi -->
+  <div id="root"></div>
+</body>
 </html>

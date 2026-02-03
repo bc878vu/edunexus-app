@@ -1,4 +1,7 @@
 User-agent: *
+Disallow: /admin
+Disallow: /login
+Disallow: /dashboard
 Allow: /
 
-Sitemap: https://edunexus-app.vercel.app/sitemap.xml
+Sitemap: https://edunexus.indevs.in/sitemap.xml
