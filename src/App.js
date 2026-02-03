@@ -5,6 +5,7 @@ import {
   MessageSquare,
   Briefcase,
   User,
+  PAGES,
   LogOut,
   Calculator,
   LogIn,
@@ -278,39 +279,40 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
-// Modern + Safe Navbar (replace your old Navbar with this)
-
+// Modern + Safe Navbar (PC Header Fix)
 const Navbar = ({
   page,
   setPage,
   user,
   isAdmin,
-  theme,      // still receive, but header apna safe color use karega
+  theme,
   toggleMenu,
   isMenuOpen,
 }) => {
+  // ✅ Yahan "Portfolio" add kiya hai taake PC Header par show ho
   const MAIN_ITEMS = [
-    { id: "home", label: "Home" },
-    { id: "articles", label: "Articles" },
-    { id: "cgpa", label: "CGPA Calc" },
-    { id: "forum", label: "Discussion" },
-    { id: "portfolio", label: "Portfolio" },
-    { id: "about", label: "About" },
-    { id: "contact", label: "Contact" },
+    { id: "home",      label: "Home" },
+    { id: "academic",  label: "Academic Hub" },
+    { id: "cgpa",      label: "CGPA Calc" },
+    { id: "articles",  label: "Articles" },
+    { id: "forum",     label: "Discussion" },
+    { id: "portfolio", label: "Portfolio" }, // 👈 Added specifically for Top Navbar
+    { id: "about",     label: "About" },
+    { id: "contact",   label: "Contact" },
   ];
 
   const ALL_ITEMS = [
-    { id: "home", label: "Home" },
-    { id: "articles", label: "Articles" },
-    { id: "cgpa", label: "CGPA Calc" },
-    { id: "forum", label: "Discussion" },
+    { id: "home",      label: "Home" },
+    { id: "academic",  label: "Academic Hub" },
+    { id: "cgpa",      label: "CGPA Calc" },
+    { id: "articles",  label: "Articles" },
+    { id: "planner",   label: "Study Planner" },
+    { id: "flashcards",label: "AI Flashcards" },
+    { id: "aiquiz",    label: "AI Quiz" },
+    { id: "forum",     label: "Discussion" },
     { id: "portfolio", label: "Portfolio" },
-    { id: "about", label: "About" },
-    { id: "contact", label: "Contact" },
-    { id: "academic", label: "Academic Hub" },
-    { id: "planner", label: "Study Planner" },
-    { id: "flashcards", label: "AI Flashcards" },
-    { id: "aiquiz", label: "AI Quiz" },
+    { id: "about",     label: "About" },
+    { id: "contact",   label: "Contact" },
   ];
 
   const handleNavClick = (targetPage) => {
@@ -358,28 +360,27 @@ const Navbar = ({
             </div>
           </button>
 
-          {/* Desktop links */}
+          {/* Desktop links (PC HEADER) */}
           <nav className="hidden lg:flex items-center gap-1">
-  {MAIN_ITEMS.map((item) => (
-    <button
-      key={item.id}
-      onClick={() => handleNavClick(item.id)}
-      className={`
-        px-4 py-2.5 rounded-full
-        text-[15px] font-semibold tracking-wide
-        transition-all
-        ${
-          isActive(item.id)
-            ? "bg-indigo-500 text-white shadow-md"
-            : "text-slate-200 hover:bg-slate-800/80"
-        }
-      `}
-    >
-      {item.label}
-    </button>
-  ))}
-</nav>
-
+            {MAIN_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleNavClick(item.id)}
+                className={`
+                  px-4 py-2.5 rounded-full
+                  text-[15px] font-semibold tracking-wide
+                  transition-all
+                  ${
+                    isActive(item.id)
+                      ? "bg-indigo-500 text-white shadow-md"
+                      : "text-slate-200 hover:bg-slate-800/80"
+                  }
+                `}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
 
           {/* Right side desktop */}
           <div className="hidden lg:flex items-center gap-3">
@@ -505,7 +506,12 @@ const Navbar = ({
     </>
   );
 };
-
+// ===============================
+//  🚫 Ads Removed Temporarily (No Gap)
+// ===============================
+const AdBanner = () => {
+  return null; // Ads bilkul show nahi honge, zero space
+};
 // 2. Announcements
 const Announcements = ({ user }) => {
   const [news, setNews] = useState([]);
@@ -654,6 +660,10 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
 
       {/* ✅ Yahi jagah hai jahan skeleton + real cards aayenge */}
       <div className="space-y-6">
+        <AdBanner
+          slot="9309151718"   // ← yahan Articles ke liye real slot ID lagao
+          className="mb-6"
+        />
         {/* 🔹 Skeletons jab tak Firestore se data aa raha hai */}
         {loading && (
           <>
@@ -1137,6 +1147,10 @@ const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
               </button>
             ))}
           </div>
+          <AdBanner
+            slot="3238567388"   // 👈 ye slot ID tumne diya hai
+            className="mt-8"
+          />
         </div>
            ) : (
         // 📂 Files in current subject
@@ -2099,78 +2113,91 @@ const HomePage = ({setPage, theme, showToast, user}) => {
           </a>
         </div>
       </div>
-
+        {/* 🔹 Home Hero Ad – search + buttons ke neeche */}
+    <AdBanner
+      slot="5952360635"   // Home Hero Ad ka slot ID
+      className="mt-10"
+    />
             {showSection && highlights.length > 0 && (
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-6">
-            <h2
-              className={`text-2xl font-bold flex items-center gap-2 ${theme.text}`}
+  <>
+    <div className="max-w-6xl mx-auto px-4">
+      <div className="flex items-center justify-between mb-6">
+        <h2
+          className={`text-2xl font-bold flex items-center gap-2 ${theme.text}`}
+        >
+          <Megaphone className="text-red-500" />
+          Campus Highlights
+        </h2>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {highlights.map((post) => {
+          const IconComponent = ICON_MAP[post.iconName] || Calendar;
+
+          const CardInner = (
+            <div className="flex flex-col h-full">
+              {/* Icon */}
+              <div
+                className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${
+                  post.color || "bg-indigo-100 text-indigo-700"
+                }`}
+              >
+                <IconComponent size={24} />
+              </div>
+
+              {/* Title */}
+              <h3
+                className={`font-semibold text-base md:text-lg mb-3 ${theme.text}`}
+              >
+                {post.title}
+              </h3>
+
+              {/* Description / bullets */}
+              <div className="flex-1">
+                {renderHighlightDesc(post.desc)}
+              </div>
+
+              {/* Visit link */}
+              {post.link && (
+                <div className="mt-4">
+                  <span className="inline-flex items-center gap-1 text-sm font-medium text-indigo-400 group-hover:text-indigo-300 group-hover:underline">
+                    Visit Link
+                    <ExternalLink size={12} />
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+
+          const cardClasses = `${theme.card} border ${theme.border} rounded-2xl p-5 shadow-sm hover:shadow-md transition-transform hover:-translate-y-1 group`;
+
+          return post.link ? (
+            <a
+              key={post.id}
+              href={post.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cardClasses}
             >
-              <Megaphone className="text-red-500" />
-              Campus Highlights
-            </h2>
-          </div>
+              {CardInner}
+            </a>
+          ) : (
+            <div key={post.id} className={cardClasses}>
+              {CardInner}
+            </div>
+          );
+        })}
+      </div>
+    </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {highlights.map((post) => {
-              const IconComponent = ICON_MAP[post.iconName] || Calendar;
+    {/* 🔹 Home Mid Content Ad – highlights ke neeche */}
+    <AdBanner
+      slot="2013115620"   // Home Mid Content Ad ka slot ID
+      className="mt-8"
+    />
+  </>
+)}
 
-              const CardInner = (
-                <div className="flex flex-col h-full">
-                  {/* Icon */}
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${
-                      post.color || 'bg-indigo-100 text-indigo-700'
-                    }`}
-                  >
-                    <IconComponent size={24} />
-                  </div>
-
-                  {/* Title */}
-                  <h3
-                    className={`font-semibold text-base md:text-lg mb-3 ${theme.text}`}
-                  >
-                    {post.title}
-                  </h3>
-
-                  {/* Description / bullets */}
-                  <div className="flex-1">
-                    {renderHighlightDesc(post.desc)}
-                  </div>
-
-                  {/* Visit link */}
-                  {post.link && (
-                    <div className="mt-4">
-                      <span className="inline-flex items-center gap-1 text-sm font-medium text-indigo-400 group-hover:text-indigo-300 group-hover:underline">
-                        Visit Link
-                        <ExternalLink size={12} />
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-
-              const cardClasses = `${theme.card} border ${theme.border} rounded-2xl p-5 shadow-sm hover:shadow-md transition-transform hover:-translate-y-1 group`;
-
-              return post.link ? (
-                <a
-                  key={post.id}
-                  href={post.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cardClasses}
-                >
-                  {CardInner}
-                </a>
-              ) : (
-                <div key={post.id} className={cardClasses}>
-                  {CardInner}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
 
       <Feedback theme={theme} showToast={showToast} />
@@ -4278,22 +4305,78 @@ const App = () => {
   const [footerClicks, setFooterClicks] = useState(0);
   const [toast, setToast] = useState(null);
   const { isDark, setIsDark, theme } = useTheme();
-   const currentYear = new Date().getFullYear();
-  // ✅ saare pages ki list (routing ke liye)
-  const PAGES = [
+  const currentYear = new Date().getFullYear();
+
+  /// ✅ saare pages ki list (routing + URL ke liye)
+const PAGES = [
   'home',
-  'articles',
   'academic',
-  'planner',
-  'flashcards',
-  'forum',
+  'articles',
   'aiquiz',
-  'cgpa',       // ⭐ NEW
+  'flashcards',
+  'planner',
+  'cgpa',
+  'forum',
   'portfolio',
   'about',
   'contact',
-  'admin'
 ];
+
+// Navbar items agar kahin aur chahiye hon to isi list ko reuse karein
+const NAV_ITEMS = PAGES;
+
+
+  // ✅ NEW: page-wise SEO titles
+  const PAGE_TITLES = {
+    home: 'EduNexus – Study Material, Mock Tests & AI Tools',
+    articles: "EduNexus Articles & Guides – Virtual University Study Tips",
+    academic: "VU Notes, Handouts & Past Papers – EduNexus Academic Hub",
+    planner: "Study Planner – Create AI Study Plan | EduNexus",
+    flashcards: "AI Flashcards – Learn VU Subjects Fast | EduNexus",
+    forum: "Discussion Forum – Ask Virtual University Questions | EduNexus",
+    aiquiz: "AI Quiz Generator – Virtual University MCQs Practice | EduNexus",
+    cgpa: "CGPA & GPA Calculator – Virtual University | EduNexus",
+    portfolio: "Asad Amanat Ali – Software Engineer Portfolio | EduNexus",
+    about: "About EduNexus – Independent Virtual University Study Hub",
+    contact: "Contact EduNexus – Support for VU Students",
+    admin: "EduNexus Admin Panel"
+  };
+
+  // ✅ NEW: page-wise meta descriptions
+  const PAGE_DESCRIPTIONS = {
+    home: "EduNexus is a smart study hub for Virtual University (VU) students. Access VU notes, handouts, past papers, quizzes, mock tests, CGPA calculator and AI study tools in one place.",
+    articles: "Read official EduNexus articles: exam tips, VU updates, technical guides and student success stories for Virtual University students.",
+    academic: "Download Virtual University notes, handouts, files and past papers for CS101, MTH101, ENG101, PHY101 and many more VU subjects.",
+    planner: "Generate a personalized study plan with AI based on your Virtual University subjects, uploaded files and available study hours.",
+    flashcards: "Create interactive AI flashcards for any topic and revise Virtual University subjects quickly and effectively with EduNexus.",
+    forum: "Ask questions, discuss assignments and get admin replies in the EduNexus discussion forum designed for Virtual University students.",
+    aiquiz: "Generate MCQ quizzes with AI from your text or files and practice like real Virtual University exams with instant feedback.",
+    cgpa: "Calculate your CGPA and GPA using VU-style grading. Track your academic performance with the EduNexus CGPA calculator.",
+    portfolio: "View the developer portfolio of Asad Amanat Ali, creator of EduNexus and AI powered learning tools for Virtual University students.",
+    about: "Learn what EduNexus is, how it helps Virtual University students and why it is an independent, student-focused study hub.",
+    contact: "Need help with notes, quizzes, AI tools or portal issues? Contact the EduNexus support team using this page.",
+    admin: "Admin area of EduNexus to manage highlights, files, announcements, articles and other study resources."
+  };
+  // ✅ Update <title> + <meta description> on page change
+  useEffect(() => {
+    // 1) Page ka title set karo
+    const title = PAGE_TITLES[page] || PAGE_TITLES.home;
+    document.title = title;
+
+    // 2) Meta description element dhundo
+    const metaDesc = document.querySelector("meta[name='description']");
+
+    // 3) Agar mila to uski content update karo
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        "content",
+        PAGE_DESCRIPTIONS[page] || PAGE_DESCRIPTIONS.home
+      );
+    }
+
+    // 4) UX: har page change par upar scroll kare
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [page]);
 
     // ✅ central navigation function (har jagah isi ko use karna hai)
   const navigate = (targetPage) => {
@@ -4589,7 +4672,7 @@ useEffect(() => {
           </a>
         </div>
       </div>
-
+      
       {/* Quick links */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold tracking-wide">Quick Links</h3>
