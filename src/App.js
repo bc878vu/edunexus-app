@@ -507,40 +507,10 @@ const Navbar = ({
   );
 };
 // ===============================
-//  ✅  Fixed AdSense Banner (No Gap)
+//  🚫 Ads Removed Temporarily (No Gap)
 // ===============================
-const AdBanner = ({ slot, className = "", layout = "in-article" }) => {
-  useEffect(() => {
-    // 1. Sirf Production mode mein script chalao
-    if (
-      typeof window !== "undefined" &&
-      window.adsbygoogle &&
-      process.env.NODE_ENV === "production"
-    ) {
-      try {
-        window.adsbygoogle.push({});
-      } catch (e) {
-        console.log("Adsense error:", e);
-      }
-    }
-  }, []);
-
-  // 2. Agar Production nahi hai (Localhost hai), to kuch return mat karo (Zero Size)
-  if (process.env.NODE_ENV !== "production") return null;
-
-  return (
-    // 3. Wrapper DIV hata diya hai. Margin ab direct <ins> par lagega.
-    // Jab Google ad hide karega, to margin bhi gayab ho jayega.
-    <ins
-      className={`adsbygoogle ${className}`}
-      style={{ display: "block", textAlign: "center" }}
-      data-ad-client="ca-pub-5179042048080611"
-      data-ad-slot={slot}
-      data-ad-format="auto"
-      data-ad-layout={layout}
-      data-full-width-responsive="true"
-    />
-  );
+const AdBanner = () => {
+  return null; // Ads bilkul show nahi honge, zero space
 };
 // 2. Announcements
 const Announcements = ({ user }) => {
