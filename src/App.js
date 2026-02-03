@@ -507,37 +507,32 @@ const Navbar = ({
   );
 };
 // ===============================
-//  ✅  Smart AdSense Banner (Dynamic Height)
+//  ✅  Fixed AdSense Banner (No Gap)
 // ===============================
 const AdBanner = ({ slot, className = "", layout = "in-article" }) => {
-  const [isAdLoaded, setIsAdLoaded] = useState(false);
-
   useEffect(() => {
-    // 1. Check karo ke Production mode hai aur AdSense script loaded hai
+    // 1. Sirf Production mode mein script chalao
     if (
       typeof window !== "undefined" &&
       window.adsbygoogle &&
       process.env.NODE_ENV === "production"
     ) {
       try {
-        // 2. Ad push karo
         window.adsbygoogle.push({});
-        setIsAdLoaded(true);
       } catch (e) {
         console.log("Adsense error:", e);
       }
     }
   }, []);
 
-  // 🔴 AGAR Production nahi hai, ya AdBlocker on hai -> RETURN NULL (0 height)
+  // 2. Agar Production nahi hai (Localhost hai), to kuch return mat karo (Zero Size)
   if (process.env.NODE_ENV !== "production") return null;
 
   return (
-    // 🟢 Wrapper DIV hata diya hai.
-    // ClassName ab direct <ins> par lagega.
-    // Jab Google isko 'display: none' karega, to Margin b khtam ho jayega.
+    // 3. Wrapper DIV hata diya hai. Margin ab direct <ins> par lagega.
+    // Jab Google ad hide karega, to margin bhi gayab ho jayega.
     <ins
-      className={`adsbygoogle ${className}`} // 👈 Aapki margin classes yahan apply hongi
+      className={`adsbygoogle ${className}`}
       style={{ display: "block", textAlign: "center" }}
       data-ad-client="ca-pub-5179042048080611"
       data-ad-slot={slot}
@@ -547,7 +542,6 @@ const AdBanner = ({ slot, className = "", layout = "in-article" }) => {
     />
   );
 };
-
 // 2. Announcements
 const Announcements = ({ user }) => {
   const [news, setNews] = useState([]);
