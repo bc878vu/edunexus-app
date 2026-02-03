@@ -660,10 +660,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
 
       {/* ✅ Yahi jagah hai jahan skeleton + real cards aayenge */}
       <div className="space-y-6">
-        <AdBanner
-          slot="9309151718"   // ← yahan Articles ke liye real slot ID lagao
-          className="mb-6"
-        />
+        
         {/* 🔹 Skeletons jab tak Firestore se data aa raha hai */}
         {loading && (
           <>
@@ -1147,10 +1144,7 @@ const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
               </button>
             ))}
           </div>
-          <AdBanner
-            slot="3238567388"   // 👈 ye slot ID tumne diya hai
-            className="mt-8"
-          />
+
         </div>
            ) : (
         // 📂 Files in current subject
@@ -2114,10 +2108,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
         </div>
       </div>
         {/* 🔹 Home Hero Ad – search + buttons ke neeche */}
-    <AdBanner
-      slot="5952360635"   // Home Hero Ad ka slot ID
-      className="mt-10"
-    />
+    
             {showSection && highlights.length > 0 && (
   <>
     <div className="max-w-6xl mx-auto px-4">
@@ -2191,10 +2182,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
     </div>
 
     {/* 🔹 Home Mid Content Ad – highlights ke neeche */}
-    <AdBanner
-      slot="2013115620"   // Home Mid Content Ad ka slot ID
-      className="mt-8"
-    />
+    
   </>
 )}
 
@@ -4320,6 +4308,7 @@ const PAGES = [
   'portfolio',
   'about',
   'contact',
+  'admin',
 ];
 
 // Navbar items agar kahin aur chahiye hon to isi list ko reuse karein

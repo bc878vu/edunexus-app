@@ -23,23 +23,22 @@
   />
 
   <!-- Canonical & Sitemap -->
-  <link rel="canonical" href="https://edunexus.indevs.in/" />
+  <link rel="canonical" href="https://edunexus-app.vercel.app/" />
   <link
     rel="sitemap"
     type="application/xml"
-    href="https://edunexus.indevs.in/sitemap.xml"
+    href="https://edunexus-app.vercel.app/sitemap.xml"
   />
 
   <!-- Language / Region -->
-  <link rel="alternate" hreflang="en" href="https://edunexus.indevs.in/" />
+  <link rel="alternate" hreflang="en" href="https://edunexus-app.vercel.app/" />
 
   <!-- Responsive / Theme -->
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0f172a" />
 
   <!-- Favicon & PWA -->
-  <!-- 🔹 Yahan apna EduNexus wala favicon.ico & logo192.png rakhna hai
-       taake React ka blue logo na aaye -->
+  <!-- Yahan apna EduNexus wala favicon.ico & logo192.png rakhna hai -->
   <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
   <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
@@ -52,9 +51,12 @@
     property="og:description"
     content="Free study hub for VU and online students: notes, handouts, past papers, quizzes, CGPA calculator and AI tools."
   />
-  <meta property="og:url" content="https://edunexus.indevs.in/" />
+  <meta property="og:url" content="https://edunexus-app.vercel.app/" />
   <!-- og-image: public/og-image.png (apna custom banner) -->
-  <meta property="og:image" content="https://edunexus.indevs.in/og-image.png" />
+  <meta
+    property="og:image"
+    content="https://edunexus-app.vercel.app/og-image.png"
+  />
   <meta property="og:locale" content="en_PK" />
 
   <!-- Twitter Card -->
@@ -64,23 +66,31 @@
     name="twitter:description"
     content="EduNexus – notes, handouts, past papers, quizzes, CGPA calculator and AI-powered study tools for university students."
   />
-  <meta name="twitter:image" content="https://edunexus.indevs.in/og-image.png" />
-<meta name="google-adsense-account" content="ca-pub-5179042048080611">
-  <!-- Google AdSense (white-hat, as per policy) -->
+  <meta
+    name="twitter:image"
+    content="https://edunexus-app.vercel.app/og-image.png"
+  />
+
+  <!-- Agar abhi AdSense nahi chalani to ye line bhi hata sakti ho -->
+  <!-- <meta name="google-adsense-account" content="ca-pub-5179042048080611"> -->
+
+  <!-- ❌ AdSense script temporarily removed (ads band rakhne ke liye) -->
+  <!--
   <script
     async
     src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5179042048080611"
     crossorigin="anonymous"
   ></script>
+  -->
 
-  <!-- Google Analytics 4 -->
- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XJ502KMRYF"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-XJ502KMRYF');
-</script>
+  <!-- Google Analytics 4 (yahi rehne do) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XJ502KMRYF"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XJ502KMRYF');
+  </script>
 
   <!-- Structured Data: Organization -->
   <script type="application/ld+json">
@@ -88,8 +98,8 @@
       "@context": "https://schema.org",
       "@type": "Organization",
       "name": "EduNexus",
-      "url": "https://edunexus.indevs.in",
-      "logo": "https://edunexus.indevs.in/logo.png",
+      "url": "https://edunexus-app.vercel.app",
+      "logo": "https://edunexus-app.vercel.app/logo.png",
       "description": "Study hub for university students with notes, handouts, past papers, quizzes, CGPA calculator and AI tools.",
       "sameAs": []
     }
@@ -101,10 +111,10 @@
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": "EduNexus",
-      "url": "https://edunexus.indevs.in",
+      "url": "https://edunexus-app.vercel.app",
       "potentialAction": {
         "@type": "SearchAction",
-        "target": "https://edunexus.indevs.in/search?q={search_term_string}",
+        "target": "https://edunexus-app.vercel.app/search?q={search_term_string}",
         "query-input": "required name=search_term_string"
       }
     }
@@ -113,8 +123,6 @@
 
 <body>
   <noscript>You need to enable JavaScript to run this application.</noscript>
-
-  <!-- React app yahan mount hogi -->
   <div id="root"></div>
 </body>
 </html>
