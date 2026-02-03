@@ -244,39 +244,39 @@ const callGemini = async (prompt) => {
 
 
 const useTheme = () => {
-  const [isDark, setIsDark] = useState(true);
+  // 🌞 Default LIGHT mode
+  const [isDark, setIsDark] = useState(() => {
+    const savedTheme = localStorage.getItem("theme");
+    return savedTheme === "dark"; // agar user ne dark select kiya ho
+  });
+
+  // 💾 User choice remember rakho
+  useEffect(() => {
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+  }, [isDark]);
+
   const themeClass = {
     bg: isDark ? 'bg-slate-950' : 'bg-slate-50',
     card: isDark ? 'bg-slate-900' : 'bg-white',
     text: isDark ? 'text-slate-200' : 'text-slate-800',
     textMuted: isDark ? 'text-slate-400' : 'text-slate-500',
     border: isDark ? 'border-slate-800' : 'border-slate-200',
-    input: isDark ? 'bg-slate-950 border border-slate-700 focus:border-indigo-500 text-white placeholder-slate-400' : 'bg-white border border-slate-300 focus:border-indigo-500 text-slate-900 placeholder-slate-500',
+
+    input: isDark
+      ? 'bg-slate-950 border border-slate-700 focus:border-indigo-500 text-white placeholder-slate-400'
+      : 'bg-white border border-slate-300 focus:border-indigo-500 text-slate-900 placeholder-slate-500',
+
     nav: isDark ? 'bg-slate-950/95' : 'bg-white/95',
+
     accent: 'text-indigo-500',
     accentBg: 'bg-indigo-600',
-    chatInput: isDark ? 'bg-slate-800 text-white placeholder-slate-400' : 'bg-slate-100 text-slate-900 placeholder-slate-500'
+
+    chatInput: isDark
+      ? 'bg-slate-800 text-white placeholder-slate-400'
+      : 'bg-slate-100 text-slate-900 placeholder-slate-500',
   };
+
   return { isDark, setIsDark, theme: themeClass };
-};
-
-// --- Components ---
-
-const Toast = ({ message, type, onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000); 
-    return () => clearTimeout(timer);
-  }, [onClose]);
-  
-  const bgColors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-indigo-600' };
-  
-  return (
-    <div className={`fixed top-4 right-4 z-[100] ${bgColors[type] || bgColors.info} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-down`}>
-      {type === 'success' ? <CheckCircle size={20}/> : type === 'error' ? <AlertCircle size={20}/> : <Info size={20}/>}
-      <span className="font-bold text-sm">{String(message)}</span>
-      <button onClick={onClose}><X size={16} className="opacity-80 hover:opacity-100"/></button>
-    </div>
-  );
 };
 
 // Modern + Safe Navbar (PC Header Fix)
@@ -3876,6 +3876,10 @@ const CGPACalculator = ({ theme, isDark }) => {
   const [subjects, setSubjects] = React.useState([
     { name: "CS101", credits: 3, score: 0 },
   ]);
+    const [studentName, setStudentName] = React.useState("");
+  const [studentId, setStudentId] = React.useState("");
+  const [program, setProgram] = React.useState("BS (Computer Science)");
+  const [semester, setSemester] = React.useState("");
 
   // 🔹 Subject change helper (clamps values)
   const handleSubjectChange = (index, field, rawValue) => {
@@ -3914,6 +3918,18 @@ const CGPACalculator = ({ theme, isDark }) => {
     setSubjects((prev) =>
       prev.length === 1 ? prev : prev.filter((_, i) => i !== index)
     );
+  };
+
+  const handlePrint = () => {
+    if (!studentName || !studentId) {
+      alert("Please enter your Name and Student ID first.");
+      return;
+    }
+    if (!subjects || subjects.length === 0) {
+      alert("Please add at least one subject.");
+      return;
+    }
+    window.print();
   };
 
   // 🔹 Overall CGPA / percentage / credits
@@ -3959,10 +3975,12 @@ const CGPACalculator = ({ theme, isDark }) => {
       resultSub = "Strong CGPA – keep this momentum for distinction!";
     } else if (overallGPA >= 2.5 && failedCount === 0) {
       resultTitle = "On track ✨";
-      resultSub = "Decent performance – a little more effort and you’ll shine.";
+      resultSub =
+        "Decent performance – a little more effort and you’ll shine.";
     } else if (failedCount === 0) {
       resultTitle = "Keep pushing 💪";
-      resultSub = "You’re passing – focus on weak areas for a better CGPA.";
+      resultSub =
+        "You’re passing – focus on weak areas for a better CGPA.";
     } else {
       resultTitle = "Stay hopeful 💡";
       resultSub =
@@ -3988,262 +4006,468 @@ const CGPACalculator = ({ theme, isDark }) => {
 
   return (
     <section className="space-y-8">
-      {/* 🔹 Top result message */}
-      <div
-        className={`max-w-3xl mx-auto text-center rounded-2xl px-5 py-4 ${
-          isDark
-            ? "bg-emerald-500/10 border border-emerald-500/40 text-emerald-200"
-            : "bg-emerald-50 border border-emerald-200 text-emerald-800"
-        }`}
-      >
-        <h2 className="text-sm md:text-base font-semibold">
-          {resultTitle}
-        </h2>
-        <p className="text-xs md:text-sm mt-1 opacity-80">
-          {resultSub}
-        </p>
-      </div>
-
-      {/* 🔹 Intro text */}
-      <p className={`text-xs md:text-sm ${theme.textMuted}`}>
-        Add all subjects with credit hours and marks (0–100). We approximate
-        CGPA on a 4.0 scale using VU-style letter grades. Always confirm with
-        your official grade book.
-      </p>
-
-      {/* 🔹 Summary cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className={`${infoCardBase} ${infoCardBg}`}>
-          <div>
-            <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">
-              CGPA (approx)
-            </p>
-            <p className="mt-2 text-3xl font-bold text-emerald-400">
-              {overallGPA.toFixed(2)}
-            </p>
-          </div>
-          <p className={`mt-3 text-xs ${theme.textMuted}`}>
-            out of 4.00 — weighted average of all subject grade points.
-          </p>
-        </div>
-
-        <div className={`${infoCardBase} ${infoCardBg}`}>
-          <div>
-            <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide">
-              Overall percentage
-            </p>
-            <p className="mt-2 text-3xl font-bold text-indigo-400">
-              {overallPercent.toFixed(1)}%
-            </p>
-          </div>
-          <p className={`mt-3 text-xs ${theme.textMuted}`}>
-            Credit-weighted average of all subject marks.
-          </p>
-        </div>
-
-        <div className={`${infoCardBase} ${infoCardBg}`}>
-          <div>
-            <p className="text-xs font-semibold text-sky-400 uppercase tracking-wide">
-              Total credits
-            </p>
-            <p className="mt-2 text-3xl font-bold text-sky-400">
-              {totalCredits}
-            </p>
-          </div>
-          <p className={`mt-3 text-xs ${theme.textMuted}`}>
-            Sum of all entered credit hours.
-          </p>
-        </div>
-      </div>
-
-      {/* 🔹 Subjects table */}
-      <div
-        className={`${isDark ? "bg-slate-900/70" : "bg-white"} rounded-2xl border ${
-          isDark ? "border-slate-800" : "border-slate-200"
-        } overflow-hidden`}
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/40">
-          <h3 className="text-sm font-semibold">Subjects / Courses</h3>
-          <button
-            type="button"
-            onClick={addSubject}
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
-          >
-            <span className="text-lg leading-none">＋</span>
-            Add subject
-          </button>
-        </div>
-
-       {/* Subjects table – single row per subject, all devices */}
-<div className="px-4 py-4 space-y-3">
-  {/* Header row */}
-  <div
-  className={`
-      grid
-      grid-cols-[0.3fr_1.4fr_0.7fr_0.8fr_1.6fr_auto]
-      gap-2
-      text-[10px]
-      sm:text-[11px]
-      uppercase
-      tracking-wide
-      ${isDark ? "text-slate-300" : "text-slate-700"}
-    `}
->
-
-  <span className="text-center">#</span>
-  <span>Course / Subject</span>
-  <span className="text-center">Credit hours</span>
-  <span className="text-center">Score (0–100)</span>
-  <span className="text-center">Grade / GPA / %</span>
-  <span className="text-right">Remove</span>
-</div>
-
-
-    {subjects.map((sub, idx) => {
-  const band = getBandForScore(sub.score);
-  const isFail = band.label === "F";
-
-  const gradeColor = isFail
-  ? isDark
-    ? "border-rose-500/60 bg-rose-500/10 text-rose-200"
-    : "border-rose-500 bg-rose-50 text-rose-700"
-  : band.gpa >= 3.5
-  ? isDark
-    ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-200"
-    : "border-emerald-500 bg-emerald-50 text-emerald-700"
-  : band.gpa >= 2.3
-  ? isDark
-    ? "border-sky-500/60 bg-sky-500/10 text-sky-200"
-    : "border-sky-500 bg-sky-50 text-sky-700"
-  : isDark
-  ? "border-amber-500/60 bg-amber-500/10 text-amber-200"
-  : "border-amber-500 bg-amber-50 text-amber-700";
-
-
-  return (
-    <div
-      key={idx}
-      className="
-        grid
-        grid-cols-[0.3fr_1.4fr_0.7fr_0.8fr_1.6fr_auto]
-        gap-2
-        items-center
-        text-[10px]
-        sm:text-xs
-        md:text-sm
-      "
-    >
-      {/* Row number */}
-      <div className="min-w-0 flex justify-center">
-        <span
-  className={`px-2 py-1 rounded-full text-[10px] sm:text-xs ${
-    isDark
-      ? "bg-slate-800/70 text-slate-100"
-      : "bg-slate-200 text-slate-700"
-  }`}
->
-  {idx + 1}
-</span>
-
-      </div>
-
-      {/* Course / Subject */}
-      <div className="min-w-0">
-        <input
-          type="text"
-          value={sub.name}
-          onChange={(e) =>
-            handleSubjectChange(idx, "name", e.target.value)
-          }
-          className={`${inputBase} ${inputBg} w-full py-1.5 text-xs sm:text-sm`}
-          placeholder="CS101"
-        />
-      </div>
-
-      {/* Credit hours */}
-      <div className="min-w-0">
-        <input
-          type="number"
-          min={1}
-          max={3}
-          step={1}
-          value={sub.credits}
-          onChange={(e) =>
-            handleSubjectChange(idx, "credits", e.target.value)
-          }
-          className={`${inputBase} ${inputBg} w-full py-1.5 text-center text-xs sm:text-sm`}
-        />
-      </div>
-
-      {/* Score */}
-      <div className="min-w-0">
-        <input
-          type="number"
-          min={0}
-          max={100}
-          step={1}
-          value={sub.score}
-          onChange={(e) =>
-            handleSubjectChange(idx, "score", e.target.value)
-          }
-          className={`${inputBase} ${inputBg} w-full py-1.5 text-center text-xs sm:text-sm`}
-        />
-      </div>
-
-     {/* Grade / GPA / % chips */}
-<div className="min-w-0">
-  <div className="flex flex-wrap items-center justify-center gap-1">
-    {/* Grade */}
-    <div
-      className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
-    >
-      <span className="font-semibold">Grade {band.label}</span>
-    </div>
-
-    {/* Exact GPA for this subject */}
-    <div
-      className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
-    >
-      <span>GPA {band.gpa.toFixed(2)}</span>
-    </div>
-
-    {/* Exact percentage (entered marks) */}
-    <div
-      className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
-    >
-      <span>{(Number(sub.score) || 0).toFixed(0)}%</span>
-    </div>
-  </div>
-</div>
-
-
-      {/* Remove button */}
-      <div className="min-w-0 flex justify-end">
-        <button
-          type="button"
-          onClick={() => removeSubject(idx)}
-          className="text-[10px] sm:text-[11px] text-rose-400 hover:text-rose-500 flex items-center gap-1 whitespace-nowrap"
-        >
-          <span>✕</span>
-          <span>Remove</span>
-        </button>
-      </div>
-    </div>
-  );
-})}
-
-</div>
-
-
-        {/* Bottom tip */}
+      {/* 🔹 SCREEN ONLY – full CGPA UI */}
+      <div className="space-y-8 print:hidden">
+        {/* 🔹 Top result message */}
         <div
-          className={`px-4 py-3 text-[11px] border-t ${
-            isDark ? "border-slate-800 text-slate-500" : "border-slate-200 text-slate-500"
+          className={`max-w-3xl mx-auto text-center rounded-2xl px-5 py-4 ${
+            isDark
+              ? "bg-emerald-500/10 border border-emerald-500/40 text-emerald-200"
+              : "bg-emerald-50 border border-emerald-200 text-emerald-800"
           }`}
         >
-          Tip: This tool is only an estimate. Universities (including VU) may
-          use slightly different mappings for letter grades and CGPA. Always
-          rely on your official transcript / grade book for final results.
+          <h2 className="text-sm md:text-base font-semibold">
+            {resultTitle}
+          </h2>
+          <p className="text-xs md:text-sm mt-1 opacity-80">
+            {resultSub}
+          </p>
+        </div>
+
+        {/* 🔹 Intro text */}
+        <p className={`text-xs md:text-sm ${theme.textMuted}`}>
+          Add all subjects with credit hours and marks (0–100). We approximate
+          CGPA on a 4.0 scale using VU-style letter grades. Always confirm with
+          your official grade book.
+        </p>
+
+        {/* 🔹 Summary cards */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className={`${infoCardBase} ${infoCardBg}`}>
+            <div>
+              <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">
+                CGPA (approx)
+              </p>
+              <p className="mt-2 text-3xl font-bold text-emerald-400">
+                {overallGPA.toFixed(2)}
+              </p>
+            </div>
+            <p className={`mt-3 text-xs ${theme.textMuted}`}>
+              out of 4.00 — weighted average of all subject grade points.
+            </p>
+          </div>
+
+          <div className={`${infoCardBase} ${infoCardBg}`}>
+            <div>
+              <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide">
+                Overall percentage
+              </p>
+              <p className="mt-2 text-3xl font-bold text-indigo-400">
+                {overallPercent.toFixed(1)}%
+              </p>
+            </div>
+            <p className={`mt-3 text-xs ${theme.textMuted}`}>
+              Credit-weighted average of all subject marks.
+            </p>
+          </div>
+
+          <div className={`${infoCardBase} ${infoCardBg}`}>
+            <div>
+              <p className="text-xs font-semibold text-sky-400 uppercase tracking-wide">
+                Total credits
+              </p>
+              <p className="mt-2 text-3xl font-bold text-sky-400">
+                {totalCredits}
+              </p>
+            </div>
+            <p className={`mt-3 text-xs ${theme.textMuted}`}>
+              Sum of all entered credit hours.
+            </p>
+          </div>
+        </div>
+
+                {/* 🔹 Student details + Print button */}
+        <div
+          className={`max-w-3xl mx-auto rounded-2xl px-4 py-3 mt-2 ${
+            isDark
+              ? "bg-slate-900/70 border border-slate-800"
+              : "bg-white border border-slate-200"
+          }`}
+        >
+          {/* Top row: basic info */}
+          <div className="grid gap-3 md:grid-cols-4">
+            {/* Name */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1">
+                Student Name
+              </label>
+              <input
+                type="text"
+                value={studentName}
+                onChange={(e) => setStudentName(e.target.value)}
+                placeholder="Enter name"
+                className={`${inputBase} ${inputBg} w-full py-1.5 text-xs`}
+              />
+            </div>
+
+            {/* ID */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1">
+                Student ID
+              </label>
+              <input
+                type="text"
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+                placeholder="e.g. BC230123456"
+                className={`${inputBase} ${inputBg} w-full py-1.5 text-xs`}
+              />
+            </div>
+
+            {/* Program */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1">
+                Program
+              </label>
+              <input
+                type="text"
+                value={program}
+                onChange={(e) => setProgram(e.target.value)}
+                placeholder="e.g. BS (Computer Science)"
+                className={`${inputBase} ${inputBg} w-full py-1.5 text-xs`}
+              />
+            </div>
+
+            {/* Semester */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1">
+                Semester
+              </label>
+              <input
+                type="text"
+                value={semester}
+                onChange={(e) => setSemester(e.target.value)}
+                placeholder="e.g. 4th / Fall 2025"
+                className={`${inputBase} ${inputBg} w-full py-1.5 text-xs`}
+              />
+            </div>
+          </div>
+
+          {/* Bottom row: Print button */}
+          <div className="mt-3 flex md:justify-end">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors w-full md:w-auto justify-center"
+            >
+              Print Result
+            </button>
+          </div>
+        </div>
+
+        {/* 🔹 Subjects table */}
+        <div
+          className={`${
+            isDark ? "bg-slate-900/70" : "bg-white"
+          } rounded-2xl border ${
+            isDark ? "border-slate-800" : "border-slate-200"
+          } overflow-hidden`}
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/40">
+            <h3 className="text-sm font-semibold">Subjects / Courses</h3>
+            <button
+              type="button"
+              onClick={addSubject}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+            >
+              <span className="text-lg leading-none">＋</span>
+              Add subject
+            </button>
+          </div>
+
+          {/* Subjects table – single row per subject, all devices */}
+          <div className="px-4 py-4 space-y-3">
+            {/* Header row */}
+            <div
+              className={`
+                grid
+                grid-cols-[0.3fr_1.4fr_0.7fr_0.8fr_1.6fr_auto]
+                gap-2
+                text-[10px]
+                sm:text-[11px]
+                uppercase
+                tracking-wide
+                ${isDark ? "text-slate-300" : "text-slate-700"}
+              `}
+            >
+              <span className="text-center">#</span>
+              <span>Course / Subject</span>
+              <span className="text-center">Credit hours</span>
+              <span className="text-center">Score (0–100)</span>
+              <span className="text-center">Grade / GPA / %</span>
+              <span className="text-right">Remove</span>
+            </div>
+
+            {subjects.map((sub, idx) => {
+              const band = getBandForScore(sub.score);
+              const isFail = band.label === "F";
+
+              const gradeColor = isFail
+                ? isDark
+                  ? "border-rose-500/60 bg-rose-500/10 text-rose-200"
+                  : "border-rose-500 bg-rose-50 text-rose-700"
+                : band.gpa >= 3.5
+                ? isDark
+                  ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-200"
+                  : "border-emerald-500 bg-emerald-50 text-emerald-700"
+                : band.gpa >= 2.3
+                ? isDark
+                  ? "border-sky-500/60 bg-sky-500/10 text-sky-200"
+                  : "border-sky-500 bg-sky-50 text-sky-700"
+                : isDark
+                ? "border-amber-500/60 bg-amber-500/10 text-amber-200"
+                : "border-amber-500 bg-amber-50 text-amber-700";
+
+              return (
+                <div
+                  key={idx}
+                  className="
+                    grid
+                    grid-cols-[0.3fr_1.4fr_0.7fr_0.8fr_1.6fr_auto]
+                    gap-2
+                    items-center
+                    text-[10px]
+                    sm:text-xs
+                    md:text-sm
+                  "
+                >
+                  {/* Row number */}
+                  <div className="min-w-0 flex justify-center">
+                    <span
+                      className={`px-2 py-1 rounded-full text-[10px] sm:text-xs ${
+                        isDark
+                          ? "bg-slate-800/70 text-slate-100"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {idx + 1}
+                    </span>
+                  </div>
+
+                  {/* Course / Subject */}
+                  <div className="min-w-0">
+                    <input
+                      type="text"
+                      value={sub.name}
+                      onChange={(e) =>
+                        handleSubjectChange(idx, "name", e.target.value)
+                      }
+                      className={`${inputBase} ${inputBg} w-full py-1.5 text-xs sm:text-sm`}
+                      placeholder="CS101"
+                    />
+                  </div>
+
+                  {/* Credit hours */}
+                  <div className="min-w-0">
+                    <input
+                      type="number"
+                      min={1}
+                      max={3}
+                      step={1}
+                      value={sub.credits}
+                      onChange={(e) =>
+                        handleSubjectChange(idx, "credits", e.target.value)
+                      }
+                      className={`${inputBase} ${inputBg} w-full py-1.5 text-center text-xs sm:text-sm`}
+                    />
+                  </div>
+
+                  {/* Score */}
+                  <div className="min-w-0">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={sub.score}
+                      onChange={(e) =>
+                        handleSubjectChange(idx, "score", e.target.value)
+                      }
+                      className={`${inputBase} ${inputBg} w-full py-1.5 text-center text-xs sm:text-sm`}
+                    />
+                  </div>
+
+                  {/* Grade / GPA / % chips */}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      {/* Grade */}
+                      <div
+                        className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
+                      >
+                        <span className="font-semibold">Grade {band.label}</span>
+                      </div>
+
+                      {/* Exact GPA for this subject */}
+                      <div
+                        className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
+                      >
+                        <span>GPA {band.gpa.toFixed(2)}</span>
+                      </div>
+
+                      {/* Exact percentage (entered marks) */}
+                      <div
+                        className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
+                      >
+                        <span>{(Number(sub.score) || 0).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Remove button */}
+                  <div className="min-w-0 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removeSubject(idx)}
+                      className="text-[10px] sm:text-[11px] text-rose-400 hover:text-rose-500 flex items-center gap-1 whitespace-nowrap"
+                    >
+                      <span>✕</span>
+                      <span>Remove</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bottom tip */}
+          <div
+            className={`px-4 py-3 text-[11px] border-t ${
+              isDark
+                ? "border-slate-800 text-slate-500"
+                : "border-slate-200 text-slate-500"
+            }`}
+          >
+            Tip: This tool is only an estimate. Universities (including VU) may
+            use slightly different mappings for letter grades and CGPA. Always
+            rely on your official transcript / grade book for final results.
+          </div>
+        </div>
+      </div>
+
+      {/* 🔹 PRINT ONLY – VU style marksheet */}
+      <div
+  id="cgpa-print-sheet"
+  className="print-only"
+>
+  <div className="max-w-3xl mx-auto my-4 bg-white text-black border border-black p-6">
+          {/* Header */}
+          <div className="text-center mb-4 border-b border-black pb-3">
+            <h1 className="text-lg font-extrabold tracking-wide">
+              VIRTUAL UNIVERSITY OF PAKISTAN
+            </h1>
+            <p className="text-xs mt-1">
+              Unofficial CGPA / Result Summary (Generated via EduNexus)
+            </p>
+          </div>
+
+                    {/* Student info */}
+          <div className="text-xs mb-4 space-y-1">
+            <div className="flex justify-between">
+              <span className="font-semibold">Student Name:</span>
+              <span>{studentName || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-semibold">Student ID:</span>
+              <span>{studentId || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-semibold">Program:</span>
+              <span>{program || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-semibold">Semester:</span>
+              <span>{semester || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-semibold">Date:</span>
+              <span>{new Date().toLocaleDateString()}</span>
+            </div>
+          </div>
+
+          {/* Overall summary */}
+          <div className="grid grid-cols-3 gap-3 text-xs mb-4">
+            <div className="border border-black py-2 px-3 text-center">
+              <p className="font-semibold">CGPA (approx)</p>
+              <p className="text-xl font-extrabold mt-1">
+                {overallGPA.toFixed(2)}
+              </p>
+            </div>
+            <div className="border border-black py-2 px-3 text-center">
+              <p className="font-semibold">Percentage</p>
+              <p className="text-xl font-extrabold mt-1">
+                {overallPercent.toFixed(1)}%
+              </p>
+            </div>
+            <div className="border border-black py-2 px-3 text-center">
+              <p className="font-semibold">Total Credits</p>
+              <p className="text-xl font-extrabold mt-1">
+                {totalCredits}
+              </p>
+            </div>
+          </div>
+
+          {/* Subjects table (print style) */}
+          <table className="w-full text-[10px] border border-black border-collapse">
+            <thead>
+              <tr className="bg-slate-100">
+                <th className="border border-black px-1 py-1 text-left">#</th>
+                <th className="border border-black px-1 py-1 text-left">
+                  Course / Subject
+                </th>
+                <th className="border border-black px-1 py-1 text-center">
+                  Credit Hrs
+                </th>
+                <th className="border border-black px-1 py-1 text-center">
+                  Score
+                </th>
+                <th className="border border-black px-1 py-1 text-center">
+                  Grade
+                </th>
+                <th className="border border-black px-1 py-1 text-center">
+                  GPA
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {subjects.map((sub, idx) => {
+                const band = getBandForScore(sub.score);
+                return (
+                  <tr key={idx}>
+                    <td className="border border-black px-1 py-1 text-center">
+                      {idx + 1}
+                    </td>
+                    <td className="border border-black px-1 py-1">
+                      {sub.name || "-"}
+                    </td>
+                    <td className="border border-black px-1 py-1 text-center">
+                      {sub.credits}
+                    </td>
+                    <td className="border border-black px-1 py-1 text-center">
+                      {sub.score}
+                    </td>
+                    <td className="border border-black px-1 py-1 text-center">
+                      {band.label}
+                    </td>
+                    <td className="border border-black px-1 py-1 text-center">
+                      {band.gpa.toFixed(2)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Signature area */}
+          <div className="mt-8 flex justify-between text-[10px]">
+            <div>
+              <p>__________________________</p>
+              <p className="mt-1">Student Signature</p>
+            </div>
+            <div className="text-right">
+              <p>__________________________</p>
+              <p className="mt-1">System Generated (EduNexus)</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -4279,6 +4503,28 @@ const ThemeFloatingToggle = ({ isDark, setIsDark }) => {
         <Moon className="h-5 w-5" />
       )}
     </button>
+  );
+};
+// =================== TOAST COMPONENT ===================
+// ⚠️ MUST BE ABOVE function App()
+
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const colors = {
+    success: "bg-green-600",
+    error: "bg-red-600",
+    info: "bg-indigo-600",
+  };
+
+  return (
+    <div className={`fixed top-4 right-4 z-[100] ${colors[type] || colors.info} text-white px-6 py-3 rounded-xl flex items-center gap-3`}>
+      <span className="font-bold text-sm">{message}</span>
+      <button onClick={onClose}>✖</button>
+    </div>
   );
 };
 

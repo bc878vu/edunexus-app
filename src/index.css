@@ -9,3 +9,35 @@ body {
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
 }
+/* ================================
+   PRINT: Sirf CGPA Result Sheet
+================================ */
+/* screen par print-only ko hide rakho */
+.print-only {
+  display: none;
+}
+/* ================================
+   PRINT: Sirf CGPA Result Sheet
+================================ */
+@media print {
+  /* sab kuch invisible */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* sirf sheet visible */
+  #cgpa-print-sheet,
+  #cgpa-print-sheet * {
+    visibility: visible !important;
+  }
+
+  /* sheet ko print ke waqt dikhana + page pe top par lana */
+  #cgpa-print-sheet {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+  }
+}
