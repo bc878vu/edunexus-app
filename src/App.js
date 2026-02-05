@@ -1,23 +1,18 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Home,
-  BookOpen,
   MessageSquare,
+  MessageCircle,
   Briefcase,
-  User,
-  PAGES,
   LogOut,
-  Calculator,
   LogIn,
-  MessagesSquare,
-  User2,
+  HelpCircle,
   Menu,
   X,
   Lock,
   Send,
   Search,
   Download,
-  HelpCircle,
   Upload,
   ExternalLink,
   Sparkles,
@@ -34,6 +29,7 @@ import {
   Plus,
   Folder,
   File,
+  FileText,
   Loader,
   Layers,
   ArrowRight,
@@ -42,13 +38,12 @@ import {
   Eye,
   EyeOff,
 
-  // 🔽 ADD THESE (errors fix)
+  // 🔹 extra icons used in JSX
   Code,
   Trophy,
   Star,
   Info,
   AlertCircle,
-  FileText,
   PlayCircle,
   Shield,
   Cpu,
@@ -72,10 +67,10 @@ import {
   Target,
   Zap,
   CheckSquare,
-  MessageCircle,
   Clock,
   Minus,
-} from 'lucide-react';
+} from "lucide-react";
+
 
 
 import { initializeApp } from 'firebase/app';
@@ -4528,6 +4523,63 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
+// ===== Static Pages: Privacy & Terms (simple text, Adsense safe) =====
+
+const PrivacyPage = ({ theme }) => {
+  return (
+    <div className="max-w-4xl mx-auto space-y-4 animate-fade-in">
+      <h1 className={`text-3xl font-extrabold ${theme.text}`}>Privacy Policy</h1>
+      <p className={theme.textMuted}>
+        EduNexus is an independent study platform made for students. We do not sell your
+        personal information.
+      </p>
+      <p className={theme.text}>
+        We only collect basic usage data to keep the website secure, improve features and
+        fix bugs. Some pages may show Google AdSense ads to support free study resources.
+        Google may use cookies and similar technologies to show relevant adverts. You can
+        manage ad personalisation in your Google account settings.
+      </p>
+      <p className={theme.text}>
+        If you upload files or write posts, they are stored securely in our database and
+        are used only to provide EduNexus features (notes, discussions, etc.).
+      </p>
+      <p className={theme.text}>
+        For any privacy questions, you can always contact us at{" "}
+        <span className="font-semibold">support@edunexus.app</span>.
+      </p>
+    </div>
+  );
+};
+
+const TermsPage = ({ theme }) => {
+  return (
+    <div className="max-w-4xl mx-auto space-y-4 animate-fade-in">
+      <h1 className={`text-3xl font-extrabold ${theme.text}`}>Terms of Service</h1>
+      <p className={theme.textMuted}>
+        Please read these terms carefully before using EduNexus.
+      </p>
+      <p className={theme.text}>
+        EduNexus is a study helper created for Virtual University and online students.
+        This website is <span className="font-semibold">not officially affiliated</span>{" "}
+        with Virtual University (VU). All study material is shared only for learning
+        purposes.
+      </p>
+      <p className={theme.text}>
+        You agree not to upload copyrighted material without permission, not to share
+        login credentials, and not to use EduNexus for cheating in exams or assignments.
+      </p>
+      <p className={theme.text}>
+        We try our best to keep content accurate, but we do not give any guarantee of
+        100% correctness. Use the material at your own responsibility.
+      </p>
+      <p className={theme.text}>
+        By continuing to use EduNexus you accept these terms. If you do not agree, please
+        stop using the website.
+      </p>
+    </div>
+  );
+};
+
 
 // Main App
 const App = () => {
@@ -4554,6 +4606,8 @@ const PAGES = [
   'portfolio',
   'about',
   'contact',
+   "privacy",   // ✅ NEW
+  "terms",  
   'admin',
 ];
 
@@ -4574,6 +4628,8 @@ const NAV_ITEMS = PAGES;
     portfolio: "Asad Amanat Ali – Software Engineer Portfolio | EduNexus",
     about: "About EduNexus – Independent Virtual University Study Hub",
     contact: "Contact EduNexus – Support for VU Students",
+    privacy: "Privacy Policy - EduNexus",
+  terms: "Terms of Service - EduNexus",
     admin: "EduNexus Admin Panel"
   };
 
@@ -4590,28 +4646,26 @@ const NAV_ITEMS = PAGES;
     portfolio: "View the developer portfolio of Asad Amanat Ali, creator of EduNexus and AI powered learning tools for Virtual University students.",
     about: "Learn what EduNexus is, how it helps Virtual University students and why it is an independent, student-focused study hub.",
     contact: "Need help with notes, quizzes, AI tools or portal issues? Contact the EduNexus support team using this page.",
+    privacy: "Read how EduNexus handles your data, cookies and Google AdSense usage.",
+  terms: "Read the terms and conditions for using EduNexus study tools.",
     admin: "Admin area of EduNexus to manage highlights, files, announcements, articles and other study resources."
   };
   // ✅ Update <title> + <meta description> on page change
-  useEffect(() => {
-    // 1) Page ka title set karo
-    const title = PAGE_TITLES[page] || PAGE_TITLES.home;
-    document.title = title;
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => {
+  const title = PAGE_TITLES[page] || PAGE_TITLES.home;
+  document.title = title;
 
-    // 2) Meta description element dhundo
-    const metaDesc = document.querySelector("meta[name='description']");
+  const metaDesc = document.querySelector("meta[name='description']");
+  if (metaDesc) {
+    metaDesc.setAttribute(
+      "content",
+      PAGE_DESCRIPTIONS[page] || PAGE_DESCRIPTIONS.home
+    );
+  }
 
-    // 3) Agar mila to uski content update karo
-    if (metaDesc) {
-      metaDesc.setAttribute(
-        "content",
-        PAGE_DESCRIPTIONS[page] || PAGE_DESCRIPTIONS.home
-      );
-    }
-
-    // 4) UX: har page change par upar scroll kare
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [page]);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}, [page]);
 
     // ✅ central navigation function (har jagah isi ko use karna hai)
   const navigate = (targetPage) => {
@@ -4639,39 +4693,26 @@ const NAV_ITEMS = PAGES;
   };
 
   // ✅ back button & direct link (clean URL: /?page=cgpa) handle
-  useEffect(() => {
-    // 🔹 URL ke query se page nikaal lo: /?page=cgpa
-    const params = new URLSearchParams(window.location.search);
-    const fromQuery = params.get('page') || '';
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = params.get('page') || '';
 
-    const initialPage = PAGES.includes(fromQuery) ? fromQuery : 'home';
-    setPage(initialPage);
+  const initialPage = PAGES.includes(fromQuery) ? fromQuery : 'home';
+  setPage(initialPage);
 
-    const basePath = window.location.pathname || '/';
-    const initialUrl =
-      initialPage === 'home'
-        ? basePath
-        : `${basePath}?page=${initialPage}`;
+  const basePath = window.location.pathname || '/';
+  const initialUrl =
+    initialPage === 'home'
+      ? basePath
+      : `${basePath}?page=${initialPage}`;
 
-    // 🔹 URL ko clean form pe set karo (hash hata ke)
-    window.history.replaceState(
-      { page: initialPage },
-      '',
-      initialUrl
-    );
-
-    const handlePopState = (event) => {
-      const nextPage = event.state?.page;
-      if (nextPage && PAGES.includes(nextPage)) {
-        setPage(nextPage);
-      } else {
-        setPage('home');
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  window.history.replaceState(
+    { page: initialPage },
+    '',
+    initialUrl
+  );
+}, []);
 
 
   // ✅ auth wala effect
@@ -4820,6 +4861,9 @@ useEffect(() => {
         )}
         {page === 'about' && <AboutUs theme={theme} />}
         {page === 'contact' && <ContactUs theme={theme} />}
+          {/* ✅ NEW STATIC PAGES */}
+        {page === 'privacy' && <PrivacyPage theme={theme} />}
+        {page === 'terms' && <TermsPage theme={theme} />}
         {page === 'admin' && isAdminMode && (
           <AdminPanel
             theme={theme}
@@ -5022,7 +5066,7 @@ useEffect(() => {
           © {currentYear} EduNexus · Developed by Asad Amanat Ali.
       </p>
 
-      <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
         {isAdminMode && (
           <button
             onClick={handleLogoutAdmin}
@@ -5031,8 +5075,11 @@ useEffect(() => {
             <LogOut size={12} /> Exit Admin
           </button>
         )}
-       <button
+
+        {/* ✅ Footer links now navigate to pages */}
+        <button
           type="button"
+          onClick={() => navigate('privacy')}
           className={`${theme.textMuted} hover:text-indigo-500`}
         >
           Privacy Policy
@@ -5040,6 +5087,7 @@ useEffect(() => {
 
         <button
           type="button"
+          onClick={() => navigate('terms')}
           className={`${theme.textMuted} hover:text-indigo-500`}
         >
           Terms of Service
@@ -5048,7 +5096,8 @@ useEffect(() => {
         <span className={`${theme.textMuted}`}>
           Made for students · Light & Dark mode supported
         </span>
-        </div>
+      </div>
+
         </div>
         </div>
         </footer>
