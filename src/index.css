@@ -2,36 +2,252 @@
 @tailwind components;
 @tailwind utilities;
 
-/* You can keep your body styles below if you want */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
 }
+
+/* =========================================================
+   EduNexus — Modern responsive header / footer polish
+   Keeps the existing indigo + violet visual language.
+========================================================= */
+
+/* Header */
+header.sticky {
+  background: rgba(2, 6, 23, 0.94) !important;
+  border-bottom-color: rgba(99, 102, 241, 0.20) !important;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.18);
+}
+
+header.sticky > div {
+  min-height: 72px;
+}
+
+header.sticky nav button {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 12px !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+header.sticky nav button:hover {
+  border-color: rgba(129, 140, 248, 0.28);
+  background: rgba(99, 102, 241, 0.12) !important;
+  color: #fff !important;
+  transform: translateY(-1px);
+}
+
+/* Active page stays a clear boxed button. */
+header.sticky nav button[class*="bg-indigo-500"] {
+  border-color: rgba(129, 140, 248, 0.55) !important;
+  background: linear-gradient(135deg, #6366f1, #7c3aed) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.25);
+}
+
+/* Desktop: show the most important pages directly. */
+@media (min-width: 1024px) {
+  header.sticky nav button:nth-child(n + 6) {
+    display: none;
+  }
+
+  /* Re-use the existing mobile drawer as the desktop More menu. */
+  header.sticky > div > button:last-child {
+    display: inline-flex !important;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px !important;
+    border-color: rgba(148, 163, 184, 0.28) !important;
+    background: rgba(15, 23, 42, 0.80) !important;
+    color: #e2e8f0 !important;
+    margin-left: 2px;
+  }
+
+  header.sticky > div > button:last-child:hover {
+    border-color: rgba(129, 140, 248, 0.60) !important;
+    background: rgba(99, 102, 241, 0.18) !important;
+    color: #fff !important;
+  }
+
+  header.sticky nav {
+    gap: 6px !important;
+  }
+}
+
+/* Mobile/tablet header */
+@media (max-width: 1023px) {
+  header.sticky > div {
+    min-height: 66px;
+  }
+
+  header.sticky > div > button:last-child {
+    border-radius: 12px !important;
+    border-color: rgba(148, 163, 184, 0.28) !important;
+    background: rgba(15, 23, 42, 0.80) !important;
+  }
+}
+
+/* Existing mobile/desktop drawer: cleaner modern cards */
+.lg\\:fixed[class*="fixed"] {
+  backdrop-filter: blur(10px);
+}
+
+/* Drawer links */
+.lg\\:fixed nav button {
+  margin: 5px 10px;
+  width: calc(100% - 20px);
+  border: 1px solid rgba(51, 65, 85, 0.75);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+/* =========================================================
+   Modern footer
+========================================================= */
+footer {
+  position: relative;
+  overflow: hidden;
+  border-top-color: rgba(99, 102, 241, 0.24) !important;
+}
+
+footer::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.7), transparent);
+  pointer-events: none;
+}
+
+footer > div {
+  position: relative;
+  z-index: 1;
+}
+
+/* CTA strip */
+footer > div > div:first-child {
+  border-radius: 18px !important;
+  padding: 18px 20px !important;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(124, 58, 237, 0.12)) !important;
+  border-color: rgba(129, 140, 248, 0.28) !important;
+  box-shadow: 0 14px 35px rgba(2, 6, 23, 0.18);
+}
+
+footer > div > div:first-child a {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.25);
+}
+
+/* Four footer information cards */
+footer > div > div:nth-child(2) {
+  gap: 16px !important;
+}
+
+footer > div > div:nth-child(2) > div {
+  border: 1px solid rgba(100, 116, 139, 0.18);
+  border-radius: 18px;
+  padding: 22px;
+  background: rgba(15, 23, 42, 0.28);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.10);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+footer > div > div:nth-child(2) > div:hover {
+  transform: translateY(-3px);
+  border-color: rgba(129, 140, 248, 0.30);
+  background: rgba(30, 41, 59, 0.38);
+}
+
+/* Footer section headings */
+footer h3 {
+  font-size: 0.82rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #c7d2fe;
+}
+
+/* Footer links */
+footer ul li button,
+footer a,
+footer > div > div:last-child button {
+  transition: color 160ms ease, transform 160ms ease;
+}
+
+footer ul li button:hover,
+footer a:hover {
+  transform: translateX(2px);
+}
+
+/* Social buttons */
+footer a[class*="rounded-full"] {
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+footer a[class*="rounded-full"]:hover {
+  transform: translateY(-2px);
+}
+
+/* Bottom bar */
+footer > div > div:last-child {
+  margin-top: 2px;
+  padding-top: 18px !important;
+  border-top-color: rgba(100, 116, 139, 0.20) !important;
+}
+
+/* Light mode footer cards remain clean while preserving the same brand. */
+footer.bg-slate-50 > div > div:nth-child(2) > div {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+footer.bg-slate-50 > div > div:nth-child(2) > div:hover {
+  background: #fff;
+  border-color: rgba(99, 102, 241, 0.28);
+}
+
+/* Small screens: stack footer cards comfortably. */
+@media (max-width: 767px) {
+  footer > div {
+    padding-top: 28px !important;
+    padding-bottom: 28px !important;
+  }
+
+  footer > div > div:first-child {
+    padding: 16px !important;
+  }
+
+  footer > div > div:nth-child(2) > div {
+    padding: 18px;
+  }
+
+  footer > div > div:last-child {
+    align-items: flex-start !important;
+  }
+}
+
 /* ================================
    PRINT: Sirf CGPA Result Sheet
 ================================ */
-/* screen par print-only ko hide rakho */
 .print-only {
   display: none;
 }
-/* ================================
-   PRINT: Sirf CGPA Result Sheet
-================================ */
+
 @media print {
-  /* sab kuch invisible */
   body * {
     visibility: hidden !important;
   }
 
-  /* sirf sheet visible */
   #cgpa-print-sheet,
   #cgpa-print-sheet * {
     visibility: visible !important;
   }
 
-  /* sheet ko print ke waqt dikhana + page pe top par lana */
   #cgpa-print-sheet {
     display: block !important;
     position: absolute;
