@@ -41,7 +41,6 @@ header.sticky nav button:hover {
   transform: translateY(-1px);
 }
 
-/* Active page stays a clear boxed button. */
 header.sticky nav button[class*="bg-indigo-500"] {
   border-color: rgba(129, 140, 248, 0.55) !important;
   background: linear-gradient(135deg, #6366f1, #7c3aed) !important;
@@ -49,13 +48,12 @@ header.sticky nav button[class*="bg-indigo-500"] {
   box-shadow: 0 8px 20px rgba(79, 70, 229, 0.25);
 }
 
-/* Desktop: show the most important pages directly. */
+/* Desktop: show important pages directly + use the existing drawer as More. */
 @media (min-width: 1024px) {
   header.sticky nav button:nth-child(n + 6) {
     display: none;
   }
 
-  /* Re-use the existing mobile drawer as the desktop More menu. */
   header.sticky > div > button:last-child {
     display: inline-flex !important;
     width: 42px;
@@ -76,6 +74,11 @@ header.sticky nav button[class*="bg-indigo-500"] {
   header.sticky nav {
     gap: 6px !important;
   }
+
+  /* Tailwind's lg:hidden would otherwise hide the existing drawer on desktop. */
+  header + div[class*="fixed"][class*="inset-0"] {
+    display: block !important;
+  }
 }
 
 /* Mobile/tablet header */
@@ -91,18 +94,21 @@ header.sticky nav button[class*="bg-indigo-500"] {
   }
 }
 
-/* Existing mobile/desktop drawer: cleaner modern cards */
-.lg\\:fixed[class*="fixed"] {
-  backdrop-filter: blur(10px);
+/* Existing drawer: modern boxed menu items on every screen size. */
+header + div[class*="fixed"][class*="inset-0"] {
+  backdrop-filter: blur(8px);
 }
 
-/* Drawer links */
-.lg\\:fixed nav button {
+header + div[class*="fixed"][class*="inset-0"] nav button {
   margin: 5px 10px;
   width: calc(100% - 20px);
   border: 1px solid rgba(51, 65, 85, 0.75);
   border-radius: 12px;
   background: rgba(15, 23, 42, 0.55);
+}
+
+header + div[class*="fixed"][class*="inset-0"] nav button:hover {
+  border-color: rgba(129, 140, 248, 0.35);
 }
 
 /* =========================================================
@@ -130,7 +136,6 @@ footer > div {
   z-index: 1;
 }
 
-/* CTA strip */
 footer > div > div:first-child {
   border-radius: 18px !important;
   padding: 18px 20px !important;
@@ -144,7 +149,6 @@ footer > div > div:first-child a {
   box-shadow: 0 8px 18px rgba(79, 70, 229, 0.25);
 }
 
-/* Four footer information cards */
 footer > div > div:nth-child(2) {
   gap: 16px !important;
 }
@@ -164,7 +168,6 @@ footer > div > div:nth-child(2) > div:hover {
   background: rgba(30, 41, 59, 0.38);
 }
 
-/* Footer section headings */
 footer h3 {
   font-size: 0.82rem !important;
   text-transform: uppercase;
@@ -172,7 +175,6 @@ footer h3 {
   color: #c7d2fe;
 }
 
-/* Footer links */
 footer ul li button,
 footer a,
 footer > div > div:last-child button {
@@ -184,7 +186,6 @@ footer a:hover {
   transform: translateX(2px);
 }
 
-/* Social buttons */
 footer a[class*="rounded-full"] {
   transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
 }
@@ -193,14 +194,12 @@ footer a[class*="rounded-full"]:hover {
   transform: translateY(-2px);
 }
 
-/* Bottom bar */
 footer > div > div:last-child {
   margin-top: 2px;
   padding-top: 18px !important;
   border-top-color: rgba(100, 116, 139, 0.20) !important;
 }
 
-/* Light mode footer cards remain clean while preserving the same brand. */
 footer.bg-slate-50 > div > div:nth-child(2) > div {
   background: rgba(255, 255, 255, 0.72);
   border-color: rgba(148, 163, 184, 0.22);
@@ -211,7 +210,6 @@ footer.bg-slate-50 > div > div:nth-child(2) > div:hover {
   border-color: rgba(99, 102, 241, 0.28);
 }
 
-/* Small screens: stack footer cards comfortably. */
 @media (max-width: 767px) {
   footer > div {
     padding-top: 28px !important;
