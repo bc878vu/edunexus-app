@@ -19,11 +19,11 @@ source = source.replace(
   'const db = getFirestore(app);',
   "const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });"
 );
-source = source.replace(/const apiKey = process\\.env\\.REACT_APP_GEMINI_API_KEY[^\\n]*\\n/g, '');
-source = source.replace(/const ADMIN_PASSWORD =\\s*process\\.env\\.REACT_APP_ADMIN_PASSWORD \\|\\|\\s*[^;]+;\\s*\\n?/g, '');
-source = source.replace(/const ADMIN_EMAIL =\\s*process\\.env\\.REACT_APP_ADMIN_EMAIL \\|\\|\\s*\"veducator4@gmail\\.com\";/g, 'const ADMIN_EMAIL = \"veducator4@gmail.com\";');
+source = source.replace(/const apiKey = process\.env\.REACT_APP_GEMINI_API_KEY[^\n]*\n/g, '');
+source = source.replace(/const ADMIN_PASSWORD =\s*process\.env\.REACT_APP_ADMIN_PASSWORD \|\|\s*[^;]+;\s*\n?/g, '');
+source = source.replace(/const ADMIN_EMAIL =\s*process\.env\.REACT_APP_ADMIN_EMAIL \|\|\s*"veducator4@gmail\.com";/g, 'const ADMIN_EMAIL = "veducator4@gmail.com";');
 
-const oldHandler = /  const handleSubmit = \\(e\\) => \\{[\\s\\S]*?\\n  \\};\\n\\n  return \\(\\n    <div className=\"fixed inset-0 z-50/;
+const oldHandler = /  const handleSubmit = \(e\) => \{[\s\S]*?\n  \};\n\n  return \(\n    <div className="fixed inset-0 z-50/;
 const newHandler = `  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) {
