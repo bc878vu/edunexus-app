@@ -23,6 +23,54 @@ import ProfessionalAIAssistantV2 from './ProfessionalAIAssistantV2';
 import AdminResourceManagerV2 from './AdminResourceManagerV2';
 import { startHighlightsWarmup } from './highlights-warmup';
 import { SEOManager } from './SEO';
-const FRIENDLY_ROUTES={'/vu-notes':'academic','/handouts':'academic','/past-papers':'academic','/quizzes':'aiquiz','/cgpa-calculator':'cgpa','/ai-tools':'aiquiz','/articles':'articles','/about':'about','/contact':'contact','/study-guides':'guides','/vu-notes-guide':'vu-notes-guide','/past-papers-guide':'past-papers','/exam-preparation':'exam-preparation','/cgpa-guide':'cgpa-guide','/ai-study-tools':'ai-study-tools','/student-resources':'resources','/live-projects':'projects','/tutorials':'tutorials'};
-const pathname=window.location.pathname.replace(/\/$/,'')||'/';const friendlyPage=FRIENDLY_ROUTES[pathname];const params=new URLSearchParams(window.location.search);if(friendlyPage&&!params.get('page')){params.set('page',friendlyPage);window.history.replaceState({},'',`${pathname}?${params.toString()}`)}const initialPage=new URLSearchParams(window.location.search).get('page')||'home';if('serviceWorker'in navigator&&window.location.protocol==='https:')window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}),{once:true});startHighlightsWarmup();
-const root=ReactDOM.createRoot(document.getElementById('root'));root.render(<React.StrictMode><SEOManager page={initialPage}/><DashboardEnhancerSafe/><ContentHub/><TutorialHub/><ProfessionalAIAssistantV2/><AdminResourceManagerV2/><App/></React.StrictMode>);
+
+const FRIENDLY_ROUTES = {
+  '/vu-notes': 'academic',
+  '/handouts': 'academic',
+  '/past-papers': 'academic',
+  '/quizzes': 'aiquiz',
+  '/cgpa-calculator': 'cgpa',
+  '/ai-tools': 'aiquiz',
+  '/articles': 'articles',
+  '/about': 'about',
+  '/contact': 'contact',
+  '/study-guides': 'guides',
+  '/vu-notes-guide': 'vu-notes-guide',
+  '/past-papers-guide': 'past-papers',
+  '/exam-preparation': 'exam-preparation',
+  '/cgpa-guide': 'cgpa-guide',
+  '/ai-study-tools': 'ai-study-tools',
+  '/student-resources': 'resources',
+  '/live-projects': 'projects',
+  '/tutorials': 'tutorials',
+};
+
+const pathname = window.location.pathname.replace(/\/$/, '') || '/';
+const friendlyPage = FRIENDLY_ROUTES[pathname];
+const params = new URLSearchParams(window.location.search);
+if (friendlyPage && !params.get('page')) {
+  params.set('page', friendlyPage);
+  window.history.replaceState({}, '', `${pathname}?${params.toString()}`);
+}
+const initialPage = new URLSearchParams(window.location.search).get('page') || 'home';
+
+if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
+  }, { once: true });
+}
+
+startHighlightsWarmup();
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <SEOManager page={initialPage} />
+    <DashboardEnhancerSafe />
+    <ContentHub />
+    <TutorialHub />
+    <ProfessionalAIAssistantV2 />
+    <AdminResourceManagerV2 />
+    <App />
+  </React.StrictMode>
+);
