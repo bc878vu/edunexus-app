@@ -3,16 +3,29 @@ import fs from 'node:fs';
 const file = 'src/App.js';
 let source = fs.readFileSync(file, 'utf8');
 
-source = source.replace("import { initializeApp } from 'firebase/app';", "import { getApp, getApps, initializeApp } from 'firebase/app';");
-source = source.replace("getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,", "initializeFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,");
-source = source.replace('const app = initializeApp(firebaseConfig);', "const app = getApps().length ? getApp() : initializeApp(firebaseConfig);");
-source = source.replace('const db = getFirestore(app);', "const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });");
+// Firebase must be initialized once, and Firestore should use a transport that
+// is reliable in restricted/mobile/Vercel browser environments.
+source = source.replace(
+  /import\s*\{\s*initializeApp\s*\}\s*from\s*['"]firebase\/app['"];?/m,
+  "import { getApp, getApps, initializeApp } from 'firebase/app';"
+);
+source = source.replace(/\bgetFirestore,\s*/m, 'initializeFirestore, ');
+source = source.replace(
+  /const app\s*=\s*initializeApp\(firebaseConfig\);/m,
+  "const app = getApps().length ? getApp() : initializeApp(firebaseConfig);"
+);
+source = source.replace(
+  /const db\s*=\s*getFirestore\(app\);/m,
+  "const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });"
+);
 
-source = source.replace(/const apiKey = process\.env\.REACT_APP_GEMINI_API_KEY[^\n]*\n/g, '');
-source = source.replace(/const ADMIN_PASSWORD =\s*process\.env\.REACT_APP_ADMIN_PASSWORD \|\|\s*[^;]+;\s*\n?/g, '');
-source = source.replace(/const ADMIN_EMAIL =\s*process\.env\.REACT_APP_ADMIN_EMAIL \|\|\s*"veducator4@gmail\.com";/g, 'const ADMIN_EMAIL = "veducator4@gmail.com";');
-source = source.replace('if (u?.email === ADMIN_EMAIL) setIsAdminMode(true);', 'if (u?.email === ADMIN_EMAIL && u?.emailVerified === true) setIsAdminMode(true);');
+// Gemini credentials must never be bundled into the browser.
+source = source.replace(/^[ \t]*const apiKey\s*=\s*process\.env\.REACT_APP_GEMINI_API_KEY[^\n]*\n?/gm, '');
+source = source.replace(/^[ \t]*const ADMIN_PASSWORD\s*=\s*process\.env\.REACT_APP_ADMIN_PASSWORD\s*\|\|\s*[^;]+;\s*\n?/gm, '');
+source = source.replace(/const ADMIN_EMAIL\s*=\s*process\.env\.REACT_APP_ADMIN_EMAIL\s*\|\|\s*["']veducator4@gmail\.com["'];/m, 'const ADMIN_EMAIL = "veducator4@gmail.com";');
+source = source.replace(/if\s*\(u\?\.email\s*===\s*ADMIN_EMAIL\)\s*setIsAdminMode\(true\);/, 'if (u?.email === ADMIN_EMAIL && u?.emailVerified === true) setIsAdminMode(true);');
 
+// Replace the legacy client-side password comparison with Firebase Auth.
 const adminStart = source.indexOf('const AdminLogin =');
 if (adminStart !== -1) {
   const handlerStart = source.indexOf('  const handleSubmit =', adminStart);
@@ -27,7 +40,9 @@ if (adminStart !== -1) {
     setLoading(true);
     try {
       const enteredEmail = email.trim().toLowerCase();
-      if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) throw new Error("Invalid admin credentials.");
+      if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) {
+        throw new Error("Invalid admin credentials.");
+      }
       const credential = await signInWithEmailAndPassword(auth, enteredEmail, password);
       if (!credential.user.emailVerified) {
         await signOut(auth);
@@ -39,7 +54,11 @@ if (adminStart !== -1) {
       showToast("Admin mode enabled securely.", "success");
       onClose();
     } catch (error) {
-      showToast(error?.message || "Invalid admin credentials.", "error");
+      const code = error?.code || "";
+      const message = code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found"
+        ? "Invalid admin email or password."
+        : (error?.message || "Admin login failed.");
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -50,8 +69,12 @@ if (adminStart !== -1) {
   }
 }
 
-if (!source.includes("./LegalContactPages")) {
-  source = source.replace("import React, { useState, useEffect, useRef, useMemo } from 'react';", "import React, { useState, useEffect, useRef, useMemo } from 'react';\nimport { AboutUs, ContactUs, PrivacyPage, TermsPage } from './LegalContactPages';");
+// Use the detailed legal/contact pages instead of the old inline placeholders.
+if (!source.includes("from './LegalContactPages'")) {
+  source = source.replace(
+    "import React, { useState, useEffect, useRef, useMemo } from 'react';",
+    "import React, { useState, useEffect, useRef, useMemo } from 'react';\nimport { AboutUs, ContactUs, PrivacyPage, TermsPage } from './LegalContactPages';"
+  );
 }
 source = source.replace('const AboutUs =', 'const AboutUsLegacy =');
 source = source.replace('const ContactUs =', 'const ContactUsLegacy =');
@@ -60,4 +83,22 @@ source = source.replace('const TermsPage =', 'const TermsPageLegacy =');
 source = source.replace(/support@edunexus\.app/g, 'a.m.a63425@gmail.com');
 
 fs.writeFileSync(file, source);
-console.log('EduNexus production security and page hardening applied.');
+
+// Fail the build if the source could not be hardened. This prevents a future
+// source-layout change from silently restoring exposed credentials or duplicate
+// Firestore initialization.
+const checks = [
+  [/initializeFirestore\(app, \{ experimentalAutoDetectLongPolling: true, useFetchStreams: false \}\)/, 'Firestore transport hardening'],
+  [/getApps\(\)\.length \? getApp\(\) : initializeApp\(firebaseConfig\)/, 'Firebase singleton initialization'],
+  [/signInWithEmailAndPassword\(auth, enteredEmail, password\)/, 'Firebase admin authentication'],
+  [/u\?\.emailVerified === true/, 'verified admin session'],
+  [/from ['"]\.\/LegalContactPages['"]/, 'detailed legal/contact pages'],
+];
+const failures = checks.filter(([pattern]) => !pattern.test(source)).map(([, label]) => label);
+if (/REACT_APP_GEMINI_API_KEY/.test(source) || /ADMIN_PASSWORD/.test(source)) failures.push('browser-exposed admin/Gemini secrets');
+if (failures.length) {
+  console.error(`EduNexus production hardening FAILED: ${failures.join(', ')}`);
+  process.exit(1);
+}
+
+console.log('EduNexus production Firebase, admin-auth and legal-page hardening applied.');
