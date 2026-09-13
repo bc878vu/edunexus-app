@@ -1,23 +1,32 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    function signedIn() { return request.auth != null; }
+    function signedIn() {
+      return request.auth != null;
+    }
+
     function admin() {
       return signedIn()
         && request.auth.token.email == 'veducator4@gmail.com'
         && request.auth.token.email_verified == true;
     }
 
+    // Site tutorial videos: public playback, verified-admin uploads/updates/deletes.
     match /tutorials/{fileName} {
       allow read: if true;
-      allow write: if admin()
+      allow create, update: if admin()
         && request.resource.size < 200 * 1024 * 1024
         && request.resource.contentType.matches('video/.*');
+      allow delete: if admin();
     }
 
+    // Existing site files remain publicly readable, but all mutations require
+    // the verified administrator and a 15 MB per-file limit.
     match /{allPaths=**} {
       allow read: if true;
-      allow write: if admin() && request.resource.size < 15 * 1024 * 1024;
+      allow create, update: if admin()
+        && request.resource.size < 15 * 1024 * 1024;
+      allow delete: if admin();
     }
   }
 }
