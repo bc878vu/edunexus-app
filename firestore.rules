@@ -3,9 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function admin() {
-      return signedIn()
-        && request.auth.token.email == 'veducator4@gmail.com'
-        && request.auth.token.email_verified == true;
+      return signedIn() && request.auth.token.email == 'veducator4@gmail.com';
     }
 
     match /artifacts/edunexus-live/public/data/announcements/{docId} {
