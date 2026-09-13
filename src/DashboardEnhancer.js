@@ -14,29 +14,44 @@ const PAGE_LABELS = {
   contact: "Contact",
   guides: "Study Guides",
   "vu-notes-guide": "VU Notes Guide",
+  "past-papers-guide": "Past Papers Guide",
   "past-papers": "Past Papers Guide",
   "exam-preparation": "Exam Preparation",
   "cgpa-guide": "CGPA Planning Guide",
   "ai-study-tools": "Responsible AI",
   resources: "Resource Centre",
   projects: "Live Projects",
+  tutorials: "Tutorial Videos",
 };
 
+const HUB_LINKS = [
+  ["Study Guides", "/study-guides"],
+  ["Tutorial Videos", "/tutorials"],
+  ["Student Resources", "/student-resources"],
+  ["Live Projects", "/live-projects"],
+];
+
 function getPage() {
-  return new URLSearchParams(window.location.search).get("page") || "home";
+  const queryPage = new URLSearchParams(window.location.search).get("page");
+  const path = window.location.pathname.replace(/\/$/, "") || "/";
+  const pathMap = { "/study-guides":"guides", "/tutorials":"tutorials", "/student-resources":"resources", "/live-projects":"projects", "/vu-notes-guide":"vu-notes-guide", "/exam-preparation":"exam-preparation", "/cgpa-guide":"cgpa-guide", "/ai-study-tools":"ai-study-tools" };
+  return queryPage || pathMap[path] || "home";
 }
 
 export default function DashboardEnhancer() {
   const [page, setPage] = useState(getPage);
   const [progress, setProgress] = useState(0);
   const [showTop, setShowTop] = useState(false);
+  const [hubOpen, setHubOpen] = useState(false);
 
   useEffect(() => {
     const syncRoute = () => setPage(getPage());
     window.addEventListener("popstate", syncRoute);
+    window.addEventListener("edunexus:navigation", syncRoute);
     const timer = window.setInterval(syncRoute, 350);
     return () => {
       window.removeEventListener("popstate", syncRoute);
+      window.removeEventListener("edunexus:navigation", syncRoute);
       window.clearInterval(timer);
     };
   }, []);
@@ -66,6 +81,10 @@ export default function DashboardEnhancer() {
       <div className="edx-ambient edx-ambient-two" aria-hidden="true" />
       <div className="edx-grid" aria-hidden="true" />
       <div className="edx-page-pill" aria-hidden="true"><span className="edx-live-dot" /><span>{label}</span></div>
+      <div className={`edx-hub-menu ${hubOpen ? "open" : ""}`}>
+        {hubOpen && <div className="edx-hub-panel">{HUB_LINKS.map(([name, href]) => <a href={href} key={href}>{name}<span>→</span></a>)}</div>}
+        <button type="button" className="edx-hub-toggle" aria-expanded={hubOpen} onClick={() => setHubOpen((v) => !v)}>{hubOpen ? "×" : "✦"}</button>
+      </div>
       {showTop && <button type="button" className="edx-top-button" aria-label="Back to top" title="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>↑</button>}
     </>
   );
