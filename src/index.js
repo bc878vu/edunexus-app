@@ -4,9 +4,11 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import './dashboard-enhancer.css';
 import './content-hub.css';
+import './tutorial-hub.css';
 import App from './App';
 import DashboardEnhancer from './DashboardEnhancer';
 import ContentHub from './ContentHub';
+import TutorialHub from './TutorialHub';
 import { SEOManager } from './SEO';
 
 const FRIENDLY_ROUTES = {
@@ -27,6 +29,7 @@ const FRIENDLY_ROUTES = {
   '/ai-study-tools': 'ai-study-tools',
   '/student-resources': 'resources',
   '/live-projects': 'projects',
+  '/tutorials': 'tutorials',
 };
 
 const pathname = window.location.pathname.replace(/\/$/, '') || '/';
@@ -51,6 +54,7 @@ root.render(
     <SEOManager page={initialPage} />
     <DashboardEnhancer />
     <ContentHub />
+    <TutorialHub />
     <App />
   </React.StrictMode>
 );
