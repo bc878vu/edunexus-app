@@ -16,6 +16,9 @@ source = source.replace(/^[ \t]*const ADMIN_PASSWORD\s*=\s*process\.env\.REACT_A
 source = source.replace(/const ADMIN_EMAIL\s*=\s*process\.env\.REACT_APP_ADMIN_EMAIL\s*\|\|\s*["']veducator4@gmail\.com["'];/m, 'const ADMIN_EMAIL = "veducator4@gmail.com";');
 source = source.replace(/if\s*\(u\?\.email\s*===\s*ADMIN_EMAIL\)\s*setIsAdminMode\(true\);/, 'if (u?.email === ADMIN_EMAIL && u?.emailVerified === true) setIsAdminMode(true);');
 
+// Add verification helpers to the existing Firebase Auth import.
+source = source.replace(/signInWithEmailAndPassword\s*\n?\s*\}/m, 'signInWithEmailAndPassword, sendEmailVerification\n}');
+
 // Replace the legacy client-side password comparison with Firebase Auth.
 const adminStart = source.indexOf('const AdminLogin =');
 if (adminStart !== -1) {
@@ -33,10 +36,12 @@ if (adminStart !== -1) {
       const enteredEmail = email.trim().toLowerCase();
       if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) throw new Error("Invalid admin credentials.");
       const credential = await signInWithEmailAndPassword(auth, enteredEmail, password);
+      await credential.user.reload();
       if (!credential.user.emailVerified) {
+        await sendEmailVerification(credential.user);
         await signOut(auth);
         await signInAnonymously(auth);
-        throw new Error("Admin email must be verified before access is granted.");
+        throw new Error("Verification email sent to the admin address. Open it, verify your email, then sign in again.");
       }
       setIsAdminMode(true);
       setPage("admin");
@@ -84,6 +89,7 @@ const checks = [
   [/getApps\(\)\.length \? getApp\(\) : initializeApp\(firebaseConfig\)/, 'Firebase singleton initialization'],
   [/signInWithEmailAndPassword\(auth, enteredEmail, password\)/, 'Firebase admin authentication'],
   [/u\?\.emailVerified === true/, 'verified admin session'],
+  [/sendEmailVerification\(credential\.user\)/, 'admin email verification flow'],
   [/from ['"]\.\/LegalContactPages['"]/, 'detailed legal/contact pages'],
 ];
 const failures = checks.filter(([pattern]) => !pattern.test(source)).map(([, label]) => label);
@@ -92,4 +98,4 @@ if (failures.length) {
   console.error(`EduNexus production hardening FAILED: ${failures.join(', ')}`);
   process.exit(1);
 }
-console.log('EduNexus production Firebase, admin-auth, AI lifecycle and legal-page hardening applied.');
+console.log('EduNexus production Firebase, admin-auth, email-verification, AI lifecycle and legal-page hardening applied.');
