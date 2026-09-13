@@ -5,10 +5,12 @@ button, input, textarea, select { max-width: 100%; }
 main, section, article, header, footer, nav { min-width: 0; }
 [class*="break-words"], .break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
 
-/* Legacy admin tabs stay usable on desktop and narrow screens. */
+/* Legacy admin tabs remain visible and usable instead of being replaced by the resource manager. */
 .edx-admin-legacy-head { align-items: stretch !important; }
 .edx-admin-tabs { width: 100%; scrollbar-width: thin; }
 .edx-admin-tabs button { flex: 0 0 auto; white-space: nowrap; }
+main .max-w-6xl > div.flex.flex-col > div.flex.gap-2.bg-slate-200 { width: 100%; scrollbar-width: thin; }
+main .max-w-6xl > div.flex.flex-col > div.flex.gap-2.bg-slate-200 button { flex: 0 0 auto; white-space: nowrap; }
 
 /* AI quiz: flexible controls and readable answer cards. */
 main .max-w-3xl { width: min(100%, 860px); }
@@ -23,7 +25,7 @@ main .max-w-3xl button { overflow-wrap: anywhere; }
 
 @media (max-width: 1023px) {
   .edx-admin-legacy-head { align-items: stretch !important; }
-  .edx-admin-tabs { overflow-x: auto; }
+  .edx-admin-tabs, main .max-w-6xl > div.flex.flex-col > div.flex.gap-2.bg-slate-200 { overflow-x: auto; }
 }
 
 @media (max-width: 767px) {
@@ -34,10 +36,10 @@ main .max-w-3xl button { overflow-wrap: anywhere; }
   .text-5xl { font-size: clamp(2rem, 8vw, 3rem) !important; }
   .text-4xl { font-size: clamp(1.8rem, 7vw, 2.4rem) !important; }
   .text-3xl { font-size: clamp(1.55rem, 6vw, 2rem) !important; }
-  .edx-admin-tabs { padding: 5px !important; gap: 5px !important; }
-  .edx-admin-tabs button { padding: 9px 12px !important; font-size: 12px !important; }
+  .edx-admin-tabs, main .max-w-6xl > div.flex.flex-col > div.flex.gap-2.bg-slate-200 { padding: 5px !important; gap: 5px !important; }
+  .edx-admin-tabs button, main .max-w-6xl > div.flex.flex-col > div.flex.gap-2.bg-slate-200 button { padding: 9px 12px !important; font-size: 12px !important; }
 
-  /* Quiz input row: the text field and question count stack cleanly. */
+  /* Quiz input row: text/topic and question count stack cleanly. */
   main .max-w-3xl > div > div.flex.gap-4 { display: grid !important; grid-template-columns: 1fr !important; }
   main .max-w-3xl > div > div.flex.gap-4 input[type="number"] { width: 100% !important; max-width: none !important; }
   main .max-w-3xl .p-8 { padding: 16px !important; }
@@ -52,6 +54,10 @@ main .max-w-3xl button { overflow-wrap: anywhere; }
 @media (max-width: 480px) {
   main .max-w-3xl .flex.justify-between > * { min-width: 120px; flex: 1 1 auto; }
   .edx-pro-ai-panel { border-radius: 18px !important; }
+}
+
+@media (prefers-color-scheme: dark) {
+  main .max-w-6xl > div.flex.flex-col > div.flex.gap-2.bg-slate-200 { background: rgb(30 41 59 / .9); }
 }
 
 @media (prefers-reduced-motion: reduce) {
