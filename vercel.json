@@ -10,5 +10,16 @@
         { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
       ]
     }
+  ],
+  "rewrites": [
+    { "source": "/vu-notes", "destination": "/index.html" },
+    { "source": "/handouts", "destination": "/index.html" },
+    { "source": "/past-papers", "destination": "/index.html" },
+    { "source": "/quizzes", "destination": "/index.html" },
+    { "source": "/cgpa-calculator", "destination": "/index.html" },
+    { "source": "/ai-tools", "destination": "/index.html" },
+    { "source": "/articles", "destination": "/index.html" },
+    { "source": "/about", "destination": "/index.html" },
+    { "source": "/contact", "destination": "/index.html" }
   ]
 }
