@@ -25,24 +25,13 @@ import { startHighlightsWarmup } from './highlights-warmup';
 import { SEOManager } from './SEO';
 
 const FRIENDLY_ROUTES = {
-  '/vu-notes': 'academic',
-  '/handouts': 'academic',
-  '/past-papers': 'academic',
-  '/quizzes': 'aiquiz',
-  '/cgpa-calculator': 'cgpa',
-  '/ai-tools': 'aiquiz',
-  '/articles': 'articles',
-  '/about': 'about',
-  '/contact': 'contact',
-  '/study-guides': 'guides',
-  '/vu-notes-guide': 'vu-notes-guide',
-  '/past-papers-guide': 'past-papers',
-  '/exam-preparation': 'exam-preparation',
-  '/cgpa-guide': 'cgpa-guide',
-  '/ai-study-tools': 'ai-study-tools',
-  '/student-resources': 'resources',
-  '/live-projects': 'projects',
-  '/tutorials': 'tutorials',
+  '/vu-notes': 'academic', '/handouts': 'academic', '/past-papers': 'academic',
+  '/quizzes': 'aiquiz', '/cgpa-calculator': 'cgpa', '/ai-tools': 'aiquiz',
+  '/articles': 'articles', '/about': 'about', '/contact': 'contact',
+  '/study-guides': 'guides', '/vu-notes-guide': 'vu-notes-guide',
+  '/past-papers-guide': 'past-papers', '/exam-preparation': 'exam-preparation',
+  '/cgpa-guide': 'cgpa-guide', '/ai-study-tools': 'ai-study-tools',
+  '/student-resources': 'resources', '/live-projects': 'projects', '/tutorials': 'tutorials',
 };
 
 const pathname = window.location.pathname.replace(/\/$/, '') || '/';
@@ -63,8 +52,12 @@ if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
 startHighlightsWarmup();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+// Deliberately avoid React.StrictMode here. The app mounts several global
+// Firebase/auth listeners and floating UI components; a single production mount
+// prevents duplicate listener initialization and avoids development-only effect
+// replays being carried into the deployed runtime.
 root.render(
-  <React.StrictMode>
+  <>
     <SEOManager page={initialPage} />
     <DashboardEnhancerSafe />
     <ContentHub />
@@ -72,5 +65,5 @@ root.render(
     <ProfessionalAIAssistantV2 />
     <AdminResourceManagerV2 />
     <App />
-  </React.StrictMode>
+  </>
 );
