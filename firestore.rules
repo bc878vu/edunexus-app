@@ -1,13 +1,8 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    // Admin authorization is enforced by Firebase Auth, not by a frontend password.
-    function isAdmin() {
+    function signedIn() { return request.auth != null; }
+    function admin() {
       return signedIn()
         && request.auth.token.email == 'veducator4@gmail.com'
         && request.auth.token.email_verified == true;
@@ -15,21 +10,40 @@ service cloud.firestore {
 
     match /artifacts/edunexus-live/public/data/announcements/{docId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if admin();
     }
-
     match /artifacts/edunexus-live/public/data/articles/{docId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if admin();
     }
-
+    match /artifacts/edunexus-live/public/data/highlights/{docId} {
+      allow read: if true;
+      allow create, update, delete: if admin();
+    }
+    match /artifacts/edunexus-live/public/data/files/{docId} {
+      allow read: if true;
+      allow create, update, delete: if admin();
+    }
     match /artifacts/edunexus-live/public/data/discussions/{docId} {
       allow read: if true;
       allow create: if signedIn();
-      allow update, delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow update, delete: if admin() || (signedIn() && resource.data.userId == request.auth.uid);
     }
-
-    // Default deny: any collection not explicitly listed above is protected.
+    match /artifacts/edunexus-live/public/data/feedback/{docId} {
+      allow create: if signedIn();
+      allow read, update, delete: if admin();
+    }
+    match /artifacts/edunexus-live/public/data/profile/{docId} {
+      allow read: if true;
+      allow create, update, delete: if admin();
+    }
+    match /artifacts/edunexus-live/public/data/meta/{docId} {
+      allow read: if true;
+      allow create, update, delete: if admin();
+    }
+    match /artifacts/edunexus-live/users/{userId}/{document=**} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
     match /{document=**} {
       allow read, write: if false;
     }
