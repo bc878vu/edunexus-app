@@ -11,13 +11,13 @@ import {
   Phone,
   Send,
   Shield,
-  Target,
-  Zap,
 } from "lucide-react";
 
 export const SITE_SUPPORT_EMAIL = "a.m.a63425@gmail.com";
 export const SITE_SUPPORT_PHONE = "0309-8851445";
 export const SITE_GMAIL_URL = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(SITE_SUPPORT_EMAIL)}&su=${encodeURIComponent("EduNexus Support Request")}`;
+
+const LEGAL_LAST_UPDATED = "14 September 2026";
 
 const LegalSection = ({ theme, title, children }) => (
   <section className={`${theme.card} rounded-2xl border ${theme.border} p-6 sm:p-8`}>
@@ -85,17 +85,28 @@ export const ContactUs = ({ theme }) => {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
   const subject = useMemo(() => `EduNexus Support Request${name.trim() ? ` - ${name.trim()}` : ""}`, [name]);
 
   const openGmail = (event) => {
     event.preventDefault();
-    if (!name.trim() || !email.trim() || !message.trim()) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return;
+    const cleanName = name.trim();
+    const cleanEmail = email.trim();
+    const cleanMessage = message.trim();
+    if (!cleanName || !cleanEmail || !cleanMessage) {
+      setError("Please complete all fields before opening Gmail.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    setError("");
     setSending(true);
-    const body = `Name: ${name.trim()}\nReply email: ${email.trim()}\n\nMessage:\n${message.trim()}`;
+    const body = `Name: ${cleanName}\nReply email: ${cleanEmail}\n\nMessage:\n${cleanMessage}`;
     const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(SITE_SUPPORT_EMAIL)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => setSending(false), 500);
+    window.setTimeout(() => setSending(false), 700);
   };
 
   const contactCards = [
@@ -116,9 +127,10 @@ export const ContactUs = ({ theme }) => {
       <section className="grid gap-8 lg:grid-cols-[1.15fr_.85fr]">
         <div className={`${theme.card} rounded-2xl border ${theme.border} p-6 sm:p-8`}>
           <div className="mb-6"><h2 className={`text-2xl font-bold ${theme.text}`}>Send a message</h2><p className={`mt-2 ${theme.textMuted}`}>Complete the form and Gmail will open with a ready-to-send message. Your message is not stored by this form.</p></div>
-          <form onSubmit={openGmail} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2"><label className="block"><span className={`mb-2 block text-sm font-semibold ${theme.text}`}>Name</span><input required value={name} onChange={e => setName(e.target.value)} maxLength={80} className={`w-full rounded-xl border ${theme.border} ${theme.input} p-3 outline-none`} placeholder="Your name" /></label><label className="block"><span className={`mb-2 block text-sm font-semibold ${theme.text}`}>Email</span><input required type="email" value={email} onChange={e => setEmail(e.target.value)} maxLength={120} className={`w-full rounded-xl border ${theme.border} ${theme.input} p-3 outline-none`} placeholder="you@example.com" /></label></div>
-            <label className="block"><span className={`mb-2 block text-sm font-semibold ${theme.text}`}>Message</span><textarea required value={message} onChange={e => setMessage(e.target.value)} maxLength={2000} className={`min-h-[160px] w-full resize-y rounded-xl border ${theme.border} ${theme.input} p-3 outline-none`} placeholder="Tell us what you need help with..." /></label>
+          <form onSubmit={openGmail} className="space-y-4" noValidate>
+            <div className="grid gap-4 sm:grid-cols-2"><label className="block"><span className={`mb-2 block text-sm font-semibold ${theme.text}`}>Name</span><input required value={name} onChange={e => { setName(e.target.value); setError(""); }} maxLength={80} autoComplete="name" className={`w-full rounded-xl border ${theme.border} ${theme.input} p-3 outline-none`} placeholder="Your name" /></label><label className="block"><span className={`mb-2 block text-sm font-semibold ${theme.text}`}>Email</span><input required type="email" value={email} onChange={e => { setEmail(e.target.value); setError(""); }} maxLength={120} autoComplete="email" className={`w-full rounded-xl border ${theme.border} ${theme.input} p-3 outline-none`} placeholder="you@example.com" /></label></div>
+            <label className="block"><span className={`mb-2 block text-sm font-semibold ${theme.text}`}>Message</span><textarea required value={message} onChange={e => { setMessage(e.target.value); setError(""); }} maxLength={2000} className={`min-h-[160px] w-full resize-y rounded-xl border ${theme.border} ${theme.input} p-3 outline-none`} placeholder="Tell us what you need help with..." /></label>
+            {error && <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-500">{error}</p>}
             <button disabled={sending} type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">{sending ? <Loader size={18} className="animate-spin"/> : <Send size={18}/>} {sending ? "Opening Gmail..." : "Open Gmail & compose"}</button>
           </form>
         </div>
@@ -144,7 +156,7 @@ export const PrivacyPage = ({ theme }) => {
     ["11. Children's privacy", <p>EduNexus is designed as a student learning resource and is not intended to collect unnecessary personal information from children. If you believe a child has submitted personal information in a way that should not have happened, please contact us so the matter can be reviewed.</p>],
     ["12. Changes to this policy", <p>This policy may be updated when the website, its features or applicable requirements change. The updated version will be published on this page with a revised date. Continued use of the website after an update means you have had an opportunity to review the revised policy.</p>],
   ];
-  return <div className="max-w-5xl mx-auto space-y-7 animate-fade-in"><header className={`${theme.card} rounded-3xl border ${theme.border} p-6 sm:p-8 md:p-10 shadow-sm`}><span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-500"><Shield size={14}/> Privacy</span><h1 className={`mt-4 text-3xl sm:text-4xl md:text-5xl font-extrabold ${theme.text}`}>Privacy Policy</h1><p className={`mt-4 max-w-3xl leading-7 ${theme.textMuted}`}>This policy explains what information EduNexus may receive through normal use of the website, why it is used, and the choices available to you.</p><p className={`mt-3 text-sm ${theme.textMuted}`}>Last updated: 13 September 2026</p></header>{sections.map(([title, content]) => <LegalSection key={title} theme={theme} title={title}>{content}</LegalSection>)}<LegalSection theme={theme} title="Privacy questions"><p>For privacy questions or requests, email <a href={SITE_GMAIL_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-500 hover:underline">{SITE_SUPPORT_EMAIL}</a>. Clicking the address opens a Gmail compose window.</p></LegalSection></div>;
+  return <div className="max-w-5xl mx-auto space-y-7 animate-fade-in"><header className={`${theme.card} rounded-3xl border ${theme.border} p-6 sm:p-8 md:p-10 shadow-sm`}><span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-500"><Shield size={14}/> Privacy</span><h1 className={`mt-4 text-3xl sm:text-4xl md:text-5xl font-extrabold ${theme.text}`}>Privacy Policy</h1><p className={`mt-4 max-w-3xl leading-7 ${theme.textMuted}`}>This policy explains what information EduNexus may receive through normal use of the website, why it is used, and the choices available to you.</p><p className={`mt-3 text-sm ${theme.textMuted}`}>Last updated: {LEGAL_LAST_UPDATED}</p></header>{sections.map(([title, content]) => <LegalSection key={title} theme={theme} title={title}>{content}</LegalSection>)}<LegalSection theme={theme} title="Privacy questions"><p>For privacy questions or requests, email <a href={SITE_GMAIL_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-500 hover:underline">{SITE_SUPPORT_EMAIL}</a>. Clicking the address opens a Gmail compose window.</p></LegalSection></div>;
 };
 
 export const TermsPage = ({ theme }) => {
@@ -162,5 +174,5 @@ export const TermsPage = ({ theme }) => {
     ["11. Limitation of responsibility", <><p>You remain responsible for decisions you make using information or tools found on EduNexus. This includes academic submissions, exam preparation, course choices, administrative decisions and use of third-party resources.</p><p>Nothing on EduNexus should be treated as an official university notice unless it is explicitly identified as such and can be verified through the appropriate official source.</p></>],
     ["12. Contact and support", <p>If you have a question about these terms or want to report a problem, contact us at <a href={SITE_GMAIL_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-500 hover:underline">{SITE_SUPPORT_EMAIL}</a>. The email link opens Gmail directly.</p>],
   ];
-  return <div className="max-w-5xl mx-auto space-y-7 animate-fade-in"><header className={`${theme.card} rounded-3xl border ${theme.border} p-6 sm:p-8 md:p-10 shadow-sm`}><span className="inline-flex items-center gap-2 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-500"><FileText size={14}/> Terms</span><h1 className={`mt-4 text-3xl sm:text-4xl md:text-5xl font-extrabold ${theme.text}`}>Terms of Service</h1><p className={`mt-4 max-w-3xl leading-7 ${theme.textMuted}`}>These terms explain the basic rules for using EduNexus and the limits that apply to an independent educational resource.</p><p className={`mt-3 text-sm ${theme.textMuted}`}>Last updated: 13 September 2026</p></header>{sections.map(([title, content]) => <LegalSection key={title} theme={theme} title={title}>{content}</LegalSection>)}<section className={`${theme.card} rounded-2xl border ${theme.border} p-6 sm:p-8`}><h2 className={`text-xl font-bold ${theme.text}`}>Using EduNexus responsibly</h2><p className={`mt-3 leading-7 ${theme.textMuted}`}>The simplest rule is this: use the platform to learn, organise your work, communicate respectfully and respect the rights of other people.</p></section></div>;
+  return <div className="max-w-5xl mx-auto space-y-7 animate-fade-in"><header className={`${theme.card} rounded-3xl border ${theme.border} p-6 sm:p-8 md:p-10 shadow-sm`}><span className="inline-flex items-center gap-2 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-500"><FileText size={14}/> Terms</span><h1 className={`mt-4 text-3xl sm:text-4xl md:text-5xl font-extrabold ${theme.text}`}>Terms of Service</h1><p className={`mt-4 max-w-3xl leading-7 ${theme.textMuted}`}>These terms explain the basic rules for using EduNexus and the limits that apply to an independent educational resource.</p><p className={`mt-3 text-sm ${theme.textMuted}`}>Last updated: {LEGAL_LAST_UPDATED}</p></header>{sections.map(([title, content]) => <LegalSection key={title} theme={theme} title={title}>{content}</LegalSection>)}<section className={`${theme.card} rounded-2xl border ${theme.border} p-6 sm:p-8`}><h2 className={`text-xl font-bold ${theme.text}`}>Using EduNexus responsibly</h2><p className={`mt-3 leading-7 ${theme.textMuted}`}>The simplest rule is this: use the platform to learn, organise your work, communicate respectfully and respect the rights of other people.</p></section></div>;
 };
