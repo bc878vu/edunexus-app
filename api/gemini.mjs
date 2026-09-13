@@ -2,7 +2,11 @@
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
-const MAX_PROMPT_LENGTH = 12000;
+// The previous 12,000-character app limit was an artificial bottleneck and
+// caused valid app-aware prompts to fail before Gemini was even called.
+// Gemini 2.5 Flash supports a much larger context, so keep a generous server
+// safety ceiling while still preventing accidentally enormous requests.
+const MAX_PROMPT_LENGTH = 50000;
 const WINDOW_MS = 60000;
 const MAX_REQUESTS_PER_WINDOW = 20;
 const requestLog = new Map();
@@ -27,6 +31,17 @@ function isRateLimited(key) {
   return false;
 }
 
+function fitPrompt(value) {
+  const prompt = String(value || '').trim();
+  if (prompt.length <= MAX_PROMPT_LENGTH) return prompt;
+
+  // Preserve the beginning (instructions/app knowledge) and the tail
+  // (recent chat + the user's actual question) rather than hard-failing.
+  const head = 39000;
+  const tail = 10500;
+  return `${prompt.slice(0, head)}\n\n[Context trimmed safely by EduNexus AI]\n\n${prompt.slice(-tail)}`;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -48,13 +63,12 @@ export default async function handler(req, res) {
     });
   }
 
-  const prompt = req.body?.prompt;
-  if (typeof prompt !== 'string' || !prompt.trim()) {
+  const rawPrompt = req.body?.prompt;
+  if (typeof rawPrompt !== 'string' || !rawPrompt.trim()) {
     return res.status(400).json({ error: 'A non-empty prompt is required.' });
   }
-  if (prompt.length > MAX_PROMPT_LENGTH) {
-    return res.status(413).json({ error: `Prompt must be ${MAX_PROMPT_LENGTH} characters or fewer.` });
-  }
+
+  const prompt = fitPrompt(rawPrompt);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
@@ -67,7 +81,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'x-goog-api-key': apiKey,
       },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt.trim() }] }] }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
     });
 
     const data = await response.json().catch(() => null);
