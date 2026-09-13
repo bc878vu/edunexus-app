@@ -3,8 +3,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import './dashboard-enhancer.css';
+import './content-hub.css';
 import App from './App';
 import DashboardEnhancer from './DashboardEnhancer';
+import ContentHub from './ContentHub';
 import { SEOManager } from './SEO';
 
 const FRIENDLY_ROUTES = {
@@ -17,6 +19,14 @@ const FRIENDLY_ROUTES = {
   '/articles': 'articles',
   '/about': 'about',
   '/contact': 'contact',
+  '/study-guides': 'guides',
+  '/vu-notes-guide': 'vu-notes-guide',
+  '/past-papers-guide': 'past-papers',
+  '/exam-preparation': 'exam-preparation',
+  '/cgpa-guide': 'cgpa-guide',
+  '/ai-study-tools': 'ai-study-tools',
+  '/student-resources': 'resources',
+  '/live-projects': 'projects',
 };
 
 const pathname = window.location.pathname.replace(/\/$/, '') || '/';
@@ -40,6 +50,7 @@ root.render(
   <React.StrictMode>
     <SEOManager page={initialPage} />
     <DashboardEnhancer />
+    <ContentHub />
     <App />
   </React.StrictMode>
 );
