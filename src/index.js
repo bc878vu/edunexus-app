@@ -9,10 +9,12 @@ import './content-hub.css';
 import './tutorial-hub.css';
 import './background-rotator.css';
 import './content-hub-links.css';
+import './professional-ai.css';
 import App from './App';
 import DashboardEnhancer from './DashboardEnhancer';
 import ContentHub from './ContentHub';
 import TutorialHub from './TutorialHub';
+import ProfessionalAIAssistant from './ProfessionalAIAssistant';
 import { startHighlightsWarmup } from './highlights-warmup';
 import { SEOManager } from './SEO';
 
@@ -25,10 +27,7 @@ const params = new URLSearchParams(window.location.search);
 if (friendlyPage && !params.get('page')) { params.set('page', friendlyPage); window.history.replaceState({}, '', `${pathname}?${params.toString()}`); }
 const initialPage = new URLSearchParams(window.location.search).get('page') || 'home';
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}), { once: true });
-
-// App.js has already initialized the Firebase DEFAULT app by this point.
-// Warm the shared Firestore highlights cache before React paints the dashboard.
 startHighlightsWarmup();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<React.StrictMode><SEOManager page={initialPage} /><DashboardEnhancer /><ContentHub /><TutorialHub /><App /></React.StrictMode>);
+root.render(<React.StrictMode><SEOManager page={initialPage} /><DashboardEnhancer /><ContentHub /><TutorialHub /><App /><ProfessionalAIAssistant /></React.StrictMode>);
