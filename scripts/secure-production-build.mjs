@@ -5,19 +5,10 @@ let source = fs.readFileSync(file, 'utf8');
 
 // Firebase must be initialized once, and Firestore should use a transport that
 // is reliable in restricted/mobile/Vercel browser environments.
-source = source.replace(
-  /import\s*\{\s*initializeApp\s*\}\s*from\s*['"]firebase\/app['"];?/m,
-  "import { getApp, getApps, initializeApp } from 'firebase/app';"
-);
+source = source.replace(/import\s*\{\s*initializeApp\s*\}\s*from\s*['"]firebase\/app['"];?/m, "import { getApp, getApps, initializeApp } from 'firebase/app';");
 source = source.replace(/\bgetFirestore,\s*/m, 'initializeFirestore, ');
-source = source.replace(
-  /const app\s*=\s*initializeApp\(firebaseConfig\);/m,
-  "const app = getApps().length ? getApp() : initializeApp(firebaseConfig);"
-);
-source = source.replace(
-  /const db\s*=\s*getFirestore\(app\);/m,
-  "const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });"
-);
+source = source.replace(/const app\s*=\s*initializeApp\(firebaseConfig\);/m, "const app = getApps().length ? getApp() : initializeApp(firebaseConfig);");
+source = source.replace(/const db\s*=\s*getFirestore\(app\);/m, "const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });");
 
 // Gemini credentials must never be bundled into the browser.
 source = source.replace(/^[ \t]*const apiKey\s*=\s*process\.env\.REACT_APP_GEMINI_API_KEY[^\n]*\n?/gm, '');
@@ -40,9 +31,7 @@ if (adminStart !== -1) {
     setLoading(true);
     try {
       const enteredEmail = email.trim().toLowerCase();
-      if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) {
-        throw new Error("Invalid admin credentials.");
-      }
+      if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) throw new Error("Invalid admin credentials.");
       const credential = await signInWithEmailAndPassword(auth, enteredEmail, password);
       if (!credential.user.emailVerified) {
         await signOut(auth);
@@ -69,24 +58,27 @@ if (adminStart !== -1) {
   }
 }
 
-// Use the detailed legal/contact pages instead of the old inline placeholders.
 if (!source.includes("from './LegalContactPages'")) {
-  source = source.replace(
-    "import React, { useState, useEffect, useRef, useMemo } from 'react';",
-    "import React, { useState, useEffect, useRef, useMemo } from 'react';\nimport { AboutUs, ContactUs, PrivacyPage, TermsPage } from './LegalContactPages';"
-  );
+  source = source.replace("import React, { useState, useEffect, useRef, useMemo } from 'react';", "import React, { useState, useEffect, useRef, useMemo } from 'react';\nimport { AboutUs, ContactUs, PrivacyPage, TermsPage } from './LegalContactPages';");
 }
 source = source.replace('const AboutUs =', 'const AboutUsLegacy =');
 source = source.replace('const ContactUs =', 'const ContactUsLegacy =');
 source = source.replace('const PrivacyPage =', 'const PrivacyPageLegacy =');
 source = source.replace('const TermsPage =', 'const TermsPageLegacy =');
 source = source.replace(/support@edunexus\.app/g, 'a.m.a63425@gmail.com');
-
 fs.writeFileSync(file, source);
 
-// Fail the build if the source could not be hardened. This prevents a future
-// source-layout change from silently restoring exposed credentials or duplicate
-// Firestore initialization.
+// The AI assistant is mounted globally alongside App.js. It must reuse the same
+// Firestore instance instead of calling initializeFirestore() a second time.
+const aiFile = 'src/ProfessionalAIAssistantV2.js';
+if (fs.existsSync(aiFile)) {
+  let ai = fs.readFileSync(aiFile, 'utf8');
+  ai = ai.replace(/initializeFirestore,\s*/g, 'getFirestore, ');
+  ai = ai.replace(/db=initializeFirestore\(app,\{experimentalAutoDetectLongPolling:true,useFetchStreams:false\}\)/g, 'db=getFirestore(app)');
+  ai = ai.replace(/useEffect\(\(\)=>onAuthStateChanged\(auth,async u=>\{setUser\(u\);if\(u\)\{const c=await contextFor\(u\);setCtx\(c\);try\{const old=JSON\.parse\(localStorage\.getItem\(`edx-ai-context-\$\{u\.uid\}`\)\|\|'null'\);if\(old\?\.messages\?\.length\)setMessages\(old\.messages\.slice\(-30\)\)\}catch\(e\)\{\}\}\}\),\[\]\);/g, "useEffect(()=>{let alive=true;const unsubscribe=onAuthStateChanged(auth,u=>{setUser(u);if(!u)return;contextFor(u).then(c=>{if(!alive)return;setCtx(c);try{const old=JSON.parse(localStorage.getItem(`edx-ai-context-${u.uid}`)||'null');if(old?.messages?.length)setMessages(old.messages.slice(-30))}catch(e){}}).catch(()=>{})});return()=>{alive=false;unsubscribe()}},[]);");
+  fs.writeFileSync(aiFile, ai);
+}
+
 const checks = [
   [/initializeFirestore\(app, \{ experimentalAutoDetectLongPolling: true, useFetchStreams: false \}\)/, 'Firestore transport hardening'],
   [/getApps\(\)\.length \? getApp\(\) : initializeApp\(firebaseConfig\)/, 'Firebase singleton initialization'],
@@ -100,5 +92,4 @@ if (failures.length) {
   console.error(`EduNexus production hardening FAILED: ${failures.join(', ')}`);
   process.exit(1);
 }
-
-console.log('EduNexus production Firebase, admin-auth and legal-page hardening applied.');
+console.log('EduNexus production Firebase, admin-auth, AI lifecycle and legal-page hardening applied.');
