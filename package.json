@@ -5,7 +5,6 @@
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.2",
     "firebase": "^12.8.0",
     "lucide-react": "^0.562.0",
@@ -18,7 +17,7 @@
     "prestart": "node scripts/preflight.mjs && node scripts/patch-ai-quiz.mjs && node scripts/secure-production-build.mjs",
     "start": "react-scripts start",
     "prebuild": "node scripts/preflight.mjs && node scripts/patch-ai-quiz.mjs && node scripts/secure-production-build.mjs",
-    "build": "react-scripts build",
+    "build": "node scripts/patch-ai-quiz.mjs && react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
