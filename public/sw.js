@@ -1,4 +1,4 @@
-const CACHE = 'edunexus-static-v2';
+const CACHE = 'edunexus-static-v3';
 const STATIC_EXT = /\.(?:js|css|png|jpg|jpeg|webp|svg|ico|woff2?|ttf)$/i;
 
 self.addEventListener('install', (event) => {
@@ -23,7 +23,7 @@ self.addEventListener('fetch', (event) => {
   const isNavigation = request.mode === 'navigate';
 
   if (isNavigation) {
-    // Fresh HTML first; cached shell is an offline/slow-network fallback.
+    // Always prefer fresh HTML. Use the cached shell only when offline.
     event.respondWith(
       fetch(request).then((response) => {
         const copy = response.clone();
@@ -35,16 +35,14 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (STATIC_EXT.test(url.pathname)) {
-    // Hashed CRA assets are immutable; cache-first makes repeat navigation fast.
+    // Network-first prevents an old CRA bundle from surviving a new deployment.
+    // The cache remains an offline fallback for slow/failed networks.
     event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
-          return response;
-        });
-      })
+      fetch(request).then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+        return response;
+      }).catch(() => caches.match(request).then((cached) => cached || Response.error()))
     );
   }
 });
