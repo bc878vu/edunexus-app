@@ -5,6 +5,7 @@ import './index.css';
 import './dashboard-enhancer.css';
 import './content-hub.css';
 import './tutorial-hub.css';
+import './background-rotator.css';
 import App from './App';
 import DashboardEnhancer from './DashboardEnhancer';
 import ContentHub from './ContentHub';
