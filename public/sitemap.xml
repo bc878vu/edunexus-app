@@ -15,6 +15,9 @@
   <url><loc>https://edunexus-app.vercel.app/cgpa-guide</loc><changefreq>monthly</changefreq><priority>0.75</priority></url>
   <url><loc>https://edunexus-app.vercel.app/ai-study-tools</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://edunexus-app.vercel.app/student-resources</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://edunexus-app.vercel.app/tutorials</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://edunexus-app.vercel.app/forum</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://edunexus-app.vercel.app/portfolio</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://edunexus-app.vercel.app/live-projects</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://edunexus-app.vercel.app/about</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://edunexus-app.vercel.app/contact</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
