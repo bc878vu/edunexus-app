@@ -1,4 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { getApps, initializeApp } from "firebase/app";
+import { getFirestore, doc, onSnapshot } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCdoWl5a0irdMGftJUYkng-dQLUI1ZImP8",
+  authDomain: "edunexus-live-e0b84.firebaseapp.com",
+  projectId: "edunexus-live-e0b84",
+  storageBucket: "edunexus-live-e0b84.firebasestorage.app",
+  messagingSenderId: "464541062794",
+  appId: "1:464541062794:web:7894ed257d604f202bbf73"
+};
+const firebaseApp = getApps().find((item) => item.name === "[DEFAULT]") || initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+const SETTINGS = doc(db, "artifacts/edunexus-live/public/data/meta/floatingHub");
 
 const PAGE_LABELS = {
   home: "Dashboard", academic: "Academic Hub", articles: "Knowledge Base", aiquiz: "AI Quiz",
@@ -8,12 +22,11 @@ const PAGE_LABELS = {
   "exam-preparation": "Exam Preparation", "cgpa-guide": "CGPA Planning Guide", "ai-study-tools": "Responsible AI",
   resources: "Resource Centre", projects: "Live Projects", tutorials: "Tutorial Videos",
 };
-
-const RESOURCE_BUTTONS = [
-  { label: "Study Guides", href: "/study-guides" },
-  { label: "Tutorial Videos", href: "/tutorials" },
-  { label: "Student Resources", href: "/student-resources" },
-  { label: "Live Projects", href: "/live-projects" },
+const DEFAULT_BUTTONS = [
+  { label: "Study Guides", href: "/study-guides", enabled: true },
+  { label: "Tutorial Videos", href: "/tutorials", enabled: true },
+  { label: "Student Resources", href: "/student-resources", enabled: true },
+  { label: "Live Projects", href: "/live-projects", enabled: true }
 ];
 
 function getPage() {
@@ -40,10 +53,7 @@ function playClickSound() {
     gain.gain.setValueAtTime(0.0001, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.075, ctx.currentTime + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.11);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.12);
+    osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.12);
     window.setTimeout(() => ctx.close().catch(() => {}), 180);
   } catch (_) {}
 }
@@ -53,6 +63,25 @@ function FloatingResourceButton({ page }) {
   const [resourceIndex, setResourceIndex] = useState(0);
   const [sizeLevel, setSizeLevel] = useState(0);
   const [clicked, setClicked] = useState(false);
+  const [config, setConfig] = useState({ buttons: DEFAULT_BUTTONS, dashboardPinned: true });
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(SETTINGS, (snap) => {
+      const data = snap.data() || {};
+      const buttons = Array.isArray(data.buttons) && data.buttons.length
+        ? data.buttons.filter((item) => item?.enabled !== false && item?.label && item?.href).map((item) => ({ label: String(item.label), href: String(item.href) }))
+        : DEFAULT_BUTTONS;
+      setConfig({ buttons, dashboardPinned: data.dashboardPinned !== false });
+      setResourceIndex((value) => Math.min(value, Math.max(0, buttons.length - 1)));
+    }, () => {});
+    return unsubscribe;
+  }, []);
+
+  const resources = useMemo(() => {
+    const base = config.buttons.length ? config.buttons : DEFAULT_BUTTONS;
+    if (config.dashboardPinned && !base.some((item) => item.href === "/")) return [{ label: "Dashboard", href: "/" }, ...base];
+    return base;
+  }, [config]);
 
   const moveButton = useMemo(() => () => {
     const width = window.innerWidth;
@@ -61,94 +90,48 @@ function FloatingResourceButton({ page }) {
     const margin = 16;
     const maxX = Math.max(margin, width - size - margin);
     const maxY = Math.max(margin, height - size - margin);
-    setPosition({
-      x: Math.round(margin + Math.random() * Math.max(1, maxX - margin)),
-      y: Math.round(margin + Math.random() * Math.max(1, maxY - margin)),
-    });
+    setPosition({ x: Math.round(margin + Math.random() * Math.max(1, maxX - margin)), y: Math.round(margin + Math.random() * Math.max(1, maxY - margin)) });
     setSizeLevel((value) => (value + 1) % 3);
   }, []);
 
   useEffect(() => {
     moveButton();
     const moveTimer = window.setInterval(moveButton, 3000);
-    const labelTimer = window.setInterval(() => {
-      setResourceIndex((value) => (value + 1) % RESOURCE_BUTTONS.length);
-    }, 2300);
+    const labelTimer = window.setInterval(() => setResourceIndex((value) => (value + 1) % Math.max(1, resources.length)), 2300);
     const onResize = () => moveButton();
     window.addEventListener("resize", onResize, { passive: true });
-    return () => {
-      window.clearInterval(moveTimer);
-      window.clearInterval(labelTimer);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [moveButton, page]);
+    return () => { window.clearInterval(moveTimer); window.clearInterval(labelTimer); window.removeEventListener("resize", onResize); };
+  }, [moveButton, page, resources.length]);
 
-  const resource = RESOURCE_BUTTONS[resourceIndex];
-
+  const resource = resources[resourceIndex] || DEFAULT_BUTTONS[0];
   const handleClick = (event) => {
-    event.preventDefault();
-    playClickSound();
-    setClicked(true);
+    event.preventDefault(); playClickSound(); setClicked(true);
     window.setTimeout(() => { window.location.href = resource.href; }, 110);
   };
 
-  return (
-    <a
-      className={`edx-free-orb edx-resource-orb edx-resource-size-${sizeLevel} ${clicked ? "edx-resource-clicked" : ""}`}
-      href={resource.href}
-      aria-label={`Open ${resource.label}`}
-      title={`Open ${resource.label}`}
-      style={{ left: `${position.x}px`, top: `${position.y}px`, "--move-duration": `${2 + (sizeLevel * 0.65)}s` }}
-      onClick={handleClick}
-      onAnimationEnd={() => setClicked(false)}
-    >
-      <span className="edx-free-orb-core"><span key={resource.label} className="edx-resource-label">{resource.label}</span></span>
-      <span className="edx-free-spark edx-free-spark-a" aria-hidden="true" />
-      <span className="edx-free-spark edx-free-spark-b" aria-hidden="true" />
-      <span className="edx-resource-ripple" aria-hidden="true" />
-    </a>
-  );
+  return <a className={`edx-free-orb edx-resource-orb edx-resource-size-${sizeLevel} ${clicked ? "edx-resource-clicked" : ""}`} href={resource.href} aria-label={`Open ${resource.label}`} title={`Open ${resource.label}`} style={{ left: `${position.x}px`, top: `${position.y}px`, "--move-duration": `${2 + (sizeLevel * 0.65)}s` }} onClick={handleClick} onAnimationEnd={() => setClicked(false)}>
+    <span className="edx-free-orb-core"><span key={resource.label} className="edx-resource-label">{resource.label}</span></span>
+    <span className="edx-free-spark edx-free-spark-a" aria-hidden="true" />
+    <span className="edx-free-spark edx-free-spark-b" aria-hidden="true" />
+    <span className="edx-resource-ripple" aria-hidden="true" />
+  </a>;
 }
 
 export default function DashboardEnhancer() {
   const [page, setPage] = useState(getPage);
   const [progress, setProgress] = useState(0);
   const [showTop, setShowTop] = useState(false);
-
   useEffect(() => {
     const syncRoute = () => setPage(getPage());
-    window.addEventListener("popstate", syncRoute);
-    window.addEventListener("edunexus:navigation", syncRoute);
+    window.addEventListener("popstate", syncRoute); window.addEventListener("edunexus:navigation", syncRoute);
     const timer = window.setInterval(syncRoute, 350);
-    return () => {
-      window.removeEventListener("popstate", syncRoute);
-      window.removeEventListener("edunexus:navigation", syncRoute);
-      window.clearInterval(timer);
-    };
+    return () => { window.removeEventListener("popstate", syncRoute); window.removeEventListener("edunexus:navigation", syncRoute); window.clearInterval(timer); };
   }, []);
-
   useEffect(() => {
-    const onScroll = () => {
-      const doc = document.documentElement;
-      const max = Math.max(1, doc.scrollHeight - window.innerHeight);
-      setProgress(Math.min(100, Math.max(0, (window.scrollY / max) * 100)));
-      setShowTop(window.scrollY > 500);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const onScroll = () => { const doc = document.documentElement; const max = Math.max(1, doc.scrollHeight - window.innerHeight); setProgress(Math.min(100, Math.max(0, (window.scrollY / max) * 100))); setShowTop(window.scrollY > 500); };
+    onScroll(); window.addEventListener("scroll", onScroll, { passive: true }); return () => window.removeEventListener("scroll", onScroll);
   }, [page]);
-
   const label = useMemo(() => PAGE_LABELS[page] || "EduNexus", [page]);
   useEffect(() => { document.documentElement.dataset.edunexusPage = page; }, [page]);
-
-  return <>
-    <FloatingResourceButton page={page} />
-    <div className="edx-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
-    <div className="edx-ambient edx-ambient-one" aria-hidden="true" />
-    <div className="edx-ambient edx-ambient-two" aria-hidden="true" />
-    <div className="edx-grid" aria-hidden="true" />
-    <div className="edx-page-pill" aria-hidden="true"><span className="edx-live-dot" /><span>{label}</span></div>
-    {showTop && <button type="button" className="edx-top-button" aria-label="Back to top" title="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>↑</button>}
-  </>;
+  return <><FloatingResourceButton page={page} /><div className="edx-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div><div className="edx-ambient edx-ambient-one" aria-hidden="true" /><div className="edx-ambient edx-ambient-two" aria-hidden="true" /><div className="edx-grid" aria-hidden="true" /><div className="edx-page-pill" aria-hidden="true"><span className="edx-live-dot" /><span>{label}</span></div>{showTop && <button type="button" className="edx-top-button" aria-label="Back to top" title="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>↑</button>}</>;
 }
