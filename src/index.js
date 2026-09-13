@@ -1,3 +1,4 @@
+import './runtime';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
@@ -27,6 +28,13 @@ if (friendlyPage && !params.get('page')) {
 }
 
 const initialPage = new URLSearchParams(window.location.search).get('page') || 'home';
+
+// Register caching only after the first load so it never blocks startup.
+if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }, { once: true });
+}
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
