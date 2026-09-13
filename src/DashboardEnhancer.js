@@ -12,6 +12,14 @@ const PAGE_LABELS = {
   portfolio: "Portfolio",
   about: "About EduNexus",
   contact: "Contact",
+  guides: "Study Guides",
+  "vu-notes-guide": "VU Notes Guide",
+  "past-papers": "Past Papers Guide",
+  "exam-preparation": "Exam Preparation",
+  "cgpa-guide": "CGPA Planning Guide",
+  "ai-study-tools": "Responsible AI",
+  resources: "Resource Centre",
+  projects: "Live Projects",
 };
 
 function getPage() {
@@ -53,30 +61,12 @@ export default function DashboardEnhancer() {
 
   return (
     <>
-      <div className="edx-progress" aria-hidden="true">
-        <span style={{ width: `${progress}%` }} />
-      </div>
-
+      <div className="edx-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
       <div className="edx-ambient edx-ambient-one" aria-hidden="true" />
       <div className="edx-ambient edx-ambient-two" aria-hidden="true" />
       <div className="edx-grid" aria-hidden="true" />
-
-      <div className="edx-page-pill" aria-hidden="true">
-        <span className="edx-live-dot" />
-        <span>{label}</span>
-      </div>
-
-      {showTop && (
-        <button
-          type="button"
-          className="edx-top-button"
-          aria-label="Back to top"
-          title="Back to top"
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        >
-          ↑
-        </button>
-      )}
+      <div className="edx-page-pill" aria-hidden="true"><span className="edx-live-dot" /><span>{label}</span></div>
+      {showTop && <button type="button" className="edx-top-button" aria-label="Back to top" title="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>↑</button>}
     </>
   );
 }
