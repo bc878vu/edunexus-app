@@ -1,116 +1,118 @@
-// backend/server.mjs
-
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
 
-// 🔹 .env load karo (backend/.env se)
 dotenv.config();
 
-// 🔹 Env variables
 const PORT = process.env.PORT || 5000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-// Debug: check karo key load ho rahi hai ya nahi
-console.log(
-  "GEMINI_API_KEY prefix:",
-  GEMINI_API_KEY ? GEMINI_API_KEY.slice(0, 8) : "undefined"
-);
-
-if (!GEMINI_API_KEY) {
-  console.error("❌ GEMINI_API_KEY missing! backend/.env check karo.");
-}
+const ALLOWED_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
+const MAX_PROMPT_LENGTH = 12000;
+const WINDOW_MS = 60_000;
+const MAX_REQUESTS_PER_WINDOW = 20;
+const requestLog = new Map();
 
 const app = express();
 
-// 🔹 Middlewares
-app.use(
-  cors({
-    origin: "http://localhost:3000", // tumhara React app
-    credentials: true,
-  })
-);
-app.use(express.json());
+app.disable("x-powered-by");
+app.use(cors({ origin: ALLOWED_ORIGIN, credentials: false }));
+app.use(express.json({ limit: "20kb" }));
 
-// 🔹 Health check (optional)
-app.get("/", (req, res) => {
-  res.send("✅ Gemini backend is running.");
+function rateLimited(key) {
+  const now = Date.now();
+  const recent = (requestLog.get(key) || []).filter((t) => now - t < WINDOW_MS);
+  if (recent.length >= MAX_REQUESTS_PER_WINDOW) {
+    requestLog.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  requestLog.set(key, recent);
+  return false;
+}
+
+function clientKey(req) {
+  return String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown")
+    .split(",")[0]
+    .trim()
+    .slice(0, 100);
+}
+
+app.get("/", (_req, res) => {
+  res.status(200).json({ ok: true, service: "edunexus-gemini" });
 });
 
-// 🔹 Main Gemini proxy endpoint
 app.post("/api/gemini", async (req, res) => {
+  if (rateLimited(clientKey(req))) {
+    return res.status(429).json({ error: "Too many requests. Please try again shortly." });
+  }
+
+  if (!GEMINI_API_KEY) {
+    console.error("GEMINI_API_KEY is not configured");
+    return res.status(500).json({ error: "AI service is not configured." });
+  }
+
+  const prompt = req.body?.prompt;
+  if (typeof prompt !== "string" || !prompt.trim()) {
+    return res.status(400).json({ error: "A non-empty prompt is required." });
+  }
+
+  if (prompt.length > MAX_PROMPT_LENGTH) {
+    return res.status(413).json({ error: `Prompt must be ${MAX_PROMPT_LENGTH} characters or fewer.` });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
   try {
-    const { prompt } = req.body;
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent",
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": GEMINI_API_KEY,
+        },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt.trim() }] }] }),
+      }
+    );
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
-    }
+    const data = await response.json().catch(() => null);
 
-    if (!GEMINI_API_KEY) {
-      return res.status(500).json({
-        error: "Server misconfigured: GEMINI_API_KEY not set.",
+    if (!response.ok || data?.error) {
+      console.error("Gemini provider error", {
+        status: response.status,
+        providerStatus: data?.error?.status,
       });
+      return res.status(502).json({ error: "The AI provider could not complete the request." });
     }
 
-    const url =
-      "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent" +
-      `?key=${GEMINI_API_KEY}`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-      }),
-    });
-
-    const data = await response.json();
-
-    // 🔴 Agar Google ne error bheja
-    if (!response.ok || data.error) {
-      console.error("Gemini API error:", JSON.stringify(data, null, 2));
-
-      const statusCode = data?.error?.code || response.status || 500;
-      const message =
-        data?.error?.message ||
-        data?.error?.status ||
-        `HTTP ${response.status}`;
-
-      return res.status(statusCode).json({
-        error: message || "Gemini API returned an error",
-        raw: data,
-      });
-    }
-
-    // 🔹 Response se text nikaalo
-    const text =
-      data?.candidates?.[0]?.content?.parts
-        ?.map((p) => p.text)
-        .join("\n") || "";
+    const text = data?.candidates?.[0]?.content?.parts
+      ?.map((part) => (typeof part?.text === "string" ? part.text : ""))
+      .filter(Boolean)
+      .join("\n")
+      .trim();
 
     if (!text) {
-      console.error("Gemini empty response:", JSON.stringify(data, null, 2));
-      return res
-        .status(500)
-        .json({ error: "Gemini returned no text content" });
+      return res.status(502).json({ error: "The AI provider returned no text." });
     }
 
-    // ✅ Frontend ko text bhej do
-    return res.json({ text });
-  } catch (err) {
-    console.error("Gemini backend crash:", err);
-    return res.status(500).json({ error: "AI request failed on server" });
+    return res.status(200).json({ text });
+  } catch (error) {
+    console.error("Gemini request failed", { name: error?.name });
+    return res.status(error?.name === "AbortError" ? 504 : 500).json({
+      error: error?.name === "AbortError" ? "The AI request timed out." : "AI request failed on server.",
+    });
+  } finally {
+    clearTimeout(timeout);
   }
 });
 
-// 🔹 Global error handler (optional)
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
+app.use((_err, _req, res, _next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-// 🔹 Server start
 app.listen(PORT, () => {
-  console.log(`✅ Gemini backend running at http://localhost:${PORT}`);
+  console.log(`EduNexus Gemini backend listening on port ${PORT}`);
 });
