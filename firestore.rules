@@ -1,51 +1,82 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Admin access is tied to the Firebase account, not a client-side password.
+    // Email verification is required before any privileged write is accepted.
     function admin() {
-      return signedIn() && request.auth.token.email == 'veducator4@gmail.com';
+      return signedIn()
+        && request.auth.token.email == 'veducator4@gmail.com'
+        && request.auth.token.email_verified == true;
     }
 
     match /artifacts/edunexus-live/public/data/announcements/{docId} {
       allow read: if true;
       allow create, update, delete: if admin();
     }
+
     match /artifacts/edunexus-live/public/data/articles/{docId} {
       allow read: if true;
       allow create, update, delete: if admin();
     }
+
     match /artifacts/edunexus-live/public/data/highlights/{docId} {
       allow read: if true;
       allow create, update, delete: if admin();
     }
+
     match /artifacts/edunexus-live/public/data/files/{docId} {
       allow read: if true;
       allow create, update, delete: if admin();
     }
+
     match /artifacts/edunexus-live/public/data/tutorials/{docId} {
       allow read: if true;
       allow create, update, delete: if admin();
     }
+
     match /artifacts/edunexus-live/public/data/discussions/{docId} {
-      allow read: true;
-      allow create: if signedIn();
-      allow update, delete: if admin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow read: if true;
+      // A signed-in user may create only a post owned by their own UID.
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      // Owners may edit/delete their own post; they cannot transfer ownership.
+      allow update: if admin()
+        || (signedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId);
+      allow delete: if admin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
     }
+
     match /artifacts/edunexus-live/public/data/feedback/{docId} {
       allow create: if signedIn();
       allow read, update, delete: if admin();
     }
+
+    // Kept public because the existing portfolio/profile page reads this
+    // document. Do not store private credentials or sensitive personal data here.
     match /artifacts/edunexus-live/public/data/profile/{docId} {
-      allow read: true;
+      allow read: if true;
       allow create, update, delete: if admin();
     }
+
+    // Public site configuration is readable by the dashboard; only the verified
+    // admin can change it.
     match /artifacts/edunexus-live/public/data/meta/{docId} {
-      allow read: true;
+      allow read: if true;
       allow create, update, delete: if admin();
     }
+
+    // Private per-user data is isolated by authenticated UID.
     match /artifacts/edunexus-live/users/{userId}/{document=**} {
       allow read, write: if signedIn() && request.auth.uid == userId;
     }
+
+    // Explicit deny-by-default for every other Firestore path.
     match /{document=**} {
       allow read, write: if false;
     }
