@@ -1,0 +1,34 @@
+import React, { useEffect, useState } from 'react';
+import { getApps, initializeApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Settings, Save, Plus, Trash2, Pin, Film, ExternalLink, X } from 'lucide-react';
+
+const firebaseConfig = { apiKey:'AIzaSyCdoWl5a0irdMGftJUYkng-dQLUI1ZImP8', authDomain:'edunexus-live-e0b84.firebaseapp.com', projectId:'edunexus-live-e0b84', storageBucket:'edunexus-live-e0b84.firebasestorage.app', messagingSenderId:'464541062794', appId:'1:464541062794:web:7894ed257d604f202bbf73' };
+const app=getApps().find(a=>a.name==='[DEFAULT]')||initializeApp(firebaseConfig);
+const auth=getAuth(app); const db=getFirestore(app); const SETTINGS=doc(db,'artifacts/edunexus-live/public/data/meta/floatingHub');
+const defaults=[['Study Guides','/study-guides'],['Tutorial Videos','/tutorials'],['Student Resources','/student-resources'],['Live Projects','/live-projects']];
+const isAdminPage=()=>new URLSearchParams(location.search).get('page')==='admin'||location.pathname.replace(/\/$/,'')==='/admin';
+
+export default function AdminResourceManagerV2(){
+  const [active,setActive]=useState(isAdminPage); const [open,setOpen]=useState(false); const [user,setUser]=useState(null);
+  const [buttons,setButtons]=useState(defaults.map(([label,href])=>({label,href,enabled:true}))); const [pinned,setPinned]=useState(true); const [saved,setSaved]=useState(false);
+  useEffect(()=>{const sync=()=>{setActive(isAdminPage());if(!isAdminPage())setOpen(false)};addEventListener('popstate',sync);addEventListener('edunexus:navigation',sync);return()=>{removeEventListener('popstate',sync);removeEventListener('edunexus:navigation',sync)}},[]);
+  useEffect(()=>onAuthStateChanged(auth,setUser),[]);
+  useEffect(()=>active?onSnapshot(SETTINGS,s=>{const d=s.data()||{};if(Array.isArray(d.buttons)&&d.buttons.length)setButtons(d.buttons.map(x=>({label:String(x.label||'Resource'),href:String(x.href||'/'),enabled:x.enabled!==false})));setPinned(d.dashboardPinned!==false)},()=>{}):undefined,[active]);
+  if(!active||!user?.emailVerified||user.email!=='veducator4@gmail.com')return null;
+  const save=async()=>{await setDoc(SETTINGS,{buttons,dashboardPinned:pinned,updatedAt:serverTimestamp(),updatedBy:user.email},{merge:true});localStorage.setItem('edunexus_dashboard_pinned',pinned?'1':'0');dispatchEvent(new Event('edunexus:resource-config'));setSaved(true);setTimeout(()=>setSaved(false),1800)};
+  const go=(path)=>{setOpen(false);history.pushState({},'',path);dispatchEvent(new Event('edunexus:navigation'))};
+  return <>
+    <button className="edx-resource-manager-launcher" onClick={()=>setOpen(v=>!v)} aria-label="Open resource manager"><Settings size={18}/><span>Resources</span></button>
+    {open&&<div className="edx-resource-manager-popover" role="dialog" aria-label="Resource manager">
+      <header><div><strong>Resource Manager</strong><small>Admin-only • existing admin panel remains accessible</small></div><button onClick={()=>setOpen(false)} aria-label="Close"><X size={17}/></button></header>
+      <div className="edx-resource-manager-body">
+        <p>Manage the floating dashboard pages without replacing the existing Highlights, Academic, Blog, Forum and Profile tabs.</p>
+        {buttons.map((b,i)=><div className="edx-resource-manager-row" key={i}><b>{i+1}</b><input value={b.label} onChange={e=>setButtons(v=>v.map((x,j)=>j===i?{...x,label:e.target.value}:x))}/><input value={b.href} onChange={e=>setButtons(v=>v.map((x,j)=>j===i?{...x,href:e.target.value}:x))}/><label><input type="checkbox" checked={b.enabled} onChange={e=>setButtons(v=>v.map((x,j)=>j===i?{...x,enabled:e.target.checked}:x))}/> On</label><button onClick={()=>setButtons(v=>v.filter((_,j)=>j!==i))} aria-label="Delete"><Trash2 size={15}/></button></div>)}
+        <div className="edx-resource-manager-actions"><button onClick={()=>setButtons(v=>[...v,{label:'New Resource',href:'/',enabled:true}])}><Plus size={15}/> Add page</button><button onClick={()=>setPinned(v=>!v)}><Pin size={15}/> {pinned?'Dashboard pinned':'Pin Dashboard'}</button><button className="primary" onClick={save}><Save size={15}/> {saved?'Saved':'Save'}</button></div>
+        <div className="edx-resource-manager-links"><button onClick={()=>go('/tutorials')}><Film size={15}/> Video platform <ExternalLink size={14}/></button></div>
+      </div>
+    </div>}
+  </>;
+}
