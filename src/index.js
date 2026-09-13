@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import './dashboard-enhancer.css';
+import './dashboard-hub.css';
 import './content-hub.css';
 import './tutorial-hub.css';
 import './background-rotator.css';
