@@ -2,93 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="color-scheme" content="light dark" />
 
-  <!-- Primary SEO -->
-  <title>EduNexus | Smart Study Hub for Students</title>
-
-  <meta
-    name="description"
-    content="EduNexus is a free smart study hub for Virtual University (VU) and online students. Get VU notes, handouts, past papers, quizzes, CGPA calculator and AI study tools in one place."
-  />
-
-  <meta
-    name="keywords"
-    content="EduNexus, study hub, VU notes, VU handouts, VU past papers, Virtual University students, VULMS resources, online study portal, CGPA calculator, GPA calculator, quizzes, mock tests, AI study tools, exam preparation Pakistan"
-  />
-
+  <title>EduNexus | VU Notes, Handouts, Past Papers & AI Study Tools</title>
+  <meta name="description" content="EduNexus is a free student study hub for Virtual University and online students. Find notes, handouts, past papers, quizzes, CGPA tools and AI-powered study help." />
+  <meta name="keywords" content="VU notes, VU handouts, VU past papers, Virtual University notes, VULMS, online study portal, CGPA calculator, GPA calculator, AI study tools, university exam preparation Pakistan" />
   <meta name="author" content="EduNexus" />
-  <meta
-    name="robots"
-    content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"
-  />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+  <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
 
-  <!-- Canonical & Sitemap -->
-  <link rel="canonical" href="https://edunexus-app.vercel.app/" />
-  <link
-    rel="sitemap"
-    type="application/xml"
-    href="https://edunexus-app.vercel.app/sitemap.xml"
-  />
-
-  <!-- Language / Region -->
-  <link rel="alternate" hreflang="en" href="https://edunexus-app.vercel.app/" />
-
-  <!-- Responsive / Theme -->
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0f172a" />
-
-  <!-- Favicon & PWA -->
+  <link rel="sitemap" type="application/xml" href="https://edunexus-app.vercel.app/sitemap.xml" />
   <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
   <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
 
-  <!-- Open Graph (Facebook / WhatsApp) -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="EduNexus" />
-  <meta property="og:title" content="EduNexus | Smart Study Hub for Students" />
-  <meta
-    property="og:description"
-    content="Free study hub for VU and online students: notes, handouts, past papers, quizzes, CGPA calculator and AI tools."
-  />
+  <meta property="og:title" content="EduNexus | VU Notes, Handouts, Past Papers & AI Study Tools" />
+  <meta property="og:description" content="Free study hub for VU and online students: notes, handouts, past papers, quizzes, CGPA calculator and AI study tools." />
   <meta property="og:url" content="https://edunexus-app.vercel.app/" />
-  <meta
-    property="og:image"
-    content="https://edunexus-app.vercel.app/og-image.png"
-  />
+  <meta property="og:image" content="https://edunexus-app.vercel.app/og-image.png" />
+  <meta property="og:image:alt" content="EduNexus student study platform" />
   <meta property="og:locale" content="en_PK" />
 
-  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="EduNexus | Smart Study Hub for Students" />
-  <meta
-    name="twitter:description"
-    content="EduNexus – notes, handouts, past papers, quizzes, CGPA calculator and AI-powered study tools for university students."
-  />
-  <meta
-    name="twitter:image"
-    content="https://edunexus-app.vercel.app/og-image.png"
-  />
+  <meta name="twitter:title" content="EduNexus | VU Notes, Handouts, Past Papers & AI Study Tools" />
+  <meta name="twitter:description" content="Notes, handouts, past papers, quizzes, CGPA calculator and AI-powered study tools for university students." />
+  <meta name="twitter:image" content="https://edunexus-app.vercel.app/og-image.png" />
+  <meta name="twitter:image:alt" content="EduNexus student study platform" />
 
-  <!-- Google AdSense account -->
   <meta name="google-adsense-account" content="ca-pub-5179042048080611" />
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5179042048080611" crossorigin="anonymous"></script>
 
-  <!-- Google AdSense script -->
-  <script
-    async
-    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5179042048080611"
-    crossorigin="anonymous"
-  ></script>
-
-  <!-- Google Analytics 4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-XJ502KMRYF"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-XJ502KMRYF');
+    gtag('config', 'G-XJ502KMRYF', { anonymize_ip: true });
   </script>
 
-  <!-- Structured Data: Organization -->
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -96,29 +53,21 @@
       "name": "EduNexus",
       "url": "https://edunexus-app.vercel.app",
       "logo": "https://edunexus-app.vercel.app/logo.png",
-      "description": "Study hub for university students with notes, handouts, past papers, quizzes, CGPA calculator and AI tools.",
-      "sameAs": []
+      "description": "Independent student learning platform with academic resources, quizzes, CGPA tools and AI study assistance."
     }
   </script>
-
-  <!-- Structured Data: Website + Search -->
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": "EduNexus",
       "url": "https://edunexus-app.vercel.app",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": "https://edunexus-app.vercel.app/search?q={search_term_string}",
-        "query-input": "required name=search_term_string"
-      }
+      "description": "Student study hub for notes, handouts, past papers, quizzes, CGPA tools and AI study assistance."
     }
   </script>
 </head>
-
 <body>
-  <noscript>You need to enable JavaScript to run this application.</noscript>
+  <noscript>EduNexus requires JavaScript to use the interactive study tools. Academic pages remain accessible to search engines after rendering.</noscript>
   <div id="root"></div>
 </body>
 </html>
