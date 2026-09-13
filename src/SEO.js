@@ -25,10 +25,11 @@ export function SEOManager() {
       const path = normalize(window.location.pathname); const page = pages[path] || pages["/"]; const canonical = `${SITE}${path === "/" ? "/" : path}`;
       document.title = page.title; setMeta("description", page.description); setMeta("keywords", page.keywords); setMeta("robots", "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1");
       setProperty("og:title", page.title); setProperty("og:description", page.description); setProperty("og:url", canonical); setProperty("og:type", path === "/articles" ? "article" : "website"); setProperty("og:site_name", "EduNexus"); setProperty("og:locale", "en_PK");
-      setProperty("twitter:title", page.title); setProperty("twitter:description", page.description); setLink("canonical", canonical);
+      setMeta("twitter:title", page.title); setMeta("twitter:description", page.description); setMeta("twitter:url", canonical); setLink("canonical", canonical);
       const json = { "@context": "https://schema.org", "@type": page.type, name: page.title.replace(/\s*\|.*$/, ""), url: canonical, description: page.description, isPartOf: { "@type": "WebSite", name: "EduNexus", url: SITE } };
       if (page.type === "WebApplication") { json.applicationCategory = "EducationalApplication"; json.operatingSystem = "Web"; json.offers = { "@type": "Offer", price: "0", priceCurrency: "USD" }; }
-      let ld = document.head.querySelector("script[data-edunexus-seo]"); if (!ld) { ld = document.createElement("script"); ld.type = "application/ld+json"; ld.dataset.edunexusSeo = "true"; document.head.appendChild(ld); } ld.textContent = JSON.stringify(json);
+      const breadcrumb = { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "EduNexus", item: SITE }, ...(path !== "/" ? [{ "@type": "ListItem", position: 2, name: page.title.replace(/\s*\|.*$/, ""), item: canonical }] : [])] };
+      let ld = document.head.querySelector("script[data-edunexus-seo]"); if (!ld) { ld = document.createElement("script"); ld.type = "application/ld+json"; ld.dataset.edunexusSeo = "true"; document.head.appendChild(ld); } ld.textContent = JSON.stringify([json, breadcrumb]);
     };
     update(); window.addEventListener("popstate", update); return () => window.removeEventListener("popstate", update);
   }, []);
