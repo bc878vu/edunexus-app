@@ -22,6 +22,8 @@ source = source.replace(
 source = source.replace(/const apiKey = process\.env\.REACT_APP_GEMINI_API_KEY[^\n]*\n/g, '');
 source = source.replace(/const ADMIN_PASSWORD =\s*process\.env\.REACT_APP_ADMIN_PASSWORD \|\|\s*[^;]+;\s*\n?/g, '');
 source = source.replace(/const ADMIN_EMAIL =\s*process\.env\.REACT_APP_ADMIN_EMAIL \|\|\s*"veducator4@gmail\.com";/g, 'const ADMIN_EMAIL = "veducator4@gmail.com";');
+source = source.replace('if (u?.email === ADMIN_EMAIL) setIsAdminMode(true);', 'if (u?.email === ADMIN_EMAIL && u?.emailVerified === true) setIsAdminMode(true);');
+source = source.replace('''  const handleLogoutAdmin = () => {\n    setIsAdminMode(false);\n    navigate('home');\n    showToast("Admin Session Ended", "info");\n  };''', '''  const handleLogoutAdmin = async () => {\n    setIsAdminMode(false);\n    try { await signOut(auth); await signInAnonymously(auth); } catch (_) {}\n    navigate('home');\n    showToast("Admin session ended securely.", "info");\n  };''');
 
 const oldHandler = /  const handleSubmit = \(e\) => \{[\s\S]*?\n  \};\n\n  return \(\n    <div className="fixed inset-0 z-50/;
 const newHandler = `  const handleSubmit = async (e) => {
