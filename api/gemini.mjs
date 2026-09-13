@@ -42,8 +42,9 @@ export default async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error('Gemini API credential is not configured');
-    return res.status(500).json({
-      error: 'AI service is not configured on Vercel. Add GEMINI_API_KEY in Project Settings > Environment Variables and redeploy.',
+    return res.status(503).json({
+      code: 'GEMINI_NOT_CONFIGURED',
+      error: 'AI service is not configured yet. The site owner must add GEMINI_API_KEY to the Vercel project and redeploy.',
     });
   }
 
