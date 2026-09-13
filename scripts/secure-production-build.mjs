@@ -60,4 +60,30 @@ source = source.replace('const TermsPage =', 'const TermsPageLegacy =');
 source = source.replace(/support@edunexus\.app/g, 'a.m.a63425@gmail.com');
 
 fs.writeFileSync(file, source);
-console.log('EduNexus production security and page hardening applied.');
+
+// Harden the globally mounted AI assistant without changing its feature set.
+// App.js already initializes Firestore with the transport settings, so the AI
+// component must reuse that instance instead of initializing Firestore twice.
+const aiFile = 'src/ProfessionalAIAssistantV2.js';
+if (fs.existsSync(aiFile)) {
+  let ai = fs.readFileSync(aiFile, 'utf8');
+  ai = ai.replace(
+    "import {initializeFirestore,collection,getDocs,limit,orderBy,query,doc,getDoc,setDoc,serverTimestamp} from 'firebase/firestore';",
+    "import {getFirestore,collection,getDocs,limit,orderBy,query,doc,getDoc,setDoc,serverTimestamp} from 'firebase/firestore';"
+  );
+  ai = ai.replace(
+    "db=initializeFirestore(app,{experimentalAutoDetectLongPolling:true,useFetchStreams:false});",
+    "db=getFirestore(app);"
+  );
+  ai = ai.replace(
+    "const [messages,setMessages]=useState([{role:'ai',text:'Hi! I’m EduNexus AI. I can help you study, navigate EduNexus and plan your work.'}]),end=useRef(null);const key=useMemo",
+    "const [messages,setMessages]=useState([{role:'ai',text:'Hi! I’m EduNexus AI. I can help you study, navigate EduNexus and plan your work.'}]),end=useRef(null),mounted=useRef(true);const key=useMemo"
+  );
+  ai = ai.replace(
+    "useEffect(()=>onAuthStateChanged(auth,async u=>{setUser(u);if(u){const c=await contextFor(u);setCtx(c);try{const old=JSON.parse(localStorage.getItem(`edx-ai-context-${u.uid}`)||'null');if(old?.messages?.length)setMessages(old.messages.slice(-30))}catch(e){}}}),[]);",
+    "useEffect(()=>{mounted.current=true;const unsubscribe=onAuthStateChanged(auth,u=>{if(!mounted.current)return;setUser(u);if(!u)return;contextFor(u).then(c=>{if(!mounted.current)return;setCtx(c);try{const old=JSON.parse(localStorage.getItem(`edx-ai-context-${u.uid}`)||'null');if(old?.messages?.length)setMessages(old.messages.slice(-30))}catch(e){}}).catch(()=>{})});return()=>{mounted.current=false;unsubscribe()}},[]);"
+  );
+  fs.writeFileSync(aiFile, ai);
+}
+
+console.log('EduNexus production security, page and AI lifecycle hardening applied.');
