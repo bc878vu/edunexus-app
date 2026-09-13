@@ -13,6 +13,14 @@ const ROUTES = {
   portfolio: "/portfolio",
   about: "/about",
   contact: "/contact",
+  guides: "/study-guides",
+  "vu-notes-guide": "/vu-notes-guide",
+  "past-papers": "/past-papers-guide",
+  "exam-preparation": "/exam-preparation",
+  "cgpa-guide": "/cgpa-guide",
+  "ai-study-tools": "/ai-study-tools",
+  resources: "/student-resources",
+  projects: "/live-projects",
   privacy: "/privacy",
   terms: "/terms",
   admin: "/admin",
@@ -30,113 +38,24 @@ const DATA = {
   portfolio: ["EduNexus Developer Portfolio | Student Technology Project", "Explore the technology and portfolio behind EduNexus, an independent student-focused learning platform.", "EduNexus portfolio, student technology project, web developer portfolio, education technology Pakistan", "ProfilePage"],
   about: ["About EduNexus | Independent Student Learning Platform", "Learn about EduNexus and its mission to make academic resources and study tools easier for students to access.", "about EduNexus, student learning platform, education portal, study hub", "AboutPage"],
   contact: ["Contact EduNexus | Student Support & Feedback", "Contact EduNexus for study-resource suggestions, corrections, feedback and technical support.", "contact EduNexus, student support, study portal support, feedback", "ContactPage"],
+  guides: ["Study Guides for University Students | EduNexus", "Practical study guides covering revision, note taking, past papers, exam preparation and academic planning.", "study guides, university study tips, exam preparation, revision techniques, student guide Pakistan", "CollectionPage"],
+  "vu-notes-guide": ["How to Use VU Notes and Handouts Effectively | EduNexus", "A practical guide to organising Virtual University notes, handouts and course material into a useful revision system.", "VU notes guide, VU handouts guide, Virtual University study material, course notes, VULMS study tips", "Article"],
+  "past-papers": ["Past Papers Exam Preparation Guide | EduNexus", "Learn how to use past papers for timed practice, mistake tracking and stronger university exam preparation.", "VU past papers guide, past paper preparation, exam practice, university exams Pakistan", "Article"],
+  "exam-preparation": ["Exam Preparation Guide for University Students | EduNexus", "A calm, practical exam preparation routine from the final week through exam day.", "exam preparation, university exam tips, VU exam preparation, study routine", "Article"],
+  "cgpa-guide": ["CGPA and GPA Planning Guide | EduNexus", "Understand CGPA, GPA, credit hours and semester performance so you can make better academic plans.", "CGPA guide, GPA guide, credit hours, semester GPA, VU grading", "Article"],
+  "ai-study-tools": ["Responsible AI Study Tools Guide | EduNexus", "Use AI for explanations, practice and revision while protecting learning quality and academic integrity.", "AI study tools, responsible AI for students, AI quiz, AI flashcards, academic integrity", "Article"],
+  resources: ["Student Resources and Study Tools | EduNexus", "Explore EduNexus academic resources, AI tools, study planner, articles and student guides.", "student resources, study tools, VU resources, university resources Pakistan", "CollectionPage"],
+  projects: ["Live Projects and Web Apps | EduNexus", "Explore live web projects published online, including EduNexus and the Online Academy project.", "live web projects, education projects, online academy, EduNexus project", "CollectionPage"],
   privacy: ["Privacy Policy | EduNexus", "Read the EduNexus privacy policy, data practices, cookies and advertising information.", "EduNexus privacy policy, student data privacy, cookies, AdSense privacy", "WebPage"],
   terms: ["Terms of Service | EduNexus", "Read the terms that apply when using EduNexus study resources and tools.", "EduNexus terms, terms of service, study platform terms", "WebPage"],
   admin: ["Admin Panel | EduNexus", "Protected EduNexus administration area.", "EduNexus admin", "WebPage"]
 };
 
-const setMeta = (name, value) => {
-  let node = document.head.querySelector(`meta[name="${name}"]`);
-  if (!node) {
-    node = document.createElement("meta");
-    node.name = name;
-    document.head.appendChild(node);
-  }
-  node.content = value;
-};
+const setMeta=(name,value)=>{let n=document.head.querySelector(`meta[name="${name}"]`);if(!n){n=document.createElement("meta");n.name=name;document.head.appendChild(n)}n.content=value};
+const setProp=(name,value)=>{let n=document.head.querySelector(`meta[property="${name}"]`);if(!n){n=document.createElement("meta");n.setAttribute("property",name);document.head.appendChild(n)}n.content=value};
+const pageFromUrl=()=>{const q=new URLSearchParams(window.location.search).get("page");if(q&&DATA[q])return q;const p=window.location.pathname.replace(/\/$/,"")||"/";return Object.keys(ROUTES).find(k=>ROUTES[k]===p)||"home"};
 
-const setProp = (name, value) => {
-  let node = document.head.querySelector(`meta[property="${name}"]`);
-  if (!node) {
-    node = document.createElement("meta");
-    node.setAttribute("property", name);
-    document.head.appendChild(node);
-  }
-  node.content = value;
-};
-
-const pageFromUrl = () => {
-  const queryPage = new URLSearchParams(window.location.search).get("page");
-  if (queryPage && DATA[queryPage]) return queryPage;
-  const path = window.location.pathname.replace(/\/$/, "") || "/";
-  if (path === "/vu-notes" || path === "/handouts" || path === "/past-papers") return "academic";
-  if (path === "/quizzes" || path === "/ai-tools") return "aiquiz";
-  return Object.keys(ROUTES).find((key) => ROUTES[key] === path) || "home";
-};
-
-export function SEOManager({ page }) {
-  useEffect(() => {
-    const update = () => {
-      const currentPage = DATA[pageFromUrl()] ? pageFromUrl() : (DATA[page] ? page : "home");
-      const d = DATA[currentPage];
-      const path = ROUTES[currentPage] || "/";
-      const canonical = `${SITE}${path === "/" ? "/" : path}`;
-
-      document.title = d[0];
-      setMeta("description", d[1]);
-      setMeta("keywords", d[2]);
-      setMeta("robots", currentPage === "admin" ? "noindex, nofollow" : "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1");
-      setMeta("theme-color", "#0f172a");
-      setMeta("twitter:card", "summary_large_image");
-      setProp("og:type", d[3] === "WebSite" ? "website" : "article");
-      setProp("og:site_name", "EduNexus");
-      setProp("og:title", d[0]);
-      setProp("og:description", d[1]);
-      setProp("og:url", canonical);
-      setProp("og:locale", "en_PK");
-      setProp("og:image", `${SITE}/og-image.png`);
-      setMeta("twitter:title", d[0]);
-      setMeta("twitter:description", d[1]);
-      setMeta("twitter:image", `${SITE}/og-image.png`);
-
-      let canonicalLink = document.head.querySelector('link[rel="canonical"]');
-      if (!canonicalLink) {
-        canonicalLink = document.createElement("link");
-        canonicalLink.rel = "canonical";
-        document.head.appendChild(canonicalLink);
-      }
-      canonicalLink.href = canonical;
-
-      let schema = document.head.querySelector("script[data-edunexus-seo]");
-      if (!schema) {
-        schema = document.createElement("script");
-        schema.type = "application/ld+json";
-        schema.dataset.edunexusSeo = "true";
-        document.head.appendChild(schema);
-      }
-      schema.textContent = JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": d[3],
-        name: d[0].split("|")[0].trim(),
-        url: canonical,
-        description: d[1],
-        isPartOf: { "@type": "WebSite", name: "EduNexus", url: SITE }
-      });
-    };
-
-    const originalPushState = window.history.pushState;
-    const originalReplaceState = window.history.replaceState;
-    window.history.pushState = function (...args) {
-      const result = originalPushState.apply(this, args);
-      window.dispatchEvent(new Event("edunexus:navigation"));
-      return result;
-    };
-    window.history.replaceState = function (...args) {
-      const result = originalReplaceState.apply(this, args);
-      window.dispatchEvent(new Event("edunexus:navigation"));
-      return result;
-    };
-
-    update();
-    window.addEventListener("popstate", update);
-    window.addEventListener("edunexus:navigation", update);
-    return () => {
-      window.history.pushState = originalPushState;
-      window.history.replaceState = originalReplaceState;
-      window.removeEventListener("popstate", update);
-      window.removeEventListener("edunexus:navigation", update);
-    };
-  }, [page]);
-
-  return null;
+export function SEOManager({page}){
+ useEffect(()=>{const update=()=>{const current=DATA[pageFromUrl()]?pageFromUrl():(DATA[page]?page:"home");const d=DATA[current];const path=ROUTES[current]||"/";const canonical=`${SITE}${path==="/"?"/":path}`;document.title=d[0];setMeta("description",d[1]);setMeta("keywords",d[2]);setMeta("robots",current==="admin"?"noindex, nofollow":"index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1");setMeta("theme-color","#0f172a");setMeta("twitter:card","summary_large_image");setProp("og:type",d[3]==="WebSite"?"website":"article");setProp("og:site_name","EduNexus");setProp("og:title",d[0]);setProp("og:description",d[1]);setProp("og:url",canonical);setProp("og:locale","en_PK");setProp("og:image",`${SITE}/og-image.png`);setMeta("twitter:title",d[0]);setMeta("twitter:description",d[1]);setMeta("twitter:image",`${SITE}/og-image.png`);let c=document.head.querySelector('link[rel="canonical"]');if(!c){c=document.createElement("link");c.rel="canonical";document.head.appendChild(c)}c.href=canonical;let schema=document.head.querySelector("script[data-edunexus-seo]");if(!schema){schema=document.createElement("script");schema.type="application/ld+json";schema.dataset.edunexusSeo="true";document.head.appendChild(schema)}schema.textContent=JSON.stringify({"@context":"https://schema.org","@type":d[3],name:d[0].split("|")[0].trim(),url:canonical,description:d[1],isPartOf:{"@type":"WebSite",name:"EduNexus",url:SITE}})};const op=window.history.pushState,or=window.history.replaceState;window.history.pushState=function(...a){const r=op.apply(this,a);window.dispatchEvent(new Event("edunexus:navigation"));return r};window.history.replaceState=function(...a){const r=or.apply(this,a);window.dispatchEvent(new Event("edunexus:navigation"));return r};update();window.addEventListener("popstate",update);window.addEventListener("edunexus:navigation",update);return()=>{window.history.pushState=op;window.history.replaceState=or;window.removeEventListener("popstate",update);window.removeEventListener("edunexus:navigation",update)}},[page]);
+ return null;
 }
