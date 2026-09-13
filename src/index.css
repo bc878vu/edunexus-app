@@ -2,256 +2,141 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --ed-primary: #4f46e5;
+  --ed-accent: #7c3aed;
+  --ed-ink: #0f172a;
+  --ed-muted: #64748b;
+  --ed-border: rgba(148, 163, 184, 0.24);
+  --ed-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  color: var(--ed-ink);
+  background: #f8fafc;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* =========================================================
-   EduNexus — Modern responsive header / footer polish
-   Keeps the existing indigo + violet visual language.
-========================================================= */
+button, a, input, textarea, select {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, .35);
+  outline-offset: 3px;
+}
+::selection { background: rgba(99, 102, 241, .22); }
 
-/* Header */
+main { min-height: 60vh; width: 100%; }
+main .rounded-xl, main .rounded-2xl, main .rounded-3xl {
+  border-color: var(--ed-border);
+}
+main .shadow, main .shadow-sm, main .shadow-md, main .shadow-lg, main .shadow-xl, main .shadow-2xl {
+  box-shadow: var(--ed-shadow);
+}
+main button:not(:disabled):hover { transform: translateY(-1px); }
+main button:disabled { cursor: not-allowed; opacity: .6; }
+
+input, textarea, select { max-width: 100%; }
+input::placeholder, textarea::placeholder { color: #94a3b8; }
+
 header.sticky {
-  background: rgba(2, 6, 23, 0.94) !important;
-  border-bottom-color: rgba(99, 102, 241, 0.20) !important;
-  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.18);
+  background: rgba(2, 6, 23, .94) !important;
+  border-bottom-color: rgba(99, 102, 241, .22) !important;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, .18);
+  backdrop-filter: blur(18px);
 }
-
-header.sticky > div {
-  min-height: 72px;
-}
-
+header.sticky > div { min-height: 72px; }
+header.sticky nav { gap: 6px !important; }
 header.sticky nav button {
   min-height: 42px;
   border: 1px solid transparent;
   border-radius: 12px !important;
-  padding-left: 14px !important;
-  padding-right: 14px !important;
-  background: rgba(15, 23, 42, 0.35);
+  padding-inline: 14px !important;
+  background: rgba(15, 23, 42, .35);
 }
-
 header.sticky nav button:hover {
-  border-color: rgba(129, 140, 248, 0.28);
-  background: rgba(99, 102, 241, 0.12) !important;
+  border-color: rgba(129, 140, 248, .32);
+  background: rgba(99, 102, 241, .14) !important;
   color: #fff !important;
-  transform: translateY(-1px);
 }
-
 header.sticky nav button[class*="bg-indigo-500"] {
-  border-color: rgba(129, 140, 248, 0.55) !important;
+  border-color: rgba(129, 140, 248, .55) !important;
   background: linear-gradient(135deg, #6366f1, #7c3aed) !important;
   color: #fff !important;
-  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.25);
+  box-shadow: 0 8px 20px rgba(79, 70, 229, .25);
 }
 
-/* Desktop: show important pages directly + use the existing drawer as More. */
-@media (min-width: 1024px) {
-  header.sticky nav button:nth-child(n + 6) {
-    display: none;
-  }
-
-  header.sticky > div > button:last-child {
-    display: inline-flex !important;
-    width: 42px;
-    height: 42px;
-    border-radius: 12px !important;
-    border-color: rgba(148, 163, 184, 0.28) !important;
-    background: rgba(15, 23, 42, 0.80) !important;
-    color: #e2e8f0 !important;
-    margin-left: 2px;
-  }
-
-  header.sticky > div > button:last-child:hover {
-    border-color: rgba(129, 140, 248, 0.60) !important;
-    background: rgba(99, 102, 241, 0.18) !important;
-    color: #fff !important;
-  }
-
-  header.sticky nav {
-    gap: 6px !important;
-  }
-
-  /* Tailwind's lg:hidden would otherwise hide the existing drawer on desktop. */
-  header + div[class*="fixed"][class*="inset-0"] {
-    display: block !important;
-  }
-}
-
-/* Mobile/tablet header */
-@media (max-width: 1023px) {
-  header.sticky > div {
-    min-height: 66px;
-  }
-
-  header.sticky > div > button:last-child {
-    border-radius: 12px !important;
-    border-color: rgba(148, 163, 184, 0.28) !important;
-    background: rgba(15, 23, 42, 0.80) !important;
-  }
-}
-
-/* Existing drawer: modern boxed menu items on every screen size. */
-header + div[class*="fixed"][class*="inset-0"] {
-  backdrop-filter: blur(8px);
-}
-
+header + div[class*="fixed"][class*="inset-0"] { backdrop-filter: blur(8px); }
 header + div[class*="fixed"][class*="inset-0"] nav button {
   margin: 5px 10px;
   width: calc(100% - 20px);
-  border: 1px solid rgba(51, 65, 85, 0.75);
+  border: 1px solid rgba(51, 65, 85, .75);
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(15, 23, 42, .55);
 }
 
-header + div[class*="fixed"][class*="inset-0"] nav button:hover {
-  border-color: rgba(129, 140, 248, 0.35);
-}
-
-/* =========================================================
-   Modern footer
-========================================================= */
 footer {
   position: relative;
   overflow: hidden;
-  border-top-color: rgba(99, 102, 241, 0.24) !important;
+  border-top-color: rgba(99, 102, 241, .24) !important;
 }
-
 footer::before {
   content: "";
   position: absolute;
-  left: 8%;
-  right: 8%;
-  top: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.7), transparent);
+  left: 8%; right: 8%; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(129, 140, 248, .7), transparent);
   pointer-events: none;
 }
-
-footer > div {
-  position: relative;
-  z-index: 1;
-}
-
+footer > div { position: relative; z-index: 1; }
 footer > div > div:first-child {
   border-radius: 18px !important;
-  padding: 18px 20px !important;
-  background: linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(124, 58, 237, 0.12)) !important;
-  border-color: rgba(129, 140, 248, 0.28) !important;
-  box-shadow: 0 14px 35px rgba(2, 6, 23, 0.18);
+  background: linear-gradient(135deg, rgba(79, 70, 229, .18), rgba(124, 58, 237, .12)) !important;
+  border-color: rgba(129, 140, 248, .28) !important;
 }
-
-footer > div > div:first-child a {
-  border-radius: 12px !important;
-  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.25);
-}
-
-footer > div > div:nth-child(2) {
-  gap: 16px !important;
-}
-
 footer > div > div:nth-child(2) > div {
-  border: 1px solid rgba(100, 116, 139, 0.18);
+  border: 1px solid rgba(100, 116, 139, .18);
   border-radius: 18px;
-  padding: 22px;
-  background: rgba(15, 23, 42, 0.28);
-  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.10);
-  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+  background: rgba(15, 23, 42, .28);
 }
+footer h3 { letter-spacing: .12em; text-transform: uppercase; color: #c7d2fe; }
 
-footer > div > div:nth-child(2) > div:hover {
-  transform: translateY(-3px);
-  border-color: rgba(129, 140, 248, 0.30);
-  background: rgba(30, 41, 59, 0.38);
-}
+* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
 
-footer h3 {
-  font-size: 0.82rem !important;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #c7d2fe;
-}
-
-footer ul li button,
-footer a,
-footer > div > div:last-child button {
-  transition: color 160ms ease, transform 160ms ease;
-}
-
-footer ul li button:hover,
-footer a:hover {
-  transform: translateX(2px);
-}
-
-footer a[class*="rounded-full"] {
-  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
-}
-
-footer a[class*="rounded-full"]:hover {
-  transform: translateY(-2px);
-}
-
-footer > div > div:last-child {
-  margin-top: 2px;
-  padding-top: 18px !important;
-  border-top-color: rgba(100, 116, 139, 0.20) !important;
-}
-
-footer.bg-slate-50 > div > div:nth-child(2) > div {
-  background: rgba(255, 255, 255, 0.72);
-  border-color: rgba(148, 163, 184, 0.22);
-}
-
-footer.bg-slate-50 > div > div:nth-child(2) > div:hover {
-  background: #fff;
-  border-color: rgba(99, 102, 241, 0.28);
-}
-
-@media (max-width: 767px) {
-  footer > div {
-    padding-top: 28px !important;
-    padding-bottom: 28px !important;
-  }
-
-  footer > div > div:first-child {
-    padding: 16px !important;
-  }
-
-  footer > div > div:nth-child(2) > div {
-    padding: 18px;
-  }
-
-  footer > div > div:last-child {
-    align-items: flex-start !important;
-  }
-}
-
-/* ================================
-   PRINT: Sirf CGPA Result Sheet
-================================ */
-.print-only {
-  display: none;
-}
-
+.print-only { display: none; }
 @media print {
-  body * {
-    visibility: hidden !important;
-  }
+  body * { visibility: hidden !important; }
+  #cgpa-print-sheet, #cgpa-print-sheet * { visibility: visible !important; }
+  #cgpa-print-sheet { display: block !important; position: absolute; inset: 0; }
+}
 
-  #cgpa-print-sheet,
-  #cgpa-print-sheet * {
-    visibility: visible !important;
+@media (min-width: 1024px) {
+  header.sticky nav button:nth-child(n + 6) { display: none; }
+  header.sticky > div > button:last-child {
+    display: inline-flex !important;
+    width: 42px; height: 42px; border-radius: 12px !important;
+    border-color: rgba(148, 163, 184, .28) !important;
+    background: rgba(15, 23, 42, .8) !important;
   }
-
-  #cgpa-print-sheet {
-    display: block !important;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    margin: 0 auto;
+}
+@media (max-width: 1023px) {
+  header.sticky > div { min-height: 66px; }
+}
+@media (max-width: 767px) {
+  footer > div { padding-top: 28px !important; padding-bottom: 28px !important; }
+  footer > div > div:nth-child(2) > div { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
   }
 }
