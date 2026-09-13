@@ -2,7 +2,9 @@ import './runtime';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+import './dashboard-enhancer.css';
 import App from './App';
+import DashboardEnhancer from './DashboardEnhancer';
 import { SEOManager } from './SEO';
 
 const FRIENDLY_ROUTES = {
@@ -17,8 +19,6 @@ const FRIENDLY_ROUTES = {
   '/contact': 'contact',
 };
 
-// Preserve the requested SEO-friendly pathname while giving the existing SPA
-// its legacy query parameter so no existing page/state logic is removed.
 const pathname = window.location.pathname.replace(/\/$/, '') || '/';
 const friendlyPage = FRIENDLY_ROUTES[pathname];
 const params = new URLSearchParams(window.location.search);
@@ -29,7 +29,6 @@ if (friendlyPage && !params.get('page')) {
 
 const initialPage = new URLSearchParams(window.location.search).get('page') || 'home';
 
-// Register caching only after the first load so it never blocks startup.
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -40,6 +39,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <SEOManager page={initialPage} />
+    <DashboardEnhancer />
     <App />
   </React.StrictMode>
 );
