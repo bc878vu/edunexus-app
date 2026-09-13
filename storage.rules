@@ -8,6 +8,13 @@ service firebase.storage {
         && request.auth.token.email_verified == true;
     }
 
+    match /tutorials/{fileName} {
+      allow read: if true;
+      allow write: if admin()
+        && request.resource.size < 200 * 1024 * 1024
+        && request.resource.contentType.matches('video/.*');
+    }
+
     match /{allPaths=**} {
       allow read: if true;
       allow write: if admin() && request.resource.size < 15 * 1024 * 1024;
