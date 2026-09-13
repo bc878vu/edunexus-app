@@ -12,6 +12,7 @@ import './content-hub-links.css';
 import './professional-ai.css';
 import './admin-content-manager.css';
 import './ui-layer-fix.css';
+import './responsive-hardening.css';
 import App from './App';
 import DashboardEnhancerSafe from './DashboardEnhancerSafe';
 import ContentHub from './ContentHub';
