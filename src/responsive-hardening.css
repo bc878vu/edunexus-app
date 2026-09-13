@@ -1,0 +1,59 @@
+/* Global responsive hardening: additive only, keeps the existing UI intact. */
+html, body, #root { width: 100%; max-width: 100%; }
+img, svg, video, iframe { max-width: 100%; }
+button, input, textarea, select { max-width: 100%; }
+main, section, article, header, footer, nav { min-width: 0; }
+[class*="break-words"], .break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
+
+/* Legacy admin tabs stay usable on desktop and narrow screens. */
+.edx-admin-legacy-head { align-items: stretch !important; }
+.edx-admin-tabs { width: 100%; scrollbar-width: thin; }
+.edx-admin-tabs button { flex: 0 0 auto; white-space: nowrap; }
+
+/* AI quiz: flexible controls and readable answer cards. */
+main .max-w-3xl { width: min(100%, 860px); }
+main .max-w-3xl input[type="number"] { max-width: 96px; }
+main .max-w-3xl h3 { overflow-wrap: anywhere; }
+main .max-w-3xl button { overflow-wrap: anywhere; }
+
+/* Floating controls: reserve a bottom-right lane so AI and WhatsApp do not overlap. */
+.edx-pro-ai { right: 24px !important; bottom: 88px !important; }
+.edx-pro-ai-panel { max-width: calc(100vw - 48px); }
+.edx-free-orb { max-width: none; }
+
+@media (max-width: 1023px) {
+  .edx-admin-legacy-head { align-items: stretch !important; }
+  .edx-admin-tabs { overflow-x: auto; }
+}
+
+@media (max-width: 767px) {
+  body { overflow-x: hidden; }
+  main.max-w-7xl, main.max-w-6xl { padding-left: 14px !important; padding-right: 14px !important; }
+  h1, h2, h3, p { max-width: 100%; overflow-wrap: anywhere; }
+  .text-6xl { font-size: clamp(2.15rem, 9vw, 3.25rem) !important; }
+  .text-5xl { font-size: clamp(2rem, 8vw, 3rem) !important; }
+  .text-4xl { font-size: clamp(1.8rem, 7vw, 2.4rem) !important; }
+  .text-3xl { font-size: clamp(1.55rem, 6vw, 2rem) !important; }
+  .edx-admin-tabs { padding: 5px !important; gap: 5px !important; }
+  .edx-admin-tabs button { padding: 9px 12px !important; font-size: 12px !important; }
+
+  /* Quiz input row: the text field and question count stack cleanly. */
+  main .max-w-3xl > div > div.flex.gap-4 { display: grid !important; grid-template-columns: 1fr !important; }
+  main .max-w-3xl > div > div.flex.gap-4 input[type="number"] { width: 100% !important; max-width: none !important; }
+  main .max-w-3xl .p-8 { padding: 16px !important; }
+  main .max-w-3xl .p-6 { padding: 16px !important; }
+  main .max-w-3xl .flex.justify-between { flex-wrap: wrap; gap: 10px; }
+
+  /* AI toggle stays above the WhatsApp control; its panel remains within the viewport. */
+  .edx-pro-ai { right: 12px !important; bottom: 74px !important; }
+  .edx-pro-ai-panel { width: calc(100vw - 24px) !important; max-width: none !important; height: min(560px, calc(100vh - 92px)) !important; }
+}
+
+@media (max-width: 480px) {
+  main .max-w-3xl .flex.justify-between > * { min-width: 120px; flex: 1 1 auto; }
+  .edx-pro-ai-panel { border-radius: 18px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edx-pro-ai *, .edx-admin-tabs * { animation: none !important; transition: none !important; }
+}
