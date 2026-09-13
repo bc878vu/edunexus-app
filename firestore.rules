@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Admin authorization is enforced by Firebase Auth, not by a frontend password.
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email == 'veducator4@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    match /artifacts/edunexus-live/public/data/announcements/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /artifacts/edunexus-live/public/data/articles/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /artifacts/edunexus-live/public/data/discussions/{docId} {
+      allow read: if true;
+      allow create: if signedIn();
+      allow update, delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // Default deny: any collection not explicitly listed above is protected.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
