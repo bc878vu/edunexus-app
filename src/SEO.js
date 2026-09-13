@@ -1,21 +1,142 @@
 import { useEffect } from "react";
-const SITE="https://edunexus-app.vercel.app";
-const DATA={
- home:["EduNexus | VU Notes, Handouts, Past Papers & AI Study Tools","EduNexus is a student study hub for Virtual University learners with notes, handouts, past papers, quizzes, CGPA calculator, study planner, flashcards and AI study tools.","EduNexus, VU notes, VU handouts, VU past papers, Virtual University notes, VULMS, VU study material, CGPA calculator, GPA calculator, AI study tools, AI quiz, exam preparation Pakistan","WebSite"],
- academic:["VU Notes, Handouts & Past Papers | EduNexus Academic Hub","Explore organized Virtual University notes, handouts, course files and past-paper resources with subject-focused search and quick access.","VU notes, VU handouts, VU past papers, Virtual University study material, VULMS notes, VU course files, CS101 notes, MTH101 notes, ENG101 notes, PHY101 notes","CollectionPage"],
- articles:["VU Study Tips, Guides & Student Articles | EduNexus","Read useful study guides, exam preparation tips, academic explainers and student-focused articles published by EduNexus.","VU study tips, exam preparation tips, university study guides, student articles Pakistan, Virtual University guides, study techniques","CollectionPage"],
- aiquiz:["AI Quiz Generator & VU MCQ Practice | EduNexus","Create AI-powered multiple-choice quizzes for revision, practice university concepts and test your preparation.","AI quiz generator, VU MCQs, Virtual University quiz, university MCQs, mock test, practice test, exam preparation","WebApplication"],
- flashcards:["AI Flashcards for University Students | EduNexus","Generate interactive AI flashcards for university topics and revise important concepts faster.","AI flashcards, study flashcards, VU flashcards, university revision, AI study tool, exam revision","WebApplication"],
- planner:["AI Study Planner for University Students | EduNexus","Build a focused study plan around your subjects, available study time and exam preparation goals.","AI study planner, university study plan, VU study planner, exam timetable, study schedule, student planner","WebApplication"],
- cgpa:["CGPA & GPA Calculator for VU Students | EduNexus","Calculate approximate GPA and CGPA with a responsive 4.0-scale university calculator and review your course performance.","CGPA calculator, GPA calculator, VU CGPA calculator, Virtual University GPA, 4.0 GPA calculator, university calculator Pakistan","WebApplication"],
- forum:["VU Student Discussion Forum | EduNexus","Ask study questions, discuss university topics and share learning help with the EduNexus student community.","VU discussion forum, Virtual University students, student questions, university discussion, VU community","CollectionPage"],
- portfolio:["EduNexus Developer Portfolio | Student Technology Project","Explore the technology and portfolio behind EduNexus, an independent student-focused learning platform.","EduNexus portfolio, student technology project, web developer portfolio, education technology Pakistan","ProfilePage"],
- about:["About EduNexus | Independent Student Learning Platform","Learn about EduNexus and its mission to make academic resources and study tools easier for students to access.","about EduNexus, student learning platform, education portal, study hub","AboutPage"],
- contact:["Contact EduNexus | Student Support & Feedback","Contact EduNexus for study-resource suggestions, corrections, feedback and technical support.","contact EduNexus, student support, study portal support, feedback","ContactPage"],
- privacy:["Privacy Policy | EduNexus","Read the EduNexus privacy policy, data practices, cookies and advertising information.","EduNexus privacy policy, student data privacy, cookies, AdSense privacy","WebPage"],
- terms:["Terms of Service | EduNexus","Read the terms that apply when using EduNexus study resources and tools.","EduNexus terms, terms of service, study platform terms","WebPage"],
- admin:["Admin Panel | EduNexus","Protected EduNexus administration area.","EduNexus admin","WebPage"]
+
+const SITE = "https://edunexus-app.vercel.app";
+const ROUTES = {
+  home: "/",
+  academic: "/vu-notes",
+  articles: "/articles",
+  aiquiz: "/quizzes",
+  flashcards: "/ai-tools",
+  planner: "/ai-tools",
+  cgpa: "/cgpa-calculator",
+  forum: "/forum",
+  portfolio: "/portfolio",
+  about: "/about",
+  contact: "/contact",
+  privacy: "/privacy",
+  terms: "/terms",
+  admin: "/admin",
 };
-const setMeta=(n,v)=>{let x=document.head.querySelector(`meta[name="${n}"]`);if(!x){x=document.createElement("meta");x.name=n;document.head.appendChild(x)}x.content=v};
-const setProp=(n,v)=>{let x=document.head.querySelector(`meta[property="${n}"]`);if(!x){x=document.createElement("meta");x.setAttribute("property",n);document.head.appendChild(x)}x.content=v};
-export function SEOManager({page="home"}){useEffect(()=>{const d=DATA[page]||DATA.home;const canonical=page==="home"?SITE:`${SITE}/?page=${page}`;document.title=d[0];setMeta("description",d[1]);setMeta("keywords",d[2]);setMeta("robots",page==="admin"?"noindex, nofollow":"index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1");setMeta("theme-color","#0f172a");setProp("og:type",d[3]==="WebSite"?"website":"article");setProp("og:site_name","EduNexus");setProp("og:title",d[0]);setProp("og:description",d[1]);setProp("og:url",canonical);setProp("og:locale","en_PK");setMeta("twitter:title",d[0]);setMeta("twitter:description",d[1]);let l=document.head.querySelector('link[rel="canonical"]');if(!l){l=document.createElement("link");l.rel="canonical";document.head.appendChild(l)}l.href=canonical;let s=document.head.querySelector("script[data-edunexus-seo]");if(!s){s=document.createElement("script");s.type="application/ld+json";s.dataset.edunexusSeo="true";document.head.appendChild(s)}s.textContent=JSON.stringify({"@context":"https://schema.org","@type":d[3],name:d[0].split("|")[0].trim(),url:canonical,description:d[1],isPartOf:{"@type":"WebSite",name:"EduNexus",url:SITE}})},[page]);return null}
+
+const DATA = {
+  home: ["EduNexus | VU Notes, Handouts, Past Papers & AI Study Tools", "EduNexus is a student study hub for Virtual University learners with notes, handouts, past papers, quizzes, CGPA calculator, study planner, flashcards and AI study tools.", "EduNexus, VU notes, VU handouts, VU past papers, Virtual University notes, VULMS, VU study material, CGPA calculator, GPA calculator, AI study tools, AI quiz, exam preparation Pakistan", "WebSite"],
+  academic: ["VU Notes, Handouts & Past Papers | EduNexus Academic Hub", "Explore organized Virtual University notes, handouts, course files and past-paper resources with subject-focused search and quick access.", "VU notes, VU handouts, VU past papers, Virtual University study material, VULMS notes, VU course files, CS101 notes, MTH101 notes, ENG101 notes, PHY101 notes", "CollectionPage"],
+  articles: ["VU Study Tips, Guides & Student Articles | EduNexus", "Read useful study guides, exam preparation tips, academic explainers and student-focused articles published by EduNexus.", "VU study tips, exam preparation tips, university study guides, student articles Pakistan, Virtual University guides, study techniques", "CollectionPage"],
+  aiquiz: ["AI Quiz Generator & VU MCQ Practice | EduNexus", "Create AI-powered multiple-choice quizzes for revision, practice university concepts and test your preparation.", "AI quiz generator, VU MCQs, Virtual University quiz, university MCQs, mock test, practice test, exam preparation", "WebApplication"],
+  flashcards: ["AI Flashcards for University Students | EduNexus", "Generate interactive AI flashcards for university topics and revise important concepts faster.", "AI flashcards, study flashcards, VU flashcards, university revision, AI study tool, exam revision", "WebApplication"],
+  planner: ["AI Study Planner for University Students | EduNexus", "Build a focused study plan around your subjects, available study time and exam preparation goals.", "AI study planner, university study plan, VU study planner, exam timetable, study schedule, student planner", "WebApplication"],
+  cgpa: ["CGPA & GPA Calculator for VU Students | EduNexus", "Calculate approximate GPA and CGPA with a responsive 4.0-scale university calculator and review your course performance.", "CGPA calculator, GPA calculator, VU CGPA calculator, Virtual University GPA, 4.0 GPA calculator, university calculator Pakistan", "WebApplication"],
+  forum: ["VU Student Discussion Forum | EduNexus", "Ask study questions, discuss university topics and share learning help with the EduNexus student community.", "VU discussion forum, Virtual University students, student questions, university discussion, VU community", "CollectionPage"],
+  portfolio: ["EduNexus Developer Portfolio | Student Technology Project", "Explore the technology and portfolio behind EduNexus, an independent student-focused learning platform.", "EduNexus portfolio, student technology project, web developer portfolio, education technology Pakistan", "ProfilePage"],
+  about: ["About EduNexus | Independent Student Learning Platform", "Learn about EduNexus and its mission to make academic resources and study tools easier for students to access.", "about EduNexus, student learning platform, education portal, study hub", "AboutPage"],
+  contact: ["Contact EduNexus | Student Support & Feedback", "Contact EduNexus for study-resource suggestions, corrections, feedback and technical support.", "contact EduNexus, student support, study portal support, feedback", "ContactPage"],
+  privacy: ["Privacy Policy | EduNexus", "Read the EduNexus privacy policy, data practices, cookies and advertising information.", "EduNexus privacy policy, student data privacy, cookies, AdSense privacy", "WebPage"],
+  terms: ["Terms of Service | EduNexus", "Read the terms that apply when using EduNexus study resources and tools.", "EduNexus terms, terms of service, study platform terms", "WebPage"],
+  admin: ["Admin Panel | EduNexus", "Protected EduNexus administration area.", "EduNexus admin", "WebPage"]
+};
+
+const setMeta = (name, value) => {
+  let node = document.head.querySelector(`meta[name="${name}"]`);
+  if (!node) {
+    node = document.createElement("meta");
+    node.name = name;
+    document.head.appendChild(node);
+  }
+  node.content = value;
+};
+
+const setProp = (name, value) => {
+  let node = document.head.querySelector(`meta[property="${name}"]`);
+  if (!node) {
+    node = document.createElement("meta");
+    node.setAttribute("property", name);
+    document.head.appendChild(node);
+  }
+  node.content = value;
+};
+
+const pageFromUrl = () => {
+  const queryPage = new URLSearchParams(window.location.search).get("page");
+  if (queryPage && DATA[queryPage]) return queryPage;
+  const path = window.location.pathname.replace(/\/$/, "") || "/";
+  if (path === "/vu-notes" || path === "/handouts" || path === "/past-papers") return "academic";
+  if (path === "/quizzes" || path === "/ai-tools") return "aiquiz";
+  return Object.keys(ROUTES).find((key) => ROUTES[key] === path) || "home";
+};
+
+export function SEOManager({ page }) {
+  useEffect(() => {
+    const update = () => {
+      const currentPage = DATA[pageFromUrl()] ? pageFromUrl() : (DATA[page] ? page : "home");
+      const d = DATA[currentPage];
+      const path = ROUTES[currentPage] || "/";
+      const canonical = `${SITE}${path === "/" ? "/" : path}`;
+
+      document.title = d[0];
+      setMeta("description", d[1]);
+      setMeta("keywords", d[2]);
+      setMeta("robots", currentPage === "admin" ? "noindex, nofollow" : "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1");
+      setMeta("theme-color", "#0f172a");
+      setMeta("twitter:card", "summary_large_image");
+      setProp("og:type", d[3] === "WebSite" ? "website" : "article");
+      setProp("og:site_name", "EduNexus");
+      setProp("og:title", d[0]);
+      setProp("og:description", d[1]);
+      setProp("og:url", canonical);
+      setProp("og:locale", "en_PK");
+      setProp("og:image", `${SITE}/og-image.png`);
+      setMeta("twitter:title", d[0]);
+      setMeta("twitter:description", d[1]);
+      setMeta("twitter:image", `${SITE}/og-image.png`);
+
+      let canonicalLink = document.head.querySelector('link[rel="canonical"]');
+      if (!canonicalLink) {
+        canonicalLink = document.createElement("link");
+        canonicalLink.rel = "canonical";
+        document.head.appendChild(canonicalLink);
+      }
+      canonicalLink.href = canonical;
+
+      let schema = document.head.querySelector("script[data-edunexus-seo]");
+      if (!schema) {
+        schema = document.createElement("script");
+        schema.type = "application/ld+json";
+        schema.dataset.edunexusSeo = "true";
+        document.head.appendChild(schema);
+      }
+      schema.textContent = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": d[3],
+        name: d[0].split("|")[0].trim(),
+        url: canonical,
+        description: d[1],
+        isPartOf: { "@type": "WebSite", name: "EduNexus", url: SITE }
+      });
+    };
+
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+    window.history.pushState = function (...args) {
+      const result = originalPushState.apply(this, args);
+      window.dispatchEvent(new Event("edunexus:navigation"));
+      return result;
+    };
+    window.history.replaceState = function (...args) {
+      const result = originalReplaceState.apply(this, args);
+      window.dispatchEvent(new Event("edunexus:navigation"));
+      return result;
+    };
+
+    update();
+    window.addEventListener("popstate", update);
+    window.addEventListener("edunexus:navigation", update);
+    return () => {
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+      window.removeEventListener("popstate", update);
+      window.removeEventListener("edunexus:navigation", update);
+    };
+  }, [page]);
+
+  return null;
+}
