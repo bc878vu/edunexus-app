@@ -8,22 +8,26 @@ const PAGE_LABELS = {
   "exam-preparation": "Exam Preparation", "cgpa-guide": "CGPA Planning Guide", "ai-study-tools": "Responsible AI",
   resources: "Resource Centre", projects: "Live Projects", tutorials: "Tutorial Videos",
 };
-const HUB_LINKS = [["Study Guides", "/study-guides"], ["Tutorial Videos", "/tutorials"], ["Student Resources", "/student-resources"], ["Live Projects", "/live-projects"]];
 
 function getPage() {
   const queryPage = new URLSearchParams(window.location.search).get("page");
   const path = window.location.pathname.replace(/\/$/, "") || "/";
-  const pathMap = { "/study-guides":"guides", "/tutorials":"tutorials", "/student-resources":"resources", "/live-projects":"projects", "/vu-notes-guide":"vu-notes-guide", "/past-papers-guide":"past-papers", "/exam-preparation":"exam-preparation", "/cgpa-guide":"cgpa-guide", "/ai-study-tools":"ai-study-tools" };
+  const pathMap = {
+    "/study-guides": "guides", "/tutorials": "tutorials", "/student-resources": "resources",
+    "/live-projects": "projects", "/vu-notes-guide": "vu-notes-guide", "/past-papers-guide": "past-papers",
+    "/exam-preparation": "exam-preparation", "/cgpa-guide": "cgpa-guide", "/ai-study-tools": "ai-study-tools"
+  };
   return queryPage || pathMap[path] || "home";
 }
 
-function FloatingFreeOrb({ page }) {
+function FloatingStudyGuidesButton({ page }) {
   const [position, setPosition] = useState({ x: 24, y: 120 });
-  const moveOrb = useMemo(() => () => {
+
+  const moveButton = useMemo(() => () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const size = width <= 768 ? 62 : 72;
-    const margin = 14;
+    const size = width <= 768 ? 70 : 82;
+    const margin = 18;
     const maxX = Math.max(margin, width - size - margin);
     const maxY = Math.max(margin, height - size - margin);
     setPosition({
@@ -33,32 +37,46 @@ function FloatingFreeOrb({ page }) {
   }, []);
 
   useEffect(() => {
-    moveOrb();
-    const timer = window.setInterval(moveOrb, 3200);
-    const onResize = () => moveOrb();
+    moveButton();
+    const timer = window.setInterval(moveButton, 3200);
+    const onResize = () => moveButton();
     window.addEventListener("resize", onResize, { passive: true });
-    return () => { window.clearInterval(timer); window.removeEventListener("resize", onResize); };
-  }, [moveOrb, page]);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [moveButton, page]);
 
-  return <div className="edx-free-orb" style={{ left: `${position.x}px`, top: `${position.y}px` }} aria-label="Free EduNexus" title="EduNexus — Free">
-    <span className="edx-free-orb-core">FREE</span>
-    <span className="edx-free-spark edx-free-spark-a" />
-    <span className="edx-free-spark edx-free-spark-b" />
-  </div>;
+  return (
+    <a
+      className="edx-free-orb edx-study-guides-orb"
+      href="/study-guides"
+      aria-label="Open Study Guides"
+      title="Study Guides"
+      style={{ left: `${position.x}px`, top: `${position.y}px` }}
+    >
+      <span className="edx-free-orb-core">STUDY<br />GUIDES</span>
+      <span className="edx-free-spark edx-free-spark-a" aria-hidden="true" />
+      <span className="edx-free-spark edx-free-spark-b" aria-hidden="true" />
+    </a>
+  );
 }
 
 export default function DashboardEnhancer() {
   const [page, setPage] = useState(getPage);
   const [progress, setProgress] = useState(0);
   const [showTop, setShowTop] = useState(false);
-  const [hubOpen, setHubOpen] = useState(false);
 
   useEffect(() => {
     const syncRoute = () => setPage(getPage());
     window.addEventListener("popstate", syncRoute);
     window.addEventListener("edunexus:navigation", syncRoute);
     const timer = window.setInterval(syncRoute, 350);
-    return () => { window.removeEventListener("popstate", syncRoute); window.removeEventListener("edunexus:navigation", syncRoute); window.clearInterval(timer); };
+    return () => {
+      window.removeEventListener("popstate", syncRoute);
+      window.removeEventListener("edunexus:navigation", syncRoute);
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -77,16 +95,12 @@ export default function DashboardEnhancer() {
   useEffect(() => { document.documentElement.dataset.edunexusPage = page; }, [page]);
 
   return <>
-    <FloatingFreeOrb page={page} />
+    <FloatingStudyGuidesButton page={page} />
     <div className="edx-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
     <div className="edx-ambient edx-ambient-one" aria-hidden="true" />
     <div className="edx-ambient edx-ambient-two" aria-hidden="true" />
     <div className="edx-grid" aria-hidden="true" />
     <div className="edx-page-pill" aria-hidden="true"><span className="edx-live-dot" /><span>{label}</span></div>
-    <div className={`edx-hub-menu ${hubOpen ? "open" : ""}`}>
-      {hubOpen && <div className="edx-hub-panel">{HUB_LINKS.map(([name, href]) => <a href={href} key={href}>{name}<span>→</span></a>)}</div>}
-      <button type="button" className="edx-hub-toggle" aria-expanded={hubOpen} onClick={() => setHubOpen(v => !v)}>{hubOpen ? "×" : "✦"}</button>
-    </div>
     {showTop && <button type="button" className="edx-top-button" aria-label="Back to top" title="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>↑</button>}
   </>;
 }
