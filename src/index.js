@@ -14,6 +14,7 @@ import './admin-content-manager.css';
 import './ui-layer-fix.css';
 import './responsive-hardening.css';
 import './admin-resource-manager-v2.css';
+import './firebase-console';
 import App from './App';
 import DashboardEnhancerSafe from './DashboardEnhancerSafe';
 import ContentHub from './ContentHub';
