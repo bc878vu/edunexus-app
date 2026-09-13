@@ -10,11 +10,13 @@ import './tutorial-hub.css';
 import './background-rotator.css';
 import './content-hub-links.css';
 import './professional-ai.css';
+import './admin-content-manager.css';
 import App from './App';
 import DashboardEnhancer from './DashboardEnhancer';
 import ContentHub from './ContentHub';
 import TutorialHub from './TutorialHub';
 import ProfessionalAIAssistant from './ProfessionalAIAssistant';
+import AdminContentManager from './AdminContentManager';
 import { startHighlightsWarmup } from './highlights-warmup';
 import { SEOManager } from './SEO';
 
@@ -30,4 +32,4 @@ if ('serviceWorker' in navigator && window.location.protocol === 'https:') windo
 startHighlightsWarmup();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<React.StrictMode><SEOManager page={initialPage} /><DashboardEnhancer /><ContentHub /><TutorialHub /><App /><ProfessionalAIAssistant /></React.StrictMode>);
+root.render(<React.StrictMode><SEOManager page={initialPage} /><DashboardEnhancer /><ContentHub /><TutorialHub /><ProfessionalAIAssistant /><AdminContentManager /><App /></React.StrictMode>);
