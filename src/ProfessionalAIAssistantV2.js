@@ -14,11 +14,11 @@ const NAV=[
 ];
 const PUBLIC=['announcements','articles','highlights','files','tutorials','discussions'];
 function pickLink(x){return cleanLink(x?.url||x?.downloadURL||x?.downloadUrl||x?.fileUrl||x?.href||x?.link)}
-function compactDoc(d,id){const x=d||{};return{id,title:safe(x.title||x.name||x.fileName||x.subject||x.course||id,150),course:safe(x.course||x.subject||x.code,80),category:safe(x.category||x.type,80),description:safe(x.description||x.content||x.text||x.summary,420),url:pickLink(x),fileName:safe(x.fileName,140)}}
+function compactDoc(d,id){const x=d||{};return{id,title:safe(x.title||x.name||x.fileName||x.subject||x.course||id,150),course:safe(x.course||x.subject||x.code,80),category:safe(x.category||x.type,80),description:safe(x.description||x.content||x.text||x.summary,240),url:pickLink(x),fileName:safe(x.fileName,140)}}
 async function contextFor(user){
   const c={name:user?.displayName||'',email:user?.email||'',page:window.location.pathname,query:window.location.search,siteTitle:document.title,collections:{}};
   if(user){try{const s=await getDoc(doc(db,'artifacts','edunexus-live','users',user.uid,'profile','main'));if(s.exists())Object.assign(c,s.data());const n=safe(c.name||c.fullName||c.displayName,80);if(n){c.name=n;await setDoc(doc(db,'artifacts','edunexus-live','users',user.uid,'profile','main'),{displayName:n,email:user.email||'',updatedAt:serverTimestamp()},{merge:true})}}catch(_){} }
-  await Promise.all(PUBLIC.map(async name=>{try{const s=await getDocs(query(collection(db,'artifacts','edunexus-live','public','data',name),limit(30)));c.collections[name]=s.docs.map(d=>compactDoc(d.data(),d.id)).filter(x=>x.title||x.url)}catch(_){c.collections[name]=[]}}));
+  await Promise.all(PUBLIC.map(async name=>{try{const s=await getDocs(query(collection(db,'artifacts','edunexus-live','public','data',name),limit(name==='files'?25:10)));c.collections[name]=s.docs.map(d=>compactDoc(d.data(),d.id)).filter(x=>x.title||x.url)}catch(_){c.collections[name]=[]}}));
   return c;
 }
 function prompt(q,c,h){
