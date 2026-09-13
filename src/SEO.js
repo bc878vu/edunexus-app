@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 
 const SITE = "https://edunexus-app.vercel.app";
-
 const pages = {
   "/": { title: "EduNexus | VU Notes, Handouts, Past Papers & AI Study Tools", description: "EduNexus is a free student study hub for Virtual University and online students. Find notes, handouts, past papers, quizzes, CGPA tools and AI-powered study help.", keywords: "VU notes, VU handouts, VU past papers, Virtual University notes, VULMS, online study portal, CGPA calculator, GPA calculator, AI study tools, university exam preparation Pakistan", type: "WebSite" },
   "/vu-notes": { title: "VU Notes & Study Material | EduNexus", description: "Find organized Virtual University notes, subject resources and study material for faster exam preparation.", keywords: "VU notes, Virtual University notes, VU study material, VULMS notes, university notes Pakistan", type: "CollectionPage" },
@@ -15,45 +14,23 @@ const pages = {
   "/contact": { title: "Contact EduNexus | Student Support", description: "Contact EduNexus for feedback, resource suggestions, corrections and student support.", keywords: "contact EduNexus, student support, study portal contact", type: "ContactPage" }
 };
 
-function setMeta(name, content) {
-  let node = document.head.querySelector(`meta[name="${name}"]`);
-  if (!node) { node = document.createElement("meta"); node.name = name; document.head.appendChild(node); }
-  node.content = content;
-}
-function setProperty(property, content) {
-  let node = document.head.querySelector(`meta[property="${property}"]`);
-  if (!node) { node = document.createElement("meta"); node.setAttribute("property", property); document.head.appendChild(node); }
-  node.content = content;
-}
-function setLink(rel, href) {
-  let node = document.head.querySelector(`link[rel="${rel}"]`);
-  if (!node) { node = document.createElement("link"); node.rel = rel; document.head.appendChild(node); }
-  node.href = href;
-}
+function setMeta(name, content) { let node = document.head.querySelector(`meta[name="${name}"]`); if (!node) { node = document.createElement("meta"); node.name = name; document.head.appendChild(node); } node.content = content; }
+function setProperty(property, content) { let node = document.head.querySelector(`meta[property="${property}"]`); if (!node) { node = document.createElement("meta"); node.setAttribute("property", property); document.head.appendChild(node); } node.content = content; }
+function setLink(rel, href) { let node = document.head.querySelector(`link[rel="${rel}"]`); if (!node) { node = document.createElement("link"); node.rel = rel; document.head.appendChild(node); } node.href = href; }
 
 export function SEOManager() {
   useEffect(() => {
     const normalize = value => value.split("?")[0].replace(/\/+$/, "") || "/";
     const update = () => {
-      const path = normalize(window.location.pathname);
-      const page = pages[path] || pages["/"];
-      const canonical = `${SITE}${path === "/" ? "/" : path}`;
-      document.title = page.title;
-      setMeta("description", page.description);
-      setMeta("keywords", page.keywords);
-      setMeta("robots", "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1");
-      setProperty("og:title", page.title); setProperty("og:description", page.description); setProperty("og:url", canonical);
-      setProperty("og:type", path === "/articles" ? "article" : "website"); setProperty("og:site_name", "EduNexus"); setProperty("og:locale", "en_PK");
-      setProperty("twitter:title", page.title); setProperty("twitter:description", page.description);
-      setLink("canonical", canonical);
+      const path = normalize(window.location.pathname); const page = pages[path] || pages["/"]; const canonical = `${SITE}${path === "/" ? "/" : path}`;
+      document.title = page.title; setMeta("description", page.description); setMeta("keywords", page.keywords); setMeta("robots", "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1");
+      setProperty("og:title", page.title); setProperty("og:description", page.description); setProperty("og:url", canonical); setProperty("og:type", path === "/articles" ? "article" : "website"); setProperty("og:site_name", "EduNexus"); setProperty("og:locale", "en_PK");
+      setProperty("twitter:title", page.title); setProperty("twitter:description", page.description); setLink("canonical", canonical);
       const json = { "@context": "https://schema.org", "@type": page.type, name: page.title.replace(/\s*\|.*$/, ""), url: canonical, description: page.description, isPartOf: { "@type": "WebSite", name: "EduNexus", url: SITE } };
       if (page.type === "WebApplication") { json.applicationCategory = "EducationalApplication"; json.operatingSystem = "Web"; json.offers = { "@type": "Offer", price: "0", priceCurrency: "USD" }; }
-      let ld = document.head.querySelector("script[data-edunexus-seo]");
-      if (!ld) { ld = document.createElement("script"); ld.type = "application/ld+json"; ld.dataset.edunexusSeo = "true"; document.head.appendChild(ld); }
-      ld.textContent = JSON.stringify(json);
+      let ld = document.head.querySelector("script[data-edunexus-seo]"); if (!ld) { ld = document.createElement("script"); ld.type = "application/ld+json"; ld.dataset.edunexusSeo = "true"; document.head.appendChild(ld); } ld.textContent = JSON.stringify(json);
     };
-    update(); window.addEventListener("popstate", update);
-    return () => window.removeEventListener("popstate", update);
+    update(); window.addEventListener("popstate", update); return () => window.removeEventListener("popstate", update);
   }, []);
   return null;
 }
@@ -61,13 +38,12 @@ export function SEOManager() {
 export function SeoRouteBridge() {
   useEffect(() => {
     const routeMap = { "Academic": "/vu-notes", "Ai": "/ai-tools", "Quiz": "/quizzes", "Flashcards": "/ai-tools", "Cgpa": "/cgpa-calculator", "Forum": "/articles", "Articles": "/articles", "Home": "/" };
-    const handler = event => {
-      const button = event.target.closest?.("button"); if (!button) return;
-      const label = button.textContent.trim().replace(/\s+/g, " "); const path = routeMap[label]; if (!path) return;
-      if (window.location.pathname !== path) window.history.pushState({}, "", path);
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    };
-    document.addEventListener("click", handler); return () => document.removeEventListener("click", handler);
+    const handler = event => { const button = event.target.closest?.("button"); if (!button) return; const label = button.textContent.trim().replace(/\s+/g, " "); const path = routeMap[label]; if (!path) return; if (window.location.pathname !== path) window.history.pushState({}, "", path); window.dispatchEvent(new PopStateEvent("popstate")); };
+    document.addEventListener("click", handler);
+    const pathToLabel = { "/vu-notes": "Academic", "/handouts": "Academic", "/past-papers": "Academic", "/quizzes": "Quiz", "/cgpa-calculator": "Cgpa", "/ai-tools": "Ai", "/articles": "Articles", "/": "Home" };
+    const initialLabel = pathToLabel[window.location.pathname.replace(/\/+$/, "") || "/"];
+    const timer = setTimeout(() => { if (!initialLabel || initialLabel === "Home") return; const target = [...document.querySelectorAll("header nav button")].find(b => b.textContent.trim() === initialLabel); if (target) target.click(); }, 250);
+    return () => { document.removeEventListener("click", handler); clearTimeout(timer); };
   }, []);
   return null;
 }
