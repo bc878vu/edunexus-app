@@ -36,7 +36,10 @@ function youtubeId(value) {
   return '';
 }
 
+const getRoute = () => new URLSearchParams(window.location.search).get('page') || (window.location.pathname.replace(/\/$/, '') === '/tutorials' ? 'tutorials' : '');
+
 export default function TutorialHub() {
+  const [route, setRoute] = useState(getRoute);
   const [videos, setVideos] = useState([]);
   const [user, setUser] = useState(null);
   const [open, setOpen] = useState(false);
@@ -45,11 +48,13 @@ export default function TutorialHub() {
   const [form, setForm] = useState({ title: '', category: 'VU Tutorials', url: '', description: '' });
   const [file, setFile] = useState(null);
 
+  useEffect(() => { const onPop = () => setRoute(getRoute()); window.addEventListener('popstate', onPop); window.addEventListener('edunexus:navigation', onPop); return () => { window.removeEventListener('popstate', onPop); window.removeEventListener('edunexus:navigation', onPop); }; }, []);
   useEffect(() => onAuthStateChanged(auth, setUser), []);
   useEffect(() => {
+    if (route !== 'tutorials') return undefined;
     const q = query(TUTORIALS, orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snap) => setVideos(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))));
-  }, []);
+  }, [route]);
 
   const isAdmin = user?.email === 'veducator4@gmail.com' && user?.emailVerified === true;
   const allVideos = useMemo(() => [...videos, ...starterVideos.map((v, i) => ({ ...v, id: `starter-${i}`, starter: true }))], [videos]);
@@ -80,6 +85,7 @@ export default function TutorialHub() {
   };
 
   const goHome = () => { window.history.pushState({}, '', '/'); window.dispatchEvent(new Event('edunexus:navigation')); };
+  if (route !== 'tutorials') return null;
 
   return <div className="edux-tutorial-overlay">
     <div className="edux-tutorial-bg" />
@@ -95,17 +101,14 @@ export default function TutorialHub() {
         <p>Watch practical walkthroughs for VU students, revision techniques and study tools. EduNexus supports both external video links and uploaded MP4/WebM tutorials for the site library.</p>
         <div className="edux-tutorial-actions"><a href="#tutorials"><Play size={16}/> Browse tutorials</a>{isAdmin && <button onClick={() => setOpen(true)}><Plus size={16}/> Add tutorial</button>}</div>
       </section>
-
       <section id="tutorials" className="edux-video-grid">
         {allVideos.map((video) => <article className="edux-video-card" key={video.id}>
           {video.type === 'file' ? <video className="edux-video-player" controls preload="metadata" src={video.url} /> : video.videoId ? <iframe className="edux-video-player" src={`https://www.youtube.com/embed/${video.videoId}`} title={video.title} loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /> : <div className="edux-video-linkbox"><Link2 size={30}/><span>External tutorial</span></div>}
           <div className="edux-video-body"><span className="edux-video-category">{video.category}</span><h2>{video.title}</h2><p>{video.description}</p><div className="edux-video-footer"><small>{video.source || video.fileName || 'EduNexus tutorial'}</small><a href={video.url} target="_blank" rel="noopener noreferrer">Open source <ExternalLink size={14}/></a></div></div>
         </article>)}
       </section>
-
       <section className="edux-tutorial-note"><ShieldCheck size={20}/><div><h2>For students and contributors</h2><p>External videos stay credited to their original source. Site-owned tutorials can be uploaded by the verified EduNexus administrator, with a 200 MB video limit. This keeps the library useful without copying other creators' files.</p></div></section>
     </main>
-
     {open && <div className="edux-tutorial-modal" role="dialog" aria-modal="true"><form onSubmit={submit} className="edux-tutorial-form"><button type="button" className="edux-close" onClick={() => setOpen(false)}><X/></button><span className="edux-tutorial-pill">ADMIN UPLOAD</span><h2>Add a tutorial</h2><p>Add a YouTube/Vimeo-style external link or upload a video file you own.</p><label>Title<input value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} required /></label><label>Category<input value={form.category} onChange={(e)=>setForm({...form,category:e.target.value})} /></label><div className="edux-mode"><button type="button" className={mode==='link'?'active':''} onClick={()=>setMode('link')}><Link2 size={15}/> Link</button><button type="button" className={mode==='file'?'active':''} onClick={()=>setMode('file')}><Upload size={15}/> Upload</button></div>{mode==='link'?<label>Video link<input type="url" value={form.url} onChange={(e)=>setForm({...form,url:e.target.value})} placeholder="https://www.youtube.com/watch?v=..." required /></label>:<label>Video file<input type="file" accept="video/*" onChange={(e)=>setFile(e.target.files?.[0]||null)} required /></label>}<label>Description<textarea value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} rows="4" placeholder="What will a student learn from this tutorial?" /></label><button className="edux-submit" disabled={saving}>{saving?'Saving...':'Publish tutorial'}</button></form></div>}
   </div>;
 }
