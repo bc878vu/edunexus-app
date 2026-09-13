@@ -22,8 +22,12 @@ service cloud.firestore {
       allow read: if true;
       allow create, update, delete: if admin();
     }
-    match /artifacts/edunexus-live/public/data/discussions/{docId} {
+    match /artifacts/edunexus-live/public/data/tutorials/{docId} {
       allow read: if true;
+      allow create, update, delete: if admin();
+    }
+    match /artifacts/edunexus-live/public/data/discussions/{docId} {
+      allow read: true;
       allow create: if signedIn();
       allow update, delete: if admin() || (signedIn() && resource.data.userId == request.auth.uid);
     }
@@ -32,11 +36,11 @@ service cloud.firestore {
       allow read, update, delete: if admin();
     }
     match /artifacts/edunexus-live/public/data/profile/{docId} {
-      allow read: if true;
+      allow read: true;
       allow create, update, delete: if admin();
     }
     match /artifacts/edunexus-live/public/data/meta/{docId} {
-      allow read: if true;
+      allow read: true;
       allow create, update, delete: if admin();
     }
     match /artifacts/edunexus-live/users/{userId}/{document=**} {
