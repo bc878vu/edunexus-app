@@ -1,18 +1,16 @@
 {
-  "name": "backend",
+  "name": "edunexus-backend",
   "version": "1.0.0",
-  "description": "EduNexus backend",
-  "main": "server.js",
-  "type": "commonjs",
+  "private": true,
+  "description": "Secure Gemini proxy for EduNexus",
+  "main": "server.mjs",
+  "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.mjs"
   },
   "engines": {
     "node": ">=20"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
