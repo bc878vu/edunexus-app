@@ -11,6 +11,7 @@ import './tutorial-hub.css';
 import './background-rotator.css';
 import './content-hub-links.css';
 import './professional-ai.css';
+import './ai-button-visibility.css';
 import './admin-content-manager.css';
 import './ui-layer-fix.css';
 import './responsive-hardening.css';
