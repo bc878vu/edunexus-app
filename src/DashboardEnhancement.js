@@ -180,7 +180,7 @@ function mountPoint() {
   if (!main) return null;
   if (main.querySelector('[data-edx-smart-dashboard-host]')) return main.querySelector('[data-edx-smart-dashboard-host]');
   const h1 = Array.from(main.querySelectorAll('h1')).find((node) => /Welcome to EduNexus/i.test(node.textContent || ''));
-  const hero = h1?.closest('div');
+  const hero = h1?.closest('div.text-center') || h1?.parentElement;
   const host = document.createElement('div');
   host.dataset.edxSmartDashboardHost = 'true';
   if (hero?.parentElement) hero.parentElement.insertBefore(host, hero.nextSibling); else main.insertBefore(host, main.firstChild);
@@ -189,15 +189,21 @@ function mountPoint() {
 
 export default function DashboardEnhancement() {
   const [host, setHost] = useState(null);
+  const [page, setPage] = useState(() => new URLSearchParams(window.location.search).get('page') || 'home');
+  useEffect(() => {
+    const syncPage = () => setPage(new URLSearchParams(window.location.search).get('page') || 'home');
+    window.addEventListener('popstate', syncPage);
+    const timer = window.setInterval(syncPage, 400);
+    return () => { window.removeEventListener('popstate', syncPage); window.clearInterval(timer); };
+  }, []);
   useEffect(() => {
     let alive = true;
     const find = () => { if (!alive) return; const target = mountPoint(); if (target) setHost(target); };
     find();
     const observer = new MutationObserver(find);
     observer.observe(document.body, { childList: true, subtree: true });
-    return () => { alive = false; observer.disconnect(); if (host?.parentNode) host.parentNode.removeChild(host); };
+    return () => { alive = false; observer.disconnect(); };
   }, []);
-  const page = new URLSearchParams(window.location.search).get('page') || 'home';
   if (!host || page !== 'home') return null;
   return createPortal(<SmartDashboard />, host);
 }
