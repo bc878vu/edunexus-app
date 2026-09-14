@@ -19,9 +19,10 @@ main .max-w-3xl h3 { overflow-wrap: anywhere; }
 main .max-w-3xl button { overflow-wrap: anywhere; }
 
 /* Floating controls: reserve a bottom-right lane so AI and WhatsApp do not overlap. */
-.edx-pro-ai { right: 24px !important; bottom: 88px !important; }
-.edx-pro-ai-panel { max-width: calc(100vw - 48px); }
-.edx-free-orb { max-width: none; }
+.edx-pro-ai { position: fixed !important; right: 24px !important; bottom: 88px !important; z-index: 9998 !important; max-width: calc(100vw - 24px); }
+.edx-pro-ai-fab { display: inline-flex !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; position: relative !important; z-index: 9999 !important; align-items: center !important; justify-content: center !important; gap: 6px !important; min-width: 54px !important; min-height: 54px !important; border-radius: 9999px !important; cursor: pointer !important; }
+.edx-pro-ai-panel { max-width: calc(100vw - 48px); z-index: 9999 !important; }
+.edx-free-orb { max-width: none; z-index: 30 !important; }
 
 @media (max-width: 1023px) {
   .edx-admin-legacy-head { align-items: stretch !important; }
@@ -48,6 +49,7 @@ main .max-w-3xl button { overflow-wrap: anywhere; }
 
   /* AI toggle stays above the WhatsApp control; its panel remains within the viewport. */
   .edx-pro-ai { right: 12px !important; bottom: 74px !important; }
+  .edx-pro-ai-fab { min-width: 52px !important; min-height: 52px !important; }
   .edx-pro-ai-panel { width: calc(100vw - 24px) !important; max-width: none !important; height: min(560px, calc(100vh - 92px)) !important; }
 }
 
