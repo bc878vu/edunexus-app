@@ -18,7 +18,7 @@ if (start >= 0 && end > start && !source.includes('Cached source is ready instan
   source = source.slice(0, start) + replacement + source.slice(end);
 }
 
-source = source.replaceAll('/api/gemini-quiz', '/api/gemini-quiz-fast');
+if (!source.includes('/api/gemini-quiz-fast')) source = source.replaceAll('/api/gemini-quiz', '/api/gemini-quiz-fast');
 source = source.replace('className="p-5 md:p-7 border-b ${theme.border}"', 'className={`p-5 md:p-7 border-b ${theme.border}`}');
 fs.writeFileSync(file, source, 'utf8');
 console.log('Fast source upload + quiz endpoint integration applied safely.');
