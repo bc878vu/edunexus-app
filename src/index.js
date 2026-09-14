@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import './dashboard-enhancer.css';
+import './dashboard-enhancement.css';
 import './free-orb.css';
 import './dashboard-hub.css';
 import './content-hub.css';
@@ -17,6 +18,7 @@ import './admin-resource-manager-v2.css';
 import './firebase-console';
 import App from './App';
 import DashboardEnhancerSafe from './DashboardEnhancerSafe';
+import DashboardEnhancement from './DashboardEnhancement';
 import ContentHub from './ContentHub';
 import TutorialHub from './TutorialHub';
 import ProfessionalAIAssistantV2 from './ProfessionalAIAssistantV2';
@@ -60,6 +62,7 @@ root.render(
   <>
     <SEOManager page={initialPage} />
     <DashboardEnhancerSafe />
+    <DashboardEnhancement />
     <ContentHub />
     <TutorialHub />
     <ProfessionalAIAssistantV2 />
