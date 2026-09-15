@@ -15,9 +15,9 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "prestart": "node scripts/preflight.mjs && node scripts/secure-production-build.mjs",
+    "prestart": "node scripts/upgrade-dashboard.mjs && node scripts/preflight.mjs && node scripts/secure-production-build.mjs",
     "start": "react-scripts start",
-    "prebuild": "node scripts/preflight.mjs && node scripts/secure-production-build.mjs",
+    "prebuild": "node scripts/upgrade-dashboard.mjs && node scripts/preflight.mjs && node scripts/secure-production-build.mjs",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
