@@ -12,6 +12,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 input::placeholder, textarea::placeholder { opacity: .72; }
 img, svg, video { max-width: 100%; }
 main { width: 100%; }
+
+@keyframes edunexusFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+@keyframes edunexusFloatDelay {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(7px); }
+}
+.animate-float { animation: edunexusFloat 4s ease-in-out infinite; }
+.animate-float-delay { animation: edunexusFloatDelay 5s ease-in-out infinite; }
+
 @media (max-width: 639px) { body { font-size: 15px; } h1 { line-height: 1.15; } h2, h3 { line-height: 1.25; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 @media print { body { background: #fff !important; } }
