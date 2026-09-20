@@ -3,32 +3,104 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        }
       ]
     }
   ],
   "rewrites": [
-    { "source": "/vu-notes", "destination": "/index.html" },
-    { "source": "/handouts", "destination": "/index.html" },
-    { "source": "/past-papers", "destination": "/index.html" },
-    { "source": "/quizzes", "destination": "/index.html" },
-    { "source": "/cgpa-calculator", "destination": "/index.html" },
-    { "source": "/ai-tools", "destination": "/index.html" },
-    { "source": "/articles", "destination": "/index.html" },
-    { "source": "/about", "destination": "/index.html" },
-    { "source": "/contact", "destination": "/index.html" },
-    { "source": "/study-guides", "destination": "/index.html" },
-    { "source": "/vu-notes-guide", "destination": "/index.html" },
-    { "source": "/past-papers-guide", "destination": "/index.html" },
-    { "source": "/exam-preparation", "destination": "/index.html" },
-    { "source": "/cgpa-guide", "destination": "/index.html" },
-    { "source": "/ai-study-tools", "destination": "/index.html" },
-    { "source": "/student-resources", "destination": "/index.html" },
-    { "source": "/live-projects", "destination": "/index.html" },
-    { "source": "/tutorials", "destination": "/index.html" }
-  ]
+    {
+      "source": "/vu-notes",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/handouts",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/past-papers",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/quizzes",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/cgpa-calculator",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ai-tools",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/articles",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/contact",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/study-guides",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/vu-notes-guide",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/past-papers-guide",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/exam-preparation",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/cgpa-guide",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ai-study-tools",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/student-resources",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/live-projects",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tutorials",
+      "destination": "/index.html"
+    }
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "installCommand": "npm install"
 }
