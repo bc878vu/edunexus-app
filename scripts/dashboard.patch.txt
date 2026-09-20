@@ -70,8 +70,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
 
   const renderHighlightDesc = (desc) => {
     if (!desc) return null;
-    const lines = desc.split(/\r?\
-/).map((l) => l.trim()).filter(Boolean);
+    const lines = desc.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (lines.length <= 1) {
       return <p className={`text-sm ${theme.textMuted} leading-relaxed whitespace-pre-line`}>{desc}</p>;
     }
