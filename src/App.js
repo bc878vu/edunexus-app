@@ -1568,6 +1568,7 @@ const QuizGenerator = ({ theme, user, showToast }) => {
   const [showResult, setShowResult] = useState(false);
   const [timeLeft, setTimeLeft] = useState(90);
   const [fileName, setFileName] = useState('');
+  const [fileLoading, setFileLoading] = useState(false);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
