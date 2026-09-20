@@ -143,4 +143,4 @@ const HomePage = ({setPage, theme, showToast, user}) => {
       <div className="mt-10"><Feedback theme={theme} showToast={showToast} /></div>
     </div>
   );
-};";
+};;
