@@ -1570,143 +1570,435 @@ const QuizGenerator = ({ theme, user, showToast }) => {
   const [fileName, setFileName] = useState('');
   const [fileLoading, setFileLoading] = useState(false);
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFileName(file.name);
-      if (file.type === "text/plain") {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          setInput(ev.target.result.substring(0, 5000)); // Limit to 5000 chars for prompt safety
-        };
-        reader.readAsText(file);
-      } else {
-        setInput(`Create a quiz about ${file.name}`);
+  const MAX_SOURCE_CHARS = 30000;
+
+  const readTextFile = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Could not read text file.'));
+      reader.readAsText(file);
+    });
+
+  const readPdfFile = async (file) => {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const pdfData = new Uint8Array(await file.arrayBuffer());
+    const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+    const chunks = [];
+    let charCount = 0;
+
+    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
+      const page = await pdf.getPage(pageNo);
+      const content = await page.getTextContent();
+      const pageText = content.items
+        .map((item) => (typeof item.str === 'string' ? item.str : ''))
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (pageText) {
+        chunks.push(pageText);
+        charCount += pageText.length + 1;
       }
+      if (charCount >= MAX_SOURCE_CHARS) break;
+    }
+
+    return chunks.join('\n');
+  };
+
+  const readDocxFile = async (file) => {
+    const mammoth = await import('mammoth/mammoth.browser');
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return String(result.value || '');
+  };
+
+  const extractFileText = async (file) => {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+
+    if (file.type === 'text/plain' || ['txt', 'md', 'csv'].includes(ext)) {
+      return readTextFile(file);
+    }
+
+    if (file.type === 'application/pdf' || ext === 'pdf') {
+      return readPdfFile(file);
+    }
+
+    if (
+      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      ext === 'docx'
+    ) {
+      return readDocxFile(file);
+    }
+
+    if (ext === 'doc' || file.type === 'application/msword') {
+      throw new Error('Old .doc files are not supported. Save the file as .docx or PDF.');
+    }
+
+    throw new Error('Unsupported file type. Upload TXT, PDF, or DOCX.');
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setFileName(file.name);
+    setFileLoading(true);
+
+    try {
+      const text = (await extractFileText(file)).replace(/\u0000/g, '').trim();
+
+      if (!text) {
+        throw new Error('No readable text was found in this file.');
+      }
+
+      setInput(text.substring(0, MAX_SOURCE_CHARS));
+
+      showToast(
+        text.length > MAX_SOURCE_CHARS
+          ? 'File loaded. Large document was trimmed for faster quiz generation.'
+          : 'File content loaded successfully.',
+        'success'
+      );
+    } catch (error) {
+      console.error('Quiz file extraction error:', error);
+      setInput('');
+      showToast(error?.message || 'Could not read this file.', 'error');
+    } finally {
+      setFileLoading(false);
     }
   };
 
   useEffect(() => {
     if (!quizData || showResult) return;
-    setTimeLeft(90); 
+    setTimeLeft(90);
   }, [currentQ, quizData, showResult]);
 
   useEffect(() => {
     if (!quizData || showResult || timeLeft <= 0) return;
-    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+    const timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [timeLeft, quizData, showResult]);
 
-  const generateQuiz = async () => {
-    if (!input.trim()) return;
-    const limit = Math.min(Math.max(parseInt(qLimit) || 5, 1), 50);
-    setLoading(true); setQuizData(null); setShowResult(false); setCurrentQ(0);
-    
-    const prompt = `Generate a valid JSON array of ${limit} multiple choice questions based on the following text or topic: "${input.substring(0, 2000)}". 
-    Style: Short, conceptual questions similar to Virtual University (VU) exam pattern.
-    Format: [{"id": 1, "q": "Question text?", "options": ["Option A", "Option B", "Option C", "Option D"], "ans": 0, "explanation": "Short summary explanation."}]. 
-    Return ONLY the raw JSON array. No markdown.`;
-    
-    try {
-      const txt = await callGemini(prompt);
-      const cleaned = txt.replace(/```json/g, '').replace(/```/g, '').trim();
-      const jsonStart = cleaned.indexOf('[');
-      const jsonEnd = cleaned.lastIndexOf(']');
-      const jsonString = (jsonStart !== -1 && jsonEnd !== -1) ? cleaned.substring(jsonStart, jsonEnd + 1) : cleaned;
-      
-      const data = JSON.parse(jsonString);
-      if (Array.isArray(data)) { 
-        setQuizData(data.map(q => ({...q, selected: null}))); 
-        showToast(`Generated ${data.length} Questions!`, "success"); 
-      }
-      else throw new Error("Invalid format");
-    } catch (e) { 
-      console.error("Quiz Error:", e);
-      showToast("AI generation failed. Try simpler text.", "error"); 
+  const parseQuizJson = (raw) => {
+    const cleaned = String(raw || '')
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+
+    const jsonStart = cleaned.indexOf('[');
+    const jsonEnd = cleaned.lastIndexOf(']');
+
+    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+      throw new Error('AI returned an invalid quiz format.');
     }
-    setLoading(false);
+
+    return JSON.parse(cleaned.substring(jsonStart, jsonEnd + 1));
   };
 
-  const handleAnswer = (idx) => { 
+  const validateQuiz = (data, limit) => {
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('AI did not return valid quiz questions.');
+    }
+
+    const normalized = data
+      .slice(0, limit)
+      .map((q, index) => {
+        const options = Array.isArray(q?.options)
+          ? q.options.map((value) => String(value).trim()).filter(Boolean).slice(0, 4)
+          : [];
+
+        let ans = Number.isInteger(q?.ans) ? q.ans : Number(q?.ans);
+        if (!Number.isInteger(ans) || ans < 0 || ans > 3) ans = 0;
+
+        while (options.length < 4) {
+          options.push(`Option ${String.fromCharCode(65 + options.length)}`);
+        }
+
+        return {
+          id: q?.id ?? index + 1,
+          q: String(q?.q || '').trim(),
+          options,
+          ans,
+          explanation: String(
+            q?.explanation || 'Review the relevant concept in the study material.'
+          ).trim(),
+          selected: null,
+        };
+      })
+      .filter((q) => q.q);
+
+    if (!normalized.length) {
+      throw new Error('No usable quiz questions were generated.');
+    }
+
+    return normalized;
+  };
+
+  const generateQuiz = async () => {
+    const source = input.trim();
+
+    if (!source) {
+      showToast('Please paste study text or upload a readable file first.', 'error');
+      return;
+    }
+
+    const limit = Math.min(Math.max(parseInt(qLimit, 10) || 5, 1), 50);
+
+    setLoading(true);
+    setQuizData(null);
+    setShowResult(false);
+    setCurrentQ(0);
+
+    const prompt = `
+You are an expert university exam question writer for EduNexus.
+
+Create exactly ${limit} high-quality multiple-choice questions using ONLY the study material below.
+Do not use outside facts. Do not invent information that is not supported by the material.
+
+Requirements:
+- Questions should be concise, conceptual, and suitable for university exam practice.
+- Each question must have exactly 4 distinct options.
+- Exactly one option must be correct.
+- "ans" must be the zero-based index (0, 1, 2, or 3) of the correct option.
+- Include a short explanation grounded in the study material.
+- Avoid duplicate questions and duplicate options.
+- Return ONLY a raw JSON array. No Markdown, no commentary.
+
+Required schema:
+[
+  {
+    "id": 1,
+    "q": "Question text?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "ans": 0,
+    "explanation": "Short explanation."
+  }
+]
+
+STUDY MATERIAL:
+${source.substring(0, MAX_SOURCE_CHARS)}
+`;
+
+    try {
+      const txt = await callGemini(prompt);
+
+      if (!txt || txt.startsWith('AI request failed')) {
+        throw new Error(txt || 'AI request failed.');
+      }
+
+      const data = validateQuiz(parseQuizJson(txt), limit);
+      setQuizData(data);
+      showToast(`Generated ${data.length} Questions!`, 'success');
+    } catch (e) {
+      console.error('Quiz Error:', e);
+      showToast(
+        e?.message || 'AI generation failed. Please try the file again.',
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAnswer = (idx) => {
     if (quizData[currentQ].selected !== null || timeLeft <= 0) return;
     const newData = [...quizData];
-    newData[currentQ].selected = idx;
+    newData[currentQ] = { ...newData[currentQ], selected: idx };
     setQuizData(newData);
   };
 
-  const nextQ = () => { if (currentQ < quizData.length - 1) setCurrentQ(currentQ + 1); };
-  const prevQ = () => { if (currentQ > 0) setCurrentQ(currentQ - 1); };
+  const nextQ = () => {
+    if (currentQ < quizData.length - 1) setCurrentQ((value) => value + 1);
+  };
+
+  const prevQ = () => {
+    if (currentQ > 0) setCurrentQ((value) => value - 1);
+  };
+
   const finishQuiz = () => setShowResult(true);
 
-  const calculateScore = () => quizData.reduce((acc, q) => acc + (q.selected === q.ans ? 1 : 0), 0);
+  const calculateScore = () =>
+    quizData.reduce((acc, q) => acc + (q.selected === q.ans ? 1 : 0), 0);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-      <div className="text-center mb-8"><h2 className={`text-3xl font-bold ${theme.text} flex items-center justify-center gap-2`}><Brain className="h-8 w-8 text-cyan-400" /> AI Quiz Generator</h2></div>
+      <div className="text-center mb-8">
+        <h2 className={`text-3xl font-bold ${theme.text} flex items-center justify-center gap-2`}>
+          <Brain className="h-8 w-8 text-cyan-400" /> AI Quiz Generator
+        </h2>
+      </div>
+
       {!quizData ? (
         <div className={`${theme.card} p-8 rounded-2xl border ${theme.border} shadow-xl`}>
           <div className="space-y-4">
             <div className="flex gap-4">
-              <input value={input} onChange={e => setInput(e.target.value)} className={`flex-1 ${theme.input} rounded-xl p-4 ${theme.text} outline-none`} placeholder="e.g. 'CS101' or paste text..." />
-              <input type="number" min="1" max="50" value={qLimit} onChange={e => setQLimit(e.target.value)} className={`w-24 ${theme.input} rounded-xl p-4 ${theme.text} outline-none text-center`} placeholder="Qty" title="Number of Questions" />
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                className={`flex-1 ${theme.input} rounded-xl p-4 ${theme.text} outline-none`}
+                placeholder="e.g. 'CS101' or paste text..."
+              />
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={qLimit}
+                onChange={(e) => setQLimit(e.target.value)}
+                className={`w-24 ${theme.input} rounded-xl p-4 ${theme.text} outline-none text-center`}
+                placeholder="Qty"
+                title="Number of Questions"
+              />
             </div>
+
             <div className={`border-2 border-dashed ${theme.border} rounded-xl p-4 text-center cursor-pointer relative hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors`}>
-              <input type="file" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" accept=".txt,.pdf,.doc,.docx" />
+              <input
+                type="file"
+                onChange={handleFileUpload}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                accept=".txt,.md,.csv,.pdf,.docx,.doc,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                disabled={fileLoading || loading}
+              />
               <div className="flex flex-col items-center gap-2">
-                <Upload className="text-indigo-500" />
-                <span className={theme.textMuted}>{fileName || "Click to Upload File (Text/PDF)"}</span>
+                {fileLoading ? (
+                  <Loader className="text-indigo-500 animate-spin" />
+                ) : (
+                  <Upload className="text-indigo-500" />
+                )}
+
+                <span className={theme.textMuted}>
+                  {fileLoading
+                    ? `Reading ${fileName}...`
+                    : fileName || 'Click to Upload File (TXT/PDF/DOCX)'}
+                </span>
+
+                <span className={`text-[11px] ${theme.textMuted}`}>
+                  PDF text, DOCX text, TXT/MD/CSV
+                </span>
               </div>
             </div>
-            <button onClick={generateQuiz} disabled={loading || !input.trim()} className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 hover:shadow-xl">{loading ? <Loader className="animate-spin h-5 w-5" /> : <PlayCircle className="h-5 w-5" />} {loading ? "Generating Quiz..." : "Start AI Quiz"}</button>
+
+            <button
+              onClick={generateQuiz}
+              disabled={loading || fileLoading || !input.trim()}
+              className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 hover:shadow-xl"
+            >
+              {loading ? (
+                <Loader className="animate-spin h-5 w-5" />
+              ) : (
+                <PlayCircle className="h-5 w-5" />
+              )}
+              {loading ? 'Generating Quiz...' : 'Start AI Quiz'}
+            </button>
           </div>
         </div>
       ) : showResult ? (
         <div className={`${theme.card} p-8 rounded-2xl text-center animate-slide-up border ${theme.border}`}>
-          <Trophy className="h-16 w-16 text-yellow-400 mx-auto mb-4" /><h3 className={`text-2xl font-bold ${theme.text} mb-2`}>Quiz Completed!</h3><p className="text-4xl font-bold text-green-400 mb-6">{calculateScore()} / {quizData.length}</p><button onClick={() => setQuizData(null)} className="px-8 py-3 bg-indigo-600 rounded-xl text-white font-bold hover:bg-indigo-700 transition-colors">Create Another</button>
+          <Trophy className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
+          <h3 className={`text-2xl font-bold ${theme.text} mb-2`}>Quiz Completed!</h3>
+          <p className="text-4xl font-bold text-green-400 mb-6">
+            {calculateScore()} / {quizData.length}
+          </p>
+          <button
+            onClick={() => {
+              setQuizData(null);
+              setCurrentQ(0);
+              setShowResult(false);
+            }}
+            className="px-8 py-3 bg-indigo-600 rounded-xl text-white font-bold hover:bg-indigo-700 transition-colors"
+          >
+            Create Another
+          </button>
         </div>
       ) : (
         <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
           <div className={`flex justify-between items-center mb-4 text-sm ${theme.textMuted}`}>
             <span>Q {currentQ + 1} / {quizData.length}</span>
-            <span className={`flex items-center gap-1 font-mono ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-indigo-500'}`}><Clock size={16}/> 00:{timeLeft.toString().padStart(2, '0')}</span>
+            <span className={`flex items-center gap-1 font-mono ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-indigo-500'}`}>
+              <Clock size={16} /> 00:{timeLeft.toString().padStart(2, '0')}
+            </span>
           </div>
-          <h3 className={`text-xl font-bold ${theme.text} mb-6`}>{String(quizData[currentQ].q)}</h3>
+
+          <h3 className={`text-xl font-bold ${theme.text} mb-6`}>
+            {String(quizData[currentQ].q)}
+          </h3>
+
           <div className="space-y-3 mb-6">
             {quizData[currentQ].options.map((opt, idx) => {
               const isSelected = quizData[currentQ].selected === idx;
               const isCorrect = idx === quizData[currentQ].ans;
               const showStatus = quizData[currentQ].selected !== null;
-              
+
               let btnClass = `${theme.bg} ${theme.border} ${theme.text}`;
+
               if (showStatus) {
-                if (isSelected && isCorrect) btnClass = 'bg-green-600/20 border-green-500 text-green-600 dark:text-green-400';
-                else if (isSelected && !isCorrect) btnClass = 'bg-red-600/20 border-red-500 text-red-600 dark:text-red-400';
-                else if (isCorrect) btnClass = 'bg-green-600/10 border-green-500/50 text-green-600/70'; // Show correct answer nicely if wrong selected
-                else btnClass = 'opacity-50';
+                if (isSelected && isCorrect) {
+                  btnClass = 'bg-green-600/20 border-green-500 text-green-600 dark:text-green-400';
+                } else if (isSelected && !isCorrect) {
+                  btnClass = 'bg-red-600/20 border-red-500 text-red-600 dark:text-red-400';
+                } else if (isCorrect) {
+                  btnClass = 'bg-green-600/10 border-green-500/50 text-green-600/70';
+                } else {
+                  btnClass = 'opacity-50';
+                }
               }
+
               return (
-                <button key={idx} onClick={() => handleAnswer(idx)} disabled={showStatus || timeLeft <= 0} className={`w-full text-left p-4 rounded-xl border transition-all ${btnClass}`}>
+                <button
+                  key={idx}
+                  onClick={() => handleAnswer(idx)}
+                  disabled={showStatus || timeLeft <= 0}
+                  className={`w-full text-left p-4 rounded-xl border transition-all ${btnClass}`}
+                >
                   {String(opt)}
                 </button>
               );
             })}
           </div>
+
           {quizData[currentQ].selected !== null && (
             <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-xl mb-6 text-sm text-indigo-600 dark:text-indigo-300 animate-fade-in flex gap-2">
-              <Sparkles size={16} className="shrink-0 mt-0.5"/>
-              <div><strong>Explanation:</strong> {String(quizData[currentQ].explanation)}</div>
+              <Sparkles size={16} className="shrink-0 mt-0.5" />
+              <div>
+                <strong>Explanation:</strong> {String(quizData[currentQ].explanation)}
+              </div>
             </div>
           )}
+
           <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-            <button onClick={prevQ} disabled={currentQ === 0} className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><ArrowLeft size={16}/> Previous</button>
+            <button
+              onClick={prevQ}
+              disabled={currentQ === 0}
+              className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              <ArrowLeft size={16} /> Previous
+            </button>
+
             {currentQ === quizData.length - 1 ? (
-              <button onClick={finishQuiz} className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors flex items-center gap-2">Finish <CheckSquare size={16}/></button>
+              <button
+                onClick={finishQuiz}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors flex items-center gap-2"
+              >
+                Finish <CheckSquare size={16} />
+              </button>
             ) : (
-              <button onClick={nextQ} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2">Next <ArrowRight size={16}/></button>
+              <button
+                onClick={nextQ}
+                className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2"
+              >
+                Next <ArrowRight size={16} />
+              </button>
             )}
           </div>
+
           <div className="text-center mt-2">
-            <button onClick={finishQuiz} className="text-xs text-red-400 hover:text-red-500 hover:underline">Stop & Finish Quiz</button>
+            <button
+              onClick={finishQuiz}
+              className="text-xs text-red-400 hover:text-red-500 hover:underline"
+            >
+              Stop & Finish Quiz
+            </button>
           </div>
         </div>
       )}
