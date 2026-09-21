@@ -28,8 +28,19 @@ const PUBLIC_COLLECTIONS = [
 const text = (value, max = 180) => String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
 const courseCode = (message) => String(message || '').toUpperCase().match(/\b[A-Z]{2,5}[0-9]{3}[A-Z]?\b/)?.[0] || '';
 const safeUrl = (value) => {
-  try { const url = new URL(String(value || '')); return url.protocol === 'https:' ? url.toString().slice(0, 350) : ''; }
-  catch (_) { return ''; }
+  try {
+    const url = new URL(String(value || ''));
+    const permitted = new Set(['drive.google.com', 'docs.google.com', 'res.cloudinary.com',
+      'edunexus-app.vercel.app', 'cprpndovdfnkvekewstv.supabase.co']);
+    if (url.protocol !== 'https:' || !permitted.has(url.hostname)) return '';
+    // Storage download links can contain bearer-like query tokens. Never send
+    // these query parameters or URL credentials to an external AI provider.
+    url.username = ''; url.password = '';
+    const driveFileId = url.hostname === 'drive.google.com' ? url.searchParams.get('id') : '';
+    url.search = ''; url.hash = '';
+    if (driveFileId && /^[A-Za-z0-9_-]{10,}$/.test(driveFileId)) url.searchParams.set('id', driveFileId);
+    return url.toString().slice(0, 350);
+  } catch (_) { return ''; }
 };
 function recordFor(name, raw) {
   const title = text(raw.title || raw.name || raw.subject || raw.question, 135);
