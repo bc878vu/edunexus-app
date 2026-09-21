@@ -2381,7 +2381,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
   const [uDriveLink, setUDriveLink] = useState("");
   const [newFolder, setNewFolder] = useState("");
   const [subjects, setSubjects] = useState(DEFAULT_FOLDERS);
-  const [selSubject, setSelSubject] = useState("General");
+  const [selSubject, setSelSubject] = useState("CS101");
   const [files, setFiles] = useState([]);
 
   const [editingFolder, setEditingFolder] = useState(null);
@@ -2393,8 +2393,10 @@ const AcademicTab = ({ theme, user, showToast }) => {
       doc(db, "artifacts", appId, "public", "data", "meta", "folders")
     ).then((s) => {
       if (s.exists()) {
-        const dbFolders = s.data().list || [];
-        setSubjects([...new Set([...DEFAULT_FOLDERS, ...dbFolders])]);
+        const dbFolders = Array.isArray(s.data().list) ? s.data().list : [];
+        // Merge, never replace: folders may also originate from existing files
+        // or be added while the initial metadata request is in flight.
+        setSubjects((prev) => [...new Set([...DEFAULT_FOLDERS, ...prev, ...dbFolders].filter((item) => typeof item === 'string' && item.trim()))]);
       }
     });
 
@@ -2403,9 +2405,18 @@ const AcademicTab = ({ theme, user, showToast }) => {
       collection(db, "artifacts", appId, "public", "data", "files"),
       orderBy("createdAt", "desc")
     );
-    const unsub = onSnapshot(q, (s) =>
-      setFiles(s.docs.map((d) => ({ id: d.id, ...d.data() })))
-    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      const records = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      setFiles(records);
+      // Include existing resource categories even if their folder metadata
+      // was never written or a folder has an unusual course title.
+      const found = records.map((item) => item.subject)
+        .filter((item) => typeof item === 'string' && item.trim());
+      setSubjects((prev) => {
+        const merged = [...new Set([...prev, ...found])];
+        return merged.length === prev.length ? prev : merged;
+      });
+    });
     return () => unsub();
   }, []);
 
