@@ -148,7 +148,7 @@ function AdminTools({ user }) {
     setBusy(true); setMessage("");
     try {
       const data = JSON.parse(bulk);
-      if (!Array.isArray(data) || data.length < 1 || data.length > 40) throw new Error("Provide a JSON array containing 1–40 questions per batch.");
+      if (!Array.isArray(data) || data.length < 1 || data.length > 50) throw new Error("Provide a JSON array containing 1–50 questions per batch.");
       const items = data.map(normalize);
       const batch = writeBatch(db);
       items.forEach((item) => batch.set(doc(col("examMcqs")), item));
@@ -177,7 +177,7 @@ function AdminTools({ user }) {
       <label className="edx-exam-field">Explanation (optional)<textarea rows={2} maxLength={1000} value={draft.explanation} onChange={(e) => setDraft((v) => ({ ...v, explanation: e.target.value }))} /></label>
       <button className="edx-exam-primary" disabled={busy}>Publish MCQ</button>
     </form>
-    <section className="edx-exam-card edx-exam-form"><h3>Bulk import original MCQs</h3><p>Paste a JSON array (up to 40 per batch). Each entry: subject, term, question, options (four strings), answer (0–3), explanation.</p><textarea aria-label="MCQ JSON import" rows={4} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder='[{"subject":"CS101","term":"finalterm","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"..."}]' /><button className="edx-exam-secondary" disabled={busy || !bulk.trim()} onClick={importMany}><UploadCloud size={17} /> Import questions</button></section>
+    <section className="edx-exam-card edx-exam-form"><h3>Bulk import original MCQs</h3><p>Paste a JSON array (up to 50 per batch). Each entry: subject, term, question, options (four strings), answer (0–3), explanation.</p><textarea aria-label="MCQ JSON import" rows={4} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder='[{"subject":"CS101","term":"finalterm","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"..."}]' /><button className="edx-exam-secondary" disabled={busy || !bulk.trim()} onClick={importMany}><UploadCloud size={17} /> Import questions</button></section>
     <section className="edx-exam-card edx-exam-form"><div className="edx-exam-between"><h3>Legacy pending paper reviews ({pending.filter((r) => r.status === "pending").length})</h3><button className="edx-exam-secondary" onClick={reload} disabled={busy}>Refresh</button></div>
       {pending.filter((r) => r.status === "pending").map((r) => <div className="edx-exam-pending" key={r.id}><p><strong>{safe(r.subject, 12)} · {safe(r.term, 10)} · {safe(r.examDate, 10)}</strong></p><p>{safe(r.topics, 400)}</p><p>{safe(r.summary, 1500)}</p><div className="edx-exam-actions"><button className="edx-exam-primary" disabled={busy} onClick={() => moderate(r, true)}>Approve</button><button className="edx-exam-secondary" disabled={busy} onClick={() => moderate(r, false)}>Reject</button></div></div>)}
       {!pending.some((r) => r.status === "pending") && <p>No pending reviews in the latest 100 submissions.</p>}
