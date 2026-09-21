@@ -1,0 +1,26 @@
+/* Scoped, responsive enhancements; existing EduNexus page structure is preserved. */
+.edx-exam .edx-importer{border:1px solid rgba(99,102,241,.24);overflow:hidden}
+.edx-exam .edx-import-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.edx-exam .edx-import-head>div{min-width:0}
+.edx-exam .edx-import-head>svg{flex-shrink:0;color:#6366f1}
+.edx-exam .edx-import-head h3{margin:0}
+.edx-exam .edx-import-head p{font-size:.88rem;line-height:1.65;margin:9px 0 0}
+.edx-exam .edx-importer form{display:grid;gap:15px;min-width:0}
+.edx-exam .edx-import-file{display:grid;gap:9px;padding:14px 16px;border:1px dashed rgba(99,102,241,.5);border-radius:13px;color:var(--ex-ink);font-size:.87rem;font-weight:750;min-width:0;background:rgba(99,102,241,.045)}
+.edx-exam .edx-import-file input{width:100%;max-width:100%;font-size:.82rem;color:var(--ex-muted)}
+.edx-exam .edx-import-file-name{color:#4f46e5;overflow-wrap:anywhere;font-size:.79rem}
+.edx-exam .edx-importer textarea{width:100%;min-width:0;resize:vertical;min-height:125px;font-family:ui-monospace,Consolas,monospace;font-size:.79rem;line-height:1.55}
+.edx-exam .edx-import-summary{display:grid;gap:7px;border:1px solid rgba(99,102,241,.25);background:rgba(99,102,241,.045);border-radius:13px;padding:13px 15px;color:var(--ex-ink);font-size:.82rem}
+.edx-exam .edx-import-summary>strong{font-size:.95rem}
+.edx-exam .edx-import-warning{display:flex;align-items:flex-start;gap:10px;margin-top:4px;background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.34);padding:11px;border-radius:10px}
+.edx-exam .edx-import-warning svg{flex-shrink:0;color:#a16207}
+.edx-exam .edx-import-warning p{margin:0;color:var(--ex-ink);line-height:1.55}
+.edx-exam .edx-import-confirm{display:flex;align-items:flex-start;gap:10px;color:var(--ex-ink);font-size:.83rem;line-height:1.6}
+.edx-exam .edx-import-confirm input{margin-top:5px;flex-shrink:0;accent-color:#4f46e5;width:16px;height:16px}
+.edx-exam .edx-import-result{display:flex;align-items:center;flex-wrap:wrap;gap:9px;line-height:1.6;overflow-wrap:anywhere;margin:0}
+.edx-exam .edx-import-result button{margin-left:auto}
+.edx-exam .edx-import-submit{width:100%;min-height:50px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.edx-exam .edx-import-submit:not(:disabled){box-shadow:0 12px 24px -17px rgba(79,70,229,.75)}
+.edx-exam .edx-importer .edx-import-note{font-size:.75rem;line-height:1.6;color:var(--ex-muted);margin:0}
+@media(max-width:640px){.edx-exam .edx-importer form{gap:12px}.edx-exam .edx-import-result button{width:100%;margin-left:0}.edx-exam .edx-import-head>svg{width:22px}}
+@media(prefers-reduced-motion:reduce){.edx-exam .edx-importer *{animation:none!important;transition:none!important}}
