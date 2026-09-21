@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
-import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, FileText, GraduationCap, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
+import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
 import { db } from "./firebase-client";
+import ExamPaperCommunity from "./ExamPaperCommunity";
 import "./exam-prep-hub.css";
 
 const ROOT = ["artifacts", "edunexus-live", "public", "data"];
@@ -27,7 +28,6 @@ const safeUrl = (value) => {
 };
 const SUBJECTS = ["CS101", "CS201", "CS301", "CS302", "CS304", "CS401", "CS403", "CS510", "CS511", "CS601", "CS604", "CS610", "ENG101", "ENG201", "MGT101", "MGT201", "MTH101", "MTH202", "MTH601", "PHY101", "STA301"];
 const EMPTY_MCQ = { subject: "CS101", term: "finalterm", question: "", options: ["", "", "", ""], answer: 0, explanation: "" };
-const EMPTY_REVIEW = { subject: "CS101", term: "finalterm", examDate: "", difficulty: "moderate", topics: "", summary: "" };
 
 const databaseReadError = (error, resource) => error?.code === "permission-denied"
   ? `${resource} temporarily unavailable: the database denied access. The website administrator must publish the updated Firestore rules.`
@@ -97,68 +97,6 @@ function McqBank({ subject, term, user }) {
     {!loading && !error && questions.length === 0 && <div className="edx-exam-card edx-exam-empty"><BookOpen size={30} /><h3>No published MCQs for {subject} ({term}) yet</h3><p>Questions appear here after an administrator adds original or appropriately licensed study material. No unverified question count is shown.</p>{isAdmin(user) && <p>Open the Admin tools tab to add the first question.</p>}</div>}
     {!loading && questions.length > 0 && !finished && <><div className="edx-exam-between"><span className="edx-exam-pill">{Object.keys(answers).length}/{questions.length} answered</span><span className="edx-exam-pill">Current score: {score}</span></div><QuestionCard item={questions[index]} index={index} total={questions.length} selected={answers[questions[index].id]} onSelect={(option) => setAnswers((prev) => ({ ...prev, [questions[index].id]: option }))} onPrevious={() => setIndex((i) => Math.max(0, i - 1))} onNext={() => setIndex((i) => Math.min(questions.length - 1, i + 1))} /><button className="edx-exam-secondary" onClick={() => setFinished(true)}>Finish practice and see results</button></>}
     {!loading && questions.length > 0 && finished && <div className="edx-exam-card edx-exam-empty"><CheckCircle2 size={36} /><h3>Your practice results</h3><p className="edx-exam-score">{score} / {questions.length}</p><p>{Object.keys(answers).length} questions answered. Unanswered questions count as incorrect.</p><button className="edx-exam-primary" onClick={() => setRefresh((n) => n + 1)}>Start another practice session</button></div>}
-  </div>;
-}
-
-function ReviewForm({ user, subject, term }) {
-  const [form, setForm] = useState({ ...EMPTY_REVIEW, subject, term });
-  const [consent, setConsent] = useState(false);
-  const [state, setState] = useState({ busy: false, message: "", error: false });
-  useEffect(() => { setForm((prev) => ({ ...prev, subject, term })); }, [subject, term]);
-  const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
-  const submit = async (event) => {
-    event.preventDefault();
-    if (!user) { setState({ busy: false, message: "Sign in to submit a review.", error: true }); return; }
-    if (!validCourse(form.subject) || !/^\d{4}-\d{2}-\d{2}$/.test(form.examDate) || !safe(form.summary, 1500) || !consent) {
-      setState({ busy: false, message: "Complete every required field and confirm the academic-integrity notice.", error: true }); return;
-    }
-    if (form.examDate > new Date().toLocaleDateString("en-CA")) {
-      setState({ busy: false, message: "Review dates cannot be in the future.", error: true }); return;
-    }
-    setState({ busy: true, message: "", error: false });
-    try {
-      const id = [user.uid, form.subject, form.term, form.examDate].join("_");
-      await setDoc(doc(col("examReviewSubmissions"), id), {
-        userId: user.uid, subject: form.subject, term: form.term, examDate: form.examDate,
-        difficulty: form.difficulty, topics: safe(form.topics, 400), summary: safe(form.summary, 1500),
-        status: "pending", createdAt: serverTimestamp()
-      });
-      setState({ busy: false, message: "Review submitted for moderation. It is not public until approved.", error: false });
-      setForm((prev) => ({ ...prev, topics: "", summary: "" })); setConsent(false);
-    } catch (_) {
-      setState({ busy: false, message: "Submission could not be saved. You may already have submitted for this subject, exam type and date, or the new Firestore rules may not be deployed.", error: true });
-    }
-  };
-  return <form className="edx-exam-card edx-exam-form" onSubmit={submit}>
-    <h3>Share your completed-exam experience</h3><p>Help students with general topics, difficulty and preparation tips. Do not share live exam questions, screenshots or confidential material.</p>
-    <div className="edx-exam-form-grid"><CourseSelector value={form.subject} onChange={(value) => update("subject", value)} /><TermSelector value={form.term} onChange={(value) => update("term", value)} />
-      <label className="edx-exam-field">Exam date <input type="date" required max={new Date().toLocaleDateString("en-CA")} value={form.examDate} onChange={(event) => update("examDate", event.target.value)} /></label>
-      <label className="edx-exam-field">Difficulty <select value={form.difficulty} onChange={(event) => update("difficulty", event.target.value)}><option value="easy">Easy</option><option value="moderate">Moderate</option><option value="challenging">Challenging</option></select></label>
-    </div>
-    <label className="edx-exam-field">Main topics (optional) <input maxLength={400} value={form.topics} onChange={(event) => update("topics", event.target.value)} placeholder="e.g. linked lists, trees, stacks" /></label>
-    <label className="edx-exam-field">Your experience and preparation advice <textarea required minLength={20} maxLength={1500} rows={4} value={form.summary} onChange={(event) => update("summary", event.target.value)} placeholder="Describe the exam difficulty and general areas to prepare…" /></label>
-    <label className="edx-exam-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /> I have completed this exam and will not share confidential or active examination content.</label>
-    {state.message && <p role="status" className={state.error ? "edx-exam-alert" : "edx-exam-success"}>{state.message}</p>}
-    <button className="edx-exam-primary" type="submit" disabled={state.busy || !user}>{state.busy ? "Submitting…" : "Submit review for approval"}</button>
-  </form>;
-}
-
-function PaperReviews({ user, subject, term }) {
-  const [reviews, setReviews] = useState([]), [loading, setLoading] = useState(true), [error, setError] = useState(""), [refresh, setRefresh] = useState(0);
-  useEffect(() => {
-    if (!validCourse(subject)) { setReviews([]); setLoading(false); return; }
-    let live = true; setLoading(true); setError("");
-    getDocs(query(col("examReviews"), where("subject", "==", subject), limit(50)))
-      .then((snap) => { if (live) setReviews(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((r) => r.term === term).sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt))); })
-      .catch((error) => { if (live) setError(databaseReadError(error, "Paper reviews")); })
-      .finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
-  }, [subject, term, refresh]);
-  return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Student community</span><h2>Completed paper reviews</h2><p>Moderated experiences from students after their exams. Reviews are not official question papers.</p></div><ClipboardList size={28} /></div>
-    {loading && <div className="edx-exam-card">Loading reviews…</div>}{error && <div className="edx-exam-alert" role="alert">{error} <button type="button" className="edx-exam-secondary" onClick={() => setRefresh((n) => n + 1)}>Retry</button></div>}
-    {!loading && !error && reviews.length === 0 && <div className="edx-exam-card edx-exam-empty"><ClipboardList size={28} /><h3>No approved reviews yet</h3><p>Be the first to share constructive advice after completing your paper.</p></div>}
-    {reviews.map((review) => <article key={review.id} className="edx-exam-card edx-exam-review"><div className="edx-exam-between"><span className="edx-exam-pill">{review.subject} · {review.term}</span><span className="edx-exam-eyebrow">{safe(review.examDate, 10)} · {safe(review.difficulty, 20)}</span></div><h3>Exam experience</h3>{review.topics && <p><strong>Topics:</strong> {safe(review.topics, 400)}</p>}<p>{safe(review.summary, 1500)}</p><small>Student-contributed · Moderated · Not verified by Virtual University</small></article>)}
-    <ReviewForm user={user} subject={subject} term={term} />
   </div>;
 }
 
@@ -239,7 +177,7 @@ function AdminTools({ user }) {
       <button className="edx-exam-primary" disabled={busy}>Publish MCQ</button>
     </form>
     <section className="edx-exam-card edx-exam-form"><h3>Bulk import original MCQs</h3><p>Paste a JSON array (up to 40 per batch). Each entry: subject, term, question, options (four strings), answer (0–3), explanation.</p><textarea aria-label="MCQ JSON import" rows={4} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder='[{"subject":"CS101","term":"finalterm","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"..."}]' /><button className="edx-exam-secondary" disabled={busy || !bulk.trim()} onClick={importMany}><UploadCloud size={17} /> Import questions</button></section>
-    <section className="edx-exam-card edx-exam-form"><div className="edx-exam-between"><h3>Pending paper reviews ({pending.filter((r) => r.status === "pending").length})</h3><button className="edx-exam-secondary" onClick={reload} disabled={busy}>Refresh</button></div>
+    <section className="edx-exam-card edx-exam-form"><div className="edx-exam-between"><h3>Legacy pending paper reviews ({pending.filter((r) => r.status === "pending").length})</h3><button className="edx-exam-secondary" onClick={reload} disabled={busy}>Refresh</button></div>
       {pending.filter((r) => r.status === "pending").map((r) => <div className="edx-exam-pending" key={r.id}><p><strong>{safe(r.subject, 12)} · {safe(r.term, 10)} · {safe(r.examDate, 10)}</strong></p><p>{safe(r.topics, 400)}</p><p>{safe(r.summary, 1500)}</p><div className="edx-exam-actions"><button className="edx-exam-primary" disabled={busy} onClick={() => moderate(r, true)}>Approve</button><button className="edx-exam-secondary" disabled={busy} onClick={() => moderate(r, false)}>Reject</button></div></div>)}
       {!pending.some((r) => r.status === "pending") && <p>No pending reviews in the latest 100 submissions.</p>}
     </section>
@@ -251,15 +189,15 @@ export default function ExamPrepHub({ user, initialTab = "mcqs" }) {
   const [subject, setSubject] = useState("CS101");
   const [term, setTerm] = useState("finalterm");
   return <div className="edx-exam" id="edx-exam-hub">
-    <section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><Sparkles size={14} /> EduNexus Exam Prep</span><h1>Practice smarter. Prepare with confidence.</h1><p>Subject-wise MCQs, moderated past-exam experiences, and your existing study files in one focused workspace.</p><div className="edx-exam-hero-links"><button onClick={() => setTab("mcqs")}>Practice MCQs <ChevronRight size={16} /></button><button onClick={() => setTab("reviews")}>Paper reviews <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
+    <section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><Sparkles size={14} /> EduNexus Exam Prep</span><h1>Practice smarter. Prepare with confidence.</h1><p>Subject-wise MCQs, student-shared completed-exam experiences, and your existing study files in one focused workspace.</p><div className="edx-exam-hero-links"><button onClick={() => setTab("mcqs")}>Practice MCQs <ChevronRight size={16} /></button><button onClick={() => setTab("reviews")}>Paper reviews <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
     <div className="edx-exam-controls"><CourseSelector value={subject} onChange={setSubject} /><TermSelector value={term} onChange={setTerm} /></div>
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
       {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(isAdmin(user) ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}>{label}</button>)}
     </nav>
     {tab === "mcqs" && <McqBank user={user} subject={subject} term={term} />}
-    {tab === "reviews" && <PaperReviews user={user} subject={subject} term={term} />}
+    {tab === "reviews" && <ExamPaperCommunity user={user} subject={subject} term={term} />}
     {tab === "files" && <StudyFiles subject={subject} />}
     {tab === "admin" && <AdminTools user={user} />}
-    <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Student reviews are educational guidance, not official or live examination material.</p>
+    <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Student reviews are public, student-contributed educational guidance, not official or live examination material.</p>
   </div>;
 }
