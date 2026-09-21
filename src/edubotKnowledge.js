@@ -9,14 +9,14 @@ export const SITE_GUIDE = Object.freeze([
   { name: 'Exam Prep', url: '/?page=exam-prep', detail: 'Subject-wise Quiz, Midterm and Finalterm MCQs, question search, saved attempts, finish-anytime score and completed-exam student reviews. Answer keys may be provisional.' },
   { name: 'CGPA Calculator', url: '/?page=cgpa', detail: 'Calculate GPA and CGPA based on course grades and credit hours.' },
   { name: 'Articles', url: '/?page=articles', detail: 'Published educational articles and study guidance.' },
-  { name: 'Discussion', url: '/?page=discussion', detail: 'Student discussion and community posts.' },
+  { name: 'Discussion', url: '/?page=forum', detail: 'Student discussion and community posts.' },
   { name: 'Portfolio', url: '/?page=portfolio', detail: 'Developer portfolio and public project information.' },
   { name: 'About', url: '/?page=about', detail: 'Information about the independent EduNexus educational platform.' },
   { name: 'Contact', url: '/?page=contact', detail: 'Contact and support information.' },
   { name: 'AI Quiz Generator', url: '/?page=aiquiz', detail: 'Generate optional AI practice questions from a topic or user-supplied text; generated answers may need verification.' },
   { name: 'AI Flashcards', url: '/?page=flashcards', detail: 'Create and review study flashcards with AI assistance.' },
   { name: 'AI Study Planner', url: '/?page=planner', detail: 'Plan study activities using the AI planner.' },
-  { name: 'Tutorials', url: '/?page=tutorials', detail: 'Published tutorials and learning resources.' },
+  { name: 'Tutorials', url: '/?page=academic', detail: 'Published learning resources can be explored in Academic Hub. There is no separate tutorials route in the current main navigation.' },
   { name: 'Privacy', url: '/?page=privacy', detail: 'Website privacy policy.' },
   { name: 'Terms', url: '/?page=terms', detail: 'Website usage terms.' }
 ]);
