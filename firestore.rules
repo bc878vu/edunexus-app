@@ -76,15 +76,9 @@ service cloud.firestore {
       allow read, write: if signedIn() && request.auth.uid == userId;
     }
 
-    // Exam practice is curated by the verified admin; published MCQs are public.
+    // Published educational questions: public read, verified-admin writes only.
     function validCourse(code) {
-      return code is string && code.matches('^[A-Z]{2,5}[0-9]{3}[A-Z]?
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}
-);
+      return code is string && code.matches('^[A-Z]{2,5}[0-9]{3}[A-Z]?$');
     }
 
     function validExamTerm(term) {
@@ -94,7 +88,9 @@ service cloud.firestore {
     match /artifacts/edunexus-live/public/data/examMcqs/{questionId} {
       allow read: if true;
       allow create: if admin()
-        && request.resource.data.keys().hasOnly(['subject', 'term', 'question', 'options', 'answer', 'explanation', 'createdAt'])
+        && request.resource.data.keys().hasOnly([
+          'subject', 'term', 'question', 'options', 'answer', 'explanation', 'createdAt'
+        ])
         && validCourse(request.resource.data.subject)
         && validExamTerm(request.resource.data.term)
         && request.resource.data.question is string
@@ -102,37 +98,34 @@ service cloud.firestore {
         && request.resource.data.question.size() <= 1000
         && request.resource.data.options is list
         && request.resource.data.options.size() == 4
+        && request.resource.data.options[0] is string
+        && request.resource.data.options[1] is string
+        && request.resource.data.options[2] is string
+        && request.resource.data.options[3] is string
         && request.resource.data.answer is int
         && request.resource.data.answer >= 0
-        && request.resource.data.answer < 4
+        && request.resource.data.answer <= 3
         && request.resource.data.explanation is string
-        && request.resource.data.explanation.size() <= 1000;
+        && request.resource.data.explanation.size() <= 1000
+        && request.resource.data.createdAt == request.time;
       allow update, delete: if admin();
     }
 
-    // Students submit private drafts. Only the verified admin can publish them.
-    // Deterministic IDs and immutable owner/content prevent overwriting others.
+    // Student submissions remain private until an administrator approves them.
+    // Deterministic review IDs prevent one student overwriting another student's work.
     match /artifacts/edunexus-live/public/data/examReviewSubmissions/{reviewId} {
       allow create: if signedIn()
-        && reviewId.matches('^' + request.auth.uid + '_[A-Z]{2,5}[0-9]{3}[A-Z]?_(midterm|finalterm)_[0-9]{4}-[0-9]{2}-[0-9]{2}
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}
-)
-        && request.resource.data.keys().hasOnly(['userId', 'subject', 'term', 'examDate', 'difficulty', 'topics', 'summary', 'status', 'createdAt'])
+        && request.resource.data.keys().hasOnly([
+          'userId', 'subject', 'term', 'examDate', 'difficulty', 'topics',
+          'summary', 'status', 'createdAt'
+        ])
         && request.resource.data.userId == request.auth.uid
         && validCourse(request.resource.data.subject)
         && validExamTerm(request.resource.data.term)
         && request.resource.data.examDate is string
-        && request.resource.data.examDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}
-)
+        && request.resource.data.examDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && reviewId == request.auth.uid + '_' + request.resource.data.subject
+          + '_' + request.resource.data.term + '_' + request.resource.data.examDate
         && request.resource.data.difficulty in ['easy', 'moderate', 'challenging']
         && request.resource.data.topics is string
         && request.resource.data.topics.size() <= 400
@@ -141,7 +134,8 @@ service cloud.firestore {
         && request.resource.data.summary.size() <= 1500
         && request.resource.data.status == 'pending'
         && request.resource.data.createdAt == request.time;
-      allow get: if admin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow get: if admin() ||
+        (signedIn() && resource.data.userId == request.auth.uid);
       allow list: if admin();
       allow update, delete: if admin();
     }
@@ -151,7 +145,7 @@ service cloud.firestore {
       allow create, update, delete: if admin();
     }
 
-    // Explicit deny-by-default for every other Firestore path.
+    // All other Firestore paths remain denied by default.
     match /{document=**} {
       allow read, write: if false;
     }

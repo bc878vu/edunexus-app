@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import ExamPrepHub from './ExamPrepHub';
+// Initialize shared Firebase/Firestore before legacy modules request the instance.
+import './firebase-client';
+const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 import {
   Home,
   MessageSquare,
@@ -74,7 +76,7 @@ import {
 
 
 
-import { initializeApp } from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import { 
   getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, 
   updateProfile, signOut, createUserWithEmailAndPassword, 
@@ -106,7 +108,7 @@ const firebaseConfig = {
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET;
 console.log("CLOUDINARY ENV:", CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET);
-const app = initializeApp(firebaseConfig);
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app); 
@@ -4698,6 +4700,7 @@ useEffect(() => {
       '',
       newUrl
     );
+    window.dispatchEvent(new Event('edunexus:navigation'));
   };
 
   // ✅ back button & direct link (clean URL: /?page=cgpa) handle
@@ -4735,7 +4738,7 @@ useEffect(() => {
     initAuth();
     return onAuthStateChanged(auth, u => {
       setUser(u);
-      if (u?.email === ADMIN_EMAIL) setIsAdminMode(true);
+      setIsAdminMode(u?.email === ADMIN_EMAIL && u?.emailVerified === true);
     });
   }, []);
 
@@ -4821,7 +4824,11 @@ useEffect(() => {
           />
         )}
         {page === 'exam' && <ExamPrep theme={theme} />}
-        {page === 'exam-prep' && <ExamPrepHub user={user} />}
+        {page === 'exam-prep' && (
+          <React.Suspense fallback={<div role="status" className="text-sm text-slate-500">Loading Exam Prep…</div>}>
+            <ExamPrepHub user={user} />
+          </React.Suspense>
+        )}
         {page === 'aiquiz' && (
           <QuizGenerator
             theme={theme}
