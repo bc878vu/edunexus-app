@@ -79,7 +79,7 @@ import {
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { 
   getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, 
-  updateProfile, signOut, createUserWithEmailAndPassword, 
+  updateProfile, signOut, setPersistence, browserSessionPersistence, createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, sendEmailVerification
 } from 'firebase/auth';
 import { 
@@ -95,6 +95,7 @@ import {
 } from "firebase/storage";
 
 // This declaration must follow all static imports (CRA enforces import/first).
+import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, adminLoginStarted, adminLoginFinished, isAdminLoginPending, grantAdminTab, clearAdminTab, adminTabIsActive, adminPanelAccess, currentPageIsAdmin, verifiedAdmin, broadcastAdminLogout } from './adminSession';
 const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
@@ -123,8 +124,7 @@ const appId = "edunexus-live"; // Static App ID for your live site
 // --- Constants ---
 const WHATSAPP_LINK = "https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW";
 // 🔐 Admin credentials (email + password)
-const ADMIN_EMAIL =
-  process.env.REACT_APP_ADMIN_EMAIL || "veducator4@gmail.com";
+const ADMIN_EMAIL = SECURE_ADMIN_EMAIL;
 
 const DEFAULT_FOLDERS = ['PHY101', 'CS101', 'MGT101', 'ENG101', 'CS201', 'MTH101', 'ISL201', 'PAK301'];
 
@@ -3415,6 +3415,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'highlights', label: 'Highlights', icon: Megaphone },
     { id: 'academic', label: 'Academic', icon: Folder },
+    { id: 'exam', label: 'Exam Prep', icon: GraduationCap },
     { id: 'blog', label: 'Blog', icon: FileText },
     { id: 'forum', label: 'Forum', icon: MessageSquare },
     { id: 'profile', label: 'Profile', icon: ImageIcon },
@@ -3436,6 +3437,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'highlights' && <HighlightsTab />}
         {activeTab === 'academic' && <AcademicTab theme={theme} user={user} showToast={showToast} />}
+        {activeTab === 'exam' && <React.Suspense fallback={<p>Loading Exam Prep management…</p>}><ExamPrepHub user={user} initialTab="admin" /></React.Suspense>}
         {activeTab === 'blog' && <BlogTab />}
        {activeTab === 'forum' && (
   <ForumTab theme={theme} showToast={showToast} />
@@ -3453,7 +3455,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
 };
 
 // 🔐 Admin login modal – email + password required
-const AdminLogin = ({ onClose, setPage, setIsAdminMode, showToast }) => {
+const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -3465,9 +3467,13 @@ const AdminLogin = ({ onClose, setPage, setIsAdminMode, showToast }) => {
       return;
     }
     setLoading(true);
+    adminLoginStarted();
     try {
       const enteredEmail = email.trim().toLowerCase();
       if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) throw new Error("Invalid admin credentials.");
+      // Admin auth survives refresh in this tab but is not automatically shared
+      // with every other tab through Firebase's default LOCAL persistence.
+      await setPersistence(auth, browserSessionPersistence);
       const credential = await signInWithEmailAndPassword(auth, enteredEmail, password);
       await credential.user.reload();
       if (!credential.user.emailVerified) {
@@ -3476,17 +3482,21 @@ const AdminLogin = ({ onClose, setPage, setIsAdminMode, showToast }) => {
         await signInAnonymously(auth);
         throw new Error("Verification email sent to the admin address. Open it, verify your email, then sign in again.");
       }
-      setIsAdminMode(true);
+      if (!grantAdminTab(credential.user)) throw new Error("Session storage unavailable. Enable it to open Admin Panel.");
+      onLoginSuccess(credential.user);
       setPage("admin");
       showToast("Admin mode enabled securely.", "success");
       onClose();
     } catch (error) {
+      clearAdminTab();
+      if (verifiedAdmin(auth.currentUser)) await signOut(auth).catch(() => {});
       const code = error?.code || "";
       const message = code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found"
         ? "Invalid admin email or password."
         : (error?.message || "Admin login failed.");
       showToast(message, "error");
     } finally {
+      adminLoginFinished();
       setLoading(false);
     }
   };
@@ -4410,6 +4420,7 @@ const App = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const logoutInProgress = useRef(false);
   const [footerClicks, setFooterClicks] = useState(0);
   const [toast, setToast] = useState(null);
   const { isDark, setIsDark, theme } = useTheme();
@@ -4495,6 +4506,7 @@ useEffect(() => {
     // ✅ central navigation function (har jagah isi ko use karna hai)
   const navigate = (targetPage) => {
     if (!PAGES.includes(targetPage)) targetPage = 'home';
+    if (targetPage !== 'admin' && (adminTabIsActive(auth.currentUser) || verifiedAdmin(auth.currentUser))) void handleLogoutAdmin({ redirect: false });
 
     setPage(targetPage);
     setIsMenuOpen(false); // mobile menu close
@@ -4544,7 +4556,9 @@ useEffect(() => {
   // Keep the main page in sync when the browser returns from a subject link.
   const syncFromHistory = () => {
     const requested = new URLSearchParams(window.location.search).get('page') || 'home';
-    setPage(PAGES.includes(requested) ? requested : 'home');
+    const nextPage = PAGES.includes(requested) ? requested : 'home';
+    if (nextPage !== 'admin' && (adminTabIsActive(auth.currentUser) || verifiedAdmin(auth.currentUser))) void handleLogoutAdmin({ redirect: false });
+    setPage(nextPage);
     setIsMenuOpen(false);
   };
   window.addEventListener('popstate', syncFromHistory);
@@ -4552,16 +4566,32 @@ useEffect(() => {
 }, []);
 
 
-  // ✅ auth wala effect
+  // Real auth state controls every privileged panel. A stale admin login is
+  // signed out when this tab is outside the Admin Panel or has no active session.
   useEffect(() => {
-    // Wait for persisted Firebase credentials before creating a guest session.
-    // Unconditional anonymous sign-in would overwrite a verified administrator.
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setIsAdminMode(u?.email === ADMIN_EMAIL && u?.emailVerified === true);
-      if (!u) signInAnonymously(auth).catch((error) => console.error('Auth error:', error));
+    let active = true;
+    const unsub = onAuthStateChanged(auth, account => {
+      if (!active || logoutInProgress.current) return;
+      if (verifiedAdmin(account)) {
+        if (isAdminLoginPending()) return;
+        if (!adminPanelAccess(account)) {
+          setUser(null); setIsAdminMode(false);
+          void handleLogoutAdmin({ redirect: currentPageIsAdmin(), broadcast: true });
+          return;
+        }
+        setUser(account); setIsAdminMode(true);
+      } else {
+        clearAdminTab(); setUser(account); setIsAdminMode(false);
+        if (!account && !isAdminLoginPending()) signInAnonymously(auth).catch(() => {});
+      }
     });
-    return unsubscribe;
+    const otherTab = event => {
+      if (event.key !== ADMIN_LOGOUT_KEY || !event.newValue) return;
+      if (verifiedAdmin(auth.currentUser)) void handleLogoutAdmin({ redirect: true, broadcast: false });
+      else clearAdminTab();
+    };
+    window.addEventListener('storage', otherTab);
+    return () => { active = false; unsub(); window.removeEventListener('storage', otherTab); };
   }, []);
 
   // ✅ GA4 page view tracking – har page change par event
@@ -4594,10 +4624,22 @@ useEffect(() => {
 
 
 
-  const handleLogoutAdmin = () => {
-    setIsAdminMode(false);
-    navigate('home');
-    showToast("Admin Session Ended", "info");
+  const handleLogoutAdmin = async ({ redirect = true, broadcast = true } = {}) => {
+    if (logoutInProgress.current) return;
+    logoutInProgress.current = true;
+    clearAdminTab(); setUser(null); setIsAdminMode(false); setShowAdminLogin(false);
+    if (broadcast) broadcastAdminLogout();
+    if (redirect) navigate('home');
+    try {
+      if (verifiedAdmin(auth.currentUser)) await signOut(auth);
+      if (!auth.currentUser) await signInAnonymously(auth);
+      // The auth observer intentionally ignores events while logout is pending.
+      // Reattach the guest session explicitly so public tools keep working.
+      if (!verifiedAdmin(auth.currentUser)) setUser(auth.currentUser);
+      if (redirect) showToast('Admin signed out from all EduNexus pages in this browser and its open tabs.', 'info');
+    } catch (_) {
+      showToast('Firebase sign-out failed. Close this tab and retry.', 'error');
+    } finally { logoutInProgress.current = false; }
   };
 
   return (
@@ -4905,7 +4947,7 @@ useEffect(() => {
             <div className="flex flex-wrap items-center gap-4">
         {isAdminMode && (
           <button
-            onClick={handleLogoutAdmin}
+            onClick={() => void handleLogoutAdmin()}
             className="text-red-500 font-semibold flex items-center gap-1 hover:underline"
           >
             <LogOut size={12} /> Exit Admin
@@ -4942,7 +4984,7 @@ useEffect(() => {
         <AdminLogin
           onClose={() => setShowAdminLogin(false)}
           setPage={navigate}
-          setIsAdminMode={setIsAdminMode}
+          onLoginSuccess={(account) => { setUser(account); setIsAdminMode(adminTabIsActive(account)); }}
           showToast={showToast}
         />
       )}

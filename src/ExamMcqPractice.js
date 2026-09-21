@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { collection, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { AlertTriangle, BookOpen, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { db } from './firebase-client';
+import { adminPanelAccess } from './adminSession';
 import { categoryOf } from './examMcqImport';
 import { CATEGORY_NAMES, isVerifiedAnswer, orderedQuestions, practiceStats, progressKey, QUESTION_LIMIT, sanitizeProgress } from './examPractice';
 import './exam-mcq-practice.css';
 
 const MCQS = ['artifacts', 'edunexus-live', 'public', 'data', 'examMcqs'];
 const validSubject = (subject) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(subject);
-const isAdmin = (user) => Boolean(user?.email === 'veducator4@gmail.com' && user.emailVerified);
+const isAdmin = (user) => adminPanelAccess(user);
 const localGet = (key) => {
   try { return JSON.parse(window.localStorage.getItem(key) || 'null'); }
   catch (_) { return null; }

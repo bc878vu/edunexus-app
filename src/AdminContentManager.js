@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { adminPanelAccess } from './adminSession';
 import { getApps, initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
@@ -64,7 +65,7 @@ export default function AdminContentManager() {
     return onSnapshot(q, (snap) => setTutorials(snap.docs.map((item) => ({ id: item.id, ...item.data() }))), () => setTutorials([]));
   }, [route]);
 
-  const isAdmin = user?.email === "veducator4@gmail.com" && user?.emailVerified === true;
+  const isAdmin = adminPanelAccess(user);
   const saveSettings = async () => {
     if (!isAdmin) return;
     setSavingSettings(true);

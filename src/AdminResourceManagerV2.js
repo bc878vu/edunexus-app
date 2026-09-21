@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { adminPanelAccess } from './adminSession';
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -16,7 +17,7 @@ export default function AdminResourceManagerV2(){
   useEffect(()=>{const sync=()=>{setActive(isAdminPage());if(!isAdminPage())setOpen(false)};addEventListener('popstate',sync);addEventListener('edunexus:navigation',sync);return()=>{removeEventListener('popstate',sync);removeEventListener('edunexus:navigation',sync)}},[]);
   useEffect(()=>onAuthStateChanged(auth,setUser),[]);
   useEffect(()=>active?onSnapshot(SETTINGS,s=>{const d=s.data()||{};if(Array.isArray(d.buttons)&&d.buttons.length)setButtons(d.buttons.map(x=>({label:String(x.label||'Resource'),href:String(x.href||'/'),enabled:x.enabled!==false})));setPinned(d.dashboardPinned!==false)},()=>{}):undefined,[active]);
-  if(!active||!user?.emailVerified||user.email!=='veducator4@gmail.com')return null;
+  if(!active||!adminPanelAccess(user))return null;
   const save=async()=>{await setDoc(SETTINGS,{buttons,dashboardPinned:pinned,updatedAt:serverTimestamp(),updatedBy:user.email},{merge:true});localStorage.setItem('edunexus_dashboard_pinned',pinned?'1':'0');dispatchEvent(new Event('edunexus:resource-config'));setSaved(true);setTimeout(()=>setSaved(false),1800)};
   const go=(path)=>{setOpen(false);history.pushState({},'',path);dispatchEvent(new Event('edunexus:navigation'))};
   return <>

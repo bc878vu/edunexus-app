@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { CheckCircle2, CloudUpload, FileText, ShieldCheck, X } from 'lucide-react';
 import { db } from './firebase-client';
+import { adminPanelAccess } from './adminSession';
 import { uploadToSignedObject } from './signedObjectUpload';
 
 const FILES = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'files');
@@ -115,7 +116,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     if (invalid || !code || code.length > 120 || !title.trim() || title.trim().length > 150) {
       setError(invalid || 'A folder and a resource title are required.'); return;
     }
-    if (user?.email !== 'veducator4@gmail.com' || !user.emailVerified) {
+    if (!adminPanelAccess(user)) {
       setError('Sign in as the email-verified EduNexus administrator.'); return;
     }
     inFlight.current = true; setError(''); setNotice(''); setPhase('authorizing'); setProgress(0);
