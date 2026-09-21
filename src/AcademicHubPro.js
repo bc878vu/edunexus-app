@@ -11,6 +11,7 @@ const DEFAULT_SUBJECTS = ['PHY101', 'CS101', 'MGT101', 'ENG101', 'CS201', 'MTH10
 const PAGE_SIZE = 60;
 const cut = (v, n = 300) => String(v == null ? '' : v).trim().slice(0, n);
 const safeHttp = (raw) => {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
   try {
     const u = new URL(String(raw || ''), window.location.href);
     return u.protocol === 'https:' || (u.origin === window.location.origin && u.protocol === 'http:') ? u : null;
