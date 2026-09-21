@@ -20,6 +20,29 @@ service firebase.storage {
       allow delete: if admin();
     }
 
+    // Dedicated direct-upload path for large Academic Hub resources.
+    // Only the verified administrator can create resources, up to 100 MiB.
+    // The public read rule is inherited from the existing catch-all below.
+    match /academic-hub/{userId}/{uploadId}/{fileName} {
+      allow create: if admin()
+        && request.auth.uid == userId
+        && request.resource.size > 0
+        && request.resource.size <= 100 * 1024 * 1024
+        && request.resource.contentType is string
+        && request.resource.contentType.matches('^(application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document|application/vnd.ms-powerpoint|application/vnd.openxmlformats-officedocument.presentationml.presentation|application/vnd.ms-excel|application/vnd.openxmlformats-officedocument.spreadsheetml.sheet|text/plain|text/csv|image/jpeg|image/png|image/webp)
+    // the verified administrator and a 15 MB per-file limit.
+    match /{allPaths=**} {
+      allow read: if true;
+      allow create, update: if admin()
+        && request.resource.size < 15 * 1024 * 1024;
+      allow delete: if admin();
+    }
+  }
+}
+);
+      allow delete: if admin();
+    }
+
     // Existing site files remain publicly readable, but all mutations require
     // the verified administrator and a 15 MB per-file limit.
     match /{allPaths=**} {
