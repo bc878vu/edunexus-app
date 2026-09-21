@@ -3,6 +3,7 @@ import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, where,
 import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles } from "lucide-react";
 import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
+import { adminPanelAccess } from './adminSession';
 
 import "./exam-prep-hub.css";
 const ExamPaperCommunity = React.lazy(() => import("./ExamPaperCommunity"));
@@ -14,7 +15,7 @@ const col = (name) => collection(db, ...ROOT, name);
 const safe = (value, max = 3000) => String(value || "").trim().slice(0, max);
 const courseCode = (value) => safe(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
 const validCourse = (value) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(value);
-const isAdmin = (user) => user && user.email === "veducator4@gmail.com" && user.emailVerified === true;
+const isAdmin = (user) => adminPanelAccess(user);
 const dateValue = (value) => value && typeof value.toMillis === "function" ? value.toMillis() : 0;
 const shuffle = (items) => {
   const result = items.slice();
