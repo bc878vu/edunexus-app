@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
-import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, FileText, GraduationCap, Search, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, FileText, GraduationCap, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
 import { db } from "./firebase-client";
 import "./exam-prep-hub.css";
 
@@ -28,6 +28,10 @@ const safeUrl = (value) => {
 const SUBJECTS = ["CS101", "CS201", "CS301", "CS302", "CS304", "CS401", "CS403", "CS510", "CS511", "CS601", "CS604", "CS610", "ENG101", "ENG201", "MGT101", "MGT201", "MTH101", "MTH202", "MTH601", "PHY101", "STA301"];
 const EMPTY_MCQ = { subject: "CS101", term: "finalterm", question: "", options: ["", "", "", ""], answer: 0, explanation: "" };
 const EMPTY_REVIEW = { subject: "CS101", term: "finalterm", examDate: "", difficulty: "moderate", topics: "", summary: "" };
+
+const databaseReadError = (error, resource) => error?.code === "permission-denied"
+  ? `${resource} temporarily unavailable: the database denied access. The website administrator must publish the updated Firestore rules.`
+  : `${resource} could not load. Please check your connection and retry.`;
 
 function CourseSelector({ value, onChange }) {
   return <label className="edx-exam-field">Subject code
@@ -80,7 +84,7 @@ function McqBank({ subject, term, user }) {
         );
         setQuestions(shuffle(available).slice(0, 25));
       })
-      .catch(() => { if (live) setError("MCQ bank could not load. Verify the Firestore rules and connection."); })
+      .catch((error) => { if (live) setError(databaseReadError(error, "MCQ bank")); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [subject, term, refresh]);
@@ -88,7 +92,7 @@ function McqBank({ subject, term, user }) {
   return <div className="edx-exam-stack">
     <div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Practice at your own pace</span><h2>Subject-wise MCQs</h2><p>Instant answers, explanations and a results summary. Works on mobile without any extension.</p></div><BookOpen size={28} /></div>
     {loading && <div className="edx-exam-card" role="status">Loading practice questions…</div>}
-    {error && <div className="edx-exam-alert" role="alert">{error}</div>}
+    {error && <div className="edx-exam-alert" role="alert">{error} <button type="button" className="edx-exam-secondary" onClick={() => setRefresh((n) => n + 1)}>Retry</button></div>}
     {!loading && !error && questions.length === 0 && <div className="edx-exam-card edx-exam-empty"><BookOpen size={30} /><h3>No published MCQs for {subject} ({term}) yet</h3><p>Questions appear here after an administrator adds original or appropriately licensed study material. No unverified question count is shown.</p>{isAdmin(user) && <p>Open the Admin tools tab to add the first question.</p>}</div>}
     {!loading && questions.length > 0 && !finished && <><div className="edx-exam-between"><span className="edx-exam-pill">{Object.keys(answers).length}/{questions.length} answered</span><span className="edx-exam-pill">Current score: {score}</span></div><QuestionCard item={questions[index]} index={index} total={questions.length} selected={answers[questions[index].id]} onSelect={(option) => setAnswers((prev) => ({ ...prev, [questions[index].id]: option }))} onPrevious={() => setIndex((i) => Math.max(0, i - 1))} onNext={() => setIndex((i) => Math.min(questions.length - 1, i + 1))} /><button className="edx-exam-secondary" onClick={() => setFinished(true)}>Finish practice and see results</button></>}
     {!loading && questions.length > 0 && finished && <div className="edx-exam-card edx-exam-empty"><CheckCircle2 size={36} /><h3>Your practice results</h3><p className="edx-exam-score">{score} / {questions.length}</p><p>{Object.keys(answers).length} questions answered. Unanswered questions count as incorrect.</p><button className="edx-exam-primary" onClick={() => setRefresh((n) => n + 1)}>Start another practice session</button></div>}
@@ -139,18 +143,18 @@ function ReviewForm({ user, subject, term }) {
 }
 
 function PaperReviews({ user, subject, term }) {
-  const [reviews, setReviews] = useState([]), [loading, setLoading] = useState(true), [error, setError] = useState("");
+  const [reviews, setReviews] = useState([]), [loading, setLoading] = useState(true), [error, setError] = useState(""), [refresh, setRefresh] = useState(0);
   useEffect(() => {
     if (!validCourse(subject)) { setReviews([]); setLoading(false); return; }
     let live = true; setLoading(true); setError("");
     getDocs(query(col("examReviews"), where("subject", "==", subject), limit(50)))
       .then((snap) => { if (live) setReviews(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((r) => r.term === term).sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt))); })
-      .catch(() => { if (live) setError("Reviews could not load. Check Firestore permissions and connection."); })
+      .catch((error) => { if (live) setError(databaseReadError(error, "Paper reviews")); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [subject, term]);
+  }, [subject, term, refresh]);
   return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Student community</span><h2>Completed paper reviews</h2><p>Moderated experiences from students after their exams. Reviews are not official question papers.</p></div><ClipboardList size={28} /></div>
-    {loading && <div className="edx-exam-card">Loading reviews…</div>}{error && <div className="edx-exam-alert" role="alert">{error}</div>}
+    {loading && <div className="edx-exam-card">Loading reviews…</div>}{error && <div className="edx-exam-alert" role="alert">{error} <button type="button" className="edx-exam-secondary" onClick={() => setRefresh((n) => n + 1)}>Retry</button></div>}
     {!loading && !error && reviews.length === 0 && <div className="edx-exam-card edx-exam-empty"><ClipboardList size={28} /><h3>No approved reviews yet</h3><p>Be the first to share constructive advice after completing your paper.</p></div>}
     {reviews.map((review) => <article key={review.id} className="edx-exam-card edx-exam-review"><div className="edx-exam-between"><span className="edx-exam-pill">{review.subject} · {review.term}</span><span className="edx-exam-eyebrow">{safe(review.examDate, 10)} · {safe(review.difficulty, 20)}</span></div><h3>Exam experience</h3>{review.topics && <p><strong>Topics:</strong> {safe(review.topics, 400)}</p>}<p>{safe(review.summary, 1500)}</p><small>Student-contributed · Moderated · Not verified by Virtual University</small></article>)}
     <ReviewForm user={user} subject={subject} term={term} />
