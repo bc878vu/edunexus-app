@@ -4633,6 +4633,9 @@ useEffect(() => {
     try {
       if (verifiedAdmin(auth.currentUser)) await signOut(auth);
       if (!auth.currentUser) await signInAnonymously(auth);
+      // The auth observer intentionally ignores events while logout is pending.
+      // Reattach the guest session explicitly so public tools keep working.
+      if (!verifiedAdmin(auth.currentUser)) setUser(auth.currentUser);
       if (redirect) showToast('Admin signed out from all EduNexus pages in this browser and its open tabs.', 'info');
     } catch (_) {
       showToast('Firebase sign-out failed. Close this tab and retry.', 'error');
