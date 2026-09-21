@@ -1,0 +1,113 @@
+import React, { useMemo, useRef, useState } from 'react';
+import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { CheckCircle2, FileJson2, UploadCloud, AlertTriangle } from 'lucide-react';
+import { db } from './firebase-client';
+import { categoryOf, MAX_IMPORT, MAX_JSON_BYTES, parseMcqJson, summarizeImport, validateMcq } from './examMcqImport';
+import './exam-mcq-import.css';
+
+const MCQS = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'examMcqs');
+const sample = '[{"subject":"CS620","term":"quiz","question":"Your question?","options":["A","B","C","D"],"answer":0,"explanation":"Verified answer explanation"}]';
+const errorMessage = (error) => {
+  if (error?.code === 'permission-denied') return 'Firestore rejected the import. Verify that this Firebase account is the email-verified administrator and the examMcqs rules permit admin writes.';
+  if (error?.code === 'unauthenticated') return 'Your administrator session expired. Sign in again and retry.';
+  if (error?.code === 'unavailable') return 'Firestore is currently unavailable. Check your connection and retry.';
+  return error?.message || 'Could not import the questions. Please retry.';
+};
+
+export default function McqBulkImporter({ user, onView }) {
+  const [bulk, setBulk] = useState('');
+  const [sourceName, setSourceName] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [destination, setDestination] = useState(null);
+  const working = useRef(false);
+  const chooser = useRef(null);
+
+  const inspection = useMemo(() => {
+    if (!bulk.trim()) return { summary: null, items: null, issue: '' };
+    try {
+      const items = parseMcqJson(bulk);
+      return { summary: summarizeImport(items), items, issue: '' };
+    } catch (cause) { return { summary: null, items: null, issue: cause.message }; }
+  }, [bulk]);
+  const mustVerify = Boolean(inspection.summary && (inspection.summary.provisional || inspection.summary.answerConflicts));
+  const selectFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setError(''); setSuccess(''); setVerified(false); setDestination(null);
+    if (!/\.json$/i.test(file.name) || file.size > MAX_JSON_BYTES) {
+      setError('Select a .json file smaller than 1 MiB (maximum 50 questions).');
+      return;
+    }
+    try { setBulk(await file.text()); setSourceName(file.name); }
+    catch (_) { setError('Could not read the JSON file. Try copying its contents into the text area.'); }
+  };
+  const importMany = async (event) => {
+    event.preventDefault();
+    if (working.current) return;
+    setError(''); setSuccess(''); setDestination(null);
+    if (!inspection.items) { setError(inspection.issue || 'Select a JSON file or paste an array of questions.'); return; }
+    if (mustVerify && !verified) {
+      setError('This file contains provisional or conflicting answers. Verify them against an authoritative source and check the confirmation box before publishing.');
+      return;
+    }
+    if (user?.email !== 'veducator4@gmail.com' || user?.emailVerified !== true) {
+      setError('Sign in with the verified EduNexus administrator account before importing.'); return;
+    }
+    working.current = true; setBusy(true);
+    try {
+      await user.getIdToken(true);
+      const items = inspection.items.map((item, index) => ({
+        ...validateMcq(item, index, { forImport: true }), createdAt: serverTimestamp()
+      }));
+      const batch = writeBatch(db);
+      items.forEach((item) => batch.set(doc(MCQS), item));
+      await batch.commit();
+      const first = inspection.items[0];
+      const onlyOneCategory = Object.values(inspection.summary.totals).filter(Boolean).length === 1;
+      setDestination({ subject: inspection.summary.subjects.length === 1 ? inspection.summary.subjects[0] : '',
+        category: onlyOneCategory ? categoryOf(first) : '' });
+      setSuccess(items.length + ' questions published successfully. Quiz-source items are shown under Quiz, not Midterm. Your original input order is stored in the quiz records.');
+      setBulk(''); setSourceName(''); setVerified(false);
+      if (chooser.current) chooser.current.value = '';
+    } catch (cause) {
+      setError('Import failed: ' + errorMessage(cause) + ' Your JSON has been kept so you can correct or retry it.');
+    } finally { working.current = false; setBusy(false); }
+  };
+
+  return <section className="edx-exam-card edx-exam-form edx-importer" aria-labelledby="edx-import-title">
+    <div className="edx-import-head"><div><h3 id="edx-import-title">Bulk import MCQs</h3>
+      <p>Upload one JSON file or paste a JSON array (up to {MAX_IMPORT} questions). Original quiz questions appear under <strong>Quiz</strong>; Midterm and Finalterm remain separate.</p></div>
+      <FileJson2 size={27} aria-hidden="true"/></div>
+    <form onSubmit={importMany} noValidate>
+      <label className="edx-import-file">Choose a JSON file
+        <input type="file" accept=".json,application/json" ref={chooser} disabled={busy} onChange={selectFile}/>
+        {sourceName && <span className="edx-import-file-name">Selected: {sourceName}</span>}
+      </label>
+      <label className="edx-exam-field" htmlFor="edx-mcq-import-paste">Or paste JSON content</label>
+      <textarea id="edx-mcq-import-paste" aria-label="MCQ JSON import" rows={7} spellCheck={false}
+        value={bulk} disabled={busy} onChange={(event) => { setBulk(event.target.value); setSourceName(''); setError(''); setSuccess(''); setVerified(false); setDestination(null); }}
+        placeholder={sample}/>
+      {inspection.issue && <div className="edx-exam-alert" role="alert">{inspection.issue}</div>}
+      {inspection.summary && <div className="edx-import-summary" role="status">
+        <strong>{inspection.summary.count} questions ready for validation</strong>
+        <span>Subjects: {inspection.summary.subjects.join(', ')}</span>
+        <span>Quiz: {inspection.summary.totals.quiz} · Midterm: {inspection.summary.totals.midterm} · Finalterm: {inspection.summary.totals.finalterm}</span>
+        {mustVerify && <div className="edx-import-warning"><AlertTriangle size={18}/>
+          <p>{inspection.summary.provisional} provisional answers and {inspection.summary.answerConflicts} possible answer-key conflicts detected. Original source files did not verify these answers. Check them before making the quiz public.</p></div>}
+      </div>}
+      {mustVerify && <label className="edx-import-confirm"><input type="checkbox" checked={verified} disabled={busy} onChange={(e) => setVerified(e.target.checked)}/>
+        <span>I have independently checked the provisional/conflicting answer keys and accept responsibility for publishing these answers.</span></label>}
+      {error && <div className="edx-exam-alert edx-import-result" role="alert">{error}</div>}
+      {success && <div className="edx-exam-success edx-import-result" role="status"><CheckCircle2 size={18}/>{success}
+        {destination?.subject && destination?.category && <button type="button" className="edx-exam-secondary"
+          onClick={() => onView?.(destination.subject, destination.category)}>View {destination.subject} {destination.category === 'quiz' ? 'Quiz' : destination.category === 'midterm' ? 'Midterm' : 'Finalterm'}</button>}</div>}
+      <button type="submit" className="edx-exam-primary edx-import-submit" disabled={busy || !inspection.items || (mustVerify && !verified)}>
+        <UploadCloud size={17}/>{busy ? 'Publishing questions…' : inspection.summary ? 'Import ' + inspection.summary.count + ' questions' : 'Import questions'}
+      </button>
+      <p className="edx-import-note">The existing Firestore collection is retained. Files with missing/null answer indexes cannot be imported. No original files or existing MCQs are deleted.</p>
+    </form>
+  </section>;
+}
