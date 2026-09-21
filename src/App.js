@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import ExamPrepHub from './ExamPrepHub';
+const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 import {
   Home,
   MessageSquare,
@@ -4822,7 +4822,11 @@ useEffect(() => {
           />
         )}
         {page === 'exam' && <ExamPrep theme={theme} />}
-        {page === 'exam-prep' && <ExamPrepHub user={user} />}
+        {page === 'exam-prep' && (
+          <React.Suspense fallback={<div role="status" className="text-sm text-slate-500">Loading Exam Prep…</div>}>
+            <ExamPrepHub user={user} />
+          </React.Suspense>
+        )}
         {page === 'aiquiz' && (
           <QuizGenerator
             theme={theme}
