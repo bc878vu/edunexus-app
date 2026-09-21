@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Sparkles, Trash2, Users } from 'lucide-react';
 import { db } from './firebase-client';
-import { examReviewText, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
+import { examReviewText, formatExamDate, formatExamTime, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import './exam-paper-community.css';
 
 const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
@@ -28,7 +28,7 @@ const readError = (error, name) => error?.code === 'permission-denied'
   ? name + ' cannot load. Publish the updated Firestore rules for the new public review collection.'
   : name + ' could not load. Check your connection and retry.';
 
-function ReviewSubmission({ user, subject, term }) {
+function ReviewSubmission({ user, subject, term, onPublished }) {
   const [form, setForm] = useState(() => defaultForm(subject, term));
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -70,6 +70,7 @@ function ReviewSubmission({ user, subject, term }) {
         topics: safe(form.topics, 400), summary, createdAt: serverTimestamp()
       });
       setNotice('Your review is live! Students can copy or share it below without waiting for admin approval.');
+      if (onPublished) onPublished(code, form.term);
       setForm((prev) => ({ ...defaultForm(prev.subject, prev.term), semesterYear: prev.semesterYear }));
       setAgreed(false);
     } catch (err) {
@@ -141,7 +142,7 @@ function ReviewCard({ review, user, onRemoved }) {
   const legacy = review.collectionName === LEGACY_COLLECTION;
   return <article className="edx-paper-card">
     <div className="edx-paper-card-head"><div className="edx-paper-course"><GraduationCap size={18} /><strong>{safe(review.subject, 12)}</strong><span>{review.term === 'midterm' ? 'Midterm' : 'Finalterm'}{review.semester ? ' · ' + safe(review.semester, 20) : ''}</span></div><span className="edx-paper-chip">{legacy ? 'Previously approved' : 'Student shared'}</span></div>
-    <div className="edx-paper-card-meta"><span><CalendarDays size={15} /> {review.examDate || 'Date not provided'}</span>{review.examTime && <span><Clock3 size={15} /> {review.examTime}</span>}<span><Users size={15} /> {safe(review.sharedBy, 60) || 'Student'}</span><span className="edx-paper-difficulty">{safe(review.difficulty, 20) || 'Unrated'}</span></div>
+    <div className="edx-paper-card-meta"><span><CalendarDays size={15} /> {formatExamDate(review.examDate)}</span>{review.examTime && <span><Clock3 size={15} /> {formatExamTime(review.examTime)}</span>}<span><Users size={15} /> {safe(review.sharedBy, 60) || 'Student'}</span><span className="edx-paper-difficulty">{safe(review.difficulty, 20) || 'Unrated'}</span></div>
     <div className="edx-paper-content"><strong><FileText size={17} /> Paper content & preparation advice</strong>{review.topics && <p className="edx-paper-topics">Topics: {safe(review.topics, 400)}</p>}<p>{safe(review.summary, 1500)}</p></div>
     <div className="edx-paper-card-bottom"><span>EduNexus community contribution · Not verified by Virtual University</span><div className="edx-paper-card-actions"><button type="button" onClick={copy} className="edx-paper-copy"><ClipboardCopy size={16} /> Copy</button><a href={shareLink} target="_blank" rel="noopener noreferrer" className="edx-paper-whatsapp"><Share2 size={16} /> Share on WhatsApp</a></div></div>
     <div className="edx-paper-card-secondary"><button type="button" onClick={report} disabled={working}><ShieldAlert size={14} /> Report</button>{isAdmin(user) && <button type="button" onClick={remove} disabled={working}><Trash2 size={14} /> Remove review</button>}</div>
@@ -149,7 +150,7 @@ function ReviewCard({ review, user, onRemoved }) {
   </article>;
 }
 
-export default function ExamPaperCommunity({ user, subject, term }) {
+export default function ExamPaperCommunity({ user, subject, term, onPublished }) {
   const [community, setCommunity] = useState([]);
   const [legacy, setLegacy] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -180,7 +181,7 @@ export default function ExamPaperCommunity({ user, subject, term }) {
   }, [subject, term, reloadKey]);
   const reviews = useMemo(() => [...community, ...legacy].sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt)), [community, legacy]);
   return <div className="edx-paper">
-    <ReviewSubmission user={user} subject={subject} term={term} />
+    <ReviewSubmission user={user} subject={subject} term={term} onPublished={onPublished} />
     <section className="edx-paper-feed" id="edx-paper-feed" aria-labelledby="edx-paper-feed-title">
       <div className="edx-paper-feed-head"><div><span className="edx-paper-kicker"><MessageCircle size={16} /> EduNexus student community</span><h2 id="edx-paper-feed-title">Latest completed-paper reviews</h2><p>Student experiences and general preparation advice appear here as they are published. Use Copy or WhatsApp Share to send a review in the EduNexus format.</p></div><span className="edx-paper-feed-count">{reviews.length} loaded reviews</span></div>
       <div className="edx-paper-group"><MessageCircle size={19} /><p>Follow EduNexus for more paper discussions and updates.</p><a href={EDUNEXUS_WHATSAPP_GROUP} target="_blank" rel="noopener noreferrer">Join our WhatsApp group <ExternalLink size={15} /></a></div>
