@@ -14,7 +14,7 @@ const upper = (v) => cut(v, 50).toUpperCase();
 const safeHttp = (raw) => {
   try {
     const u = new URL(String(raw || ''), window.location.href);
-    return ['https:', 'http:'].includes(u.protocol) ? u : null;
+    return u.protocol === 'https:' || (u.origin === window.location.origin && u.protocol === 'http:') ? u : null;
   } catch (_) { return null; }
 };
 const nameOf = (f) => cut(f.name || f.title || 'Untitled resource', 170);
@@ -56,6 +56,7 @@ const fileLinks = (f) => {
       : 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(id);
     return { source, preview, download, kind, direct: true };
   }
+  if (isDriveFolder) return { source, preview: '', download: source, kind: 'folder', direct: false };
   const ext = extOf(f);
   const image = ['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'SVG'].includes(ext);
   const pdf = ext === 'PDF';
@@ -63,7 +64,7 @@ const fileLinks = (f) => {
     const download = source.replace(/\/(image|raw|video|auto)\/upload\//, '/$1/upload/fl_attachment/');
     return { source, preview: image || pdf ? source : '', download, kind: image ? 'image' : pdf ? 'pdf' : 'file', direct: true };
   }
-  return { source, preview: image || pdf ? source : '', download: source, kind: image ? 'image' : pdf ? 'pdf' : 'external', direct: url.origin === window.location.origin };
+  return { source, preview: image || pdf ? source : '', download: source, kind: image ? 'image' : pdf ? 'pdf' : f.isLinkOnly && ext === 'LINK' ? 'external-link' : 'external', direct: url.origin === window.location.origin };
 };
 const safeFileName = (f) => {
   const base = nameOf(f).replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').slice(0, 120);
@@ -152,7 +153,7 @@ function ResourceCard({ file, isAdmin, onDelete, onPreview, onReviews, onDownloa
       <div className="ah-actions">
         <button type="button" className="ah-secondary" disabled={!links.source} onClick={() => onPreview(file)}><BookOpen size={16} /> Preview</button>
         <button type="button" className="ah-secondary" onClick={() => onReviews(file)}><Star size={16} /> Reviews</button>
-        {links.source ? <a className="ah-primary" href={links.download} download={links.direct ? safeFileName(file) : undefined} target="_blank" rel="noopener noreferrer" onClick={(e) => onDownload(e, file, links)}><Download size={16} /> Download</a> : <span className="ah-muted">File link unavailable</span>}
+        {links.source ? <a className="ah-primary" href={links.download} download={links.direct ? safeFileName(file) : undefined} target="_blank" rel="noopener noreferrer" onClick={(e) => onDownload(e, file, links)}>{links.kind === "folder" || links.kind === "external-link" ? <ExternalLink size={16} /> : <Download size={16} />}{links.kind === "folder" ? "Open folder" : links.kind === "external-link" ? "Open resource" : "Download"}</a> : <span className="ah-muted">File link unavailable</span>}
         {isAdmin && <button type="button" className="ah-delete" onClick={() => onDelete(file)} aria-label={'Delete ' + title}>Delete</button>}
       </div>
       {downloadStatus && <p className="ah-note" role="status">{downloadStatus}</p>}
@@ -212,6 +213,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const matches = useMemo(() => files.filter((f) => (!subject || f.subject === subject) && (!normalized || [f.name, f.title, f.subject, f.description, f.ext].some((value) => String(value || '').toLowerCase().includes(normalized)))), [files, subject, normalized]);
   const displayed = matches.slice(0, visible);
   const selected = files.find((f) => f.id === selectedId);
+  useEffect(() => { if (selectedId && scroller.current) scroller.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [selectedId]);
   const openSubject = (value) => {
     setSubject(value); setVisible(18); setSelectedId('');
     const url = new URL(window.location.href);
@@ -222,7 +224,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   };
   const openPanel = (file, nextPanel) => {
     setSelectedId(file.id); setPanel(nextPanel);
-    window.requestAnimationFrame(() => scroller.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    // Scroll after React mounts the selected file panel.
   };
   const more = async () => {
     if (!cursor || loadingMore) return;
