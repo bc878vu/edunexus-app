@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import ExamPrepHub from './ExamPrepHub';
 import {
   Home,
   MessageSquare,
@@ -77,7 +78,7 @@ import { initializeApp } from 'firebase/app';
 import { 
   getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, 
   updateProfile, signOut, createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword, sendEmailVerification
 } from 'firebase/auth';
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
@@ -110,16 +111,12 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app); 
 const appId = "edunexus-live"; // Static App ID for your live site
-const apiKey = process.env.REACT_APP_GEMINI_API_KEY;// Add your Gemini API Key here if you have one, otherwise leave empty
 
 // --- Constants ---
 const WHATSAPP_LINK = "https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW";
 // 🔐 Admin credentials (email + password)
 const ADMIN_EMAIL =
   process.env.REACT_APP_ADMIN_EMAIL || "veducator4@gmail.com";
-
-const ADMIN_PASSWORD =
-  process.env.REACT_APP_ADMIN_PASSWORD || "Asad0099@.";
 
 const DEFAULT_FOLDERS = ['PHY101', 'CS101', 'MGT101', 'ENG101', 'CS201', 'MTH101', 'ISL201', 'PAK301'];
 
@@ -288,6 +285,7 @@ const Navbar = ({
   const MAIN_ITEMS = [
     { id: "home",      label: "Home" },
     { id: "academic",  label: "Academic Hub" },
+    { id: "exam-prep", label: "Exam Prep" },
     { id: "cgpa",      label: "CGPA Calc" },
     { id: "articles",  label: "Articles" },
     { id: "forum",     label: "Discussion" },
@@ -299,6 +297,7 @@ const Navbar = ({
   const ALL_ITEMS = [
     { id: "home",      label: "Home" },
     { id: "academic",  label: "Academic Hub" },
+    { id: "exam-prep", label: "Exam Prep" },
     { id: "cgpa",      label: "CGPA Calc" },
     { id: "articles",  label: "Articles" },
     { id: "planner",   label: "Study Planner" },
@@ -3642,31 +3641,37 @@ const AdminLogin = ({ onClose, setPage, setIsAdminMode, showToast }) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) {
       showToast("Email and password required.", "error");
       return;
     }
-
     setLoading(true);
-
-    const enteredEmail = email.trim().toLowerCase();
-
-    // ✅ Sirf tumhara email + password
-    if (
-      enteredEmail === ADMIN_EMAIL.toLowerCase() &&
-      password === ADMIN_PASSWORD
-    ) {
+    try {
+      const enteredEmail = email.trim().toLowerCase();
+      if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) throw new Error("Invalid admin credentials.");
+      const credential = await signInWithEmailAndPassword(auth, enteredEmail, password);
+      await credential.user.reload();
+      if (!credential.user.emailVerified) {
+        await sendEmailVerification(credential.user);
+        await signOut(auth);
+        await signInAnonymously(auth);
+        throw new Error("Verification email sent to the admin address. Open it, verify your email, then sign in again.");
+      }
       setIsAdminMode(true);
       setPage("admin");
-      showToast("Admin mode enabled.", "success");
+      showToast("Admin mode enabled securely.", "success");
       onClose();
-    } else {
-      showToast("Invalid admin credentials.", "error");
+    } catch (error) {
+      const code = error?.code || "";
+      const message = code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found"
+        ? "Invalid admin email or password."
+        : (error?.message || "Admin login failed.");
+      showToast(message, "error");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -4597,6 +4602,7 @@ const App = () => {
 const PAGES = [
   'home',
   'academic',
+  'exam-prep',
   'articles',
   'aiquiz',
   'flashcards',
@@ -4620,6 +4626,7 @@ const NAV_ITEMS = PAGES;
     home: 'EduNexus – Study Material, Mock Tests & AI Tools',
     articles: "EduNexus Articles & Guides – Virtual University Study Tips",
     academic: "VU Notes, Handouts & Past Papers – EduNexus Academic Hub",
+    'exam-prep': 'VU Exam MCQ Bank & Paper Reviews | EduNexus',
     planner: "Study Planner – Create AI Study Plan | EduNexus",
     flashcards: "AI Flashcards – Learn VU Subjects Fast | EduNexus",
     forum: "Discussion Forum – Ask Virtual University Questions | EduNexus",
@@ -4638,6 +4645,7 @@ const NAV_ITEMS = PAGES;
     home: "EduNexus is a smart study hub for Virtual University (VU) students. Access VU notes, handouts, past papers, quizzes, mock tests, CGPA calculator and AI study tools in one place.",
     articles: "Read official EduNexus articles: exam tips, VU updates, technical guides and student success stories for Virtual University students.",
     academic: "Download Virtual University notes, handouts, files and past papers for CS101, MTH101, ENG101, PHY101 and many more VU subjects.",
+    'exam-prep': "Practice subject-wise VU MCQs, explore approved completed-paper reviews and access EduNexus study resources.",
     planner: "Generate a personalized study plan with AI based on your Virtual University subjects, uploaded files and available study hours.",
     flashcards: "Create interactive AI flashcards for any topic and revise Virtual University subjects quickly and effectively with EduNexus.",
     forum: "Ask questions, discuss assignments and get admin replies in the EduNexus discussion forum designed for Virtual University students.",
@@ -4813,6 +4821,7 @@ useEffect(() => {
           />
         )}
         {page === 'exam' && <ExamPrep theme={theme} />}
+        {page === 'exam-prep' && <ExamPrepHub user={user} />}
         {page === 'aiquiz' && (
           <QuizGenerator
             theme={theme}
@@ -5020,6 +5029,7 @@ useEffect(() => {
               AI Quiz Generator
             </button>
           </li>
+          <li><button onClick={() => navigate("exam-prep")} className="hover:text-indigo-500 transition-colors">MCQ Bank & Paper Reviews</button></li>
         </ul>
       </div>
 

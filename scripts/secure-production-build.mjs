@@ -6,9 +6,8 @@ let source = fs.readFileSync(file, 'utf8');
 // Firebase must be initialized once, and Firestore should use a transport that
 // is reliable in restricted/mobile/Vercel browser environments.
 source = source.replace(/import\s*\{\s*initializeApp\s*\}\s*from\s*['"]firebase\/app['"];?/m, "import { getApp, getApps, initializeApp } from 'firebase/app';");
-source = source.replace(/\bgetFirestore,\s*/m, 'initializeFirestore, ');
 source = source.replace(/const app\s*=\s*initializeApp\(firebaseConfig\);/m, "const app = getApps().length ? getApp() : initializeApp(firebaseConfig);");
-source = source.replace(/const db\s*=\s*getFirestore\(app\);/m, "const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });");
+// Reuse the Firestore instance initialized in firebase-client, imported by ExamPrepHub.
 
 // Gemini credentials must never be bundled into the browser.
 source = source.replace(/^[ \t]*const apiKey\s*=\s*process\.env\.REACT_APP_GEMINI_API_KEY[^\n]*\n?/gm, '');
@@ -85,7 +84,7 @@ if (fs.existsSync(aiFile)) {
 }
 
 const checks = [
-  [/initializeFirestore\(app, \{ experimentalAutoDetectLongPolling: true, useFetchStreams: false \}\)/, 'Firestore transport hardening'],
+  [/const db = getFirestore\(app\)/, 'shared Firestore instance'],
   [/getApps\(\)\.length \? getApp\(\) : initializeApp\(firebaseConfig\)/, 'Firebase singleton initialization'],
   [/signInWithEmailAndPassword\(auth, enteredEmail, password\)/, 'Firebase admin authentication'],
   [/u\?\.emailVerified === true/, 'verified admin session'],
