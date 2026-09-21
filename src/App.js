@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import ExamPrepHub from './ExamPrepHub';
 import {
   Home,
   MessageSquare,
@@ -288,6 +289,7 @@ const Navbar = ({
   const MAIN_ITEMS = [
     { id: "home",      label: "Home" },
     { id: "academic",  label: "Academic Hub" },
+    { id: "exam-prep", label: "Exam Prep" },
     { id: "cgpa",      label: "CGPA Calc" },
     { id: "articles",  label: "Articles" },
     { id: "forum",     label: "Discussion" },
@@ -299,6 +301,7 @@ const Navbar = ({
   const ALL_ITEMS = [
     { id: "home",      label: "Home" },
     { id: "academic",  label: "Academic Hub" },
+    { id: "exam-prep", label: "Exam Prep" },
     { id: "cgpa",      label: "CGPA Calc" },
     { id: "articles",  label: "Articles" },
     { id: "planner",   label: "Study Planner" },
@@ -4597,6 +4600,7 @@ const App = () => {
 const PAGES = [
   'home',
   'academic',
+  'exam-prep',
   'articles',
   'aiquiz',
   'flashcards',
@@ -4620,6 +4624,7 @@ const NAV_ITEMS = PAGES;
     home: 'EduNexus – Study Material, Mock Tests & AI Tools',
     articles: "EduNexus Articles & Guides – Virtual University Study Tips",
     academic: "VU Notes, Handouts & Past Papers – EduNexus Academic Hub",
+    'exam-prep': 'VU Exam MCQ Bank & Paper Reviews | EduNexus',
     planner: "Study Planner – Create AI Study Plan | EduNexus",
     flashcards: "AI Flashcards – Learn VU Subjects Fast | EduNexus",
     forum: "Discussion Forum – Ask Virtual University Questions | EduNexus",
@@ -4638,6 +4643,7 @@ const NAV_ITEMS = PAGES;
     home: "EduNexus is a smart study hub for Virtual University (VU) students. Access VU notes, handouts, past papers, quizzes, mock tests, CGPA calculator and AI study tools in one place.",
     articles: "Read official EduNexus articles: exam tips, VU updates, technical guides and student success stories for Virtual University students.",
     academic: "Download Virtual University notes, handouts, files and past papers for CS101, MTH101, ENG101, PHY101 and many more VU subjects.",
+    'exam-prep': "Practice subject-wise VU MCQs, explore approved completed-paper reviews and access EduNexus study resources.",
     planner: "Generate a personalized study plan with AI based on your Virtual University subjects, uploaded files and available study hours.",
     flashcards: "Create interactive AI flashcards for any topic and revise Virtual University subjects quickly and effectively with EduNexus.",
     forum: "Ask questions, discuss assignments and get admin replies in the EduNexus discussion forum designed for Virtual University students.",
@@ -4813,6 +4819,7 @@ useEffect(() => {
           />
         )}
         {page === 'exam' && <ExamPrep theme={theme} />}
+        {page === 'exam-prep' && <ExamPrepHub user={user} />}
         {page === 'aiquiz' && (
           <QuizGenerator
             theme={theme}
@@ -5020,6 +5027,7 @@ useEffect(() => {
               AI Quiz Generator
             </button>
           </li>
+          <li><button onClick={() => navigate("exam-prep")} className="hover:text-indigo-500 transition-colors">MCQ Bank & Paper Reviews</button></li>
         </ul>
       </div>
 
