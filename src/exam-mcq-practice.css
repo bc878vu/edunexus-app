@@ -1,0 +1,47 @@
+/* Exam Prep enhancement: all styles scoped to the new practice workspace. */
+.edx-exam .edx-practice{min-width:0;--practice-success:#059669}
+.edx-exam .edx-practice-toolbar{display:grid;grid-template-columns:minmax(160px,.65fr) minmax(210px,1.35fr);gap:13px 18px;align-items:end}
+.edx-exam .edx-practice-toolbar>.edx-exam-field{min-width:0}
+.edx-exam .edx-practice-search{display:flex;align-items:center;gap:8px;border:1px solid var(--ex-line);border-radius:12px;padding:0 11px;background:var(--ex-card);color:var(--ex-muted);min-height:46px}
+.edx-exam .edx-practice-search input{border:0;outline:0;box-shadow:none;background:transparent;min-width:0;width:100%;padding:9px 0;color:var(--ex-ink);font-size:.88rem;font-weight:400}
+.edx-exam .edx-practice-toolbar-right{display:flex;align-items:center;gap:9px;flex-wrap:wrap;grid-column:1/-1}
+.edx-exam .edx-practice-toolbar-right>.edx-exam-primary{margin-left:auto}
+.edx-exam .edx-practice-results{grid-column:1/-1;display:grid;gap:10px;padding:14px;border:1px solid rgba(99,102,241,.29);border-radius:13px;background:rgba(99,102,241,.045)}
+.edx-exam .edx-practice-results>strong{font-size:.85rem}
+.edx-exam .edx-practice-results>div{display:grid;gap:7px;max-height:300px;overflow-y:auto}
+.edx-exam .edx-practice-results button{display:flex;text-align:left;align-items:center;gap:10px;width:100%;border:1px solid var(--ex-line);border-radius:10px;padding:10px 12px;background:var(--ex-card);color:var(--ex-ink);font-size:.82rem;line-height:1.5}
+.edx-exam .edx-practice-results button:hover{border-color:#818cf8}
+.edx-exam .edx-practice-results button span{flex-shrink:0;font-weight:850;color:#6366f1}
+.edx-exam .edx-practice-save{display:flex;align-items:center;gap:7px;color:var(--ex-muted);font-size:.78rem;margin:0;line-height:1.5}
+.edx-exam .edx-practice-question .edx-exam-option.edx-practice-selected{background:rgba(99,102,241,.09);border-color:#818cf8}
+.edx-exam .edx-practice-caution{display:flex;align-items:flex-start;gap:10px;background:rgba(234,179,8,.10);border:1px solid rgba(234,179,8,.33);border-radius:12px;padding:12px 14px;margin-top:13px;color:var(--ex-ink);line-height:1.6;font-size:.82rem}
+.edx-exam .edx-practice-caution svg{flex-shrink:0;color:#a16207}
+.edx-exam .edx-practice-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:18px}
+.edx-exam .edx-practice-actions button{min-height:41px}
+.edx-exam .edx-practice-actions button:last-child{margin-left:auto}
+.edx-exam .edx-practice-ai{display:grid;gap:10px;background:rgba(99,102,241,.065);border:1px solid rgba(99,102,241,.25);border-radius:14px;margin-top:16px;padding:16px}
+.edx-exam .edx-practice-ai strong{display:inline-flex;align-items:center;gap:8px;font-size:.88rem}
+.edx-exam .edx-practice-ai p{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;font-size:.87rem}
+.edx-exam .edx-practice-ai small{color:var(--ex-muted);font-size:.75rem}
+.edx-exam .edx-practice-finish-bottom{margin-top:14px;width:100%;min-height:44px}
+.edx-exam .edx-practice-summary{display:grid;justify-items:center;text-align:center;gap:14px;padding:clamp(22px,4vw,38px)}
+.edx-exam .edx-practice-summary>svg{color:#059669}
+.edx-exam .edx-practice-summary h3{margin:0}
+.edx-exam .edx-practice-summary p{margin:0;max-width:750px}
+.edx-exam .edx-practice-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;width:100%}
+.edx-exam .edx-practice-stat-grid>div{display:grid;gap:5px;justify-items:center;background:rgba(99,102,241,.055);padding:14px 9px;border:1px solid var(--ex-line);border-radius:13px;min-width:0}
+.edx-exam .edx-practice-stat-grid strong{font-size:clamp(1.15rem,2.5vw,1.65rem);color:var(--ex-ink)}
+.edx-exam .edx-practice-stat-grid span{font-size:.75rem;color:var(--ex-muted);line-height:1.5}
+.edx-exam .edx-practice-summary .edx-practice-actions{justify-content:center}
+.edx-exam .edx-practice-admin{border:1px solid rgba(99,102,241,.24);border-radius:16px;background:var(--ex-card);padding:15px 17px;color:var(--ex-ink)}
+.edx-exam .edx-practice-admin summary{cursor:pointer;display:flex;align-items:center;gap:8px;font-size:.86rem;font-weight:800}
+.edx-exam .edx-practice-admin form{display:grid;gap:13px;margin-top:16px}
+.edx-exam .edx-practice-admin form>p{font-size:.8rem;line-height:1.6;margin:0}
+.edx-exam .edx-practice-admin label{display:grid;gap:6px;font-size:.82rem;font-weight:750}
+.edx-exam .edx-practice-admin :is(input,select){background:var(--ex-card);color:var(--ex-ink);border:1px solid var(--ex-line);border-radius:11px;padding:10px 12px;min-width:0}
+.edx-exam .edx-practice-admin form>button{justify-self:start}
+.edx-exam .edx-practice-privacy{display:flex;align-items:flex-start;gap:8px;line-height:1.65;color:var(--ex-muted);font-size:.75rem;margin:0}
+.edx-exam .edx-practice-privacy svg{flex-shrink:0;margin-top:2px}
+@media(max-width:680px){.edx-exam .edx-practice-toolbar{grid-template-columns:1fr}.edx-exam .edx-practice-toolbar-right>.edx-exam-primary{margin-left:0}.edx-exam .edx-practice-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.edx-exam .edx-practice-actions button:last-child{margin-left:0}.edx-exam .edx-practice-actions button{flex:1 1 130px}}
+@media(max-width:380px){.edx-exam .edx-practice-toolbar-right .edx-exam-pill{width:100%;justify-content:center}.edx-exam .edx-practice-stat-grid{gap:7px}.edx-exam .edx-practice-stat-grid>div{padding:10px 5px}}
+@media(prefers-reduced-motion:reduce){.edx-exam .edx-practice *{animation:none!important;transition:none!important;transform:none!important}}
