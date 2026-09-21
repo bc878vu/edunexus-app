@@ -71,8 +71,8 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
     setError(''); setNotice('');
     const problem = validate(file);
     const code = subject.trim().replace(/\s+/g, ' ');
-    if (problem || !code || code.length > 40 || !title.trim() || title.trim().length > 150) {
-      setError(problem || 'Provide a subject code and a resource title of 1–150 characters.');
+    if (problem || !code || code.length > 120 || !title.trim() || title.trim().length > 150) {
+      setError(problem || 'Provide a folder name of 1–120 characters and a resource title of 1–150 characters.');
       return;
     }
     if (!user || user.email !== 'veducator4@gmail.com' || !user.emailVerified) {
@@ -151,7 +151,7 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
       </div>
       <div className="ah-upload-grid">
         <label>Resource title <input required maxLength={150} disabled={busy} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CS201 lecture notes — unit 1" /></label>
-        <label>Subject or folder <input required maxLength={40} disabled={busy} list={listId} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. CS201" /><datalist id={listId}>{[...new Set(['General', ...subjects])].map((code) => <option value={code} key={code} />)}</datalist></label>
+        <label>Subject or folder <input required maxLength={120} disabled={busy} list={listId} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. CS201" /><datalist id={listId}>{[...new Set(['General', ...subjects])].map((code) => <option value={code} key={code} />)}</datalist></label>
         <label className="ah-upload-description">Description (optional) <textarea rows={3} maxLength={1000} disabled={busy} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Explain the topics covered so students can decide whether this resource is useful." /></label>
       </div>
       {busy && <div role="status" className="ah-upload-progress"><div className="ah-between"><span>{phase === 'saving' ? 'Publishing resource metadata…' : 'Uploading to Firebase Storage…'}</span><strong>{progress}%</strong></div><progress max="100" value={progress} aria-label="File upload progress" /></div>}
