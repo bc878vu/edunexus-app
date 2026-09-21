@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import * as tus from 'tus-js-client';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { CheckCircle2, CloudUpload, FileText, ShieldCheck, X } from 'lucide-react';
-import { db, storage } from './firebase-client';
+import { db } from './firebase-client';
 
 const FILES = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'files');
-const MAX_BYTES = 100 * 1024 * 1024; // Must match the dedicated academic-hub Storage rule.
-const ALLOWED = new Set(['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'webp']);
+const SUPABASE_PROJECT = 'cprpndovdfnkvekewstv';
+const BUCKET = 'edunexus-public-files';
+const MAX_BYTES = 45 * 1024 * 1024; // free-plan bucket limit: 45 MiB
 const TYPES = {
   pdf: 'application/pdf', doc: 'application/msword',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -17,205 +18,210 @@ const TYPES = {
   txt: 'text/plain', csv: 'text/csv', jpg: 'image/jpeg',
   jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp'
 };
-const extension = (name) => String(name || '').match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase() || '';
-const normalizedName = (name) => String(name || 'resource')
-  .replace(/[\\/:*?"<>|]/g, '_')
-  .split('').map((c) => c.charCodeAt(0) >= 32 && c.charCodeAt(0) <= 126 ? c : '_')
-  .join('').slice(0, 110);
-const readableSize = (bytes) => (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-const validate = (file) => {
-  if (!file) return 'Select a file to upload.';
-  if (!ALLOWED.has(extension(file.name))) return 'Unsupported format. Choose a PDF, Office document, text file or JPG/PNG/WEBP image.';
-  if (file.size === 0) return 'This file is empty.';
-  if (file.size > MAX_BYTES) return 'This file exceeds the 100 MiB upload limit. For larger material, use a shareable Google Drive link.';
+const extension = (name) => String(name || '').match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase() || '';
+const safeName = (name) => String(name || 'resource').normalize('NFKD')
+  .replace(/[^A-Za-z0-9._-]/g, '_').slice(-105);
+const readableSize = (bytes) => (bytes / (1024 * 1024)).toFixed(2) + ' MiB';
+const publicUrl = (path) => 'https://' + SUPABASE_PROJECT + '.supabase.co/storage/v1/object/public/' +
+  BUCKET + '/' + path.split('/').map(encodeURIComponent).join('/');
+const allowedMime = (file) => TYPES[extension(file?.name)];
+const validFile = (file) => {
+  if (!file) return 'Choose a resource file first.';
+  if (!allowedMime(file)) return 'Supported types: PDF, Office documents, TXT, CSV, JPG, PNG and WEBP.';
+  if (file.size < 1) return 'The selected file is empty.';
+  if (file.size > MAX_BYTES) return 'Free Supabase uploads are limited to 45 MiB. For larger files, add a Google Drive link below.';
   return '';
 };
 
-export default function AcademicAdminUploader({ user, subjects, initialSubject = '', onUploaded, initiallyOpen = false }) {
+async function signUpload(user, file) {
+  const idToken = await user.getIdToken(true);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+  try {
+    const response = await fetch('https://' + SUPABASE_PROJECT + '.supabase.co/functions/v1/edunexus-sign-upload', {
+      method: 'POST',
+      headers: { authorization: 'Bearer ' + idToken, 'content-type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, size: file.size, contentType: file.type || allowedMime(file) }),
+      signal: controller.signal
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(json.error || 'Upload authorization failed (HTTP ' + response.status + ').');
+    if (!json.token || !json.path || json.bucket !== BUCKET) throw new Error('Storage authorization returned incomplete information.');
+    return json;
+  } finally { clearTimeout(timeout); }
+}
+
+function tusUpload(file, signed, onProgress, onTask) {
+  return new Promise((resolve, reject) => {
+    const upload = new tus.Upload(file, {
+      endpoint: 'https://' + SUPABASE_PROJECT + '.storage.supabase.co/storage/v1/upload/resumable',
+      retryDelays: [0, 2500, 5000, 10000],
+      chunkSize: 6 * 1024 * 1024,
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      storeFingerprintForResuming: false,
+      headers: { 'x-signature': signed.token },
+      metadata: {
+        bucketName: BUCKET,
+        objectName: signed.path,
+        contentType: signed.contentType,
+        cacheControl: '3600'
+      },
+      onProgress: (uploaded, total) => onProgress(Math.round(uploaded / total * 100)),
+      onError: (error) => reject(error),
+      onSuccess: () => resolve()
+    });
+    onTask(upload, reject);
+    upload.start();
+  });
+}
+
+export default function AcademicAdminUploader({ user, subjects = [], initialSubject = '', onUploaded, initiallyOpen = false }) {
   const [open, setOpen] = useState(initiallyOpen);
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
-  const [subject, setSubject] = useState(initialSubject || subjects.find((item) => item === 'CS101') || subjects[0] || 'General');
+  const [subject, setSubject] = useState(initialSubject || 'CS101');
   const [customFolder, setCustomFolder] = useState(false);
   const [description, setDescription] = useState('');
-  const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState('idle');
-  const startingRef = useRef(false);
-  const [error, setError] = useState('');
+  const [progress, setProgress] = useState(0);
   const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
   const [dragging, setDragging] = useState(false);
-  const taskRef = useRef(null);
   const mounted = useRef(true);
+  const inFlight = useRef(false);
+  const taskRef = useRef(null);
+  const rejectRef = useRef(null);
   const fileInput = useRef(null);
-  const listId = React.useId();
-  const availableFolders = useMemo(() => [...new Set(['General', 'CS101', ...subjects, ...(initialSubject ? [initialSubject] : [])].filter((value) => typeof value === 'string' && value.trim()))].sort((a, b) => a.localeCompare(b)), [subjects, initialSubject]);
-  const [stallHint, setStallHint] = useState(false);
-  const cancelReasonRef = useRef('');
-  const busy = phase === 'preparing' || phase === 'uploading' || phase === 'saving';
+  const inputId = React.useId();
+  const busy = phase === 'authorizing' || phase === 'uploading' || phase === 'saving';
+  const folders = useMemo(() => [...new Set(['General', 'CS101', ...subjects, ...(initialSubject ? [initialSubject] : [])]
+    .filter((name) => typeof name === 'string' && name.trim()))].sort((a, b) => a.localeCompare(b)), [subjects, initialSubject]);
+
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      if (taskRef.current && taskRef.current.snapshot.state === 'running') taskRef.current.cancel();
+      if (taskRef.current) taskRef.current.abort(true);
+      if (rejectRef.current) rejectRef.current(new Error('Upload cancelled because the page was closed.'));
     };
   }, []);
-  useEffect(() => { if (initialSubject) { setSubject(initialSubject); setCustomFolder(false); } }, [initialSubject]);
+  useEffect(() => {
+    if (initialSubject && !busy) { setSubject(initialSubject); setCustomFolder(false); }
+  }, [initialSubject, busy]);
 
-  const pick = (next) => {
+  const choose = (next) => {
+    if (busy) return;
     setError(''); setNotice('');
-    const message = validate(next);
-    if (message) { setFile(null); setError(message); return; }
-    setFile(next);
-    setTitle(next.name.replace(/\.[^.]+$/, '').slice(0, 120));
-    setProgress(0);
-    setPhase('idle');
+    const invalid = validFile(next);
+    if (invalid) { setFile(null); setError(invalid); return; }
+    setFile(next); setTitle(next.name.replace(/\.[^.]+$/, '').slice(0, 150)); setProgress(0);
+  };
+  const cancel = () => {
+    if (taskRef.current) taskRef.current.abort(true);
+    if (rejectRef.current) rejectRef.current(new Error('Upload cancelled.'));
   };
   const upload = async (event) => {
     event.preventDefault();
-    if (busy || startingRef.current) return;
-    startingRef.current = true;
-    setError(''); setNotice(''); setStallHint(false);
-    cancelReasonRef.current = '';
-    const problem = validate(file);
+    if (inFlight.current) return;
+    const invalid = validFile(file);
     const code = subject.trim().replace(/\s+/g, ' ');
-    if (problem || !code || code.length > 120 || !title.trim() || title.trim().length > 150) {
-      setError(problem || 'Provide a folder name of 1–120 characters and a resource title of 1–150 characters.');
-      startingRef.current = false;
-      return;
+    if (invalid || !code || code.length > 120 || !title.trim() || title.trim().length > 150) {
+      setError(invalid || 'A folder and a resource title are required.'); return;
     }
-    if (!user || user.email !== 'veducator4@gmail.com' || !user.emailVerified) {
-      setError('Sign in with the verified administrator account to upload files.');
-      startingRef.current = false;
-      return;
+    if (user?.email !== 'veducator4@gmail.com' || !user.emailVerified) {
+      setError('Sign in as the email-verified EduNexus administrator.'); return;
     }
-    // Obtain a fresh Firebase ID token before a privileged Storage write.
-    // A token cached before email verification can otherwise be rejected.
-    setPhase('preparing');
-    try { await user.getIdToken(true); }
-    catch (_) {
-      setPhase('idle'); startingRef.current = false;
-      setError('Could not refresh your Firebase login. Sign in again and retry the upload.');
-      return;
-    }
-    const ext = extension(file.name);
-    const filename = normalizedName(file.name);
-    const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2);
-    const path = 'academic-hub/' + user.uid + '/' + uniqueId + '/' + filename;
-    const target = ref(storage, path);
-    const task = uploadBytesResumable(target, file, {
-      contentType: TYPES[ext],
-      contentDisposition: 'attachment; filename="' + filename.replace(/"/g, '') + '"',
-      customMetadata: { uploadedBy: user.uid, subject: code }
-    });
-    taskRef.current = task;
-    setPhase('uploading'); setProgress(0);
-    let lastProgress = Date.now();
-    let lastBytes = 0;
-    // Storage SDK can remain at 0% when a request is blocked or cannot start.
-    // Show the actionable hint rather than an indefinite, unexplained spinner.
-    const watchdog = setInterval(() => {
-      if (taskRef.current !== task || !mounted.current) return;
-      const seconds = Date.now() - lastProgress;
-      if (lastBytes === 0 && seconds >= 20000) setStallHint(true);
-      if (seconds >= 90000 && task.snapshot.state === 'running') {
-        cancelReasonRef.current = 'stalled';
-        task.cancel();
-      }
-    }, 3000);
-    let uploaded = false;
-    let published = false;
+    inFlight.current = true; setError(''); setNotice(''); setPhase('authorizing'); setProgress(0);
     try {
-      await new Promise((resolve, reject) => task.on('state_changed',
-        (snapshot) => {
-          if (snapshot.bytesTransferred > lastBytes) {
-            lastBytes = snapshot.bytesTransferred;
-            lastProgress = Date.now();
-            if (mounted.current) setStallHint(false);
-          }
-          if (mounted.current) setProgress(Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100));
-        },
-        reject, resolve));
-      uploaded = true;
-      if (mounted.current) setPhase('saving');
-      const url = await getDownloadURL(target);
+      const signed = await signUpload(user, file);
+      if (!mounted.current) throw new Error('Page closed.');
+      setPhase('uploading');
+      await tusUpload(file, signed, (n) => { if (mounted.current) setProgress(n); },
+        (task, reject) => { taskRef.current = task; rejectRef.current = reject; });
+      taskRef.current = null; rejectRef.current = null;
+      setPhase('saving');
+      const url = publicUrl(signed.path);
+      // Keep all old records and Firebase user data. This adds one new record
+      // to the same collection consumed by Academic Hub and Admin Panel.
       await addDoc(FILES, {
         name: title.trim(), subject: code, description: description.trim().slice(0, 1000),
-        url, ext, originalFilename: filename, storagePath: path,
-        sourceType: 'firebase-storage', isLinkOnly: false, size: file.size,
+        url, ext: extension(file.name), originalFilename: safeName(file.name),
+        storagePath: signed.path, sourceType: 'supabase-storage',
+        storageBucket: BUCKET, isLinkOnly: false, size: file.size,
         uploadedBy: 'Admin', createdAt: serverTimestamp()
       });
-      published = true;
       if (mounted.current) {
         setPhase('done'); setFile(null); setTitle(''); setDescription('');
-        setProgress(100);
         if (fileInput.current) fileInput.current.value = '';
-        setNotice('Upload complete. Your file is now listed in the Academic Hub and available to download.');
+        setNotice('File uploaded to free Supabase Storage and published in the existing EduNexus library.');
+        if (onUploaded) onUploaded(code);
       }
-      if (mounted.current && onUploaded) onUploaded(code);
-    } catch (err) {
-      // Only clean up THIS newly-created object if its database record was not saved.
-      // Existing files and previous uploads are never touched.
-      if (uploaded && !published) {
-        try { await deleteObject(target); } catch (_) { /* Retain diagnostic if cleanup fails. */ }
-      }
+    } catch (failure) {
       if (mounted.current) {
         setPhase('idle');
-        setError(err?.code === 'storage/unauthorized' || err?.code === 'permission-denied'
-          ? 'Upload was denied. Verify your administrator account and publish the updated academic-hub Firebase Storage rules. Vercel does not deploy Firebase rules.'
-          : err?.code === 'storage/canceled' ? (cancelReasonRef.current === 'stalled'
-            ? 'Upload did not transfer any more data for 90 seconds. Check Firebase Storage bucket/rules, your login, network and browser console, then retry.' : 'Upload cancelled.')
-            : err?.code === 'storage/retry-limit-exceeded' ? 'Firebase Storage could not reach the upload endpoint. Check connection, browser extensions and Storage bucket configuration.'
-              : err?.code === 'storage/bucket-not-found' ? 'Configured Firebase Storage bucket was not found. Verify the bucket name and enable Storage in Firebase Console.'
-                : err?.code === 'storage/quota-exceeded' ? 'Firebase Storage quota exceeded. Check the Firebase billing and storage quota.'
-                  : 'Upload failed (' + (err?.code || 'unknown') + '): ' + (err?.message || 'Please retry.'));
+        setError((failure?.name === 'AbortError' ? 'Authorization timed out. ' : '') +
+          (failure?.message || 'Upload failed. Verify your connection and retry.') +
+          (phase === 'saving' ? ' Your file may already be stored; contact the administrator before trying again.' : ''));
       }
-    } finally {
-      clearInterval(watchdog);
-      startingRef.current = false;
-      if (taskRef.current === task) taskRef.current = null;
-    }
+    } finally { inFlight.current = false; taskRef.current = null; rejectRef.current = null; }
   };
 
-  const cancel = () => {
-    if (phase === 'uploading' && taskRef.current) { cancelReasonRef.current = 'manual'; taskRef.current.cancel(); }
-  };
-  return <section className="ah-admin-uploader" aria-label="Academic Hub direct file upload">
+  return <section className="ah-admin-uploader" aria-label="Academic Hub hybrid file upload">
     <div className="ah-between ah-admin-uploader-head">
-      <div><span className="ah-eyebrow"><ShieldCheck size={14} /> Administrator workspace</span><h3>Upload a resource directly</h3><p>Upload PDFs, handouts and course files up to 100 MiB. Track progress, cancel a transfer and publish to the existing Academic Hub in one place.</p></div>
-      <button type="button" className="ah-secondary" aria-expanded={open} onClick={() => setOpen((value) => !value)}><CloudUpload size={18} /> {open ? 'Hide upload form' : 'Upload file'}</button>
+      <div><span className="ah-eyebrow"><ShieldCheck size={14}/> Administrator workspace · Free hybrid storage</span>
+        <h3>Upload study material directly</h3>
+        <p>Upload PDFs and documents to Supabase Free. For files over 45 MiB, use Google Drive through the existing external-resource link form.</p>
+      </div>
+      <button type="button" className="ah-secondary" aria-expanded={open} onClick={() => !busy && setOpen((v) => !v)}>
+        <CloudUpload size={17}/>{open ? 'Hide upload form' : 'Upload file'}
+      </button>
     </div>
     {open && <form className="ah-upload-form" onSubmit={upload}>
       <div className={'ah-dropzone' + (dragging ? ' is-dragging' : '')}
         onDragOver={(e) => { e.preventDefault(); if (!busy) setDragging(true); }}
         onDragLeave={(e) => { e.preventDefault(); setDragging(false); }}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); if (!busy && e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); }}>
-        <CloudUpload size={35} /><strong>{file ? file.name : 'Choose or drop a resource file'}</strong>
-        <p>{file ? readableSize(file.size) + ' · ' + extension(file.name).toUpperCase() : 'PDF, Office, TXT, CSV or image · up to 100 MiB · resumable upload'}</p>
-        <input ref={fileInput} id={listId + '-input'} type="file" disabled={busy} accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp" onChange={(e) => pick(e.target.files[0])} className="ah-visually-hidden" />
-        <label className="ah-secondary" htmlFor={listId + '-input'}>Browse files</label>
+        onDrop={(e) => { e.preventDefault(); setDragging(false); if (!busy) choose(e.dataTransfer.files[0]); }}>
+        <CloudUpload size={34}/>
+        <strong>{file ? file.name : 'Choose or drop a file'}</strong>
+        <p>{file ? readableSize(file.size) + ' · ' + extension(file.name).toUpperCase() : 'Supported documents and images · 45 MiB maximum on Free'}</p>
+        <input ref={fileInput} type="file" id={inputId + '-file'} disabled={busy}
+          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp"
+          className="ah-visually-hidden" onChange={(e) => choose(e.target.files[0])}/>
+        <label className="ah-secondary" htmlFor={inputId + '-file'}>Browse files</label>
       </div>
       <div className="ah-upload-grid">
-        <label>Resource title <input required maxLength={150} disabled={busy} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CS201 lecture notes — unit 1" /></label>
+        <label>Resource title <input required maxLength={150} disabled={busy} value={title}
+          onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CS620 Midterm Notes"/></label>
         <label>Subject or folder
           <select required disabled={busy} value={customFolder ? '__custom__' : subject} onChange={(e) => {
             if (e.target.value === '__custom__') { setCustomFolder(true); setSubject(''); }
             else { setCustomFolder(false); setSubject(e.target.value); }
           }}>
-            {availableFolders.map((code) => <option value={code} key={code}>{code}</option>)}
+            {folders.map((name) => <option key={name} value={name}>{name}</option>)}
             <option value="__custom__">+ Create a new folder…</option>
           </select>
-          {customFolder && <input required maxLength={120} disabled={busy} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Enter new folder name" aria-label="New folder name" />}
-          <span className="ah-note">{availableFolders.length} existing folders available · Select an existing folder or create one.</span>
+          {customFolder && <input required maxLength={120} disabled={busy} value={subject}
+            onChange={(e) => setSubject(e.target.value)} placeholder="New folder name" aria-label="New folder name"/>}
+          <span className="ah-note">{folders.length} existing folders · Your existing categories are preserved.</span>
         </label>
-        <label className="ah-upload-description">Description (optional) <textarea rows={3} maxLength={1000} disabled={busy} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Explain the topics covered so students can decide whether this resource is useful." /></label>
+        <label className="ah-upload-description">Description (optional)
+          <textarea rows={3} maxLength={1000} disabled={busy} value={description}
+            onChange={(e) => setDescription(e.target.value)} placeholder="Topics covered and how this file helps students."/>
+        </label>
       </div>
-      {busy && <div role="status" className="ah-upload-progress"><div className="ah-between"><span>{phase === 'preparing' ? 'Verifying administrator session…' : phase === 'saving' ? 'Publishing resource metadata…' : 'Uploading to Firebase Storage…'}</span><strong>{progress}%</strong></div><progress max="100" value={progress} aria-label="File upload progress" /></div>}
-      {stallHint && busy && <p className="ah-message ah-upload-error" role="status">No upload progress yet. Check your internet connection and Firebase Storage permissions. If the request cannot start, it will stop with an error; you can also cancel and retry.</p>}
+      {busy && <div role="status" className="ah-upload-progress">
+        <div className="ah-between"><span>{phase === 'authorizing' ? 'Verifying secure administrator upload…' :
+          phase === 'saving' ? 'Publishing to Academic Hub…' : 'Uploading to Supabase Free…'}</span>
+          <strong>{progress}%</strong></div><progress max="100" value={progress} aria-label="Upload progress"/>
+      </div>}
       {error && <p className="ah-message ah-upload-error" role="alert">{error}</p>}
-      {notice && <p className="ah-message ah-upload-success" role="status"><CheckCircle2 size={17} /> {notice}</p>}
-      <div className="ah-actions"><button type="submit" className="ah-primary" disabled={busy || !file}><CloudUpload size={17} /> {busy ? 'Uploading…' : 'Upload & publish file'}</button>{phase === 'uploading' && <button type="button" className="ah-secondary" onClick={cancel}><X size={15} /> Cancel upload</button>}</div>
-      <p className="ah-note"><FileText size={14} /> The existing admin upload panel and its Cloudinary/Drive links remain available. Direct uploads here use the Firebase project configured for EduNexus. Only upload material you have permission to share publicly.</p>
+      {notice && <p className="ah-message ah-upload-success" role="status"><CheckCircle2 size={17}/>{notice}</p>}
+      <div className="ah-actions">
+        <button type="submit" className="ah-primary" disabled={busy || !file}><CloudUpload size={16}/>{busy ? 'Uploading…' : 'Upload & publish file'}</button>
+        {phase === 'uploading' && <button type="button" className="ah-secondary" onClick={cancel}><X size={15}/>Cancel upload</button>}
+      </div>
+      <p className="ah-note"><FileText size={14}/> Firebase Authentication and all existing Firestore files remain unchanged. The free Supabase bucket is for public study resources only. Use Google Drive for larger files.</p>
     </form>}
   </section>;
 }
