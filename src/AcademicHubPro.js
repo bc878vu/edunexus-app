@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, ClipboardList, Download, ExternalLink, FileArchive, FileText, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
 import { db } from './firebase-client';
 import './academic-hub-pro.css';
@@ -107,10 +107,13 @@ function FileReviews({ file, user, isAdmin }) {
     const unsub = onSnapshot(approved, (snap) => {
       if (alive) { setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))); setLoading(false); }
     }, (error) => { if (alive) { setLoading(false); setStatus(error.code === 'permission-denied' ? 'Review access is denied. The updated Firestore rules must be published.' : 'Reviews could not load. Please check your connection.'); } });
-    if (user?.uid) getDoc(reviewDoc(file.id, user.uid)).then((snap) => { if (alive && snap.exists()) setMine({ id: snap.id, ...snap.data() }); }).catch(() => {});
+    let ownUnsub = () => {};
+    if (user?.uid) ownUnsub = onSnapshot(reviewDoc(file.id, user.uid), (snap) => {
+      if (alive) setMine(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+    }, () => {});
     let pendingUnsub = () => {};
     if (admin) pendingUnsub = onSnapshot(query(REVIEWS(file.id), where('status', '==', 'pending'), limit(40)), (snap) => { if (alive) setPending(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); }, () => { if (alive) setStatus('Pending reviews could not be loaded. Check the published permissions.'); });
-    return () => { alive = false; unsub(); pendingUnsub(); };
+    return () => { alive = false; unsub(); ownUnsub(); pendingUnsub(); };
   }, [file.id, user?.uid, admin]);
 
   const publish = async (event) => {
