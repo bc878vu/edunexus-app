@@ -151,8 +151,8 @@ service cloud.firestore {
       // Approved reviews are public; only the owner or admin can view a draft.
       // Public list queries must filter with where('status', '==', 'approved').
       allow get: if admin()
-        || resource.data.status == 'approved'
-        || (signedIn() && resource.data.userId == request.auth.uid);
+        || (signedIn() && reviewId == request.auth.uid)
+        || resource.data.status == 'approved';
       allow list: if admin() || resource.data.status == 'approved';
 
       // One pending review per Firebase user per file. Anonymous Firebase
