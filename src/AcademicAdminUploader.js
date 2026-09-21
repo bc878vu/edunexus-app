@@ -72,7 +72,7 @@ function tusUpload(file, signed, onProgress, onTask) {
       onSuccess: () => resolve()
     });
     onTask(upload, reject);
-    upload.start();
+    try { upload.start(); } catch (error) { reject(error); }
   });
 }
 
@@ -133,6 +133,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
       setError('Sign in as the email-verified EduNexus administrator.'); return;
     }
     inFlight.current = true; setError(''); setNotice(''); setPhase('authorizing'); setProgress(0);
+    let uploadedPath = '';
     try {
       const signed = await signUpload(user, file);
       if (!mounted.current) throw new Error('Page closed.');
@@ -140,6 +141,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
       await tusUpload(file, signed, (n) => { if (mounted.current) setProgress(n); },
         (task, reject) => { taskRef.current = task; rejectRef.current = reject; });
       taskRef.current = null; rejectRef.current = null;
+      uploadedPath = signed.path;
       setPhase('saving');
       const url = publicUrl(signed.path);
       // Keep all old records and Firebase user data. This adds one new record
@@ -160,9 +162,10 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     } catch (failure) {
       if (mounted.current) {
         setPhase('idle');
-        setError((failure?.name === 'AbortError' ? 'Authorization timed out. ' : '') +
-          (failure?.message || 'Upload failed. Verify your connection and retry.') +
-          (phase === 'saving' ? ' Your file may already be stored; contact the administrator before trying again.' : ''));
+        setError(uploadedPath
+          ? 'File bytes were uploaded, but the Firebase library record was not saved. Do not upload the same file again yet. Your stored file is available at: ' + publicUrl(uploadedPath) + '. Error: ' + (failure?.message || 'Firestore publishing failed.')
+          : (failure?.name === 'AbortError' ? 'Authorization timed out. ' : '') +
+            (failure?.message || 'Upload failed. Verify your connection and retry.'));
       }
     } finally { inFlight.current = false; taskRef.current = null; rejectRef.current = null; }
   };
