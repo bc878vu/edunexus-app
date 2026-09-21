@@ -34,9 +34,10 @@ const databaseReadError = (error, resource) => error?.code === "permission-denie
   : `${resource} could not load. Please check your connection and retry.`;
 
 function CourseSelector({ value, onChange }) {
+  const listId = React.useId();
   return <label className="edx-exam-field">Subject code
-    <input list="edx-exam-subjects" value={value} onChange={(event) => onChange(courseCode(event.target.value))} placeholder="e.g. CS201" maxLength={12} />
-    <datalist id="edx-exam-subjects">{SUBJECTS.map((s) => <option value={s} key={s} />)}</datalist>
+    <input list={listId} value={value} onChange={(event) => onChange(courseCode(event.target.value))} placeholder="e.g. CS201" maxLength={12} />
+    <datalist id={listId}>{SUBJECTS.map((s) => <option value={s} key={s} />)}</datalist>
   </label>;
 }
 
