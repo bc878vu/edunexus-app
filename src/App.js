@@ -95,6 +95,7 @@ import {
 
 // This declaration must follow all static imports (CRA enforces import/first).
 const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
+const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 
 // --- Configuration (YOUR KEYS) ---
 const firebaseConfig = {
@@ -4818,12 +4819,9 @@ useEffect(() => {
           />
         )}
         {page === 'academic' && (
-          <AcademicHub
-            user={user}
-            isAdmin={isAdminMode}
-            theme={theme}
-            showToast={showToast}
-          />
+          <React.Suspense fallback={<div role="status" className="py-8 text-sm text-slate-500">Loading Academic Hub…</div>}>
+            <AcademicHubPro user={user} isAdmin={isAdminMode} showToast={showToast} />
+          </React.Suspense>
         )}
         {page === 'exam' && <ExamPrep theme={theme} />}
         {page === 'exam-prep' && (
