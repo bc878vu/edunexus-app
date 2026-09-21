@@ -19,8 +19,9 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-      - name: Install locked dependencies
-        run: npm ci
+      # Mirror vercel.json installCommand; current lockfile needs npm's resolution of yaml.
+      - name: Install dependencies as Vercel does
+        run: npm install --no-audit --no-fund
       - name: Verify production build
         run: npm run build
         env:
