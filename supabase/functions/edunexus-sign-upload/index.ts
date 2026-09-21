@@ -78,12 +78,25 @@ Deno.serve(async (request: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data, error } = await client.storage.from(BUCKET).createSignedUploadUrl(path);
-  if (error || !data?.token) {
+  if (error || !data?.token || !data?.signedUrl) {
     console.error("Create signed upload failed:", error?.message);
     return response(origin, 503, { error: "Could not authorize this upload. Try again later." });
   }
+  // A signed object-upload token is a compact JWS. Do not hand malformed
+  // authorization data to a browser or log/return the token on failure.
+  if (data.token.split(".").length !== 3) {
+    console.error("Storage returned a malformed signed-upload token");
+    return response(origin, 503, { error: "Storage authorization is misconfigured. Contact EduNexus support." });
+  }
+  const signedUrl = new URL(data.signedUrl);
+  if (signedUrl.origin !== new URL(supabaseUrl).origin ||
+      !signedUrl.pathname.includes("/storage/v1/object/upload/sign/" + BUCKET + "/") ||
+      signedUrl.searchParams.get("token") !== data.token) {
+    console.error("Storage returned an unexpected signed-upload destination");
+    return response(origin, 503, { error: "Upload destination verification failed." });
+  }
   return response(origin, 200, {
-    path, token: data.token, contentType: allowedMime, limit: MAX_SIZE,
-    bucket: BUCKET,
+    path, token: data.token, uploadUrl: signedUrl.toString(), contentType: allowedMime,
+    limit: MAX_SIZE, bucket: BUCKET,
   });
 });

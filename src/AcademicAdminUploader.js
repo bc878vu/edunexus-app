@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import * as tus from 'tus-js-client';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { CheckCircle2, CloudUpload, FileText, ShieldCheck, X } from 'lucide-react';
 import { db } from './firebase-client';
+import { uploadToSignedObject } from './signedObjectUpload';
 
 const FILES = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'files');
 const SUPABASE_PROJECT = 'cprpndovdfnkvekewstv';
@@ -46,35 +46,19 @@ async function signUpload(user, file) {
     });
     const json = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(json.error || 'Upload authorization failed (HTTP ' + response.status + ').');
-    if (!json.token || !json.path || json.bucket !== BUCKET) throw new Error('Storage authorization returned incomplete information.');
+    const signedDestination = String(json.uploadUrl || '');
+    let target;
+    try { target = new URL(signedDestination); } catch (_) { throw new Error('Storage authorization returned an invalid upload URL.'); }
+    if (!json.path || json.bucket !== BUCKET ||
+        target.origin !== 'https://' + SUPABASE_PROJECT + '.supabase.co' ||
+        !target.pathname.startsWith('/storage/v1/object/upload/sign/' + BUCKET + '/') ||
+        !target.searchParams.has('token')) {
+      throw new Error('Storage authorization returned an unexpected destination.');
+    }
     return json;
   } finally { clearTimeout(timeout); }
 }
 
-function tusUpload(file, signed, onProgress, onTask) {
-  return new Promise((resolve, reject) => {
-    const upload = new tus.Upload(file, {
-      endpoint: 'https://' + SUPABASE_PROJECT + '.storage.supabase.co/storage/v1/upload/resumable',
-      retryDelays: [0, 2500, 5000, 10000],
-      chunkSize: 6 * 1024 * 1024,
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      storeFingerprintForResuming: false,
-      headers: { 'x-signature': signed.token },
-      metadata: {
-        bucketName: BUCKET,
-        objectName: signed.path,
-        contentType: signed.contentType,
-        cacheControl: '3600'
-      },
-      onProgress: (uploaded, total) => onProgress(Math.round(uploaded / total * 100)),
-      onError: (error) => reject(error),
-      onSuccess: () => resolve()
-    });
-    onTask(upload, reject);
-    try { upload.start(); } catch (error) { reject(error); }
-  });
-}
 
 export default function AcademicAdminUploader({ user, subjects = [], initialSubject = '', onUploaded, initiallyOpen = false }) {
   const [open, setOpen] = useState(initiallyOpen);
@@ -91,7 +75,6 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
   const mounted = useRef(true);
   const inFlight = useRef(false);
   const taskRef = useRef(null);
-  const rejectRef = useRef(null);
   const fileInput = useRef(null);
   const inputId = React.useId();
   const busy = phase === 'authorizing' || phase === 'uploading' || phase === 'saving';
@@ -102,8 +85,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     mounted.current = true;
     return () => {
       mounted.current = false;
-      if (taskRef.current) taskRef.current.abort(true);
-      if (rejectRef.current) rejectRef.current(new Error('Upload cancelled because the page was closed.'));
+      if (taskRef.current) taskRef.current.abort();
     };
   }, []);
   useEffect(() => {
@@ -116,10 +98,14 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     const invalid = validFile(next);
     if (invalid) { setFile(null); setError(invalid); return; }
     setFile(next); setTitle(next.name.replace(/\.[^.]+$/, '').slice(0, 150)); setProgress(0);
+    // Prefer an already-existing course folder when it matches the filename,
+    // avoiding an accidental CS101 folder for a CS620 paper.
+    const detected = next.name.match(/\b[A-Z]{2,5}[0-9]{3}[A-Z]?\b/i)?.[0];
+    const suggestedFolder = detected && folders.find((name) => name.toUpperCase() === detected.toUpperCase());
+    if (suggestedFolder && !customFolder) setSubject(suggestedFolder);
   };
   const cancel = () => {
-    if (taskRef.current) taskRef.current.abort(true);
-    if (rejectRef.current) rejectRef.current(new Error('Upload cancelled.'));
+    if (taskRef.current) taskRef.current.abort();
   };
   const upload = async (event) => {
     event.preventDefault();
@@ -138,9 +124,9 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
       const signed = await signUpload(user, file);
       if (!mounted.current) throw new Error('Page closed.');
       setPhase('uploading');
-      await tusUpload(file, signed, (n) => { if (mounted.current) setProgress(n); },
-        (task, reject) => { taskRef.current = task; rejectRef.current = reject; });
-      taskRef.current = null; rejectRef.current = null;
+      await uploadToSignedObject(file, signed, (n) => { if (mounted.current) setProgress(n); },
+        (request) => { taskRef.current = request; });
+      taskRef.current = null;
       uploadedPath = signed.path;
       setPhase('saving');
       const url = publicUrl(signed.path);
@@ -167,7 +153,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
           : (failure?.name === 'AbortError' ? 'Authorization timed out. ' : '') +
             (failure?.message || 'Upload failed. Verify your connection and retry.'));
       }
-    } finally { inFlight.current = false; taskRef.current = null; rejectRef.current = null; }
+    } finally { inFlight.current = false; taskRef.current = null; }
   };
 
   return <section className="ah-admin-uploader" aria-label="Academic Hub hybrid file upload">
