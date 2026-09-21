@@ -2655,8 +2655,9 @@ const AcademicTab = ({ theme, user, showToast }) => {
           </React.Suspense>
 
           <div className="edx-admin-link-box">
-            <h4 className={`font-bold ${theme.text}`}>Add an external resource link</h4>
-            <p className={`text-sm ${theme.textMuted}`}>Keep using Google Drive, Cloudinary and other HTTPS/HTTP resource links. Existing links are unchanged.</p>
+            <h4 className={`font-bold ${theme.text}`}>Google Drive · Free large-file library</h4>
+            <p className={`text-sm ${theme.textMuted}`}>For files larger than 45 MiB, upload to Google Drive, set sharing to “Anyone with the link → Viewer” if you have permission, then paste the link below. Previously uploaded Drive and Cloudinary resources stay unchanged.</p>
+            <a href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener noreferrer" className="edx-admin-drive-link">Open Google Drive to upload a file ↗</a>
             <div className="edx-admin-link-fields">
               <label className={theme.text}>
                 Subject folder

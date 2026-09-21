@@ -58,3 +58,9 @@
 @media(max-width:760px){.edx-admin-upload-group .ah-upload-grid,.edx-admin-link-fields,.edx-admin-file-edit{grid-template-columns:1fr}.edx-admin-link-fields label:nth-child(3),.edx-admin-file-edit button{grid-column:auto}.edx-admin-file-search{max-width:none}.edx-admin-file-actions{width:100%}.edx-admin-file-actions>*{flex:1 1 120px;justify-content:center}}
 @media(max-width:420px){.edx-admin-file-details{gap:9px}.edx-admin-upload-group .ah-actions>*{flex:1}.edx-admin-link-submit{width:100%}}
 @media(prefers-reduced-motion:reduce){.edx-admin-upload-group *{animation:none!important;transition:none!important}}
+
+/* Free hybrid storage: accessible Google Drive fallback next to direct uploads. */
+.edx-admin-drive-link{display:inline-flex;align-items:center;justify-content:center;width:fit-content;border:1px solid #bbf7d0;border-radius:11px;background:rgba(22,163,74,.09);color:#15803d;font-size:.84rem;font-weight:750;padding:10px 13px;text-decoration:none;min-height:41px}
+.edx-admin-drive-link:hover{background:rgba(22,163,74,.16)}
+.edx-admin-drive-link:focus-visible{outline:3px solid #818cf8;outline-offset:2px}
+@media(max-width:470px){.edx-admin-drive-link{width:100%}}
