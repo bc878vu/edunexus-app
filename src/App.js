@@ -79,7 +79,7 @@ import {
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { 
   getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, 
-  updateProfile, signOut, createUserWithEmailAndPassword, 
+  updateProfile, signOut, setPersistence, browserSessionPersistence, createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, sendEmailVerification
 } from 'firebase/auth';
 import { 
@@ -3471,6 +3471,9 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
     try {
       const enteredEmail = email.trim().toLowerCase();
       if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) throw new Error("Invalid admin credentials.");
+      // Admin auth survives refresh in this tab but is not automatically shared
+      // with every other tab through Firebase's default LOCAL persistence.
+      await setPersistence(auth, browserSessionPersistence);
       const credential = await signInWithEmailAndPassword(auth, enteredEmail, password);
       await credential.user.reload();
       if (!credential.user.emailVerified) {
