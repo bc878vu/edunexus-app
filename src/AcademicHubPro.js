@@ -1,8 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
 import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
-import { db } from './firebase-client';
+import { db, storage } from './firebase-client';
+import { getBlob, ref as storageRef } from 'firebase/storage';
 import './academic-hub-pro.css';
+import './academic-hub-v2.css';
+const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 
 const BASE = ['artifacts', 'edunexus-live', 'public', 'data'];
 const FILES = collection(db, ...BASE, 'files');
@@ -39,6 +42,11 @@ const fileLinks = (f) => {
   const url = safeHttp(f.url || f.downloadUrl || f.fileUrl);
   if (!url) return { source: '', download: '', preview: '', kind: 'unavailable', direct: false };
   const source = url.href;
+  // New Firebase uploads have attachment disposition: clicking their URL downloads.
+  // Their inline PDF/image preview is retrieved separately through the Storage SDK.
+  if (f.sourceType === 'firebase-storage' && f.storagePath) {
+    return { source, download: source, preview: '', kind: 'firebase', direct: true };
+  }
   const id = driveId(url);
   const isDriveFolder = /^(drive|docs)\.google\.com$/i.test(url.hostname) && /\/folders\//.test(url.pathname);
   if (id && !isDriveFolder) {
@@ -67,7 +75,7 @@ const fileLinks = (f) => {
   return { source, preview: image || pdf ? source : '', download: source, kind: image ? 'image' : pdf ? 'pdf' : f.isLinkOnly && ext === 'LINK' ? 'external-link' : 'external', direct: url.origin === window.location.origin };
 };
 const safeFileName = (f) => {
-  const base = nameOf(f).replace(/[\\/:*?"<>|]/g, '_').split('').filter((ch) => ch.charCodeAt(0) >= 32).join('').slice(0, 120);
+  const base = String(f.originalFilename || nameOf(f)).replace(/[\\/:*?"<>|]/g, '_').split('').filter((ch) => ch.charCodeAt(0) >= 32).join('').slice(0, 120);
   const ext = extOf(f).toLowerCase();
   return ext && ext !== 'link' && !base.toLowerCase().endsWith('.' + ext) ? base + '.' + ext : base;
 };
@@ -77,15 +85,34 @@ const reviewIsAdmin = (user, isAdmin) => Boolean(isAdmin && user && user.email =
 
 function ResourcePreview({ file, links, onClose }) {
   const ext = extOf(file);
-  const isImage = links.kind === 'image';
-  const canEmbed = Boolean(links.preview && (isImage || links.kind === 'pdf' || ['drive', 'document', 'spreadsheet', 'presentation'].includes(links.kind)));
+  const isImage = links.kind === 'image' || (links.kind === 'firebase' && ['JPG','JPEG','PNG','WEBP'].includes(ext));
+  const supportedFirebase = links.kind === 'firebase' && (isImage || ext === 'PDF');
+  const [localUrl, setLocalUrl] = useState('');
+  const [state, setState] = useState('idle');
+  useEffect(() => {
+    if (!supportedFirebase || !file.storagePath) { setLocalUrl(''); setState('idle'); return; }
+    let alive = true;
+    let objectUrl = '';
+    setLocalUrl(''); setState('loading');
+    getBlob(storageRef(storage, file.storagePath), 14 * 1024 * 1024).then((blob) => {
+      if (!alive) return;
+      objectUrl = URL.createObjectURL(blob);
+      setLocalUrl(objectUrl); setState('ready');
+    }).catch(() => {
+      if (alive) setState('error');
+    });
+    return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [file.storagePath, supportedFirebase]);
+  const displayUrl = localUrl || links.preview;
+  const canEmbed = Boolean(displayUrl && (isImage || ['pdf', 'drive', 'document', 'spreadsheet', 'presentation'].includes(links.kind) || supportedFirebase));
   return <section className="ah-focus" aria-label="Resource preview">
     <div className="ah-between"><div><span className="ah-eyebrow">In-page preview</span><h3>{nameOf(file)}</h3></div><button type="button" className="ah-icon-button" onClick={onClose} aria-label="Close preview"><X size={19} /></button></div>
-    {canEmbed ? (isImage ? <img className="ah-preview-image" loading="lazy" src={links.preview} alt={nameOf(file)} /> :
-      <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={links.preview} referrerPolicy="strict-origin-when-cross-origin" />) :
-      <div className="ah-empty"><FileText size={26} /><p>A safe inline preview is not available for this resource type. You can still open the original file and use the download action where its host supports it.</p></div>}
-    <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span>{links.source && <a href={links.source} target="_blank" rel="noopener noreferrer">Open original source <ExternalLink size={14} /></a>}</div>
-    <p className="ah-note">Some Google Drive or external files require the owner's sharing permission; their provider may block embedded viewing.</p>
+    {state === 'loading' && <div className="ah-loading" role="status"><div /><p>Preparing a secure in-page preview…</p></div>}
+    {canEmbed ? (isImage ? <img className="ah-preview-image" loading="lazy" src={displayUrl} alt={nameOf(file)} /> :
+      <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={displayUrl} referrerPolicy="strict-origin-when-cross-origin" />) :
+      state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'An inline preview is not available for this file type. Download the file or open the original source.'}</p></div>}
+    <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span>{links.source && <a href={links.source} target="_blank" rel="noopener noreferrer">Open original file <ExternalLink size={14} /></a>}</div>
+    <p className="ah-note">Document previews depend on the file host's sharing rules and browser capabilities. Direct Firebase uploads use an attachment URL for downloading.</p>
   </section>;
 }
 
