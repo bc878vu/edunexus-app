@@ -4738,7 +4738,7 @@ useEffect(() => {
     initAuth();
     return onAuthStateChanged(auth, u => {
       setUser(u);
-      if (u?.email === ADMIN_EMAIL) setIsAdminMode(true);
+      setIsAdminMode(u?.email === ADMIN_EMAIL && u?.emailVerified === true);
     });
   }, []);
 
