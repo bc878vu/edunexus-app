@@ -78,7 +78,7 @@ import { initializeApp } from 'firebase/app';
 import { 
   getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, 
   updateProfile, signOut, createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword, sendEmailVerification
 } from 'firebase/auth';
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
@@ -111,16 +111,12 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app); 
 const appId = "edunexus-live"; // Static App ID for your live site
-const apiKey = process.env.REACT_APP_GEMINI_API_KEY;// Add your Gemini API Key here if you have one, otherwise leave empty
 
 // --- Constants ---
 const WHATSAPP_LINK = "https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW";
 // 🔐 Admin credentials (email + password)
 const ADMIN_EMAIL =
   process.env.REACT_APP_ADMIN_EMAIL || "veducator4@gmail.com";
-
-const ADMIN_PASSWORD =
-  process.env.REACT_APP_ADMIN_PASSWORD || "Asad0099@.";
 
 const DEFAULT_FOLDERS = ['PHY101', 'CS101', 'MGT101', 'ENG101', 'CS201', 'MTH101', 'ISL201', 'PAK301'];
 
@@ -3645,31 +3641,37 @@ const AdminLogin = ({ onClose, setPage, setIsAdminMode, showToast }) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) {
       showToast("Email and password required.", "error");
       return;
     }
-
     setLoading(true);
-
-    const enteredEmail = email.trim().toLowerCase();
-
-    // ✅ Sirf tumhara email + password
-    if (
-      enteredEmail === ADMIN_EMAIL.toLowerCase() &&
-      password === ADMIN_PASSWORD
-    ) {
+    try {
+      const enteredEmail = email.trim().toLowerCase();
+      if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) throw new Error("Invalid admin credentials.");
+      const credential = await signInWithEmailAndPassword(auth, enteredEmail, password);
+      await credential.user.reload();
+      if (!credential.user.emailVerified) {
+        await sendEmailVerification(credential.user);
+        await signOut(auth);
+        await signInAnonymously(auth);
+        throw new Error("Verification email sent to the admin address. Open it, verify your email, then sign in again.");
+      }
       setIsAdminMode(true);
       setPage("admin");
-      showToast("Admin mode enabled.", "success");
+      showToast("Admin mode enabled securely.", "success");
       onClose();
-    } else {
-      showToast("Invalid admin credentials.", "error");
+    } catch (error) {
+      const code = error?.code || "";
+      const message = code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found"
+        ? "Invalid admin email or password."
+        : (error?.message || "Admin login failed.");
+      showToast(message, "error");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
