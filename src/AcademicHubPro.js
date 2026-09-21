@@ -42,6 +42,17 @@ const fileLinks = (f) => {
   const url = safeHttp(f.url || f.downloadUrl || f.fileUrl);
   if (!url) return { source: '', download: '', preview: '', kind: 'unavailable', direct: false };
   const source = url.href;
+  // Supabase public study files can preview inline, while ?download requests a
+  // downloadable response. Existing Firebase, Drive and Cloudinary links stay intact.
+  if (f.sourceType === 'supabase-storage' && f.storageBucket === 'edunexus-public-files') {
+    const ext = extOf(f);
+    const preview = ['PDF', 'PNG', 'JPG', 'JPEG', 'WEBP'].includes(ext) ? source : '';
+    const filename = String(f.originalFilename || nameOf(f)).replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
+    const downloadUrl = new URL(source);
+    downloadUrl.searchParams.set('download', filename);
+    return { source, preview, download: downloadUrl.href, kind: ext === 'PDF' ? 'pdf' :
+      ['PNG', 'JPG', 'JPEG', 'WEBP'].includes(ext) ? 'image' : 'external', direct: false };
+  }
   // New Firebase uploads have attachment disposition: clicking their URL downloads.
   // Their inline PDF/image preview is retrieved separately through the Storage SDK.
   if (f.sourceType === 'firebase-storage' && f.storagePath) {
@@ -297,7 +308,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   };
   const download = (event, file, links) => {
     if (!links.source) { event.preventDefault(); return; }
-    const note = file.sourceType === 'firebase-storage' ? 'Downloading the uploaded file. If it does not start, check browser download permissions.' : links.direct ? 'Download requested. The file host may still require sharing permission or confirmation.' : 'Opening the file host. This host may display the file rather than download it directly.';
+    const note = file.sourceType === 'supabase-storage' ? 'Supabase is preparing your file download. If it does not start, check your browser download permissions.' : file.sourceType === 'firebase-storage' ? 'Downloading the uploaded file. If it does not start, check browser download permissions.' : links.direct ? 'Download requested. The file host may still require sharing permission or confirmation.' : 'Opening the file host. This host may display the file rather than download it directly.';
     setDownloadStatus((prev) => ({ ...prev, [file.id]: note }));
   };
 
