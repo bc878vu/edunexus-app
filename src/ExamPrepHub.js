@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
-import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles } from "lucide-react";
 import { db } from "./firebase-client";
+import { categoryOf, orderOf, validateMcq } from "./examMcqImport";
 
 import "./exam-prep-hub.css";
 const ExamPaperCommunity = React.lazy(() => import("./ExamPaperCommunity"));
+const McqBulkImporter = React.lazy(() => import("./McqBulkImporter"));
 
 const ROOT = ["artifacts", "edunexus-live", "public", "data"];
 const col = (name) => collection(db, ...ROOT, name);
@@ -27,7 +29,7 @@ const safeUrl = (value) => {
     return ["https:", "http:"].includes(url.protocol) ? url.href : "";
   } catch (_) { return ""; }
 };
-const SUBJECTS = ["CS101", "CS201", "CS301", "CS302", "CS304", "CS401", "CS403", "CS510", "CS511", "CS601", "CS604", "CS610", "ENG101", "ENG201", "MGT101", "MGT201", "MTH101", "MTH202", "MTH601", "PHY101", "STA301"];
+const SUBJECTS = ["CS620", "CS101", "CS201", "CS301", "CS302", "CS304", "CS401", "CS403", "CS510", "CS511", "CS601", "CS604", "CS610", "ENG101", "ENG201", "MGT101", "MGT201", "MTH101", "MTH202", "MTH601", "PHY101", "STA301"];
 const EMPTY_MCQ = { subject: "CS101", term: "finalterm", question: "", options: ["", "", "", ""], answer: 0, explanation: "" };
 
 const databaseReadError = (error, resource) => error?.code === "permission-denied"
@@ -42,10 +44,10 @@ function CourseSelector({ value, onChange }) {
   </label>;
 }
 
-function TermSelector({ value, onChange }) {
+function TermSelector({ value, onChange, includeQuiz = false }) {
   return <label className="edx-exam-field">Exam type
     <select value={value} onChange={(event) => onChange(event.target.value)}>
-      <option value="midterm">Midterm</option><option value="finalterm">Finalterm</option>
+      {includeQuiz && <option value="quiz">Quiz</option>}<option value="midterm">Midterm</option><option value="finalterm">Finalterm</option>
     </select>
   </label>;
 }
@@ -53,13 +55,14 @@ function TermSelector({ value, onChange }) {
 function QuestionCard({ item, index, total, selected, onSelect, onNext, onPrevious }) {
   const answered = selected !== undefined;
   return <section className="edx-exam-card edx-exam-question" aria-label="Practice question">
-    <div className="edx-exam-between"><span className="edx-exam-eyebrow">Question {index + 1} of {total}</span><span className="edx-exam-pill">{item.subject} · {item.term}</span></div>
+    <div className="edx-exam-between"><span className="edx-exam-eyebrow">Question {index + 1} of {total}</span><span className="edx-exam-pill">{item.subject} · {categoryOf(item)}</span></div>
     <div className="edx-exam-progress"><span style={{ width: ((index + 1) / total * 100) + "%" }} /></div>
     <h3>{item.question}</h3>
     <div className="edx-exam-options">{item.options.map((option, i) => {
       const result = answered && i === item.answer ? " correct" : answered && i === selected ? " incorrect" : "";
       return <button className={"edx-exam-option" + result} key={i} disabled={answered} onClick={() => onSelect(i)}><span>{String.fromCharCode(65 + i)}</span>{option}</button>;
     })}</div>
+    {/PROVISIONAL ANSWER|conflict requires confirmation/i.test(item.explanation || "") && <p className="edx-exam-alert" role="note">This question has an unverified or conflicting source answer. Check the source before relying on the marked option.</p>}
     {answered && <div className="edx-exam-feedback" role="status"><strong>{selected === item.answer ? "Correct answer" : "Review this answer"}</strong><p>{item.explanation || "Correct option: " + String.fromCharCode(65 + item.answer) + ". Review your notes for more detail."}</p></div>}
     <div className="edx-exam-between edx-exam-actions"><button className="edx-exam-secondary" onClick={onPrevious} disabled={index === 0}><ChevronLeft size={16} /> Previous</button><button className="edx-exam-primary" onClick={onNext} disabled={!answered || index === total - 1}>Next <ChevronRight size={16} /></button></div>
   </section>;
@@ -77,14 +80,21 @@ function McqBank({ subject, term, user }) {
     if (!validCourse(subject)) { setQuestions([]); setError("Enter a valid subject code."); return; }
     let live = true;
     setLoading(true); setError(""); setFinished(false); setAnswers({}); setIndex(0);
-    getDocs(query(col("examMcqs"), where("subject", "==", subject), limit(100)))
+    getDocs(query(col("examMcqs"), where("subject", "==", subject), limit(500)))
       .then((snap) => {
         if (!live) return;
         const available = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((q) =>
-          q.term === term && Array.isArray(q.options) && q.options.length === 4 &&
+          categoryOf(q) === term && Array.isArray(q.options) && q.options.length === 4 &&
           Number.isInteger(q.answer) && q.answer >= 0 && q.answer < 4 && q.question
         );
-        setQuestions(shuffle(available).slice(0, 25));
+        const sorted = term === "quiz" ? available.sort((a, b) => {
+          const aOrder = orderOf(a), bOrder = orderOf(b);
+          if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+          if (aOrder !== null) return -1;
+          if (bOrder !== null) return 1;
+          return (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0);
+        }) : shuffle(available);
+        setQuestions(sorted.slice(0, term === "quiz" ? 500 : 25));
       })
       .catch((error) => { if (live) setError(databaseReadError(error, "MCQ bank")); })
       .finally(() => { if (live) setLoading(false); });
@@ -92,7 +102,7 @@ function McqBank({ subject, term, user }) {
   }, [subject, term, refresh]);
   const score = useMemo(() => questions.reduce((n, q) => n + (answers[q.id] === q.answer ? 1 : 0), 0), [questions, answers]);
   return <div className="edx-exam-stack">
-    <div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Practice at your own pace</span><h2>Subject-wise MCQs</h2><p>Instant answers, explanations and a results summary. Works on mobile without any extension.</p></div><BookOpen size={28} /></div>
+    <div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Practice at your own pace</span><h2>{term === "quiz" ? "Subject-wise Quiz Questions" : "Subject-wise MCQs"}</h2><p>{term === "quiz" ? "Quiz questions follow their original imported order. Source answers marked provisional still need independent verification." : "Instant answers, explanations and a results summary. Works on mobile without any extension."}</p></div><BookOpen size={28} /></div>
     {loading && <div className="edx-exam-card" role="status">Loading practice questions…</div>}
     {error && <div className="edx-exam-alert" role="alert">{error} <button type="button" className="edx-exam-secondary" onClick={() => setRefresh((n) => n + 1)}>Retry</button></div>}
     {!loading && !error && questions.length === 0 && <div className="edx-exam-card edx-exam-empty"><BookOpen size={30} /><h3>No published MCQs for {subject} ({term}) yet</h3><p>Questions appear here after an administrator adds original or appropriately licensed study material. No unverified question count is shown.</p>{isAdmin(user) && <p>Open the Admin tools tab to add the first question.</p>}</div>}
@@ -118,11 +128,10 @@ function StudyFiles({ subject }) {
   </section>;
 }
 
-function AdminTools({ user }) {
+function AdminTools({ user, onView }) {
   const [draft, setDraft] = useState(EMPTY_MCQ);
   const [pending, setPending] = useState([]);
   const [message, setMessage] = useState("");
-  const [bulk, setBulk] = useState("");
   const [busy, setBusy] = useState(false);
   const reload = async () => {
     try {
@@ -131,29 +140,11 @@ function AdminTools({ user }) {
     } catch (_) { setMessage("Cannot load submissions. Deploy and check Firestore rules."); }
   };
   useEffect(() => { if (isAdmin(user)) void reload(); }, [user]);
-  const normalize = (item) => {
-    const subject = courseCode(item.subject);
-    const term = item.term;
-    const options = Array.isArray(item.options) ? item.options.map((v) => safe(v, 350)) : [];
-    const answer = Number(item.answer);
-    if (!validCourse(subject) || !["midterm", "finalterm"].includes(term) || !safe(item.question, 1000) || options.length !== 4 || options.some((v) => !v) || !Number.isInteger(answer) || answer < 0 || answer > 3) throw new Error("Each question needs a valid course code, exam type, question, four options and answer index 0–3.");
-    return { subject, term, question: safe(item.question, 1000), options, answer, explanation: safe(item.explanation, 1000), createdAt: serverTimestamp() };
-  };
+  const normalize = (item) => ({ ...validateMcq(item), createdAt: serverTimestamp() });
   const addOne = async (event) => {
     event.preventDefault(); setBusy(true); setMessage("");
     try { await addDoc(col("examMcqs"), normalize(draft)); setDraft({ ...EMPTY_MCQ, subject: draft.subject, term: draft.term }); setMessage("MCQ published successfully."); }
     catch (error) { setMessage(error.message || "MCQ could not be published."); } finally { setBusy(false); }
-  };
-  const importMany = async () => {
-    setBusy(true); setMessage("");
-    try {
-      const data = JSON.parse(bulk);
-      if (!Array.isArray(data) || data.length < 1 || data.length > 50) throw new Error("Provide a JSON array containing 1–50 questions per batch.");
-      const items = data.map(normalize);
-      const batch = writeBatch(db);
-      items.forEach((item) => batch.set(doc(col("examMcqs")), item));
-      await batch.commit(); setBulk(""); setMessage(items.length + " MCQs published successfully.");
-    } catch (error) { setMessage(error.message || "Could not import MCQs."); } finally { setBusy(false); }
   };
   const moderate = async (review, approve) => {
     setBusy(true); setMessage("");
@@ -170,14 +161,14 @@ function AdminTools({ user }) {
   if (!isAdmin(user)) return null;
   return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Exam content management</h2><p>Only publish original or properly licensed questions and completed-exam guidance.</p></div><ShieldCheck size={28} /></div>
     {message && <p role="status" className="edx-exam-alert">{message}</p>}
-    <form className="edx-exam-card edx-exam-form" onSubmit={addOne}><h3>Add an MCQ</h3><div className="edx-exam-form-grid"><CourseSelector value={draft.subject} onChange={(value) => setDraft((v) => ({ ...v, subject: value }))} /><TermSelector value={draft.term} onChange={(value) => setDraft((v) => ({ ...v, term: value }))} /></div>
+    <form className="edx-exam-card edx-exam-form" onSubmit={addOne}><h3>Add an MCQ</h3><div className="edx-exam-form-grid"><CourseSelector value={draft.subject} onChange={(value) => setDraft((v) => ({ ...v, subject: value }))} /><TermSelector includeQuiz value={draft.term} onChange={(value) => setDraft((v) => ({ ...v, term: value }))} /></div>
       <label className="edx-exam-field">Question<textarea rows={2} maxLength={1000} required value={draft.question} onChange={(e) => setDraft((v) => ({ ...v, question: e.target.value }))} /></label>
       {draft.options.map((option, i) => <label className="edx-exam-field" key={i}>Option {String.fromCharCode(65 + i)}<input required maxLength={350} value={option} onChange={(e) => setDraft((v) => ({ ...v, options: v.options.map((x, j) => i === j ? e.target.value : x) }))} /></label>)}
       <label className="edx-exam-field">Correct option<select value={draft.answer} onChange={(e) => setDraft((v) => ({ ...v, answer: Number(e.target.value) }))}>{draft.options.map((_, i) => <option key={i} value={i}>{String.fromCharCode(65 + i)}</option>)}</select></label>
       <label className="edx-exam-field">Explanation (optional)<textarea rows={2} maxLength={1000} value={draft.explanation} onChange={(e) => setDraft((v) => ({ ...v, explanation: e.target.value }))} /></label>
       <button className="edx-exam-primary" disabled={busy}>Publish MCQ</button>
     </form>
-    <section className="edx-exam-card edx-exam-form"><h3>Bulk import original MCQs</h3><p>Paste a JSON array (up to 50 per batch). Each entry: subject, term, question, options (four strings), answer (0–3), explanation.</p><textarea aria-label="MCQ JSON import" rows={4} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder='[{"subject":"CS101","term":"finalterm","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"..."}]' /><button className="edx-exam-secondary" disabled={busy || !bulk.trim()} onClick={importMany}><UploadCloud size={17} /> Import questions</button></section>
+    <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading JSON importer…</section>}><McqBulkImporter user={user} onView={onView}/></React.Suspense>
     <section className="edx-exam-card edx-exam-form"><div className="edx-exam-between"><h3>Legacy pending paper reviews ({pending.filter((r) => r.status === "pending").length})</h3><button className="edx-exam-secondary" onClick={reload} disabled={busy}>Refresh</button></div>
       {pending.filter((r) => r.status === "pending").map((r) => <div className="edx-exam-pending" key={r.id}><p><strong>{safe(r.subject, 12)} · {safe(r.term, 10)} · {safe(r.examDate, 10)}</strong></p><p>{safe(r.topics, 400)}</p><p>{safe(r.summary, 1500)}</p><div className="edx-exam-actions"><button className="edx-exam-primary" disabled={busy} onClick={() => moderate(r, true)}>Approve</button><button className="edx-exam-secondary" disabled={busy} onClick={() => moderate(r, false)}>Reject</button></div></div>)}
       {!pending.some((r) => r.status === "pending") && <p>No pending reviews in the latest 100 submissions.</p>}
@@ -189,16 +180,17 @@ export default function ExamPrepHub({ user, initialTab = "mcqs" }) {
   const [tab, setTab] = useState(initialTab);
   const [subject, setSubject] = useState("CS101");
   const [term, setTerm] = useState("finalterm");
+  const changeTab = (next) => { if (next === "reviews" && term === "quiz") setTerm("midterm"); setTab(next); };
   return <div className="edx-exam" id="edx-exam-hub">
-    <section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><Sparkles size={14} /> EduNexus Exam Prep</span><h1>Practice smarter. Prepare with confidence.</h1><p>Subject-wise MCQs, student-shared completed-exam experiences, and your existing study files in one focused workspace.</p><div className="edx-exam-hero-links"><button onClick={() => setTab("mcqs")}>Practice MCQs <ChevronRight size={16} /></button><button onClick={() => setTab("reviews")}>Paper reviews <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
-    <div className="edx-exam-controls"><CourseSelector value={subject} onChange={setSubject} /><TermSelector value={term} onChange={setTerm} /></div>
+    <section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><Sparkles size={14} /> EduNexus Exam Prep</span><h1>Practice smarter. Prepare with confidence.</h1><p>Subject-wise MCQs, student-shared completed-exam experiences, and your existing study files in one focused workspace.</p><div className="edx-exam-hero-links"><button onClick={() => changeTab("mcqs")}>Practice MCQs <ChevronRight size={16} /></button><button onClick={() => changeTab("reviews")}>Paper reviews <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
+    <div className="edx-exam-controls"><CourseSelector value={subject} onChange={setSubject} /><TermSelector value={term} onChange={setTerm} includeQuiz={tab === "mcqs" || tab === "admin"} /></div>
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
-      {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(isAdmin(user) ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}>{label}</button>)}
+      {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(isAdmin(user) ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)}>{label}</button>)}
     </nav>
     {tab === "mcqs" && <McqBank user={user} subject={subject} term={term} />}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} />}
-    {tab === "admin" && <AdminTools user={user} />}
+    {tab === "admin" && <AdminTools user={user} onView={(code, examType) => { setSubject(code); setTerm(examType); setTab("mcqs"); }} />}
     <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Student reviews are public, student-contributed educational guidance, not official or live examination material.</p>
   </div>;
 }
