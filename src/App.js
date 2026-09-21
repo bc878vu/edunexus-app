@@ -4698,6 +4698,7 @@ useEffect(() => {
       '',
       newUrl
     );
+    window.dispatchEvent(new Event('edunexus:navigation'));
   };
 
   // ✅ back button & direct link (clean URL: /?page=cgpa) handle
