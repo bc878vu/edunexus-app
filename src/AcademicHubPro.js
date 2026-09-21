@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, ClipboardList, Download, ExternalLink, FileArchive, FileText, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
 import { db } from './firebase-client';
 import './academic-hub-pro.css';
 
@@ -10,7 +10,6 @@ const FOLDERS = doc(db, ...BASE, 'meta', 'folders');
 const DEFAULT_SUBJECTS = ['PHY101', 'CS101', 'MGT101', 'ENG101', 'CS201', 'MTH101', 'ISL201', 'PAK301'];
 const PAGE_SIZE = 60;
 const cut = (v, n = 300) => String(v == null ? '' : v).trim().slice(0, n);
-const upper = (v) => cut(v, 50).toUpperCase();
 const safeHttp = (raw) => {
   try {
     const u = new URL(String(raw || ''), window.location.href);
@@ -67,7 +66,7 @@ const fileLinks = (f) => {
   return { source, preview: image || pdf ? source : '', download: source, kind: image ? 'image' : pdf ? 'pdf' : f.isLinkOnly && ext === 'LINK' ? 'external-link' : 'external', direct: url.origin === window.location.origin };
 };
 const safeFileName = (f) => {
-  const base = nameOf(f).replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').slice(0, 120);
+  const base = nameOf(f).replace(/[\\/:*?"<>|]/g, '_').split('').filter((ch) => ch.charCodeAt(0) >= 32).join('').slice(0, 120);
   const ext = extOf(f).toLowerCase();
   return ext && ext !== 'link' && !base.toLowerCase().endsWith('.' + ext) ? base + '.' + ext : base;
 };
