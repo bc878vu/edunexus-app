@@ -40,6 +40,7 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
   const [description, setDescription] = useState('');
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState('idle');
+  const startingRef = useRef(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [dragging, setDragging] = useState(false);
@@ -50,7 +51,7 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
   const availableFolders = useMemo(() => [...new Set(['General', 'CS101', ...subjects, ...(initialSubject ? [initialSubject] : [])].filter((value) => typeof value === 'string' && value.trim()))].sort((a, b) => a.localeCompare(b)), [subjects, initialSubject]);
   const [stallHint, setStallHint] = useState(false);
   const cancelReasonRef = useRef('');
-  const busy = phase === 'uploading' || phase === 'saving';
+  const busy = phase === 'preparing' || phase === 'uploading' || phase === 'saving';
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -71,23 +72,31 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
   };
   const upload = async (event) => {
     event.preventDefault();
-    if (busy) return;
+    if (busy || startingRef.current) return;
+    startingRef.current = true;
     setError(''); setNotice(''); setStallHint(false);
     cancelReasonRef.current = '';
     const problem = validate(file);
     const code = subject.trim().replace(/\s+/g, ' ');
     if (problem || !code || code.length > 120 || !title.trim() || title.trim().length > 150) {
       setError(problem || 'Provide a folder name of 1–120 characters and a resource title of 1–150 characters.');
+      startingRef.current = false;
       return;
     }
     if (!user || user.email !== 'veducator4@gmail.com' || !user.emailVerified) {
       setError('Sign in with the verified administrator account to upload files.');
+      startingRef.current = false;
       return;
     }
     // Obtain a fresh Firebase ID token before a privileged Storage write.
     // A token cached before email verification can otherwise be rejected.
+    setPhase('preparing');
     try { await user.getIdToken(true); }
-    catch (_) { setError('Could not refresh your Firebase login. Sign in again and retry the upload.'); return; }
+    catch (_) {
+      setPhase('idle'); startingRef.current = false;
+      setError('Could not refresh your Firebase login. Sign in again and retry the upload.');
+      return;
+    }
     const ext = extension(file.name);
     const filename = normalizedName(file.name);
     const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID
@@ -161,7 +170,11 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
                 : err?.code === 'storage/quota-exceeded' ? 'Firebase Storage quota exceeded. Check the Firebase billing and storage quota.'
                   : 'Upload failed (' + (err?.code || 'unknown') + '): ' + (err?.message || 'Please retry.'));
       }
-    } finally { clearInterval(watchdog); if (taskRef.current === task) taskRef.current = null; }
+    } finally {
+      clearInterval(watchdog);
+      startingRef.current = false;
+      if (taskRef.current === task) taskRef.current = null;
+    }
   };
 
   const cancel = () => {
@@ -197,7 +210,7 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
         </label>
         <label className="ah-upload-description">Description (optional) <textarea rows={3} maxLength={1000} disabled={busy} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Explain the topics covered so students can decide whether this resource is useful." /></label>
       </div>
-      {busy && <div role="status" className="ah-upload-progress"><div className="ah-between"><span>{phase === 'saving' ? 'Publishing resource metadata…' : 'Uploading to Firebase Storage…'}</span><strong>{progress}%</strong></div><progress max="100" value={progress} aria-label="File upload progress" /></div>}
+      {busy && <div role="status" className="ah-upload-progress"><div className="ah-between"><span>{phase === 'preparing' ? 'Verifying administrator session…' : phase === 'saving' ? 'Publishing resource metadata…' : 'Uploading to Firebase Storage…'}</span><strong>{progress}%</strong></div><progress max="100" value={progress} aria-label="File upload progress" /></div>}
       {stallHint && busy && <p className="ah-message ah-upload-error" role="status">No upload progress yet. Check your internet connection and Firebase Storage permissions. If the request cannot start, it will stop with an error; you can also cancel and retry.</p>}
       {error && <p className="ah-message ah-upload-error" role="alert">{error}</p>}
       {notice && <p className="ah-message ah-upload-success" role="status"><CheckCircle2 size={17} /> {notice}</p>}
