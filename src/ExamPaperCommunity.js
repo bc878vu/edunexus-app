@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { adminPanelAccess } from './adminSession';
 import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Sparkles, Trash2, Users } from 'lucide-react';
 import { db } from './firebase-client';
@@ -12,7 +13,7 @@ const LEGACY_COLLECTION = 'examReviews';
 const safe = (value, max = 1500) => String(value == null ? '' : value).trim().slice(0, max);
 const courseCode = (value) => safe(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, '');
 const validCourse = (value) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(value);
-const isAdmin = (user) => Boolean(user && user.email === 'veducator4@gmail.com' && user.emailVerified === true);
+const isAdmin = (user) => adminPanelAccess(user);
 const dateValue = (value) => value && typeof value.toMillis === 'function' ? value.toMillis() : 0;
 const todayLocal = () => {
   const d = new Date(), pad = (v) => String(v).padStart(2, '0');
