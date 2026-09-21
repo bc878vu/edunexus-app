@@ -96,7 +96,7 @@ Deno.serve(async (request: Request) => {
     return response(origin, 503, { error: "Upload destination verification failed." });
   }
   return response(origin, 200, {
-    path, uploadUrl: signedUrl.toString(), contentType: allowedMime,
+    path, token: data.token, uploadUrl: signedUrl.toString(), contentType: allowedMime,
     limit: MAX_SIZE, bucket: BUCKET,
   });
 });
