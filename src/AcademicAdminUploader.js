@@ -98,6 +98,11 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     const invalid = validFile(next);
     if (invalid) { setFile(null); setError(invalid); return; }
     setFile(next); setTitle(next.name.replace(/\.[^.]+$/, '').slice(0, 150)); setProgress(0);
+    // Prefer an already-existing course folder when it matches the filename,
+    // avoiding an accidental CS101 folder for a CS620 paper.
+    const detected = next.name.match(/\b[A-Z]{2,5}[0-9]{3}[A-Z]?\b/i)?.[0];
+    const suggestedFolder = detected && folders.find((name) => name.toUpperCase() === detected.toUpperCase());
+    if (suggestedFolder && !customFolder) setSubject(suggestedFolder);
   };
   const cancel = () => {
     if (taskRef.current) taskRef.current.abort();
