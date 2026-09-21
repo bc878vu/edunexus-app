@@ -212,20 +212,28 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const [cursor, setCursor] = useState(null);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
+  const [format, setFormat] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+  const [subjectsExpanded, setSubjectsExpanded] = useState(true);
   const [subject, setSubject] = useState(() => new URLSearchParams(window.location.search).get('subject') || '');
   const [selectedId, setSelectedId] = useState('');
   const [panel, setPanel] = useState('preview');
   const [downloadStatus, setDownloadStatus] = useState({});
   const [visible, setVisible] = useState(18);
   const scroller = useRef(null);
+  const latestCursorRef = useRef(null);
+  const olderPagesLoaded = useRef(false);
 
   useEffect(() => {
     const onPop = () => { setSubject(new URLSearchParams(window.location.search).get('subject') || ''); setSelectedId(''); };
     window.addEventListener('popstate', onPop);
     const unsubFiles = onSnapshot(query(FILES, orderBy('createdAt', 'desc'), limit(PAGE_SIZE)), (snap) => {
       setLatest(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setCursor((prev) => prev || (snap.docs[snap.docs.length - 1] || null));
-      setHasMore((prev) => prev || snap.docs.length === PAGE_SIZE);
+      // Follow the live first page until older pages have been requested.
+      setCursor((prev) => prev && prev.id !== latestCursorRef.current ? prev : (snap.docs[snap.docs.length - 1] || null));
+      latestCursorRef.current = snap.docs[snap.docs.length - 1]?.id || null;
+      setHasMore((prev) => prev && olderPagesLoaded.current ? prev : snap.docs.length === PAGE_SIZE);
       setLoading(false); setError('');
     }, (e) => { setLoading(false); setError(e.code === 'permission-denied' ? 'The file library is not accessible with the currently deployed Firestore rules.' : 'Could not load files. Please check your connection and try again.'); });
     const unsubFolders = onSnapshot(FOLDERS, (snap) => setFolders(Array.isArray(snap.data()?.list) ? snap.data().list.filter((v) => typeof v === 'string') : []), () => {});
@@ -234,18 +242,26 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
 
   const files = useMemo(() => {
     const map = new Map();
-    [...latest, ...older].forEach((f) => map.set(f.id, f));
+    [...older, ...latest].forEach((f) => map.set(f.id, f));
     return [...map.values()].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   }, [latest, older]);
   const counts = useMemo(() => files.reduce((m, f) => { const key = cut(f.subject, 50); if (key) m[key] = (m[key] || 0) + 1; return m; }, {}), [files]);
   const subjects = useMemo(() => [...new Set([...DEFAULT_SUBJECTS, ...folders, ...Object.keys(counts)].filter(Boolean))].sort((a, b) => a.localeCompare(b)), [folders, counts]);
-  const normalized = search.trim().toLowerCase();
-  const matches = useMemo(() => files.filter((f) => (!subject || f.subject === subject) && (!normalized || [f.name, f.title, f.subject, f.description, f.ext].some((value) => String(value || '').toLowerCase().includes(normalized)))), [files, subject, normalized]);
+  const normalized = deferredSearch.trim().toLowerCase();
+  const matches = useMemo(() => {
+    const result = files.filter((f) => (!subject || f.subject === subject)
+      && (format === 'all' || (format === 'documents' ? ['PDF','DOC','DOCX','PPT','PPTX','XLS','XLSX','TXT','CSV'].includes(extOf(f)) : format === 'images' ? ['PNG','JPG','JPEG','WEBP'].includes(extOf(f)) : extOf(f) === 'LINK'))
+      && (!normalized || [f.name, f.title, f.subject, f.description, f.ext].some((value) => String(value || '').toLowerCase().includes(normalized))));
+    if (sortBy === 'name') result.sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+    else if (sortBy === 'oldest') result.reverse();
+    return result;
+  }, [files, subject, format, normalized, sortBy]);
   const displayed = matches.slice(0, visible);
   const selected = files.find((f) => f.id === selectedId);
   useEffect(() => { if (selectedId && scroller.current) scroller.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [selectedId]);
   const openSubject = (value) => {
     setSubject(value); setVisible(18); setSelectedId('');
+    if (value) setSubjectsExpanded(false);
     const url = new URL(window.location.href);
     if (value) url.searchParams.set('subject', value); else url.searchParams.delete('subject');
     url.searchParams.set('page', 'academic');
@@ -261,6 +277,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     setLoadingMore(true); setError('');
     try {
       const snap = await getDocs(query(FILES, orderBy('createdAt', 'desc'), startAfter(cursor), limit(PAGE_SIZE)));
+      olderPagesLoaded.current = true;
       setOlder((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...d.data() }))]);
       if (snap.docs.length) setCursor(snap.docs[snap.docs.length - 1]);
       setHasMore(snap.docs.length === PAGE_SIZE);
@@ -279,7 +296,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   };
   const download = (event, file, links) => {
     if (!links.source) { event.preventDefault(); return; }
-    const note = links.direct ? 'Download requested. The file host may still require sharing permission or confirmation.' : 'Opening the file host. This host may display the file rather than download it directly.';
+    const note = file.sourceType === 'firebase-storage' ? 'Downloading the uploaded file. If it does not start, check browser download permissions.' : links.direct ? 'Download requested. The file host may still require sharing permission or confirmation.' : 'Opening the file host. This host may display the file rather than download it directly.';
     setDownloadStatus((prev) => ({ ...prev, [file.id]: note }));
   };
 
