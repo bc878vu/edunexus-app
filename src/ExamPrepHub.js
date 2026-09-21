@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
-import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles } from "lucide-react";
+import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles } from "lucide-react";
 import { db } from "./firebase-client";
-import { categoryOf, orderOf, validateMcq } from "./examMcqImport";
+import { validateMcq } from "./examMcqImport";
 
 import "./exam-prep-hub.css";
 const ExamPaperCommunity = React.lazy(() => import("./ExamPaperCommunity"));
 const McqBulkImporter = React.lazy(() => import("./McqBulkImporter"));
+const ExamMcqPractice = React.lazy(() => import("./ExamMcqPractice"));
 
 const ROOT = ["artifacts", "edunexus-live", "public", "data"];
 const col = (name) => collection(db, ...ROOT, name);
@@ -50,65 +51,6 @@ function TermSelector({ value, onChange, includeQuiz = false }) {
       {includeQuiz && <option value="quiz">Quiz</option>}<option value="midterm">Midterm</option><option value="finalterm">Finalterm</option>
     </select>
   </label>;
-}
-
-function QuestionCard({ item, index, total, selected, onSelect, onNext, onPrevious }) {
-  const answered = selected !== undefined;
-  return <section className="edx-exam-card edx-exam-question" aria-label="Practice question">
-    <div className="edx-exam-between"><span className="edx-exam-eyebrow">Question {index + 1} of {total}</span><span className="edx-exam-pill">{item.subject} · {categoryOf(item)}</span></div>
-    <div className="edx-exam-progress"><span style={{ width: ((index + 1) / total * 100) + "%" }} /></div>
-    <h3>{item.question}</h3>
-    <div className="edx-exam-options">{item.options.map((option, i) => {
-      const result = answered && i === item.answer ? " correct" : answered && i === selected ? " incorrect" : "";
-      return <button className={"edx-exam-option" + result} key={i} disabled={answered} onClick={() => onSelect(i)}><span>{String.fromCharCode(65 + i)}</span>{option}</button>;
-    })}</div>
-    {/PROVISIONAL ANSWER|conflict requires confirmation/i.test(item.explanation || "") && <p className="edx-exam-alert" role="note">This question has an unverified or conflicting source answer. Check the source before relying on the marked option.</p>}
-    {answered && <div className="edx-exam-feedback" role="status"><strong>{selected === item.answer ? "Correct answer" : "Review this answer"}</strong><p>{item.explanation || "Correct option: " + String.fromCharCode(65 + item.answer) + ". Review your notes for more detail."}</p></div>}
-    <div className="edx-exam-between edx-exam-actions"><button className="edx-exam-secondary" onClick={onPrevious} disabled={index === 0}><ChevronLeft size={16} /> Previous</button><button className="edx-exam-primary" onClick={onNext} disabled={!answered || index === total - 1}>Next <ChevronRight size={16} /></button></div>
-  </section>;
-}
-
-function McqBank({ subject, term, user }) {
-  const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [finished, setFinished] = useState(false);
-  const [refresh, setRefresh] = useState(0);
-  useEffect(() => {
-    if (!validCourse(subject)) { setQuestions([]); setError("Enter a valid subject code."); return; }
-    let live = true;
-    setLoading(true); setError(""); setFinished(false); setAnswers({}); setIndex(0);
-    getDocs(query(col("examMcqs"), where("subject", "==", subject), limit(500)))
-      .then((snap) => {
-        if (!live) return;
-        const available = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((q) =>
-          categoryOf(q) === term && Array.isArray(q.options) && q.options.length === 4 &&
-          Number.isInteger(q.answer) && q.answer >= 0 && q.answer < 4 && q.question
-        );
-        const sorted = term === "quiz" ? available.sort((a, b) => {
-          const aOrder = orderOf(a), bOrder = orderOf(b);
-          if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
-          if (aOrder !== null) return -1;
-          if (bOrder !== null) return 1;
-          return (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0);
-        }) : shuffle(available);
-        setQuestions(sorted.slice(0, term === "quiz" ? 500 : 25));
-      })
-      .catch((error) => { if (live) setError(databaseReadError(error, "MCQ bank")); })
-      .finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
-  }, [subject, term, refresh]);
-  const score = useMemo(() => questions.reduce((n, q) => n + (answers[q.id] === q.answer ? 1 : 0), 0), [questions, answers]);
-  return <div className="edx-exam-stack">
-    <div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Practice at your own pace</span><h2>{term === "quiz" ? "Subject-wise Quiz Questions" : "Subject-wise MCQs"}</h2><p>{term === "quiz" ? "Quiz questions follow their original imported order. Source answers marked provisional still need independent verification." : "Instant answers, explanations and a results summary. Works on mobile without any extension."}</p></div><BookOpen size={28} /></div>
-    {loading && <div className="edx-exam-card" role="status">Loading practice questions…</div>}
-    {error && <div className="edx-exam-alert" role="alert">{error} <button type="button" className="edx-exam-secondary" onClick={() => setRefresh((n) => n + 1)}>Retry</button></div>}
-    {!loading && !error && questions.length === 0 && <div className="edx-exam-card edx-exam-empty"><BookOpen size={30} /><h3>No published MCQs for {subject} ({term}) yet</h3><p>Questions appear here after an administrator adds original or appropriately licensed study material. No unverified question count is shown.</p>{isAdmin(user) && <p>Open the Admin tools tab to add the first question.</p>}</div>}
-    {!loading && questions.length > 0 && !finished && <><div className="edx-exam-between"><span className="edx-exam-pill">{Object.keys(answers).length}/{questions.length} answered</span><span className="edx-exam-pill">Current score: {score}</span></div><QuestionCard item={questions[index]} index={index} total={questions.length} selected={answers[questions[index].id]} onSelect={(option) => setAnswers((prev) => ({ ...prev, [questions[index].id]: option }))} onPrevious={() => setIndex((i) => Math.max(0, i - 1))} onNext={() => setIndex((i) => Math.min(questions.length - 1, i + 1))} /><button className="edx-exam-secondary" onClick={() => setFinished(true)}>Finish practice and see results</button></>}
-    {!loading && questions.length > 0 && finished && <div className="edx-exam-card edx-exam-empty"><CheckCircle2 size={36} /><h3>Your practice results</h3><p className="edx-exam-score">{score} / {questions.length}</p><p>{Object.keys(answers).length} questions answered. Unanswered questions count as incorrect.</p><button className="edx-exam-primary" onClick={() => setRefresh((n) => n + 1)}>Start another practice session</button></div>}
-  </div>;
 }
 
 function StudyFiles({ subject }) {
@@ -187,7 +129,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs" }) {
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
       {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(isAdmin(user) ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)}>{label}</button>)}
     </nav>
-    {tab === "mcqs" && <McqBank user={user} subject={subject} term={term} />}
+    {tab === "mcqs" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={SUBJECTS} onSubjectChange={setSubject}/></React.Suspense>}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} />}
     {tab === "admin" && <AdminTools user={user} onView={(code, examType) => { setSubject(code); setTerm(examType); setTab("mcqs"); }} />}
