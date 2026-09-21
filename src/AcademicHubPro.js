@@ -86,7 +86,8 @@ const reviewIsAdmin = (user, isAdmin) => Boolean(isAdmin && user && user.email =
 function ResourcePreview({ file, links, onClose }) {
   const ext = extOf(file);
   const isImage = links.kind === 'image' || (links.kind === 'firebase' && ['JPG','JPEG','PNG','WEBP'].includes(ext));
-  const supportedFirebase = links.kind === 'firebase' && (isImage || ext === 'PDF');
+  const supportedFirebase = links.kind === 'firebase' && (isImage || ext === 'PDF')
+    && (!Number.isFinite(file.size) || file.size <= 20 * 1024 * 1024);
   const [localUrl, setLocalUrl] = useState('');
   const [state, setState] = useState('idle');
   useEffect(() => {
@@ -94,7 +95,7 @@ function ResourcePreview({ file, links, onClose }) {
     let alive = true;
     let objectUrl = '';
     setLocalUrl(''); setState('loading');
-    getBlob(storageRef(storage, file.storagePath), 14 * 1024 * 1024).then((blob) => {
+    getBlob(storageRef(storage, file.storagePath), 20 * 1024 * 1024).then((blob) => {
       if (!alive) return;
       objectUrl = URL.createObjectURL(blob);
       setLocalUrl(objectUrl); setState('ready');
@@ -110,7 +111,7 @@ function ResourcePreview({ file, links, onClose }) {
     {state === 'loading' && <div className="ah-loading" role="status"><div /><p>Preparing a secure in-page preview…</p></div>}
     {canEmbed ? (isImage ? <img className="ah-preview-image" loading="lazy" src={displayUrl} alt={nameOf(file)} /> :
       <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={displayUrl} referrerPolicy="strict-origin-when-cross-origin" />) :
-      state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'An inline preview is not available for this file type. Download the file or open the original source.'}</p></div>}
+      state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'Inline preview is available for supported PDFs/images up to 20 MiB. For larger files or other formats, use Download or open the original source.'}</p></div>}
     <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span>{links.source && <a href={links.source} target="_blank" rel="noopener noreferrer">Open original file <ExternalLink size={14} /></a>}</div>
     <p className="ah-note">Document previews depend on the file host's sharing rules and browser capabilities. Direct Firebase uploads use an attachment URL for downloading.</p>
   </section>;
