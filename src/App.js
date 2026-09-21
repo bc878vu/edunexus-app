@@ -2370,240 +2370,7 @@ Student question: ${userMsg}`;
 };
 
 // 15. ADMIN PANEL
-const AdminPanel = ({ theme, user, showToast }) => { 
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [feedbacks, setFeedbacks] = useState([]);
-  const [recentActivity, setRecentActivity] = useState([]);
-  
-
-  useEffect(() => {
-    if (!user) return;
-    const qF = query(collection(db, 'artifacts', appId, 'public', 'data', 'feedback'), orderBy('createdAt', 'desc'));
-    const unsubF = onSnapshot(qF, s => setFeedbacks(s.docs.map(d => ({id: d.id, ...d.data()}))));
-    const qA = query(collection(db, 'artifacts', appId, 'public', 'data', 'files'), orderBy('createdAt', 'desc'), limit(3));
-    const unsubA = onSnapshot(qA, s => {
-      const files = s.docs.map(d => ({type: 'file', msg: `Uploaded file: ${d.data().name}`, ...d.data()}));
-      setRecentActivity(prev => [...files, ...prev].slice(0, 10));
-    });
-    return () => { unsubF(); unsubA(); };
-  }, [user]);
-
-  const DashboardTab = () => (
-    <div className="grid md:grid-cols-2 gap-6">
-      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-        <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Activity className="text-indigo-500"/> Recent Activity</h3>
-        <div className="space-y-4">{recentActivity.length > 0 ? recentActivity.map((act, i) => (<div key={i} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 text-sm`}><p className={`${theme.text}`}>{String(act.msg)}</p><p className={`text-xs ${theme.textMuted}`}>{formatDate(act.createdAt)}</p></div>)) : <p className={theme.textMuted}>No recent system activity.</p>}</div>
-      </div>
-      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-        <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Inbox className="text-green-500"/> Inbox ({feedbacks.length})</h3>
-        <div className="h-64 overflow-y-auto space-y-2">{feedbacks.map(msg => (<div key={msg.id} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 relative group`}><button onClick={()=>deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id))} className="absolute top-2 right-2 text-slate-400 hover:text-red-500"><Trash2 size={16}/></button><p className={`text-xs font-bold ${theme.text}`}>{String(msg.name)} <span className="text-indigo-500">&lt;{String(msg.email)}&gt;</span></p><p className={`text-sm ${theme.textMuted} mt-1`}>{String(msg.msg)}</p></div>))}{feedbacks.length === 0 && <p className={theme.textMuted}>No messages.</p>}</div>
-      </div>
-    </div>
-  );
-
-  const HighlightsTab = () => {
-    const [highlights, setHighlights] = useState([]);
-    const [masterVisible, setMasterVisible] = useState(true);
-    const [hTitle, setHTitle] = useState('');
-    const [hDesc, setHDesc] = useState('');
-    const [hLink, setHLink] = useState('');
-    const [hIcon, setHIcon] = useState('Calendar');
-    const [hColor, setHColor] = useState(COLOR_OPTIONS[0].value);
-    const [editHId, setEditHId] = useState(null);
-
-    useEffect(() => {
-        const unsubConfig = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'highlightsConfig'), (docSnap) => {
-            if (docSnap.exists()) {
-                setMasterVisible(docSnap.data().isVisible !== false);
-            }
-        });
-
-        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), orderBy('createdAt', 'desc'));
-        const unsubList = onSnapshot(q, (snapshot) => {
-            setHighlights(snapshot.docs.map(d => ({id: d.id, ...d.data()})));
-        });
-
-        return () => { unsubConfig(); unsubList(); };
-    }, []);
-
-    const toggleMasterVisibility = async () => {
-        const newValue = !masterVisible;
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'highlightsConfig'), { isVisible: newValue });
-        showToast(newValue ? "Highlights Section Visible" : "Highlights Section Hidden", "info");
-    };
-
-    const handleSaveHighlight = async () => {
-        if (!hTitle || !hDesc) {
-            showToast("Title and Description are required", "error");
-            return;
-        }
-
-        const data = {
-            title: hTitle,
-            desc: hDesc,
-            link: hLink,
-            iconName: hIcon,
-            color: hColor,
-            createdAt: serverTimestamp()
-        };
-
-        if (editHId) {
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', editHId), data);
-            showToast("Highlight Updated", "success");
-        } else {
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), data);
-            showToast("Highlight Added", "success");
-        }
-
-        setHTitle(''); setHDesc(''); setHLink(''); setEditHId(null);
-    };
-
-    const handleLoadDefaults = async () => {
-      if (highlights.length > 0) {
-        if (!window.confirm("You already have highlights. Add duplicates?")) return;
-      }
-      
-      const defaults = [
-        {
-          title: "Mid-Term Datesheet Released",
-          desc: "The official datesheet for Fall 2025 mid-term exams is now available on VULMS. Plan your study schedule!",
-          iconName: "Calendar",
-          color: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-100",
-          link: "https://vulms.vu.edu.pk",
-          createdAt: serverTimestamp()
-        },
-        {
-          title: "CS101 Assignment Help",
-          desc: "New resource file uploaded in the Academic Hub specifically for Assignment 2. Check it out now.",
-          iconName: "Code",
-          color: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-100",
-          link: "",
-          createdAt: serverTimestamp()
-        },
-        {
-          title: "Gaming Tournament",
-          desc: "Registrations are open for the annual E-Sports Gala. Join the 'Gamers' forum thread to form your team!",
-          iconName: "Trophy",
-          color: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-100",
-          link: "",
-          createdAt: serverTimestamp()
-        },
-        {
-          title: "Scholarship Deadline",
-          desc: "Need-based scholarship applications extended by one week. Submit documents via LMS.",
-          iconName: "Star",
-          color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-100",
-          link: "",
-          createdAt: serverTimestamp()
-        }
-      ];
-
-      try {
-        const batchPromises = defaults.map(item => addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), item));
-        await Promise.all(batchPromises);
-        showToast("Default highlights added successfully!", "success");
-      } catch (error) {
-        console.error("Error adding defaults: ", error);
-        showToast("Failed to add defaults", "error");
-      }
-    };
-
-    const handleEditStart = (item) => {
-        setHTitle(item.title);
-        setHDesc(item.desc);
-        setHLink(item.link || '');
-        setHIcon(item.iconName || 'Calendar');
-        setHColor(item.color || COLOR_OPTIONS[0].value);
-        setEditHId(item.id);
-    };
-
-    const handleDeleteHighlight = async (id) => {
-        if (window.confirm("Delete this highlight?")) {
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', id));
-            showToast("Highlight Deleted", "success");
-        }
-    };
-
-    return (
-        <div className="space-y-6">
-            <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} flex flex-col md:flex-row justify-between items-center shadow-sm gap-4`}>
-                <div>
-                    <h3 className={`font-bold ${theme.text} text-lg`}>Highlights Section Visibility</h3>
-                    <p className={`text-sm ${theme.textMuted}`}>Control visibility or load default data.</p>
-                </div>
-                <div className="flex gap-2">
-                    <button onClick={handleLoadDefaults} className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold transition-all bg-indigo-100 text-indigo-700 hover:bg-indigo-200`}>
-                        <RefreshCw size={20}/> Load Defaults
-                    </button>
-                    <button onClick={toggleMasterVisibility} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${masterVisible ? 'bg-green-600 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
-                        {masterVisible ? <Eye size={20}/> : <EyeOff size={20}/>} {masterVisible ? 'Active' : 'Hidden'}
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-                {/* Form */}
-                <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-                    <h3 className={`font-bold ${theme.text} mb-4`}>{editHId ? 'Edit Highlight' : 'Add New Highlight'}</h3>
-                    <div className="space-y-3">
-                        <input value={hTitle} onChange={e=>setHTitle(e.target.value)} placeholder="Title (e.g. Mid-Terms)" className={`w-full ${theme.input} p-3 rounded-lg`} />
-                        <textarea value={hDesc} onChange={e=>setHDesc(e.target.value)} placeholder="Description..." className={`w-full ${theme.input} p-3 rounded-lg h-24`} />
-                        <input value={hLink} onChange={e=>setHLink(e.target.value)} placeholder="Link URL (Optional)" className={`w-full ${theme.input} p-3 rounded-lg`} />
-                        
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Icon</label>
-                                <select value={hIcon} onChange={e=>setHIcon(e.target.value)} className={`w-full ${theme.input} p-2 rounded-lg`}>
-                                    {Object.keys(ICON_MAP).map(key => <option key={key} value={key}>{key}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Color Theme</label>
-                                <select value={hColor} onChange={e=>setHColor(e.target.value)} className={`w-full ${theme.input} p-2 rounded-lg`}>
-                                    {COLOR_OPTIONS.map((opt, i) => <option key={i} value={opt.value}>{opt.label}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2 mt-4">
-                            <button onClick={handleSaveHighlight} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700">{editHId ? 'Update' : 'Add'}</button>
-                            {editHId && <button onClick={() => {setEditHId(null); setHTitle(''); setHDesc(''); setHLink('');}} className="px-4 bg-slate-500 text-white rounded-lg">Cancel</button>}
-                        </div>
-                    </div>
-                </div>
-
-                {/* List */}
-                <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} h-[500px] overflow-y-auto`}>
-                    <h3 className={`font-bold ${theme.text} mb-4`}>Current Highlights ({highlights.length})</h3>
-                    <div className="space-y-3">
-                        {highlights.map(h => {
-                            const IconC = ICON_MAP[h.iconName] || Calendar;
-                            return (
-                                <div key={h.id} className="p-4 border rounded-xl relative group bg-slate-50 dark:bg-slate-800/50">
-                                    <div className="flex items-start gap-3">
-                                        <div className={`p-2 rounded-full ${h.color || "bg-slate-200"}`}><IconC size={16}/></div>
-                                        <div className="flex-1">
-                                            <h4 className={`font-bold text-sm ${theme.text}`}>{h.title}</h4>
-                                            <p className={`text-xs ${theme.textMuted} line-clamp-2`}>{h.desc}</p>
-                                            {h.link && <p className="text-xs text-indigo-500 mt-1 truncate">{h.link}</p>}
-                                        </div>
-                                    </div>
-                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => handleEditStart(h)} className="p-1.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"><Edit3 size={14}/></button>
-                                        <button onClick={() => handleDeleteHighlight(h.id)} className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {highlights.length === 0 && <p className={`text-center ${theme.textMuted} py-10`}>No highlights added yet.</p>}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-  };
-
-  const AcademicTab = () => {
+const AcademicTab = ({ theme, user, showToast }) => {
   const [uName, setUName] = useState("");
   const [linkSaving, setLinkSaving] = useState(false);
   const [fileSearch, setFileSearch] = useState('');
@@ -2953,6 +2720,241 @@ const AdminPanel = ({ theme, user, showToast }) => {
 };
 
 
+
+
+
+const AdminPanel = ({ theme, user, showToast }) => { 
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  
+
+  useEffect(() => {
+    if (!user) return;
+    const qF = query(collection(db, 'artifacts', appId, 'public', 'data', 'feedback'), orderBy('createdAt', 'desc'));
+    const unsubF = onSnapshot(qF, s => setFeedbacks(s.docs.map(d => ({id: d.id, ...d.data()}))));
+    const qA = query(collection(db, 'artifacts', appId, 'public', 'data', 'files'), orderBy('createdAt', 'desc'), limit(3));
+    const unsubA = onSnapshot(qA, s => {
+      const files = s.docs.map(d => ({type: 'file', msg: `Uploaded file: ${d.data().name}`, ...d.data()}));
+      setRecentActivity(prev => [...files, ...prev].slice(0, 10));
+    });
+    return () => { unsubF(); unsubA(); };
+  }, [user]);
+
+  const DashboardTab = () => (
+    <div className="grid md:grid-cols-2 gap-6">
+      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+        <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Activity className="text-indigo-500"/> Recent Activity</h3>
+        <div className="space-y-4">{recentActivity.length > 0 ? recentActivity.map((act, i) => (<div key={i} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 text-sm`}><p className={`${theme.text}`}>{String(act.msg)}</p><p className={`text-xs ${theme.textMuted}`}>{formatDate(act.createdAt)}</p></div>)) : <p className={theme.textMuted}>No recent system activity.</p>}</div>
+      </div>
+      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+        <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Inbox className="text-green-500"/> Inbox ({feedbacks.length})</h3>
+        <div className="h-64 overflow-y-auto space-y-2">{feedbacks.map(msg => (<div key={msg.id} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 relative group`}><button onClick={()=>deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id))} className="absolute top-2 right-2 text-slate-400 hover:text-red-500"><Trash2 size={16}/></button><p className={`text-xs font-bold ${theme.text}`}>{String(msg.name)} <span className="text-indigo-500">&lt;{String(msg.email)}&gt;</span></p><p className={`text-sm ${theme.textMuted} mt-1`}>{String(msg.msg)}</p></div>))}{feedbacks.length === 0 && <p className={theme.textMuted}>No messages.</p>}</div>
+      </div>
+    </div>
+  );
+
+  const HighlightsTab = () => {
+    const [highlights, setHighlights] = useState([]);
+    const [masterVisible, setMasterVisible] = useState(true);
+    const [hTitle, setHTitle] = useState('');
+    const [hDesc, setHDesc] = useState('');
+    const [hLink, setHLink] = useState('');
+    const [hIcon, setHIcon] = useState('Calendar');
+    const [hColor, setHColor] = useState(COLOR_OPTIONS[0].value);
+    const [editHId, setEditHId] = useState(null);
+
+    useEffect(() => {
+        const unsubConfig = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'highlightsConfig'), (docSnap) => {
+            if (docSnap.exists()) {
+                setMasterVisible(docSnap.data().isVisible !== false);
+            }
+        });
+
+        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), orderBy('createdAt', 'desc'));
+        const unsubList = onSnapshot(q, (snapshot) => {
+            setHighlights(snapshot.docs.map(d => ({id: d.id, ...d.data()})));
+        });
+
+        return () => { unsubConfig(); unsubList(); };
+    }, []);
+
+    const toggleMasterVisibility = async () => {
+        const newValue = !masterVisible;
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'highlightsConfig'), { isVisible: newValue });
+        showToast(newValue ? "Highlights Section Visible" : "Highlights Section Hidden", "info");
+    };
+
+    const handleSaveHighlight = async () => {
+        if (!hTitle || !hDesc) {
+            showToast("Title and Description are required", "error");
+            return;
+        }
+
+        const data = {
+            title: hTitle,
+            desc: hDesc,
+            link: hLink,
+            iconName: hIcon,
+            color: hColor,
+            createdAt: serverTimestamp()
+        };
+
+        if (editHId) {
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', editHId), data);
+            showToast("Highlight Updated", "success");
+        } else {
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), data);
+            showToast("Highlight Added", "success");
+        }
+
+        setHTitle(''); setHDesc(''); setHLink(''); setEditHId(null);
+    };
+
+    const handleLoadDefaults = async () => {
+      if (highlights.length > 0) {
+        if (!window.confirm("You already have highlights. Add duplicates?")) return;
+      }
+      
+      const defaults = [
+        {
+          title: "Mid-Term Datesheet Released",
+          desc: "The official datesheet for Fall 2025 mid-term exams is now available on VULMS. Plan your study schedule!",
+          iconName: "Calendar",
+          color: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-100",
+          link: "https://vulms.vu.edu.pk",
+          createdAt: serverTimestamp()
+        },
+        {
+          title: "CS101 Assignment Help",
+          desc: "New resource file uploaded in the Academic Hub specifically for Assignment 2. Check it out now.",
+          iconName: "Code",
+          color: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-100",
+          link: "",
+          createdAt: serverTimestamp()
+        },
+        {
+          title: "Gaming Tournament",
+          desc: "Registrations are open for the annual E-Sports Gala. Join the 'Gamers' forum thread to form your team!",
+          iconName: "Trophy",
+          color: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-100",
+          link: "",
+          createdAt: serverTimestamp()
+        },
+        {
+          title: "Scholarship Deadline",
+          desc: "Need-based scholarship applications extended by one week. Submit documents via LMS.",
+          iconName: "Star",
+          color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-100",
+          link: "",
+          createdAt: serverTimestamp()
+        }
+      ];
+
+      try {
+        const batchPromises = defaults.map(item => addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), item));
+        await Promise.all(batchPromises);
+        showToast("Default highlights added successfully!", "success");
+      } catch (error) {
+        console.error("Error adding defaults: ", error);
+        showToast("Failed to add defaults", "error");
+      }
+    };
+
+    const handleEditStart = (item) => {
+        setHTitle(item.title);
+        setHDesc(item.desc);
+        setHLink(item.link || '');
+        setHIcon(item.iconName || 'Calendar');
+        setHColor(item.color || COLOR_OPTIONS[0].value);
+        setEditHId(item.id);
+    };
+
+    const handleDeleteHighlight = async (id) => {
+        if (window.confirm("Delete this highlight?")) {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', id));
+            showToast("Highlight Deleted", "success");
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} flex flex-col md:flex-row justify-between items-center shadow-sm gap-4`}>
+                <div>
+                    <h3 className={`font-bold ${theme.text} text-lg`}>Highlights Section Visibility</h3>
+                    <p className={`text-sm ${theme.textMuted}`}>Control visibility or load default data.</p>
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={handleLoadDefaults} className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold transition-all bg-indigo-100 text-indigo-700 hover:bg-indigo-200`}>
+                        <RefreshCw size={20}/> Load Defaults
+                    </button>
+                    <button onClick={toggleMasterVisibility} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${masterVisible ? 'bg-green-600 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
+                        {masterVisible ? <Eye size={20}/> : <EyeOff size={20}/>} {masterVisible ? 'Active' : 'Hidden'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+                {/* Form */}
+                <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+                    <h3 className={`font-bold ${theme.text} mb-4`}>{editHId ? 'Edit Highlight' : 'Add New Highlight'}</h3>
+                    <div className="space-y-3">
+                        <input value={hTitle} onChange={e=>setHTitle(e.target.value)} placeholder="Title (e.g. Mid-Terms)" className={`w-full ${theme.input} p-3 rounded-lg`} />
+                        <textarea value={hDesc} onChange={e=>setHDesc(e.target.value)} placeholder="Description..." className={`w-full ${theme.input} p-3 rounded-lg h-24`} />
+                        <input value={hLink} onChange={e=>setHLink(e.target.value)} placeholder="Link URL (Optional)" className={`w-full ${theme.input} p-3 rounded-lg`} />
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Icon</label>
+                                <select value={hIcon} onChange={e=>setHIcon(e.target.value)} className={`w-full ${theme.input} p-2 rounded-lg`}>
+                                    {Object.keys(ICON_MAP).map(key => <option key={key} value={key}>{key}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Color Theme</label>
+                                <select value={hColor} onChange={e=>setHColor(e.target.value)} className={`w-full ${theme.input} p-2 rounded-lg`}>
+                                    {COLOR_OPTIONS.map((opt, i) => <option key={i} value={opt.value}>{opt.label}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2 mt-4">
+                            <button onClick={handleSaveHighlight} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700">{editHId ? 'Update' : 'Add'}</button>
+                            {editHId && <button onClick={() => {setEditHId(null); setHTitle(''); setHDesc(''); setHLink('');}} className="px-4 bg-slate-500 text-white rounded-lg">Cancel</button>}
+                        </div>
+                    </div>
+                </div>
+
+                {/* List */}
+                <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} h-[500px] overflow-y-auto`}>
+                    <h3 className={`font-bold ${theme.text} mb-4`}>Current Highlights ({highlights.length})</h3>
+                    <div className="space-y-3">
+                        {highlights.map(h => {
+                            const IconC = ICON_MAP[h.iconName] || Calendar;
+                            return (
+                                <div key={h.id} className="p-4 border rounded-xl relative group bg-slate-50 dark:bg-slate-800/50">
+                                    <div className="flex items-start gap-3">
+                                        <div className={`p-2 rounded-full ${h.color || "bg-slate-200"}`}><IconC size={16}/></div>
+                                        <div className="flex-1">
+                                            <h4 className={`font-bold text-sm ${theme.text}`}>{h.title}</h4>
+                                            <p className={`text-xs ${theme.textMuted} line-clamp-2`}>{h.desc}</p>
+                                            {h.link && <p className="text-xs text-indigo-500 mt-1 truncate">{h.link}</p>}
+                                        </div>
+                                    </div>
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => handleEditStart(h)} className="p-1.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"><Edit3 size={14}/></button>
+                                        <button onClick={() => handleDeleteHighlight(h.id)} className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {highlights.length === 0 && <p className={`text-center ${theme.textMuted} py-10`}>No highlights added yet.</p>}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+  };
 
 
   const BlogTab = () => {
@@ -3594,7 +3596,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
       <div className="animate-slide-up">
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'highlights' && <HighlightsTab />}
-        {activeTab === 'academic' && <AcademicTab />}
+        {activeTab === 'academic' && <AcademicTab theme={theme} user={user} showToast={showToast} />}
         {activeTab === 'blog' && <BlogTab />}
        {activeTab === 'forum' && (
   <ForumTab theme={theme} showToast={showToast} />
