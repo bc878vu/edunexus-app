@@ -2703,7 +2703,7 @@ const AdminPanel = ({ theme, user, showToast }) => {
   const saveFileEdit = async (file) => {
     const name = editName.trim();
     const folder = editSubject.trim();
-    if (!name || !folder || name.length > 150 || folder.length > 60) {
+    if (!name || !folder || name.length > 150 || folder.length > 120) {
       showToast('Enter a valid name and subject folder.', 'error');
       return;
     }
@@ -2864,7 +2864,15 @@ const AdminPanel = ({ theme, user, showToast }) => {
               subjects={subjects}
               initialSubject={selSubject}
               initiallyOpen={true}
-              onUploaded={(code) => { setSelSubject(code); showToast('File uploaded and published to ' + code + '.', 'success'); }}
+              onUploaded={(code) => {
+                if (!subjects.includes(code) && code !== 'General') {
+                  const nextFolders = [...subjects, code];
+                  setSubjects(nextFolders);
+                  saveFoldersToDb(nextFolders).catch(() => showToast('File uploaded, but its new folder could not be added to the folder menu.', 'error'));
+                }
+                setSelSubject(code);
+                showToast('File uploaded and published to ' + code + '.', 'success');
+              }}
             />
           </React.Suspense>
 
@@ -2928,7 +2936,7 @@ const AdminPanel = ({ theme, user, showToast }) => {
               </div>
               {editing && <div className="edx-admin-file-edit">
                 <label>Name <input maxLength={150} value={editName} onChange={(e) => setEditName(e.target.value)} className={`${theme.input} p-3 rounded-xl`} /></label>
-                <label>Folder <input maxLength={60} value={editSubject} onChange={(e) => setEditSubject(e.target.value)} list="edx-admin-existing-folders" className={`${theme.input} p-3 rounded-xl`} /></label>
+                <label>Folder <input maxLength={120} value={editSubject} onChange={(e) => setEditSubject(e.target.value)} list="edx-admin-existing-folders" className={`${theme.input} p-3 rounded-xl`} /></label>
                 <button type="button" onClick={() => saveFileEdit(file)}>Save changes</button>
               </div>}
             </article>;
