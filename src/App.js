@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 // Initialize shared Firebase/Firestore before legacy modules request the instance.
 import './firebase-client';
-const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 import {
   Home,
   MessageSquare,
@@ -93,6 +92,9 @@ import {
   uploadBytes,
   getDownloadURL,
 } from "firebase/storage";
+
+// This declaration must follow all static imports (CRA enforces import/first).
+const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 
 // --- Configuration (YOUR KEYS) ---
 const firebaseConfig = {
