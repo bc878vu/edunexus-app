@@ -4728,6 +4728,15 @@ useEffect(() => {
     '',
     initialUrl
   );
+
+  // Keep the main page in sync when the browser returns from a subject link.
+  const syncFromHistory = () => {
+    const requested = new URLSearchParams(window.location.search).get('page') || 'home';
+    setPage(PAGES.includes(requested) ? requested : 'home');
+    setIsMenuOpen(false);
+  };
+  window.addEventListener('popstate', syncFromHistory);
+  return () => window.removeEventListener('popstate', syncFromHistory);
 }, []);
 
 
