@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
 import { db } from "./firebase-client";
-import ExamPaperCommunity from "./ExamPaperCommunity";
+
 import "./exam-prep-hub.css";
+const ExamPaperCommunity = React.lazy(() => import("./ExamPaperCommunity"));
 
 const ROOT = ["artifacts", "edunexus-live", "public", "data"];
 const col = (name) => collection(db, ...ROOT, name);
@@ -195,7 +196,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs" }) {
       {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(isAdmin(user) ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}>{label}</button>)}
     </nav>
     {tab === "mcqs" && <McqBank user={user} subject={subject} term={term} />}
-    {tab === "reviews" && <ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} />}
+    {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} />}
     {tab === "admin" && <AdminTools user={user} />}
     <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Student reviews are public, student-contributed educational guidance, not official or live examination material.</p>
