@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 // Initialize shared Firebase/Firestore before legacy modules request the instance.
 import './firebase-client';
+import './admin-academic-upload.css';
 import {
   Home,
   MessageSquare,
@@ -96,6 +97,7 @@ import {
 // This declaration must follow all static imports (CRA enforces import/first).
 const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
+const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 
 // --- Configuration (YOUR KEYS) ---
 const firebaseConfig = {
@@ -2603,7 +2605,12 @@ const AdminPanel = ({ theme, user, showToast }) => {
 
   const AcademicTab = () => {
   const [uName, setUName] = useState("");
-  const [uFile, setUFile] = useState(null);
+  const [linkSaving, setLinkSaving] = useState(false);
+  const [fileSearch, setFileSearch] = useState('');
+  const [fileVisible, setFileVisible] = useState(20);
+  const [editingFileId, setEditingFileId] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editSubject, setEditSubject] = useState('');
   const [uDriveLink, setUDriveLink] = useState("");
   const [newFolder, setNewFolder] = useState("");
   const [subjects, setSubjects] = useState(DEFAULT_FOLDERS);
@@ -2647,117 +2654,78 @@ const AdminPanel = ({ theme, user, showToast }) => {
   };
 
         // ✅ Cloudinary-based upload (raw files + drive links)
+  // Link-only resources remain supported. Device files now use the shared
+  // resumable Firebase uploader below (not the former 10 MiB Cloudinary request).
   const handleUploadFile = async () => {
-    console.log("UPLOAD CLICKED", { selSubject, uFile, uDriveLink, uName });
-
-    // folder + file ya link required
-    if (!selSubject || (!uFile && !uDriveLink.trim())) {
-      showToast(
-        "Please select a folder and either choose a file or paste a link",
-        "error"
-      );
+    if (linkSaving) return;
+    const value = uDriveLink.trim();
+    let parsed;
+    try {
+      parsed = new URL(value);
+      if (!['https:', 'http:'].includes(parsed.protocol)) throw new Error('Unsupported link');
+    } catch (_) {
+      showToast('Enter a valid HTTPS/HTTP Google Drive or resource link.', 'error');
       return;
     }
-
+    if (!selSubject.trim()) {
+      showToast('Select a subject folder first.', 'error');
+      return;
+    }
+    setLinkSaving(true);
     try {
-      let fileUrl = uDriveLink.trim();
-      let finalName = uName;
-      let ext = "";
-      let isLinkOnly = false;
-
-      // 1) Agar admin ne actual file select ki hai → Cloudinary pe upload
-      if (uFile) {
-        console.log("Using Cloudinary:", CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET);
-
-        if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-          alert("Cloudinary env variables missing");
-          throw new Error("Cloudinary env missing");
-        }
-
-        // extension nikaalo (pdf, docx, etc.)
-        ext = uFile.name.split(".").pop().toLowerCase();
-
-        const formData = new FormData();
-          formData.append("file", uFile);
-          formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
-          const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`;
-
-          const res = await fetch(uploadUrl, {
-            method: "POST",
-            body: formData,
-          });
-
-
-        const data = await res.json();
-        console.log("Cloudinary response:", data);
-
-        if (!res.ok || data.error) {
-          throw new Error(
-            data.error?.message || "Cloudinary upload failed"
-          );
-        }
-
-        fileUrl = data.secure_url;
-        if (!fileUrl) {
-          throw new Error("No URL returned from Cloudinary");
-        }
-
-        if (!finalName)
-          finalName = data.original_filename || uFile.name;
-
-        if (!ext)
-          ext =
-            (data.format || "").toLowerCase() ||
-            uFile.name.split(".").pop().toLowerCase();
-
-        isLinkOnly = false; // ye actual file upload hai
-      } else {
-        // 2) Sirf Drive ya koi bhi external link
-        isLinkOnly = true;
-        if (!finalName) finalName = "Drive link";
-      }
-
-      if (!fileUrl) {
-        showToast("Please paste a valid link", "error");
-        return;
-      }
-
-      const filesCol = collection(
-        db,
-        "artifacts",
-        appId,
-        "public",
-        "data",
-        "files"
-      );
-
-      await addDoc(filesCol, {
-        name: finalName,
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'files'), {
+        name: uName.trim().slice(0, 150) || 'Study resource link',
         subject: selSubject,
-        url: fileUrl,
-        ext,
-        isLinkOnly,
-        uploadedBy: "Admin",
-        createdAt: serverTimestamp(),
+        url: parsed.href,
+        ext: 'LINK',
+        isLinkOnly: true,
+        uploadedBy: 'Admin',
+        createdAt: serverTimestamp()
       });
-
-      showToast("File saved successfully", "success");
-
-      setUName("");
-      setUFile(null);
-      setUDriveLink("");
-
-      console.log("UPLOAD DONE");
+      setUName('');
+      setUDriveLink('');
+      showToast('Resource link added to the Academic Hub.', 'success');
     } catch (error) {
-      console.error("Upload error:", error);
-      showToast("Upload failed. Please try again.", "error");
-      alert("Upload failed: " + (error.message || error));
+      showToast('Could not save the link: ' + (error.message || 'Check Firestore permissions.'), 'error');
+    } finally {
+      setLinkSaving(false);
     }
   };
 
-
-
+  const visibleFiles = files.filter((file) =>
+    [file.name, file.subject, file.description, file.ext].some((field) =>
+      String(field || '').toLowerCase().includes(fileSearch.trim().toLowerCase())));
+  const startFileEdit = (file) => {
+    setEditingFileId(file.id);
+    setEditName(String(file.name || '').slice(0, 150));
+    setEditSubject(String(file.subject || 'General').slice(0, 120));
+  };
+  const saveFileEdit = async (file) => {
+    const name = editName.trim();
+    const folder = editSubject.trim();
+    if (!name || !folder || name.length > 150 || folder.length > 120) {
+      showToast('Enter a valid name and subject folder.', 'error');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id), {
+        name, subject: folder
+      });
+      setEditingFileId('');
+      showToast('Resource details updated.', 'success');
+    } catch (_) {
+      showToast('Could not update this resource.', 'error');
+    }
+  };
+  const removeFileRecord = async (file) => {
+    if (!window.confirm('Remove "' + String(file.name || 'resource') + '" from the Academic Hub? The original file on its external host will not be deleted.')) return;
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id));
+      showToast('Resource listing removed. Original file retained.', 'success');
+    } catch (_) {
+      showToast('Could not remove this resource listing.', 'error');
+    }
+  };
 
   const handleAddFolder = async () => {
     if (!newFolder.trim()) return;
@@ -2888,95 +2856,98 @@ const AdminPanel = ({ theme, user, showToast }) => {
           )}
         </div>
 
-               {/* Upload form */}
-        <div className="flex flex-col md:flex-row gap-4 items-center">
-          <select
-            value={selSubject}
-            onChange={(e) => setSelSubject(e.target.value)}
-            className={`${theme.input} p-2 rounded text-slate-800 dark:text-slate-200`}
-          >
-            <option>General</option>
-            {subjects.map((s) => (
-              <option key={s}>{String(s)}</option>
-            ))}
-          </select>
-
-          <input
-            value={uName}
-            onChange={(e) => setUName(e.target.value)}
-            placeholder="File Name"
-            className={`${theme.input} p-2 rounded flex-1`}
-          />
-
-          <div className="relative">
-            <input
-              type="file"
-              onChange={(e) => setUFile(e.target.files[0])}
-              className="hidden"
-              id="adminFile"
-            />
-            <label
-              htmlFor="adminFile"
-              className="bg-slate-700 text-white px-4 py-2 rounded cursor-pointer block text-sm"
-            >
-              {uFile ? "File Selected" : "Choose File"}
-            </label>
-          </div>
-
-          <input
-            value={uDriveLink}
-            onChange={(e) => setUDriveLink(e.target.value)}
-            placeholder="OR Google Drive / Any Link"
-            className={`${theme.input} p-2 rounded flex-1`}
-          />
-
-          <button
-            type="button"               // 👈 IMPORTANT: submit nahi, sirf normal button
-            onClick={handleUploadFile}  // 👈 yahan function bind hai
-            className="bg-green-600 text-white px-4 py-2 rounded font-bold"
-          >
-            Upload
-          </button>
-        </div>
-      </div>
-
-      {/* Files list */}
-      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-        <h3 className={`font-bold ${theme.text} mb-4`}>Manage Files</h3>
-        <div className="h-64 overflow-y-auto space-y-2">
-          {files.map((f) => (
-            <div
-              key={f.id}
-              className="flex justify-between items-center p-3 border rounded"
-            >
-              <div>
-                <p className={`font-bold ${theme.text}`}>{String(f.name)}</p>
-                <p className={`text-xs ${theme.textMuted}`}>
-                  {String(f.subject)}
-                </p>
-              </div>
-              <button
-                onClick={() =>
-                  deleteDoc(
-                    doc(
-                      db,
-                      "artifacts",
-                      appId,
-                      "public",
-                      "data",
-                      "files",
-                      f.id
-                    )
-                  )
+        {/* Unified resumable Firebase upload, the same path as Academic Hub. */}
+        <div className="edx-admin-upload-group">
+          <React.Suspense fallback={<div className="p-4" role="status">Loading file uploader…</div>}>
+            <AcademicAdminUploader
+              user={user}
+              subjects={subjects}
+              initialSubject={selSubject}
+              initiallyOpen={true}
+              onUploaded={(code) => {
+                if (!subjects.includes(code) && code !== 'General') {
+                  const nextFolders = [...subjects, code];
+                  setSubjects(nextFolders);
+                  saveFoldersToDb(nextFolders).catch(() => showToast('File uploaded, but its new folder could not be added to the folder menu.', 'error'));
                 }
-                className="text-red-500 hover:bg-red-100 p-2 rounded"
-              >
-                <Trash2 size={16} />
+                setSelSubject(code);
+                showToast('File uploaded and published to ' + code + '.', 'success');
+              }}
+            />
+          </React.Suspense>
+
+          <div className="edx-admin-link-box">
+            <h4 className={`font-bold ${theme.text}`}>Add an external resource link</h4>
+            <p className={`text-sm ${theme.textMuted}`}>Keep using Google Drive, Cloudinary and other HTTPS/HTTP resource links. Existing links are unchanged.</p>
+            <div className="edx-admin-link-fields">
+              <label className={theme.text}>
+                Subject folder
+                <select value={selSubject} onChange={(e) => setSelSubject(e.target.value)} className={`${theme.input} p-3 rounded-xl w-full`}>
+                  <option value="General">General</option>
+                  {subjects.map((item) => <option key={item} value={item}>{String(item)}</option>)}
+                </select>
+              </label>
+              <label className={theme.text}>
+                Link title
+                <input value={uName} onChange={(e) => setUName(e.target.value)} maxLength={150} placeholder="e.g. CS101 Important Handouts" className={`${theme.input} p-3 rounded-xl w-full`} />
+              </label>
+              <label className={theme.text}>
+                Google Drive or resource URL
+                <input type="url" value={uDriveLink} onChange={(e) => setUDriveLink(e.target.value)} placeholder="https://drive.google.com/…" className={`${theme.input} p-3 rounded-xl w-full`} />
+              </label>
+              <button type="button" onClick={handleUploadFile} disabled={linkSaving || !uDriveLink.trim()} className="edx-admin-link-submit">
+                {linkSaving ? 'Saving link…' : 'Save resource link'}
               </button>
             </div>
-          ))}
+          </div>
         </div>
       </div>
+
+      {/* Existing file records stay in the same collection; manage metadata only. */}
+      <section className={`${theme.card} p-5 md:p-6 rounded-2xl border ${theme.border} edx-admin-file-manager`}>
+        <div className="edx-admin-file-toolbar">
+          <div>
+            <h3 className={`font-bold ${theme.text} text-lg`}>Manage study files</h3>
+            <p className={`text-sm ${theme.textMuted}`}>{files.length} resources in the existing library. Search, open/download, rename, reassign or remove a listing.</p>
+          </div>
+          <label className="edx-admin-file-search">
+            <Search size={18} aria-hidden="true"/>
+            <span className="sr-only">Search study files</span>
+            <input type="search" value={fileSearch} onChange={(e) => {setFileSearch(e.target.value); setFileVisible(20);}}
+              placeholder="Search name or subject" aria-label="Search study files" />
+          </label>
+        </div>
+        <div className="edx-admin-file-list">
+          {visibleFiles.slice(0, fileVisible).map((file) => {
+            const safeLink = (() => {try { const u = new URL(String(file.url || '')); return ['https:', 'http:'].includes(u.protocol) ? u.href : ''; } catch (_) { return ''; }})();
+            const editing = editingFileId === file.id;
+            return <article className="edx-admin-file-card" key={file.id}>
+              <div className="edx-admin-file-details">
+                <span className="edx-admin-file-badge"><FileText size={16}/> {String(file.ext || 'FILE').toUpperCase().slice(0, 12)}</span>
+                <div className="edx-admin-file-label">
+                  <strong className={theme.text}>{String(file.name || 'Untitled resource')}</strong>
+                  <span className={theme.textMuted}>{String(file.subject || 'General')} · {file.sourceType === 'firebase-storage' ? 'Direct upload' : file.isLinkOnly ? 'External link' : 'Legacy file'}</span>
+                </div>
+                <div className="edx-admin-file-actions">
+                  {safeLink && <a href={safeLink} target="_blank" rel="noopener noreferrer" title="Open or download resource"><Download size={16}/> Open / Download</a>}
+                  <button type="button" onClick={() => editing ? setEditingFileId('') : startFileEdit(file)}><Edit3 size={16}/> {editing ? 'Cancel edit' : 'Edit details'}</button>
+                  <button type="button" className="edx-admin-file-remove" onClick={() => removeFileRecord(file)}><Trash2 size={16}/> Remove</button>
+                </div>
+              </div>
+              {editing && <div className="edx-admin-file-edit">
+                <label>Name <input maxLength={150} value={editName} onChange={(e) => setEditName(e.target.value)} className={`${theme.input} p-3 rounded-xl`} /></label>
+                <label>Folder <input maxLength={120} value={editSubject} onChange={(e) => setEditSubject(e.target.value)} list="edx-admin-existing-folders" className={`${theme.input} p-3 rounded-xl`} /></label>
+                <button type="button" onClick={() => saveFileEdit(file)}>Save changes</button>
+              </div>}
+            </article>;
+          })}
+          <datalist id="edx-admin-existing-folders">{subjects.map((item) => <option key={item} value={item}/>)}</datalist>
+          {!visibleFiles.length && <p className={theme.textMuted}>No matching files. Try a different search or upload a resource above.</p>}
+        </div>
+        {visibleFiles.length > fileVisible && <button type="button" className="edx-admin-load-more" onClick={() => setFileVisible((value) => value + 20)}>
+          Load more files ({visibleFiles.length - fileVisible} remaining)
+        </button>}
+      </section>
     </div>
   );
 };
