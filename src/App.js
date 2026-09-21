@@ -98,6 +98,7 @@ import {
 const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
+const EduBotAssistant = React.lazy(() => import('./EduBotAssistant'));
 
 // --- Configuration (YOUR KEYS) ---
 const firebaseConfig = {
@@ -2195,180 +2196,6 @@ const HomePage = ({setPage, theme, showToast, user}) => {
 };
 
 // 14. Floating AI Chat (Updated: Draggable & Resizable)
-const FloatingAIChat = ({ theme }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([{ role: 'ai', text: "Hello! I'm EduBot. Ask me anything!" }]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  
-  // Draggable & Resizable State
-  const [position, setPosition] = useState({ x: 0, y: 0 }); // Initialize at 0,0
-  const [size, setSize] = useState({ width: 320, height: 450 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  
-  const chatRef = useRef(null);
-  const scrollRef = useRef(null);
-
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, isOpen]);
-
-  // Safety check on open: Reposition if off-screen or uninitialized
-  useEffect(() => {
-      if (isOpen) {
-          const screenW = window.innerWidth;
-          const screenH = window.innerHeight;
-          
-          setPosition(prev => {
-             let nextX = prev.x;
-             let nextY = prev.y;
-
-             // If not yet set (0,0) or completely off screen, reset to bottom-right default
-             if ((prev.x === 0 && prev.y === 0) || nextX > screenW - 50 || nextY > screenH - 50) {
-                 nextX = Math.max(20, screenW - size.width - 20);
-                 nextY = Math.max(20, screenH - size.height - 100); // Above button
-             }
-             
-             // Ensure inside bounds if window resized
-             if (nextX + size.width > screenW) nextX = Math.max(0, screenW - size.width);
-             if (nextY + size.height > screenH) nextY = Math.max(0, screenH - size.height);
-             
-             return { x: nextX, y: nextY };
-          });
-      }
-  }, [isOpen]);
-
-  // Drag Handlers
-  const handleMouseDown = (e) => {
-    if (e.target.closest('.resize-handle') || e.target.closest('button')) return;
-    setIsDragging(true);
-    const rect = chatRef.current.getBoundingClientRect();
-    setDragOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-
-  // Resize Handlers
-  const handleResizeStart = (e) => {
-    e.stopPropagation();
-    setIsResizing(true);
-  };
-
-  // Global Mouse Events for Drag/Resize
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (isDragging) {
-        setPosition({
-          x: e.clientX - dragOffset.x,
-          y: e.clientY - dragOffset.y
-        });
-      } else if (isResizing) {
-        if (!chatRef.current) return;
-        const rect = chatRef.current.getBoundingClientRect();
-        setSize({
-          width: Math.max(280, e.clientX - rect.left),
-          height: Math.max(350, e.clientY - rect.top)
-        });
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      setIsResizing(false);
-    };
-
-    if (isDragging || isResizing) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, isResizing, dragOffset]);
-
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    const userMsg = input;
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-    setInput(''); setLoading(true);
-    try {
-      const prompt = `You are EduBot, an academic assistant for university students.
-
-Rules:
-- Answer in maximum 5 – 6 short lines.
-- Reply only to what the student asks, no extra info.
-- No long  conclusions.
-
-Student question: ${userMsg}`;
-      const reply = await callGemini(prompt, true);
-      setMessages(prev => [...prev, { role: 'ai', text: reply }]);
-    } catch(e) {
-      setMessages(prev => [...prev, { role: 'ai', text: "I apologize, but I encountered a temporary error. Please try again." }]);
-    }
-    setLoading(false);
-  };
-
-  return (
-    <>
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-        <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="bg-green-500 hover:bg-green-600 text-white p-3 rounded-full shadow-xl transition-transform hover:scale-110 flex items-center justify-center mb-1"><MessageCircle size={28} /></a>
-        
-        {/* Toggle Button */}
-        <button onClick={() => setIsOpen(!isOpen)} className="bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center">
-            {isOpen ? <X size={28} /> : <Bot size={28} />}
-        </button>
-      </div>
-
-      {isOpen && (
-        <div 
-            ref={chatRef}
-            style={{ 
-                left: position.x, 
-                top: position.y, 
-                width: size.width, 
-                height: size.height 
-            }}
-            className={`fixed z-[60] flex flex-col rounded-2xl shadow-2xl overflow-hidden border ${theme.border} ${theme.card}`}
-        >
-          {/* Header (Draggable) */}
-          <div 
-            onMouseDown={handleMouseDown}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 p-3 text-white font-bold flex justify-between items-center shadow-md cursor-move select-none"
-          >
-            <span className="flex items-center gap-2 pointer-events-none"><Bot size={18}/> EduBot AI</span>
-            <div className="flex items-center gap-2">
-                <button onClick={() => setIsOpen(false)} className="hover:bg-white/20 p-1 rounded-full"><X size={18}/></button>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-opacity-50" ref={scrollRef}>
-            {messages.map((m, i) => (
-                <div key={i} className={`p-3 rounded-xl text-sm leading-relaxed max-w-[85%] shadow-sm ${m.role === 'user' ? 'bg-indigo-600 text-white ml-auto rounded-tr-none' : `${theme.bg} ${theme.text} mr-auto rounded-tl-none border ${theme.border} font-normal`}`}>
-                    {m.text}
-                </div>
-            ))}
-            {loading && <div className="text-xs text-indigo-500 animate-pulse ml-2">EduBot is thinking...</div>}
-          </div>
-
-          {/* Input */}
-          <div className={`p-3 border-t ${theme.border} flex gap-2 ${theme.bg}`}>
-            <input value={input} onChange={e=>setInput(e.target.value)} onKeyPress={e=>e.key==='Enter'&&handleSend()} className={`flex-1 ${theme.chatInput} rounded-lg px-3 py-2 text-sm outline-none border border-transparent focus:border-indigo-500 transition-colors`} placeholder="Type here..." />
-            <button onClick={handleSend} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700"><Send size={16}/></button>
-          </div>
-
-          {/* Resize Handle */}
-          <div 
-            onMouseDown={handleResizeStart}
-            className="resize-handle"
-          >
-             <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400 absolute bottom-1 right-1 opacity-50"><path fill="currentColor" d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22Z" /></svg>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
-
 // 15. ADMIN PANEL
 const AcademicTab = ({ theme, user, showToast }) => {
   const [uName, setUName] = useState("");
@@ -4881,7 +4708,7 @@ useEffect(() => {
         )}
       </main>
 
-      <FloatingAIChat theme={theme} />
+      <React.Suspense fallback={null}><EduBotAssistant /></React.Suspense>
 
            <footer
   className={`mt-auto border-t ${theme.border} ${

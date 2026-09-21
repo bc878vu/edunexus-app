@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies as Vercel does
         run: npm install --no-audit --no-fund
       - name: Verify branded reviews and signed storage uploads
-        run: npm test -- --watch=false --runInBand examReviewFormat.test.js signedObjectUpload.test.js examMcqImport.test.js examPractice.test.js
+        run: npm test -- --watch=false --runInBand examReviewFormat.test.js signedObjectUpload.test.js examMcqImport.test.js examPractice.test.js edubotKnowledge.test.js
         env:
           CI: 'true'
       # Match the Vercel build environment: CRA reports pre-existing lint warnings
