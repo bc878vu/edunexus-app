@@ -4719,7 +4719,9 @@ useEffect(() => {
   const initialUrl =
     initialPage === 'home'
       ? basePath
-      : `${basePath}?page=${initialPage}`;
+      : initialPage === 'academic' && params.get('subject')
+        ? `${basePath}?page=academic&subject=${encodeURIComponent(params.get('subject'))}`
+        : `${basePath}?page=${initialPage}`;
 
   window.history.replaceState(
     { page: initialPage },
@@ -4731,18 +4733,14 @@ useEffect(() => {
 
   // ✅ auth wala effect
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (error) {
-        console.error("Auth error:", error);
-      }
-    };
-    initAuth();
-    return onAuthStateChanged(auth, u => {
+    // Wait for persisted Firebase credentials before creating a guest session.
+    // Unconditional anonymous sign-in would overwrite a verified administrator.
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setIsAdminMode(u?.email === ADMIN_EMAIL && u?.emailVerified === true);
+      if (!u) signInAnonymously(auth).catch((error) => console.error('Auth error:', error));
     });
+    return unsubscribe;
   }, []);
 
   // ✅ GA4 page view tracking – har page change par event
