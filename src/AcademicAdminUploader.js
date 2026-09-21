@@ -20,7 +20,8 @@ const TYPES = {
 const extension = (name) => String(name || '').match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase() || '';
 const normalizedName = (name) => String(name || 'resource')
   .replace(/[\\/:*?"<>|]/g, '_')
-  .split('').filter((c) => c.charCodeAt(0) >= 32).join('').slice(0, 110);
+  .split('').map((c) => c.charCodeAt(0) >= 32 && c.charCodeAt(0) <= 126 ? c : '_')
+  .join('').slice(0, 110);
 const readableSize = (bytes) => (bytes / (1024 * 1024)).toFixed(2) + ' MB';
 const validate = (file) => {
   if (!file) return 'Select a file to upload.';
@@ -60,7 +61,7 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
     const message = validate(next);
     if (message) { setFile(null); setError(message); return; }
     setFile(next);
-    setTitle((old) => old || next.name.replace(/\.[^.]+$/, '').slice(0, 120));
+    setTitle(next.name.replace(/\.[^.]+$/, '').slice(0, 120));
     setProgress(0);
     setPhase('idle');
   };
@@ -113,7 +114,7 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
         if (fileInput.current) fileInput.current.value = '';
         setNotice('Upload complete. Your file is now listed in the Academic Hub and available to download.');
       }
-      if (onUploaded) onUploaded(code);
+      if (mounted.current && onUploaded) onUploaded(code);
     } catch (err) {
       // Only clean up THIS newly-created object if its database record was not saved.
       // Existing files and previous uploads are never touched.
