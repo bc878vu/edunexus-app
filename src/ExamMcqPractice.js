@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { AlertTriangle, BookOpen, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { db } from './firebase-client';
 import { categoryOf } from './examMcqImport';
@@ -112,8 +112,9 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   const [sourceChanges, setSourceChanges] = useState({});
   const sessionRef = useRef(0);
   const writeTimer = useRef(null);
+  const pendingCloud = useRef(null);
   const saveRevision = useRef(0);
-  const recordKey = progressKey(subject, term);
+  const recordKey = progressKey(subject, term, user?.uid || 'guest');
   const eligible = validSubject(subject);
   const actualQuestions = useMemo(() => questions.map(q => sourceChanges[q.id] || q), [questions, sourceChanges]);
   const index = Math.max(0, actualQuestions.findIndex(q => q.id === currentId));
@@ -131,6 +132,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   useEffect(() => {
     const session = ++sessionRef.current;
     if (writeTimer.current) clearTimeout(writeTimer.current);
+    if (pendingCloud.current) { const queued = pendingCloud.current; pendingCloud.current = null; void setDoc(queued.ref, queued.payload).catch(() => {}); }
     setQuestions([]); setAnswers({}); setCurrentId(null); setFinished(false); setRestoring(true);
     setSourceChanges({}); setSearch(''); setLoadError(''); setSaveStatus(''); setAi({ id: null, busy: false, answer: '', error: '' });
     if (!eligible) { setLoading(false); setRestoring(false); setLoadError('Enter a valid subject code.'); return; }
@@ -141,7 +143,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
           // Keep the existing single-subject query: no new composite index/rules.
           // A higher limit avoids silently omitting later categories for a subject.
           // The count limit remains explicit to avoid unbounded Firestore reads.
-          (await import('firebase/firestore')).collection(db, ...MCQS), where('subject', '==', subject), limit(QUESTION_LIMIT)
+          collection(db, ...MCQS), where('subject', '==', subject), limit(QUESTION_LIMIT)
         ));
         if (sessionRef.current !== session) return;
         const ordered = orderedQuestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })), term);
@@ -168,7 +170,11 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       }
     };
     void attempt();
-    return () => { if (writeTimer.current) clearTimeout(writeTimer.current); sessionRef.current++; };
+    return () => {
+      if (writeTimer.current) clearTimeout(writeTimer.current);
+      if (pendingCloud.current) { const queued = pendingCloud.current; pendingCloud.current = null; void setDoc(queued.ref, queued.payload).catch(() => {}); }
+      sessionRef.current++;
+    };
   }, [subject, term, refresh, user?.uid, recordKey, eligible]);
 
   const save = useCallback((nextAnswers, nextId, nextFinished) => {
@@ -181,17 +187,21 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const revision = ++saveRevision.current;
     const session = sessionRef.current;
     if (user?.uid) {
+      pendingCloud.current = { ref: doc(db, 'artifacts', 'edunexus-live', 'users', user.uid,
+        'examProgress', subject + '_' + term), payload };
       writeTimer.current = setTimeout(async () => {
+        const queued = pendingCloud.current;
+        pendingCloud.current = null;
+        if (!queued) return;
         try {
-          await setDoc(doc(db, 'artifacts', 'edunexus-live', 'users', user.uid,
-            'examProgress', subject + '_' + term), payload);
+          await setDoc(queued.ref, queued.payload);
           if (sessionRef.current === session && saveRevision.current === revision) setSaveStatus('Saved to your private Firebase session and this browser.');
         } catch (_) {
           if (sessionRef.current === session && saveRevision.current === revision)
             setSaveStatus(localSaved ? 'Saved in this browser; cloud sync unavailable. Your device progress is safe.' : 'Could not save progress. Check browser storage and Firebase access.');
         }
       }, 650);
-    } else setSaveStatus(localSaved ? 'Saved on this device. Sign in to sync between devices.' : 'Could not save progress. Enable browser storage.');
+    } else { pendingCloud.current = null; setSaveStatus(localSaved ? 'Saved on this device. Sign in to sync between devices.' : 'Could not save progress. Enable browser storage.'); }
   }, [restoring, actualQuestions.length, recordKey, subject, term, user?.uid]);
 
   const select = (id, option) => {
@@ -199,10 +209,11 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const next = { ...answers, [id]: option };
     setAnswers(next); save(next, id, false);
   };
-  const goTo = (target) => {
+  const goTo = (target, resume = false) => {
     if (!target) return;
+    if (resume) setFinished(false);
     setCurrentId(target.id); setAi({ id: null, busy: false, answer: '', error: '' });
-    save(answers, target.id, finished);
+    save(answers, target.id, resume ? false : finished);
   };
   const finish = () => {
     setFinished(true); save(answers, currentId, true);
@@ -257,7 +268,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
         <span className="edx-exam-pill">Verified score: {stats.score}/{stats.checked}</span>
         {!finished && actualQuestions.length > 0 && <button type="button" className="edx-exam-primary" onClick={finish}>Finish now</button>}</div>
       {search.trim() && <div className="edx-practice-results"><strong>{matches.length} matching questions{matches.length === 80 ? ' (first 80)' : ''}</strong>
-        <div>{matches.map(({ q, i }) => <button type="button" key={q.id} onClick={() => { setSearch(''); setFinished(false); goTo(q); }}>
+        <div>{matches.map(({ q, i }) => <button type="button" key={q.id} onClick={() => { setSearch(''); goTo(q, true); }}>
           <span>Q{i+1}</span> {q.question.slice(0, 145)} {answers[q.id] !== undefined ? ' ✓' : ''}
         </button>)}</div>
         {!matches.length && <p>No questions match your search in {subject} · {CATEGORY_NAMES[term]}.</p>}
