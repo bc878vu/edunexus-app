@@ -5,7 +5,7 @@ import { CheckCircle2, CloudUpload, FileText, ShieldCheck, X } from 'lucide-reac
 import { db, storage } from './firebase-client';
 
 const FILES = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'files');
-const MAX_BYTES = 14 * 1024 * 1024; // Below the existing 15 MB Storage security-rule cap.
+const MAX_BYTES = 100 * 1024 * 1024; // Must match the dedicated academic-hub Storage rule.
 const ALLOWED = new Set(['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'webp']);
 const TYPES = {
   pdf: 'application/pdf', doc: 'application/msword',
@@ -27,12 +27,12 @@ const validate = (file) => {
   if (!file) return 'Select a file to upload.';
   if (!ALLOWED.has(extension(file.name))) return 'Unsupported format. Choose a PDF, Office document, text file or JPG/PNG/WEBP image.';
   if (file.size === 0) return 'This file is empty.';
-  if (file.size >= MAX_BYTES) return 'File is too large. The maximum supported size is under 14 MB.';
+  if (file.size > MAX_BYTES) return 'This file exceeds the 100 MiB upload limit. For larger material, use a shareable Google Drive link.';
   return '';
 };
 
-export default function AcademicAdminUploader({ user, subjects, initialSubject = '', onUploaded }) {
-  const [open, setOpen] = useState(false);
+export default function AcademicAdminUploader({ user, subjects, initialSubject = '', onUploaded, initiallyOpen = false }) {
+  const [open, setOpen] = useState(initiallyOpen);
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState(initialSubject || 'General');
@@ -70,7 +70,7 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
     if (busy) return;
     setError(''); setNotice('');
     const problem = validate(file);
-    const code = subject.trim().toUpperCase().replace(/\s+/g, ' ');
+    const code = subject.trim().replace(/\s+/g, ' ');
     if (problem || !code || code.length > 40 || !title.trim() || title.trim().length > 150) {
       setError(problem || 'Provide a subject code and a resource title of 1–150 characters.');
       return;
@@ -124,7 +124,7 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
       if (mounted.current) {
         setPhase('idle');
         setError(err?.code === 'storage/unauthorized' || err?.code === 'permission-denied'
-          ? 'Upload was denied. Verify the administrator account and deployed Firebase Storage/Firestore rules.'
+          ? 'Upload was denied. Verify your administrator account and publish the updated academic-hub Firebase Storage rules. Vercel does not deploy Firebase rules.'
           : err?.code === 'storage/canceled' ? 'Upload cancelled.'
             : 'Upload failed: ' + (err?.message || 'Please retry.'));
       }
@@ -136,7 +136,7 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
   };
   return <section className="ah-admin-uploader" aria-label="Academic Hub direct file upload">
     <div className="ah-between ah-admin-uploader-head">
-      <div><span className="ah-eyebrow"><ShieldCheck size={14} /> Administrator workspace</span><h3>Upload a resource directly</h3><p>Add a document from your device to Firebase Storage and publish it to the existing Academic Hub library. Students can then download it from the file card.</p></div>
+      <div><span className="ah-eyebrow"><ShieldCheck size={14} /> Administrator workspace</span><h3>Upload a resource directly</h3><p>Upload PDFs, handouts and course files up to 100 MiB. Track progress, cancel a transfer and publish to the existing Academic Hub in one place.</p></div>
       <button type="button" className="ah-secondary" aria-expanded={open} onClick={() => setOpen((value) => !value)}><CloudUpload size={18} /> {open ? 'Hide upload form' : 'Upload file'}</button>
     </div>
     {open && <form className="ah-upload-form" onSubmit={upload}>
@@ -145,7 +145,7 @@ export default function AcademicAdminUploader({ user, subjects, initialSubject =
         onDragLeave={(e) => { e.preventDefault(); setDragging(false); }}
         onDrop={(e) => { e.preventDefault(); setDragging(false); if (!busy && e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); }}>
         <CloudUpload size={35} /><strong>{file ? file.name : 'Choose or drop a resource file'}</strong>
-        <p>{file ? readableSize(file.size) + ' · ' + extension(file.name).toUpperCase() : 'PDF, DOCX, PPTX, XLSX, TXT, CSV or image · under 14 MB'}</p>
+        <p>{file ? readableSize(file.size) + ' · ' + extension(file.name).toUpperCase() : 'PDF, Office, TXT, CSV or image · up to 100 MiB · resumable upload'}</p>
         <input ref={fileInput} id={listId + '-input'} type="file" disabled={busy} accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp" onChange={(e) => pick(e.target.files[0])} className="ah-visually-hidden" />
         <label className="ah-secondary" htmlFor={listId + '-input'}>Browse files</label>
       </div>
