@@ -36,7 +36,7 @@ export function practiceStats(questions, answers) {
   return { answered: questions.filter(q => answers[q.id] !== undefined).length, checked, score, provisional,
     unattempted: questions.filter(q => answers[q.id] === undefined).length };
 }
-export const progressKey = (subject, term) => 'edunexus:exam:v2:' + subject + ':' + term;
+export const progressKey = (subject, term, uid = 'guest') => 'edunexus:exam:v2:' + uid + ':' + subject + ':' + term;
 // Stable identifiers remain valid even if additional questions are published.
 export function sanitizeProgress(record, questions) {
   const ids = new Set(questions.map(q => q.id));
