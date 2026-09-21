@@ -195,7 +195,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs" }) {
       {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(isAdmin(user) ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}>{label}</button>)}
     </nav>
     {tab === "mcqs" && <McqBank user={user} subject={subject} term={term} />}
-    {tab === "reviews" && <ExamPaperCommunity user={user} subject={subject} term={term} />}
+    {tab === "reviews" && <ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} />}
     {tab === "files" && <StudyFiles subject={subject} />}
     {tab === "admin" && <AdminTools user={user} />}
     <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Student reviews are public, student-contributed educational guidance, not official or live examination material.</p>
