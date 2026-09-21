@@ -2698,7 +2698,7 @@ const AdminPanel = ({ theme, user, showToast }) => {
   const startFileEdit = (file) => {
     setEditingFileId(file.id);
     setEditName(String(file.name || '').slice(0, 150));
-    setEditSubject(String(file.subject || 'General').slice(0, 60));
+    setEditSubject(String(file.subject || 'General').slice(0, 120));
   };
   const saveFileEdit = async (file) => {
     const name = editName.trim();
@@ -2908,7 +2908,7 @@ const AdminPanel = ({ theme, user, showToast }) => {
         <div className="edx-admin-file-toolbar">
           <div>
             <h3 className={`font-bold ${theme.text} text-lg`}>Manage study files</h3>
-            <p className={`text-sm ${theme.textMuted}`}>{files.length} resources in the existing library. Search, preview, rename, reassign or remove a listing.</p>
+            <p className={`text-sm ${theme.textMuted}`}>{files.length} resources in the existing library. Search, open/download, rename, reassign or remove a listing.</p>
           </div>
           <label className="edx-admin-file-search">
             <Search size={18} aria-hidden="true"/>
