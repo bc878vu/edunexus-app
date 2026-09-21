@@ -1,8 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
 import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
-import { db } from './firebase-client';
+import { db, storage } from './firebase-client';
+import { getBlob, ref as storageRef } from 'firebase/storage';
 import './academic-hub-pro.css';
+import './academic-hub-v2.css';
+const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 
 const BASE = ['artifacts', 'edunexus-live', 'public', 'data'];
 const FILES = collection(db, ...BASE, 'files');
@@ -39,6 +42,11 @@ const fileLinks = (f) => {
   const url = safeHttp(f.url || f.downloadUrl || f.fileUrl);
   if (!url) return { source: '', download: '', preview: '', kind: 'unavailable', direct: false };
   const source = url.href;
+  // New Firebase uploads have attachment disposition: clicking their URL downloads.
+  // Their inline PDF/image preview is retrieved separately through the Storage SDK.
+  if (f.sourceType === 'firebase-storage' && f.storagePath) {
+    return { source, download: source, preview: '', kind: 'firebase', direct: true };
+  }
   const id = driveId(url);
   const isDriveFolder = /^(drive|docs)\.google\.com$/i.test(url.hostname) && /\/folders\//.test(url.pathname);
   if (id && !isDriveFolder) {
@@ -67,7 +75,7 @@ const fileLinks = (f) => {
   return { source, preview: image || pdf ? source : '', download: source, kind: image ? 'image' : pdf ? 'pdf' : f.isLinkOnly && ext === 'LINK' ? 'external-link' : 'external', direct: url.origin === window.location.origin };
 };
 const safeFileName = (f) => {
-  const base = nameOf(f).replace(/[\\/:*?"<>|]/g, '_').split('').filter((ch) => ch.charCodeAt(0) >= 32).join('').slice(0, 120);
+  const base = String(f.originalFilename || nameOf(f)).replace(/[\\/:*?"<>|]/g, '_').split('').filter((ch) => ch.charCodeAt(0) >= 32).join('').slice(0, 120);
   const ext = extOf(f).toLowerCase();
   return ext && ext !== 'link' && !base.toLowerCase().endsWith('.' + ext) ? base + '.' + ext : base;
 };
@@ -77,15 +85,34 @@ const reviewIsAdmin = (user, isAdmin) => Boolean(isAdmin && user && user.email =
 
 function ResourcePreview({ file, links, onClose }) {
   const ext = extOf(file);
-  const isImage = links.kind === 'image';
-  const canEmbed = Boolean(links.preview && (isImage || links.kind === 'pdf' || ['drive', 'document', 'spreadsheet', 'presentation'].includes(links.kind)));
+  const isImage = links.kind === 'image' || (links.kind === 'firebase' && ['JPG','JPEG','PNG','WEBP'].includes(ext));
+  const supportedFirebase = links.kind === 'firebase' && (isImage || ext === 'PDF');
+  const [localUrl, setLocalUrl] = useState('');
+  const [state, setState] = useState('idle');
+  useEffect(() => {
+    if (!supportedFirebase || !file.storagePath) { setLocalUrl(''); setState('idle'); return; }
+    let alive = true;
+    let objectUrl = '';
+    setLocalUrl(''); setState('loading');
+    getBlob(storageRef(storage, file.storagePath), 14 * 1024 * 1024).then((blob) => {
+      if (!alive) return;
+      objectUrl = URL.createObjectURL(blob);
+      setLocalUrl(objectUrl); setState('ready');
+    }).catch(() => {
+      if (alive) setState('error');
+    });
+    return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [file.storagePath, supportedFirebase]);
+  const displayUrl = localUrl || links.preview;
+  const canEmbed = Boolean(displayUrl && (isImage || ['pdf', 'drive', 'document', 'spreadsheet', 'presentation'].includes(links.kind) || supportedFirebase));
   return <section className="ah-focus" aria-label="Resource preview">
     <div className="ah-between"><div><span className="ah-eyebrow">In-page preview</span><h3>{nameOf(file)}</h3></div><button type="button" className="ah-icon-button" onClick={onClose} aria-label="Close preview"><X size={19} /></button></div>
-    {canEmbed ? (isImage ? <img className="ah-preview-image" loading="lazy" src={links.preview} alt={nameOf(file)} /> :
-      <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={links.preview} referrerPolicy="strict-origin-when-cross-origin" />) :
-      <div className="ah-empty"><FileText size={26} /><p>A safe inline preview is not available for this resource type. You can still open the original file and use the download action where its host supports it.</p></div>}
-    <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span>{links.source && <a href={links.source} target="_blank" rel="noopener noreferrer">Open original source <ExternalLink size={14} /></a>}</div>
-    <p className="ah-note">Some Google Drive or external files require the owner's sharing permission; their provider may block embedded viewing.</p>
+    {state === 'loading' && <div className="ah-loading" role="status"><div /><p>Preparing a secure in-page preview…</p></div>}
+    {canEmbed ? (isImage ? <img className="ah-preview-image" loading="lazy" src={displayUrl} alt={nameOf(file)} /> :
+      <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={displayUrl} referrerPolicy="strict-origin-when-cross-origin" />) :
+      state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'An inline preview is not available for this file type. Download the file or open the original source.'}</p></div>}
+    <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span>{links.source && <a href={links.source} target="_blank" rel="noopener noreferrer">Open original file <ExternalLink size={14} /></a>}</div>
+    <p className="ah-note">Document previews depend on the file host's sharing rules and browser capabilities. Direct Firebase uploads use an attachment URL for downloading.</p>
   </section>;
 }
 
@@ -185,20 +212,28 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const [cursor, setCursor] = useState(null);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
+  const [format, setFormat] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+  const [subjectsExpanded, setSubjectsExpanded] = useState(true);
   const [subject, setSubject] = useState(() => new URLSearchParams(window.location.search).get('subject') || '');
   const [selectedId, setSelectedId] = useState('');
   const [panel, setPanel] = useState('preview');
   const [downloadStatus, setDownloadStatus] = useState({});
   const [visible, setVisible] = useState(18);
   const scroller = useRef(null);
+  const latestCursorRef = useRef(null);
+  const olderPagesLoaded = useRef(false);
 
   useEffect(() => {
     const onPop = () => { setSubject(new URLSearchParams(window.location.search).get('subject') || ''); setSelectedId(''); };
     window.addEventListener('popstate', onPop);
     const unsubFiles = onSnapshot(query(FILES, orderBy('createdAt', 'desc'), limit(PAGE_SIZE)), (snap) => {
       setLatest(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setCursor((prev) => prev || (snap.docs[snap.docs.length - 1] || null));
-      setHasMore((prev) => prev || snap.docs.length === PAGE_SIZE);
+      // Follow the live first page until older pages have been requested.
+      setCursor((prev) => prev && prev.id !== latestCursorRef.current ? prev : (snap.docs[snap.docs.length - 1] || null));
+      latestCursorRef.current = snap.docs[snap.docs.length - 1]?.id || null;
+      setHasMore((prev) => prev && olderPagesLoaded.current ? prev : snap.docs.length === PAGE_SIZE);
       setLoading(false); setError('');
     }, (e) => { setLoading(false); setError(e.code === 'permission-denied' ? 'The file library is not accessible with the currently deployed Firestore rules.' : 'Could not load files. Please check your connection and try again.'); });
     const unsubFolders = onSnapshot(FOLDERS, (snap) => setFolders(Array.isArray(snap.data()?.list) ? snap.data().list.filter((v) => typeof v === 'string') : []), () => {});
@@ -207,18 +242,26 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
 
   const files = useMemo(() => {
     const map = new Map();
-    [...latest, ...older].forEach((f) => map.set(f.id, f));
+    [...older, ...latest].forEach((f) => map.set(f.id, f));
     return [...map.values()].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   }, [latest, older]);
   const counts = useMemo(() => files.reduce((m, f) => { const key = cut(f.subject, 50); if (key) m[key] = (m[key] || 0) + 1; return m; }, {}), [files]);
   const subjects = useMemo(() => [...new Set([...DEFAULT_SUBJECTS, ...folders, ...Object.keys(counts)].filter(Boolean))].sort((a, b) => a.localeCompare(b)), [folders, counts]);
-  const normalized = search.trim().toLowerCase();
-  const matches = useMemo(() => files.filter((f) => (!subject || f.subject === subject) && (!normalized || [f.name, f.title, f.subject, f.description, f.ext].some((value) => String(value || '').toLowerCase().includes(normalized)))), [files, subject, normalized]);
+  const normalized = deferredSearch.trim().toLowerCase();
+  const matches = useMemo(() => {
+    const result = files.filter((f) => (!subject || f.subject === subject)
+      && (format === 'all' || (format === 'documents' ? ['PDF','DOC','DOCX','PPT','PPTX','XLS','XLSX','TXT','CSV'].includes(extOf(f)) : format === 'images' ? ['PNG','JPG','JPEG','WEBP'].includes(extOf(f)) : extOf(f) === 'LINK'))
+      && (!normalized || [f.name, f.title, f.subject, f.description, f.ext].some((value) => String(value || '').toLowerCase().includes(normalized))));
+    if (sortBy === 'name') result.sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+    else if (sortBy === 'oldest') result.reverse();
+    return result;
+  }, [files, subject, format, normalized, sortBy]);
   const displayed = matches.slice(0, visible);
   const selected = files.find((f) => f.id === selectedId);
   useEffect(() => { if (selectedId && scroller.current) scroller.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [selectedId]);
   const openSubject = (value) => {
     setSubject(value); setVisible(18); setSelectedId('');
+    if (value) setSubjectsExpanded(false);
     const url = new URL(window.location.href);
     if (value) url.searchParams.set('subject', value); else url.searchParams.delete('subject');
     url.searchParams.set('page', 'academic');
@@ -234,6 +277,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     setLoadingMore(true); setError('');
     try {
       const snap = await getDocs(query(FILES, orderBy('createdAt', 'desc'), startAfter(cursor), limit(PAGE_SIZE)));
+      olderPagesLoaded.current = true;
       setOlder((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...d.data() }))]);
       if (snap.docs.length) setCursor(snap.docs[snap.docs.length - 1]);
       setHasMore(snap.docs.length === PAGE_SIZE);
@@ -252,7 +296,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   };
   const download = (event, file, links) => {
     if (!links.source) { event.preventDefault(); return; }
-    const note = links.direct ? 'Download requested. The file host may still require sharing permission or confirmation.' : 'Opening the file host. This host may display the file rather than download it directly.';
+    const note = file.sourceType === 'firebase-storage' ? 'Downloading the uploaded file. If it does not start, check browser download permissions.' : links.direct ? 'Download requested. The file host may still require sharing permission or confirmation.' : 'Opening the file host. This host may display the file rather than download it directly.';
     setDownloadStatus((prev) => ({ ...prev, [file.id]: note }));
   };
 
@@ -261,12 +305,16 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
 
     <section className="ah-intro" aria-label="About the Academic Hub"><div className="ah-section-heading"><span className="ah-eyebrow">One library · multiple ways to learn</span><h2>Find the right material for your next study session</h2></div><p>The Academic Hub brings EduNexus resources into a subject-first experience. Instead of opening many folders and unrelated websites, begin with a course code and work through the available materials in one place. Each file card provides its title, subject and available viewing options, while the review panel gives students room to share useful feedback about a specific resource.</p><p>New uploads appear in the library as they become available. The page initially loads a manageable batch for faster rendering and lets you bring in additional files as needed. Counts shown below describe resources currently loaded in this browser, not the total size of the entire database. Use the existing administrator upload tools to keep adding folders, documents and links without changing the original storage system.</p></section>
 
+    {reviewIsAdmin(user, isAdmin) && <React.Suspense fallback={<p className="ah-note" role="status">Opening secure upload workspace…</p>}><AcademicAdminUploader user={user} subjects={subjects} initialSubject={subject} onUploaded={(code) => { setSearch(''); setFormat('all'); openSubject(code); }} /></React.Suspense>}
+
     <section id="academic-library" className="ah-library" aria-label="Academic resources"><div className="ah-section-heading"><span className="ah-eyebrow">Browse, preview & download</span><h2>Subject resource library</h2><p>Choose a subject, search the loaded resources and open a file directly in the page when preview is supported.</p></div>
       <div className="ah-stats"><div><strong>{subjects.length}</strong><span>Subject folders</span></div><div><strong>{files.length}</strong><span>Resources loaded</span></div><div><strong>{new Set(files.filter((f) => extOf(f) === 'PDF').map((f) => f.id)).size}</strong><span>PDF resources loaded</span></div></div>
-      <div className="ah-toolbar"><label className="ah-search"><Search size={19} /><span className="ah-visually-hidden">Search resources</span><input value={search} onChange={(e) => { setSearch(e.target.value); setVisible(18); }} placeholder="Search by file title, subject, topic or format…" /></label><button type="button" className="ah-secondary" onClick={() => { setSearch(''); openSubject(''); }}><FolderOpen size={17} /> All subjects</button></div>
+      <div className="ah-toolbar"><label className="ah-search"><Search size={19} /><span className="ah-visually-hidden">Search resources</span><input value={search} onChange={(e) => { setSearch(e.target.value); setVisible(18); }} placeholder="Search file title, subject, topic or format…" /></label><button type="button" className="ah-secondary" onClick={() => { setSearch(''); setFormat('all'); openSubject(''); setSubjectsExpanded(true); }}><FolderOpen size={17} /> All subjects</button></div>
+      <div className="ah-filterbar" aria-label="Filter and sort study files"><label>File type <select value={format} onChange={(e) => { setFormat(e.target.value); setVisible(18); }}><option value="all">All formats</option><option value="documents">Documents</option><option value="images">Images</option><option value="links">Other links</option></select></label><label>Sort by <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setVisible(18); }}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">File name A–Z</option></select></label><button type="button" className="ah-secondary" aria-expanded={subjectsExpanded} onClick={() => setSubjectsExpanded((v) => !v)}><FolderOpen size={16} /> {subjectsExpanded ? 'Hide folders' : 'Browse folders'}</button></div>
+    {selected && <div className="ah-panel-wrap" ref={scroller}><div className="ah-panel-tabs" role="group" aria-label="Selected file tools"><button type="button" className={panel === 'preview' ? 'active' : ''} onClick={() => setPanel('preview')}><BookOpen size={16} /> Preview</button><button type="button" className={panel === 'reviews' ? 'active' : ''} onClick={() => setPanel('reviews')}><Star size={16} /> Reviews</button><button type="button" onClick={() => setSelectedId('')}><X size={16} /> Close</button></div>{panel === 'preview' ? <ResourcePreview file={selected} links={fileLinks(selected)} onClose={() => setSelectedId('')} /> : <FileReviews file={selected} user={user} isAdmin={isAdmin} />}</div>}
       {error && <p className="ah-message" role="alert">{error}</p>}
       {loading ? <div className="ah-loading" role="status"><div /><div /><div /><p>Loading academic resources…</p></div> :
-        <><div className="ah-subject-grid" aria-label="Subject folders">{subjects.map((code) => <button key={code} type="button" className={'ah-subject' + (subject === code ? ' active' : '')} aria-pressed={subject === code} onClick={() => openSubject(code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{code}</strong><small>{counts[code] || 0} loaded {counts[code] === 1 ? 'file' : 'files'}</small></span><ArrowRight size={16} /></button>)}</div>
+        <>{subjectsExpanded && <div className="ah-subject-grid" aria-label="Subject folders">{subjects.map((code) => <button key={code} type="button" className={'ah-subject' + (subject === code ? ' active' : '')} aria-pressed={subject === code} onClick={() => openSubject(code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{code}</strong><small>{counts[code] || 0} loaded {counts[code] === 1 ? 'file' : 'files'}</small></span><ArrowRight size={16} /></button>)}</div>}
           <div className="ah-results-head"><div><span className="ah-eyebrow">{subject ? 'Selected subject' : 'Resource collection'}</span><h3>{subject || 'All available subjects'}</h3><p>{normalized ? 'Search results from currently loaded files' : 'Showing ' + displayed.length + ' of ' + matches.length + ' matching loaded resources'}</p></div>{subject && <button className="ah-secondary" type="button" onClick={() => openSubject('')}><ArrowLeft size={16} /> Back to subjects</button>}</div>
           {displayed.length ? <div className="ah-resource-grid">{displayed.map((file) => <ResourceCard key={file.id} file={file} isAdmin={isAdmin} onDelete={del} onPreview={(f) => openPanel(f, 'preview')} onReviews={(f) => openPanel(f, 'reviews')} onDownload={download} downloadStatus={downloadStatus[file.id]} />)}</div> : <div className="ah-empty"><FileArchive size={30} /><h3>No matching files in this loaded batch</h3><p>Try another subject or load more resources. You can also check the existing Academic Hub administrator tools for new uploads.</p></div>}
           {matches.length > displayed.length && <button className="ah-secondary ah-load" type="button" onClick={() => setVisible((n) => n + 18)}>Show more matching files <ArrowRight size={16} /></button>}
@@ -274,7 +322,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
         </>}
     </section>
 
-    {selected && <div className="ah-panel-wrap" ref={scroller}><div className="ah-panel-tabs" role="group" aria-label="Selected file tools"><button type="button" className={panel === 'preview' ? 'active' : ''} onClick={() => setPanel('preview')}><BookOpen size={16} /> Preview</button><button type="button" className={panel === 'reviews' ? 'active' : ''} onClick={() => setPanel('reviews')}><Star size={16} /> Reviews</button><button type="button" onClick={() => setSelectedId('')}><X size={16} /> Close</button></div>{panel === 'preview' ? <ResourcePreview file={selected} links={fileLinks(selected)} onClose={() => setSelectedId('')} /> : <FileReviews file={selected} user={user} isAdmin={isAdmin} />}</div>}
+
 
     <section className="ah-guide" id="academic-study-guide"><div className="ah-section-heading"><span className="ah-eyebrow">Detailed learning guidance</span><h2>Turn study resources into a practical learning routine</h2><p>A well-organized collection is useful when every document has a purpose. These suggestions explain how to choose, evaluate and revisit academic material throughout your semester.</p></div><div className="ah-guidance-grid">{guidance.map((g) => <article className="ah-guidance" key={g.icon}><span className="ah-step">{g.icon}</span><h3>{g.title}</h3><p>{g.body}</p></article>)}</div></section>
 
