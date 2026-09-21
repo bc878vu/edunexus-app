@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { CheckCircle2, FileJson2, UploadCloud, AlertTriangle } from 'lucide-react';
 import { db } from './firebase-client';
+import { adminPanelAccess } from './adminSession';
 import { categoryOf, MAX_IMPORT, MAX_JSON_BYTES, parseMcqJson, summarizeImport, validateMcq } from './examMcqImport';
 import './exam-mcq-import.css';
 
@@ -53,7 +54,7 @@ export default function McqBulkImporter({ user, onView }) {
       setError('This file contains provisional or conflicting answers. Verify them against an authoritative source and check the confirmation box before publishing.');
       return;
     }
-    if (user?.email !== 'veducator4@gmail.com' || user?.emailVerified !== true) {
+    if (!adminPanelAccess(user)) {
       setError('Sign in with the verified EduNexus administrator account before importing.'); return;
     }
     working.current = true; setBusy(true);
