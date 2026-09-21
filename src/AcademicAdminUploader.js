@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import * as tus from 'tus-js-client';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { CheckCircle2, CloudUpload, FileText, ShieldCheck, X } from 'lucide-react';
 import { db } from './firebase-client';
@@ -46,33 +45,67 @@ async function signUpload(user, file) {
     });
     const json = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(json.error || 'Upload authorization failed (HTTP ' + response.status + ').');
-    if (!json.token || !json.path || json.bucket !== BUCKET) throw new Error('Storage authorization returned incomplete information.');
+    const signedDestination = String(json.uploadUrl || '');
+    let target;
+    try { target = new URL(signedDestination); } catch (_) { throw new Error('Storage authorization returned an invalid upload URL.'); }
+    if (!json.path || json.bucket !== BUCKET ||
+        target.origin !== 'https://' + SUPABASE_PROJECT + '.supabase.co' ||
+        !target.pathname.startsWith('/storage/v1/object/upload/sign/' + BUCKET + '/') ||
+        !target.searchParams.has('token')) {
+      throw new Error('Storage authorization returned an unexpected destination.');
+    }
     return json;
   } finally { clearTimeout(timeout); }
 }
 
-function tusUpload(file, signed, onProgress, onTask) {
+// Supabase's documented uploadToSignedUrl protocol: signed object-upload URL,
+// multipart PUT, no Supabase service key or Firebase token on the storage request.
+// XHR provides real upload progress and cancellation for a 45 MiB free-plan file.
+// TUS x-signature rejected valid user attempts with "Invalid Compact JWS";
+// do not silently retry the same failed resumable request.
+export function uploadToSignedObject(file, signed, onProgress, onTask) {
   return new Promise((resolve, reject) => {
-    const upload = new tus.Upload(file, {
-      endpoint: 'https://' + SUPABASE_PROJECT + '.storage.supabase.co/storage/v1/upload/resumable',
-      retryDelays: [0, 2500, 5000, 10000],
-      chunkSize: 6 * 1024 * 1024,
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      storeFingerprintForResuming: false,
-      headers: { 'x-signature': signed.token },
-      metadata: {
-        bucketName: BUCKET,
-        objectName: signed.path,
-        contentType: signed.contentType,
-        cacheControl: '3600'
-      },
-      onProgress: (uploaded, total) => onProgress(Math.round(uploaded / total * 100)),
-      onError: (error) => reject(error),
-      onSuccess: () => resolve()
-    });
-    onTask(upload, reject);
-    try { upload.start(); } catch (error) { reject(error); }
+    const xhr = new XMLHttpRequest();
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      if (error) reject(error);
+      else resolve();
+    };
+    xhr.open('PUT', signed.uploadUrl, true);
+    xhr.timeout = 120000;
+    xhr.setRequestHeader('x-upsert', 'false');
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress(Math.round(event.loaded / event.total * 100));
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return finish();
+      let message = '';
+      try {
+        const payload = JSON.parse(xhr.responseText || '{}');
+        message = [payload.message, payload.error_description, payload.error]
+          .find((value) => typeof value === 'string') || '';
+      } catch (_) { /* Only expose a safe, short diagnostic. */ }
+      const invalidSignature = /Invalid Compact JWS|invalid.*(jwt|signature)/i.test(message);
+      finish(new Error(invalidSignature
+        ? 'The Supabase signed upload URL was rejected. Check the Edge Function signing configuration.'
+        : 'Supabase upload failed (HTTP ' + xhr.status + ')' +
+          (message ? ': ' + message.slice(0, 160) : '. Check bucket settings and your connection.')));
+    };
+    xhr.onerror = () => finish(new Error('The signed upload request failed. Check your connection or browser extensions.'));
+    xhr.ontimeout = () => finish(new Error('The signed upload timed out. Please retry.'));
+    xhr.onabort = () => finish(new Error('Upload cancelled.'));
+    const data = new FormData();
+    data.append('cacheControl', '3600');
+    // An explicit MIME type avoids mismatches for Office files on some browsers.
+    const part = file.type === signed.contentType ? file :
+      new File([file], file.name, { type: signed.contentType, lastModified: file.lastModified });
+    data.append('', part, file.name);
+    onTask(xhr);
+    try { xhr.send(data); } catch (error) { finish(error); }
   });
 }
 
@@ -91,7 +124,6 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
   const mounted = useRef(true);
   const inFlight = useRef(false);
   const taskRef = useRef(null);
-  const rejectRef = useRef(null);
   const fileInput = useRef(null);
   const inputId = React.useId();
   const busy = phase === 'authorizing' || phase === 'uploading' || phase === 'saving';
@@ -102,8 +134,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     mounted.current = true;
     return () => {
       mounted.current = false;
-      if (taskRef.current) taskRef.current.abort(true);
-      if (rejectRef.current) rejectRef.current(new Error('Upload cancelled because the page was closed.'));
+      if (taskRef.current) taskRef.current.abort();
     };
   }, []);
   useEffect(() => {
@@ -118,8 +149,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     setFile(next); setTitle(next.name.replace(/\.[^.]+$/, '').slice(0, 150)); setProgress(0);
   };
   const cancel = () => {
-    if (taskRef.current) taskRef.current.abort(true);
-    if (rejectRef.current) rejectRef.current(new Error('Upload cancelled.'));
+    if (taskRef.current) taskRef.current.abort();
   };
   const upload = async (event) => {
     event.preventDefault();
@@ -138,9 +168,9 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
       const signed = await signUpload(user, file);
       if (!mounted.current) throw new Error('Page closed.');
       setPhase('uploading');
-      await tusUpload(file, signed, (n) => { if (mounted.current) setProgress(n); },
-        (task, reject) => { taskRef.current = task; rejectRef.current = reject; });
-      taskRef.current = null; rejectRef.current = null;
+      await uploadToSignedObject(file, signed, (n) => { if (mounted.current) setProgress(n); },
+        (request) => { taskRef.current = request; });
+      taskRef.current = null;
       uploadedPath = signed.path;
       setPhase('saving');
       const url = publicUrl(signed.path);
@@ -167,7 +197,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
           : (failure?.name === 'AbortError' ? 'Authorization timed out. ' : '') +
             (failure?.message || 'Upload failed. Verify your connection and retry.'));
       }
-    } finally { inFlight.current = false; taskRef.current = null; rejectRef.current = null; }
+    } finally { inFlight.current = false; taskRef.current = null; }
   };
 
   return <section className="ah-admin-uploader" aria-label="Academic Hub hybrid file upload">
