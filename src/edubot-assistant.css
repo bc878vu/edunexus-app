@@ -56,3 +56,7 @@
 .edx-bot-resize{position:absolute;bottom:0;right:0;height:27px;width:27px;touch-action:none;cursor:nwse-resize;z-index:2;border-bottom-right-radius:20px;background:linear-gradient(135deg,transparent 55%,#8b8ee4 56%,#8b8ee4 62%,transparent 63%,transparent 70%,#8b8ee4 71%,#8b8ee4 76%,transparent 77%)}
 .edx-bot-disclaimer{padding-right:32px}
 @media(max-width:510px){.edx-bot-panel{max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}.edx-bot-expanded{left:8px!important;top:8px!important;right:8px!important;bottom:8px!important;width:calc(100vw - 16px)!important;height:calc(100dvh - 16px)!important}.edx-bot-heading-actions button{min-height:33px;min-width:33px}}
+
+.edx-bot-example{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%}
+.edx-bot-example button{font:inherit;font-size:.75rem;text-align:left;color:#4338ca;background:#f1f2ff;border:1px solid #d4d8ff;border-radius:10px;padding:8px 10px;cursor:pointer;line-height:1.45}
+.edx-bot-example button:hover{background:#e4e7ff;border-color:#a5b4fc}
