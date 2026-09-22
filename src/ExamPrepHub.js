@@ -166,6 +166,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   const termRef = useRef(term);
   subjectRef.current = subject; termRef.current = term;
   useEffect(() => {
+    if (adminWorkspace && tab === 'admin') { setCatalogLoading(false); return; }
     const source = query(col('examMcqs'), limit(EXAM_SUBJECT_LIMIT));
     const unsubscribe = onSnapshot(source, snapshot => {
       const next = publishedExamCatalog(snapshot.docs);
@@ -187,7 +188,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
         : 'Could not load the published course catalogue. Refresh to try again.');
     });
     return () => unsubscribe();
-  }, []);
+  }, [adminWorkspace, tab]);
   const selectSubject = value => { userPickedFilter.current = true; setSubject(courseCode(value)); };
   const selectTerm = value => { userPickedFilter.current = true; setTerm(value); };
   useEffect(() => {
