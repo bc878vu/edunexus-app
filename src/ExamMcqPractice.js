@@ -116,7 +116,10 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   const writeTimer = useRef(null);
   const pendingCloud = useRef(null);
   const saveRevision = useRef(0);
-  const recordKey = progressKey(subject, term, user?.uid || 'guest');
+  // Anonymous Firebase UIDs can rotate after browser/session restart. Use a
+  // stable device-local key for guest progress; signed-in students remain
+  // isolated by their authenticated UID for private cloud syncing.
+  const recordKey = progressKey(subject, term, user?.isAnonymous ? 'guest' : (user?.uid || 'guest'));
   const eligible = validSubject(subject);
   const actualQuestions = useMemo(() => questions.map(q => sourceChanges[q.id] || q), [questions, sourceChanges]);
   const index = Math.max(0, actualQuestions.findIndex(q => q.id === currentId));
@@ -194,7 +197,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const payload = { answers: nextAnswers, currentId: nextId, finished: nextFinished,
       subject, term, updatedAt: Date.now() };
     const localSaved = localPut(recordKey, payload);
-    setSaveStatus(localSaved ? 'Saved in this browser · syncing to account…' : 'Local storage unavailable · syncing to account…');
+    setSaveStatus(localSaved ? 'Saved in this browser · syncing to Firebase…' : 'Local storage unavailable · syncing to Firebase…');
     if (writeTimer.current) clearTimeout(writeTimer.current);
     const revision = ++saveRevision.current;
     const session = sessionRef.current;
@@ -286,7 +289,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
         {!matches.length && <p>No questions match your search in {subject} · {CATEGORY_NAMES[term]}.</p>}
       </div>}
     </div>
-    <p className="edx-practice-save" role="status">{saveStatus || (user?.uid ? 'Progress is stored by your private Firebase user ID, not your IP address.' : 'Your attempt is saved on this device when storage is available.')}</p>
+    <p className="edx-practice-save" role="status">{saveStatus || (user?.isAnonymous ? 'Guest practice is saved in this browser; anonymous Firebase accounts may change between sessions. Use a personal account where available for private cross-device progress. IP addresses are not used.' : user?.uid ? 'Signed-in progress is saved by your private Firebase user ID, not your IP address.' : 'Guest progress is saved in this browser when storage is available.')}</p>
     {(loading || restoring) && <div className="edx-exam-card" role="status">Loading your questions and saved progress…</div>}
     {limited && <p className="edx-practice-catalog-note">Showing up to {QUESTION_LIMIT} published questions for this subject. If the subject has more questions, ask the site administrator to split large banks into smaller sets.</p>}
     {loadError && <div className="edx-exam-alert" role="alert">{loadError} <button type="button" className="edx-exam-secondary" onClick={() => setRefresh(v => v + 1)}>Retry</button></div>}
