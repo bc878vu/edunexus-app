@@ -3437,7 +3437,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'highlights' && <HighlightsTab />}
         {activeTab === 'academic' && <AcademicTab theme={theme} user={user} showToast={showToast} />}
-        {activeTab === 'exam' && <React.Suspense fallback={<p>Loading Exam Prep management…</p>}><ExamPrepHub user={user} initialTab="admin" /></React.Suspense>}
+        {activeTab === 'exam' && <React.Suspense fallback={<p>Loading Exam Prep management…</p>}><ExamPrepHub user={user} initialTab="admin" adminWorkspace /></React.Suspense>}
         {activeTab === 'blog' && <BlogTab />}
        {activeTab === 'forum' && (
   <ForumTab theme={theme} showToast={showToast} />
@@ -4425,6 +4425,7 @@ const App = () => {
   const [toast, setToast] = useState(null);
   const { isDark, setIsDark, theme } = useTheme();
   const currentYear = new Date().getFullYear();
+  const adminAuthorized = isAdminMode && page === 'admin' && adminPanelAccess(user);
 
   /// ✅ saare pages ki list (routing + URL ke liye)
 const PAGES = [
@@ -4658,7 +4659,7 @@ useEffect(() => {
   page={page}
   setPage={navigate}
   user={user}
-  isAdmin={isAdminMode}
+  isAdmin={adminAuthorized}
   theme={theme}
   toggleMenu={() => setIsMenuOpen(!isMenuOpen)}
   isMenuOpen={isMenuOpen}
@@ -4681,13 +4682,13 @@ useEffect(() => {
         )}
         {page === 'academic' && (
           <React.Suspense fallback={<div role="status" className="py-8 text-sm text-slate-500">Loading Academic Hub…</div>}>
-            <AcademicHubPro user={user} isAdmin={isAdminMode} showToast={showToast} />
+            <AcademicHubPro user={user} isAdmin={adminAuthorized} showToast={showToast} />
           </React.Suspense>
         )}
         {page === 'exam' && <ExamPrep theme={theme} />}
         {page === 'exam-prep' && (
           <React.Suspense fallback={<div role="status" className="text-sm text-slate-500">Loading Exam Prep…</div>}>
-            <ExamPrepHub user={user} />
+            <ExamPrepHub user={user} onAdminPanel={() => { navigate("admin"); setShowAdminLogin(true); }} />
           </React.Suspense>
         )}
         {page === 'aiquiz' && (
@@ -4716,14 +4717,14 @@ useEffect(() => {
         {page === 'portfolio' && (
           <Portfolio
             user={user}
-            isAdmin={isAdminMode}
+            isAdmin={adminAuthorized}
             theme={theme}
           />
         )}
         {page === 'forum' && (
           <Forum
             user={user}
-            isAdmin={isAdminMode}
+            isAdmin={adminAuthorized}
             theme={theme}
             showToast={showToast}
           />
@@ -4731,7 +4732,7 @@ useEffect(() => {
         {page === 'articles' && (
           <ArticlesPage
             user={user}
-            isAdmin={isAdminMode}
+            isAdmin={adminAuthorized}
             theme={theme}
             showToast={showToast}
           />
@@ -4741,12 +4742,25 @@ useEffect(() => {
           {/* ✅ NEW STATIC PAGES */}
         {page === 'privacy' && <PrivacyPage theme={theme} />}
         {page === 'terms' && <TermsPage theme={theme} />}
-        {page === 'admin' && isAdminMode && (
+        {page === 'admin' && adminAuthorized && (
           <AdminPanel
             theme={theme}
             user={user}
             showToast={showToast}
           />
+        )}
+        {page === 'admin' && !adminAuthorized && (
+          <section className={`${theme.card} mx-auto max-w-xl rounded-2xl border ${theme.border} p-6 sm:p-8 text-center shadow-sm`} aria-label="Secure administrator access">
+            <Shield className="mx-auto mb-3 text-indigo-500" size={32} />
+            <h1 className={`text-2xl font-bold ${theme.text}`}>Admin Panel</h1>
+            <p className={`mt-3 mb-5 text-sm ${theme.textMuted}`}>
+              Administrator access requires a verified Firebase login. Exam Prep is public; management tools are available only inside the Admin Panel.
+            </p>
+            <button type="button" onClick={() => setShowAdminLogin(true)}
+              className="rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white hover:bg-indigo-700">
+              <Lock size={16} className="mr-2 inline" /> Admin Login
+            </button>
+          </section>
         )}
       </main>
 
@@ -4945,7 +4959,7 @@ useEffect(() => {
       </p>
 
             <div className="flex flex-wrap items-center gap-4">
-        {isAdminMode && (
+        {adminAuthorized && (
           <button
             onClick={() => void handleLogoutAdmin()}
             className="text-red-500 font-semibold flex items-center gap-1 hover:underline"
