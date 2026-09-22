@@ -77,6 +77,7 @@ function AdminTools({ user, onView }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const reload = async () => {
+    if (!isAdmin(user)) return;
     try {
       const snapshot = await getDocs(query(col("examReviewSubmissions"), limit(100)));
       setPending(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt)));
@@ -85,11 +86,14 @@ function AdminTools({ user, onView }) {
   useEffect(() => { if (isAdmin(user)) void reload(); }, [user]);
   const normalize = (item) => ({ ...validateMcq(item), createdAt: serverTimestamp() });
   const addOne = async (event) => {
-    event.preventDefault(); setBusy(true); setMessage("");
+    event.preventDefault();
+    if (!isAdmin(user)) { setMessage("Admin session expired. Please log in again."); return; }
+    setBusy(true); setMessage("");
     try { await addDoc(col("examMcqs"), normalize(draft)); setDraft({ ...EMPTY_MCQ, subject: draft.subject, term: draft.term }); setMessage("MCQ published successfully."); }
     catch (error) { setMessage(error.message || "MCQ could not be published."); } finally { setBusy(false); }
   };
   const moderate = async (review, approve) => {
+    if (!isAdmin(user)) { setMessage("Admin session expired. Please log in again."); return; }
     setBusy(true); setMessage("");
     try {
       const batch = writeBatch(db);
@@ -119,21 +123,32 @@ function AdminTools({ user, onView }) {
   </div>;
 }
 
-export default function ExamPrepHub({ user, initialTab = "mcqs" }) {
-  const [tab, setTab] = useState(initialTab);
+export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace = false, onAdminPanel }) {
+  // Admin tools are never part of the public Exam Prep module. Even an old
+  // persisted Firebase admin identity cannot reveal them on ?page=exam-prep.
+  const showAdmin = adminWorkspace === true && isAdmin(user);
+  const [tab, setTab] = useState(() => adminWorkspace && initialTab === "admin" ? "admin" : "mcqs");
+  useEffect(() => {
+    if (!showAdmin && tab === "admin") setTab("mcqs");
+  }, [showAdmin, tab]);
   const [subject, setSubject] = useState("CS101");
   const [term, setTerm] = useState("finalterm");
-  const changeTab = (next) => { if (next === "reviews" && term === "quiz") setTerm("midterm"); setTab(next); };
+  const changeTab = (next) => {
+    if (next === "admin" && !showAdmin) return;
+    if (next === "reviews" && term === "quiz") setTerm("midterm");
+    setTab(next);
+  };
   return <div className="edx-exam" id="edx-exam-hub">
     <section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><Sparkles size={14} /> EduNexus Exam Prep</span><h1>Practice smarter. Prepare with confidence.</h1><p>Subject-wise MCQs, student-shared completed-exam experiences, and your existing study files in one focused workspace.</p><div className="edx-exam-hero-links"><button onClick={() => changeTab("mcqs")}>Practice MCQs <ChevronRight size={16} /></button><button onClick={() => changeTab("reviews")}>Paper reviews <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
     <div className="edx-exam-controls"><CourseSelector value={subject} onChange={setSubject} /><TermSelector value={term} onChange={setTerm} includeQuiz={tab === "mcqs" || tab === "admin"} /></div>
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
-      {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(isAdmin(user) ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)}>{label}</button>)}
+      {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(showAdmin ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)}>{label}</button>)}
+      {!adminWorkspace && typeof onAdminPanel === "function" && <button type="button" className="edx-exam-secondary" onClick={onAdminPanel} aria-label="Open secure Admin Panel login"><ShieldCheck size={16} /> Admin Panel</button>}
     </nav>
     {tab === "mcqs" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={SUBJECTS} onSubjectChange={setSubject}/></React.Suspense>}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} />}
-    {tab === "admin" && <AdminTools user={user} onView={(code, examType) => { setSubject(code); setTerm(examType); setTab("mcqs"); }} />}
+    {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { setSubject(code); setTerm(examType); setTab("mcqs"); }} />}
     <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Student reviews are public, student-contributed educational guidance, not official or live examination material.</p>
   </div>;
 }
