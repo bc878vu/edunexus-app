@@ -123,7 +123,7 @@ function AdminTools({ user, onView }) {
   </div>;
 }
 
-export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace = false, onAdminPanel }) {
+export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace = false }) {
   // Admin tools are never part of the public Exam Prep module. Even an old
   // persisted Firebase admin identity cannot reveal them on ?page=exam-prep.
   const showAdmin = adminWorkspace === true && isAdmin(user);
@@ -143,7 +143,6 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     <div className="edx-exam-controls"><CourseSelector value={subject} onChange={setSubject} /><TermSelector value={term} onChange={setTerm} includeQuiz={tab === "mcqs" || tab === "admin"} /></div>
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
       {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(showAdmin ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)}>{label}</button>)}
-      {!adminWorkspace && typeof onAdminPanel === "function" && <button type="button" className="edx-exam-secondary" onClick={onAdminPanel} aria-label="Open secure Admin Panel login"><ShieldCheck size={16} /> Admin Panel</button>}
     </nav>
     {tab === "mcqs" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={SUBJECTS} onSubjectChange={setSubject}/></React.Suspense>}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
