@@ -123,13 +123,16 @@ export async function fetchRelevantPublicKnowledge(message) {
   const col = collection(db, ...ROOT, 'files');
   // The Academic Hub uses both subject and folder names. Query both without
   // introducing a new index; older records may store the subject only in name.
-  const targeted = await Promise.all(['subject', 'folder'].map(async field => {
+  const targeted = await Promise.all(['subject', 'folder', 'category'].map(async field => {
     try {
       const shot = await getDocs(query(col, where(field, '==', subject), limit(25)));
       return shot.docs.map(item => ({ section:'files', data:item.data(), id:item.id }));
     } catch (_) { return []; }
   }));
-  const merged = [...targeted.flat(), ...base];
+  const folders = await getPublicFolderNames();
+  const selectedFolders = folders.filter(name => String(name).toUpperCase().includes(subject)).slice(0, 10)
+    .map(name => ({ section:'folders', data:{ title:name, description:'Existing Academic Hub folder' } }));
+  const merged = [...targeted.flat(), ...selectedFolders, ...base];
   const seen = new Set();
   return merged.filter(item => {
     const key = item.id || [item.section, item.data?.url, item.data?.title, item.data?.name].join(':');
