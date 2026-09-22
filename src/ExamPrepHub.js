@@ -33,7 +33,7 @@ const safeUrl = (value) => {
   } catch (_) { return ""; }
 };
 const SUBJECTS = ["CS620", "CS101", "CS201", "CS301", "CS302", "CS304", "CS401", "CS403", "CS510", "CS511", "CS601", "CS604", "CS610", "ENG101", "ENG201", "MGT101", "MGT201", "MTH101", "MTH202", "MTH601", "PHY101", "STA301"];
-const EMPTY_MCQ = { subject: "CS101", term: "finalterm", question: "", options: ["", "", "", ""], answer: 0, explanation: "" };
+const EMPTY_MCQ = { subject: "CS101", term: "finalterm", question: "", options: ["", "", "", ""], answer: 0, explanation: "", verificationSource: "" };
 
 const databaseReadError = (error, resource) => error?.code === "permission-denied"
   ? `${resource} temporarily unavailable: the database denied access. The website administrator must publish the updated Firestore rules.`
@@ -86,7 +86,14 @@ function AdminTools({ user, onView }) {
     } catch (_) { setMessage("Cannot load submissions. Deploy and check Firestore rules."); }
   };
   useEffect(() => { if (isAdmin(user)) void reload(); }, [user]);
-  const normalize = (item) => ({ ...validateMcq(item), createdAt: serverTimestamp() });
+  const normalize = (item) => {
+    const source = String(item.verificationSource || '').trim();
+    if (source.length < 12) throw new Error('Give the original handout, trusted answer key or lecture reference (at least 12 characters) before publishing a verified answer.');
+    const validated = validateMcq(item);
+    const note = ' [EduNexus admin verified] Admin review source: ' + source;
+    if (validated.explanation.length + note.length > 1000) throw new Error('Explanation and verification source together must be within 1000 characters.');
+    return { ...validated, explanation:validated.explanation + note, createdAt:serverTimestamp() };
+  };
   const addOne = async (event) => {
     event.preventDefault();
     if (!isAdmin(user)) { setMessage("Admin session expired. Please log in again."); return; }
@@ -119,6 +126,7 @@ function AdminTools({ user, onView }) {
       {draft.options.map((option, i) => <label className="edx-exam-field" key={i}>Option {String.fromCharCode(65 + i)}<input required maxLength={350} value={option} onChange={(e) => setDraft((v) => ({ ...v, options: v.options.map((x, j) => i === j ? e.target.value : x) }))} /></label>)}
       <label className="edx-exam-field">Correct option<select value={draft.answer} onChange={(e) => setDraft((v) => ({ ...v, answer: Number(e.target.value) }))}>{draft.options.map((_, i) => <option key={i} value={i}>{String.fromCharCode(65 + i)}</option>)}</select></label>
       <label className="edx-exam-field">Explanation (optional)<textarea rows={2} maxLength={1000} value={draft.explanation} onChange={(e) => setDraft((v) => ({ ...v, explanation: e.target.value }))} /></label>
+      <label className="edx-exam-field">Answer verification source (required)<input type="text" required minLength={12} maxLength={220} value={draft.verificationSource} placeholder="e.g. CS101 handout, lecture 04, page 11" onChange={(e) => setDraft(v => ({ ...v, verificationSource:e.target.value }))}/><small>Use a specific handout or trusted answer key. AI guesses alone cannot verify an answer.</small></label>
       <button className="edx-exam-primary" disabled={busy}>Publish MCQ</button>
     </form>
     <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading JSON importer…</section>}><McqBulkImporter user={user} onView={onView}/></React.Suspense>
