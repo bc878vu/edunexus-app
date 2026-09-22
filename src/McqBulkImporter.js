@@ -70,7 +70,7 @@ export default function McqBulkImporter({ user, onView }) {
       const onlyOneCategory = Object.values(inspection.summary.totals).filter(Boolean).length === 1;
       setDestination({ subject: inspection.summary.subjects.length === 1 ? inspection.summary.subjects[0] : '',
         category: onlyOneCategory ? categoryOf(first) : '' });
-      setSuccess(items.length + ' questions published successfully. Quiz-source items are shown under Quiz, not Midterm. Your original input order is stored in the quiz records.');
+      setSuccess(items.length + ' questions published successfully. Quiz-source items are shown under Quiz, not Midterm, and original order is preserved. Imported answer indexes are treated as provisional for scoring until a verified administrator reviews each answer against a named source.');
       setBulk(''); setSourceName(''); setVerified(false);
       if (chooser.current) chooser.current.value = '';
     } catch (cause) {
@@ -103,6 +103,7 @@ export default function McqBulkImporter({ user, onView }) {
         <span>I have independently checked the provisional/conflicting answer keys and accept responsibility for publishing these answers.</span></label>}
       {error && <div className="edx-exam-alert edx-import-result" role="alert">{error}</div>}
       {success && <div className="edx-exam-success edx-import-result" role="status"><CheckCircle2 size={18}/>{success}
+        {destination?.subject && destination?.category && <a className="edx-exam-secondary" href={'/?page=exam-prep&subject=' + encodeURIComponent(destination.subject) + '&term=' + encodeURIComponent(destination.category)} target="_blank" rel="noopener noreferrer">Open public {destination.subject} {destination.category}</a>}
         {destination?.subject && destination?.category && <button type="button" className="edx-exam-secondary"
           onClick={() => onView?.(destination.subject, destination.category)}>View {destination.subject} {destination.category === 'quiz' ? 'Quiz' : destination.category === 'midterm' ? 'Midterm' : 'Finalterm'}</button>}</div>}
       <button type="submit" className="edx-exam-primary edx-import-submit" disabled={busy || !inspection.items || (mustVerify && !verified)}>
