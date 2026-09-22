@@ -19,7 +19,6 @@ import App from './App';
 import DashboardEnhancerSafe from './DashboardEnhancerSafe';
 import ContentHub from './ContentHub';
 import TutorialHub from './TutorialHub';
-import ProfessionalAIAssistantV2 from './ProfessionalAIAssistantV2';
 import AdminResourceManagerV2 from './AdminResourceManagerV2';
 import { startHighlightsWarmup } from './highlights-warmup';
 import { SEOManager } from './SEO';
@@ -62,7 +61,6 @@ root.render(
     <DashboardEnhancerSafe />
     <ContentHub />
     <TutorialHub />
-    <ProfessionalAIAssistantV2 />
     <AdminResourceManagerV2 />
     <App />
   </>
