@@ -8,7 +8,7 @@ jest.mock('firebase/firestore', () => ({
   collection: jest.fn(() => ({})),
   doc: jest.fn(() => ({})),
   getDocs: jest.fn(() => Promise.resolve({ docs: [] })),
-  onSnapshot: jest.fn((_reference, notify) => { notify({ docs: [] }); return () => {}; }),
+  onSnapshot: (_reference, notify) => { notify({ docs: [] }); return () => {}; },
   limit: jest.fn(),
   query: jest.fn(() => ({})),
   where: jest.fn(),
