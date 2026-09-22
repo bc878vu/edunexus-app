@@ -9,7 +9,6 @@ import './content-hub.css';
 import './tutorial-hub.css';
 import './background-rotator.css';
 import './content-hub-links.css';
-import './professional-ai.css';
 import './admin-content-manager.css';
 import './ui-layer-fix.css';
 import './responsive-hardening.css';
