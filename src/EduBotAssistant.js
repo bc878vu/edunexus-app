@@ -229,6 +229,11 @@ export default function EduBotAssistant() {
             {speaking ? <VolumeX size={15}/> : <Volume2 size={15}/>} {speaking ? 'Stop' : 'Listen'}
           </button>}
         </div>)}
+        {messages.length === 1 && !busy && <div className="edx-bot-example" aria-label="Suggested questions">
+          {['CS101 ki study files dhoondo', 'Quiz aur Finalterm ki tayari kaise karun?', 'EduNexus WhatsApp group link do', 'Mere liye study plan suggest karo'].map(q => (
+            <button type="button" key={q} onClick={() => void send(q)}>{q}</button>
+          ))}
+        </div>}
         {busy && <p className="edx-bot-thinking" role="status"><Loader2 size={15}/> Finding an answer…</p>}
         <div ref={bottomRef}/>
       </div>
