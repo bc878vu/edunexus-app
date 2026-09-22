@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import ExamPrepHub from './ExamPrepHub';
 import { ADMIN_TAB_KEY, ADMIN_EMAIL, clearAdminTab, grantAdminTab } from './adminSession';
 
@@ -30,13 +30,10 @@ test('PUBLIC Exam Prep never renders Admin tools, even with a previously authent
   // Reproduces the screenshot regression: an old Firebase admin user is still
   // present, but this is not the active restricted Admin Panel.
   window.sessionStorage.setItem(ADMIN_TAB_KEY, admin.uid);
-  const openAdmin = jest.fn();
-  render(<ExamPrepHub user={admin} initialTab="admin" onAdminPanel={openAdmin} />);
+  render(<ExamPrepHub user={admin} initialTab="admin" />);
   expect(screen.queryByRole('button', { name: 'Admin tools' })).toBeNull();
   expect(screen.queryByText('Exam content management')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Open secure Admin Panel login' })).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Open secure Admin Panel login' }));
-  expect(openAdmin).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('button', { name: /Admin Panel/i })).toBeNull();
   await waitFor(() => expect(screen.getByText('Public exam practice')).toBeTruthy());
 });
 
@@ -46,6 +43,7 @@ test('PUBLIC Exam Prep still hides management if the URL is manually changed to 
   render(<ExamPrepHub user={admin} initialTab="admin" />);
   expect(screen.queryByRole('button', { name: 'Admin tools' })).toBeNull();
   expect(screen.queryByText('Exam content management')).toBeNull();
+  expect(screen.queryByRole('button', { name: /Admin Panel/i })).toBeNull();
 });
 
 test('admin workspace requires explicit panel context and a verified active admin session', () => {

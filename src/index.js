@@ -9,7 +9,6 @@ import './content-hub.css';
 import './tutorial-hub.css';
 import './background-rotator.css';
 import './content-hub-links.css';
-import './professional-ai.css';
 import './admin-content-manager.css';
 import './ui-layer-fix.css';
 import './responsive-hardening.css';
@@ -19,7 +18,6 @@ import App from './App';
 import DashboardEnhancerSafe from './DashboardEnhancerSafe';
 import ContentHub from './ContentHub';
 import TutorialHub from './TutorialHub';
-import ProfessionalAIAssistantV2 from './ProfessionalAIAssistantV2';
 import AdminResourceManagerV2 from './AdminResourceManagerV2';
 import { startHighlightsWarmup } from './highlights-warmup';
 import { SEOManager } from './SEO';
@@ -62,7 +60,6 @@ root.render(
     <DashboardEnhancerSafe />
     <ContentHub />
     <TutorialHub />
-    <ProfessionalAIAssistantV2 />
     <AdminResourceManagerV2 />
     <App />
   </>

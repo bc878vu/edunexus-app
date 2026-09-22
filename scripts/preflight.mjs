@@ -31,6 +31,23 @@ for (const file of requiredFiles) {
   if (!exists(file)) failures.push(`Required production file is missing: ${file}`);
 }
 
+// Guard against reintroducing multiple floating AI assistants or public admin links.
+const entrypoint = fs.readFileSync('src/index.js', 'utf8');
+const mainApp = fs.readFileSync('src/App.js', 'utf8');
+const examPage = fs.readFileSync('src/ExamPrepHub.js', 'utf8');
+if (entrypoint.includes('<ProfessionalAIAssistantV2') || entrypoint.includes('<ProfessionalAIAssistant ')) {
+  failures.push('Do not mount the legacy assistant beside EduBot.');
+}
+if ((mainApp.match(/<EduBotAssistant\s*\/>/g) || []).length !== 1) {
+  failures.push('EduBot must have exactly one shared mount in App.js.');
+}
+if (examPage.includes('onAdminPanel') || mainApp.includes('onAdminPanel={()')) {
+  failures.push('The public Exam Prep must not expose an administrator navigation button.');
+}
+if (!examPage.includes('const showAdmin = adminWorkspace === true && isAdmin(user)')) {
+  failures.push('Admin tools must require the restricted Admin Panel workspace.');
+}
+
 const geminiApi = fs.readFileSync('api/gemini.mjs', 'utf8');
 if (/process\.env\.REACT_APP_GEMINI_API_KEY/.test(geminiApi)) {
   failures.push('api/gemini.mjs must not accept a REACT_APP_GEMINI_API_KEY fallback; Gemini credentials must remain server-side.');
