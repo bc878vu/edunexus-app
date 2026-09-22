@@ -3,9 +3,13 @@ import { categoryOf, orderOf } from './examMcqImport';
 export const CATEGORY_NAMES = { quiz: 'Quiz', midterm: 'Midterm', finalterm: 'Finalterm' };
 export const QUESTION_LIMIT = 1000;
 export function isVerifiedAnswer(question) {
+  // A supplied answer index is not independent evidence of correctness.
+  // Older/imported keys remain provisional until a verified administrator
+  // reviews a named source. Do not show an inferred option in green.
   const text = String(question?.explanation || '');
-  const flagged = /PROVISIONAL ANSWER|conflict requires confirmation|answer.key discrepancy|unverified answer|not confirmed by the uploaded file/i.test(text);
-  return !flagged || text.includes('[EduNexus admin verified]');
+  const marker = '[EduNexus admin verified] Admin review source: ';
+  const source = text.split(marker).pop().trim();
+  return text.includes(marker) && source.length >= 12;
 }
 export function orderedQuestions(items, term) {
   const valid = items.filter(q => categoryOf(q) === term &&

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, limit, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { AlertTriangle, BookOpen, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
@@ -98,10 +98,11 @@ function AdminAnswerReview({ question, onUpdated }) {
   </details>;
 }
 
-export default function ExamMcqPractice({ user, subject, term, onSubjectChange, subjects = [] }) {
+export default function ExamMcqPractice({ user, subject, term, onSubjectChange, onTermChange, categoryCounts = {}, subjects = [] }) {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [limited, setLimited] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [answers, setAnswers] = useState({});
   const [currentId, setCurrentId] = useState(null);
@@ -115,7 +116,10 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   const writeTimer = useRef(null);
   const pendingCloud = useRef(null);
   const saveRevision = useRef(0);
-  const recordKey = progressKey(subject, term, user?.uid || 'guest');
+  // Anonymous Firebase UIDs can rotate after browser/session restart. Use a
+  // stable device-local key for guest progress; signed-in students remain
+  // isolated by their authenticated UID for private cloud syncing.
+  const recordKey = progressKey(subject, term, user?.isAnonymous ? 'guest' : (user?.uid || 'guest'));
   const eligible = validSubject(subject);
   const actualQuestions = useMemo(() => questions.map(q => sourceChanges[q.id] || q), [questions, sourceChanges]);
   const index = Math.max(0, actualQuestions.findIndex(q => q.id === currentId));
@@ -134,46 +138,56 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const session = ++sessionRef.current;
     if (writeTimer.current) clearTimeout(writeTimer.current);
     if (pendingCloud.current) { const queued = pendingCloud.current; pendingCloud.current = null; void setDoc(queued.ref, queued.payload).catch(() => {}); }
-    setQuestions([]); setAnswers({}); setCurrentId(null); setFinished(false); setRestoring(true);
+    setQuestions([]); setAnswers({}); setCurrentId(null); setFinished(false); setRestoring(true); setLimited(false);
     setSourceChanges({}); setSearch(''); setLoadError(''); setSaveStatus(''); setAi({ id: null, busy: false, answer: '', error: '' });
     if (!eligible) { setLoading(false); setRestoring(false); setLoadError('Enter a valid subject code.'); return; }
     setLoading(true);
-    const attempt = async () => {
-      try {
-        const snapshot = await getDocs(query(
-          // Keep the existing single-subject query: no new composite index/rules.
-          // A higher limit avoids silently omitting later categories for a subject.
-          // The count limit remains explicit to avoid unbounded Firestore reads.
-          collection(db, ...MCQS), where('subject', '==', subject), limit(QUESTION_LIMIT)
-        ));
-        if (sessionRef.current !== session) return;
-        const ordered = orderedQuestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })), term);
-        setQuestions(ordered);
-        const local = localGet(recordKey);
-        let cloud = null;
-        if (user?.uid) {
-          try {
-            const saved = await getDoc(doc(db, 'artifacts', 'edunexus-live', 'users', user.uid, 'examProgress', subject + '_' + term));
-            if (saved.exists()) cloud = saved.data();
-          } catch (_) { if (sessionRef.current === session) setSaveStatus('Offline/local mode. Cloud sync will retry when you answer a question.'); }
+    let initialized = false;
+    let unsubscribe = () => {};
+    unsubscribe = onSnapshot(query(
+      // The subject-only query avoids a new composite index. The Quiz category
+      // is physically stored as midterm with a Quiz marker for old rules.
+      collection(db, ...MCQS), where('subject', '==', subject), limit(QUESTION_LIMIT)
+    ), async snapshot => {
+      if (sessionRef.current !== session) return;
+      const ordered = orderedQuestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })), term);
+      setQuestions(ordered);
+      setLimited(snapshot.docs.length >= QUESTION_LIMIT);
+      setLoadError('');
+      if (initialized) return; // Preserve in-progress choices when new MCQs publish.
+      initialized = true;
+      const local = localGet(recordKey);
+      let cloud = null;
+      if (user?.uid) {
+        try {
+          const saved = await getDoc(doc(db, 'artifacts', 'edunexus-live', 'users',
+            user.uid, 'examProgress', subject + '_' + term));
+          if (saved.exists()) cloud = saved.data();
+        } catch (_) {
+          if (sessionRef.current === session)
+            setSaveStatus('Offline/local mode. Cloud sync will retry when you answer a question.');
         }
-        if (sessionRef.current !== session) return;
-        const latest = updatedAt(local) >= updatedAt(cloud) ? local : cloud;
-        const restored = sanitizeProgress(latest, ordered);
-        setAnswers(restored.answers); setCurrentId(restored.currentId); setFinished(restored.finished);
-        if (latest) setSaveStatus('Your saved practice has been restored.');
-      } catch (error) {
-        if (sessionRef.current === session) setLoadError(error?.code === 'permission-denied'
-          ? 'MCQ bank could not load. Check published Firestore read rules.'
-          : 'Questions could not load. Check your connection and retry.');
-      } finally {
-        if (sessionRef.current === session) { setLoading(false); setRestoring(false); }
       }
-    };
-    void attempt();
+      if (sessionRef.current !== session) return;
+      const latest = updatedAt(local) >= updatedAt(cloud) ? local : cloud;
+      const restored = sanitizeProgress(latest, ordered);
+      setAnswers(restored.answers); setCurrentId(restored.currentId); setFinished(restored.finished);
+      if (latest) setSaveStatus('Your saved practice has been restored.');
+      setLoading(false); setRestoring(false);
+    }, error => {
+      if (sessionRef.current !== session) return;
+      setLoadError(error?.code === 'permission-denied'
+        ? 'MCQ bank could not load. Check published Firestore read rules.'
+        : 'Questions could not load. Check your connection and retry.');
+      setLoading(false); setRestoring(false);
+    });
     return () => {
+      unsubscribe();
       if (writeTimer.current) clearTimeout(writeTimer.current);
-      if (pendingCloud.current) { const queued = pendingCloud.current; pendingCloud.current = null; void setDoc(queued.ref, queued.payload).catch(() => {}); }
+      if (pendingCloud.current) {
+        const queued = pendingCloud.current; pendingCloud.current = null;
+        void setDoc(queued.ref, queued.payload).catch(() => {});
+      }
       sessionRef.current++;
     };
   }, [subject, term, refresh, user?.uid, recordKey, eligible]);
@@ -183,7 +197,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const payload = { answers: nextAnswers, currentId: nextId, finished: nextFinished,
       subject, term, updatedAt: Date.now() };
     const localSaved = localPut(recordKey, payload);
-    setSaveStatus(localSaved ? 'Saved in this browser · syncing to account…' : 'Local storage unavailable · syncing to account…');
+    setSaveStatus(localSaved ? 'Saved in this browser · syncing to Firebase…' : 'Local storage unavailable · syncing to Firebase…');
     if (writeTimer.current) clearTimeout(writeTimer.current);
     const revision = ++saveRevision.current;
     const session = sessionRef.current;
@@ -265,7 +279,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
         </select></label>
       <label className="edx-exam-field">Search questions <span className="edx-practice-search"><Search size={17}/>
         <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Find a question or topic…"/></span></label>
-      <div className="edx-practice-toolbar-right"><span className="edx-exam-pill">Answered: {stats.answered}/{actualQuestions.length}</span>
+      <div className="edx-practice-toolbar-right"><span className="edx-exam-pill">{CATEGORY_NAMES[term] || term}</span><span className="edx-exam-pill">Answered: {stats.answered}/{actualQuestions.length}</span>
         <span className="edx-exam-pill">Verified score: {stats.score}/{stats.checked}</span>
         {!finished && actualQuestions.length > 0 && <button type="button" className="edx-exam-primary" onClick={finish}>Finish now</button>}</div>
       {search.trim() && <div className="edx-practice-results"><strong>{matches.length} matching questions{matches.length === 80 ? ' (first 80)' : ''}</strong>
@@ -275,12 +289,15 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
         {!matches.length && <p>No questions match your search in {subject} · {CATEGORY_NAMES[term]}.</p>}
       </div>}
     </div>
-    <p className="edx-practice-save" role="status">{saveStatus || (user?.uid ? 'Progress is stored by your private Firebase user ID, not your IP address.' : 'Your attempt is saved on this device when storage is available.')}</p>
+    <p className="edx-practice-save" role="status">{saveStatus || (user?.isAnonymous ? 'Guest practice is saved in this browser; anonymous Firebase accounts may change between sessions. Use a personal account where available for private cross-device progress. IP addresses are not used.' : user?.uid ? 'Signed-in progress is saved by your private Firebase user ID, not your IP address.' : 'Guest progress is saved in this browser when storage is available.')}</p>
     {(loading || restoring) && <div className="edx-exam-card" role="status">Loading your questions and saved progress…</div>}
+    {limited && <p className="edx-practice-catalog-note">Showing up to {QUESTION_LIMIT} published questions for this subject. If the subject has more questions, ask the site administrator to split large banks into smaller sets.</p>}
     {loadError && <div className="edx-exam-alert" role="alert">{loadError} <button type="button" className="edx-exam-secondary" onClick={() => setRefresh(v => v + 1)}>Retry</button></div>}
     {!loading && !restoring && !loadError && !actualQuestions.length && <div className="edx-exam-card edx-exam-empty">
       <CircleHelp size={29}/><h3>No questions found for {subject} · {CATEGORY_NAMES[term]}</h3>
-      <p>Try another subject or exam type. Quiz items are distinct from genuine Midterm questions.</p></div>}
+      <p>No published questions were found for this combination. Quiz questions are listed separately from Midterm and Finalterm, even if their legacy Firestore records use the Midterm field.</p>
+      <div className="edx-practice-empty-actions">{[["quiz", "Quiz"], ["midterm", "Midterm"], ["finalterm", "Finalterm"]].filter(([kind]) => kind !== term && categoryCounts[kind] > 0).map(([kind, label]) => <button type="button" key={kind} className="edx-exam-primary" onClick={() => onTermChange?.(kind)}>Open {label} · {categoryCounts[kind]} available</button>)}
+      <button type="button" className="edx-exam-secondary" onClick={() => setRefresh(v => v + 1)}>Check for new questions</button></div></div>}
     {!loading && !restoring && !loadError && !!actualQuestions.length && !finished && current && <>
       <QuestionReview question={current} number={index+1} total={actualQuestions.length} selected={answers[current.id]}
         onSelect={select} onPrevious={() => goTo(actualQuestions[index-1])} onNext={() => goTo(actualQuestions[index+1])}

@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles } from "lucide-react";
 import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
+import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, firstAvailableExam, publishedExamCatalog } from "./examCatalog";
 import { adminPanelAccess } from './adminSession';
 
 import "./exam-prep-hub.css";
@@ -32,17 +33,17 @@ const safeUrl = (value) => {
   } catch (_) { return ""; }
 };
 const SUBJECTS = ["CS620", "CS101", "CS201", "CS301", "CS302", "CS304", "CS401", "CS403", "CS510", "CS511", "CS601", "CS604", "CS610", "ENG101", "ENG201", "MGT101", "MGT201", "MTH101", "MTH202", "MTH601", "PHY101", "STA301"];
-const EMPTY_MCQ = { subject: "CS101", term: "finalterm", question: "", options: ["", "", "", ""], answer: 0, explanation: "" };
+const EMPTY_MCQ = { subject: "CS101", term: "finalterm", question: "", options: ["", "", "", ""], answer: 0, explanation: "", verificationSource: "" };
 
 const databaseReadError = (error, resource) => error?.code === "permission-denied"
   ? `${resource} temporarily unavailable: the database denied access. The website administrator must publish the updated Firestore rules.`
   : `${resource} could not load. Please check your connection and retry.`;
 
-function CourseSelector({ value, onChange }) {
+function CourseSelector({ value, onChange, subjects = SUBJECTS }) {
   const listId = React.useId();
   return <label className="edx-exam-field">Subject code
     <input list={listId} value={value} onChange={(event) => onChange(courseCode(event.target.value))} placeholder="e.g. CS201" maxLength={12} />
-    <datalist id={listId}>{SUBJECTS.map((s) => <option value={s} key={s} />)}</datalist>
+    <datalist id={listId}>{subjects.map((s) => <option value={s} key={s} />)}</datalist>
   </label>;
 }
 
@@ -75,6 +76,7 @@ function AdminTools({ user, onView }) {
   const [draft, setDraft] = useState(EMPTY_MCQ);
   const [pending, setPending] = useState([]);
   const [message, setMessage] = useState("");
+  const [lastPublished, setLastPublished] = useState(null);
   const [busy, setBusy] = useState(false);
   const reload = async () => {
     if (!isAdmin(user)) return;
@@ -84,12 +86,19 @@ function AdminTools({ user, onView }) {
     } catch (_) { setMessage("Cannot load submissions. Deploy and check Firestore rules."); }
   };
   useEffect(() => { if (isAdmin(user)) void reload(); }, [user]);
-  const normalize = (item) => ({ ...validateMcq(item), createdAt: serverTimestamp() });
+  const normalize = (item) => {
+    const source = String(item.verificationSource || '').trim();
+    if (source.length < 12) throw new Error('Give the original handout, trusted answer key or lecture reference (at least 12 characters) before publishing a verified answer.');
+    const validated = validateMcq(item);
+    const note = ' [EduNexus admin verified] Admin review source: ' + source;
+    if (validated.explanation.length + note.length > 1000) throw new Error('Explanation and verification source together must be within 1000 characters.');
+    return { ...validated, explanation:validated.explanation + note, createdAt:serverTimestamp() };
+  };
   const addOne = async (event) => {
     event.preventDefault();
     if (!isAdmin(user)) { setMessage("Admin session expired. Please log in again."); return; }
     setBusy(true); setMessage("");
-    try { await addDoc(col("examMcqs"), normalize(draft)); setDraft({ ...EMPTY_MCQ, subject: draft.subject, term: draft.term }); setMessage("MCQ published successfully."); }
+    try { const published = normalize(draft); await addDoc(col("examMcqs"), published); setLastPublished({subject:published.subject, term:draft.term}); setDraft({ ...EMPTY_MCQ, subject: draft.subject, term: draft.term }); setMessage("MCQ published successfully. The public practice page updates automatically; use the link below to open the exact subject and exam type."); }
     catch (error) { setMessage(error.message || "MCQ could not be published."); } finally { setBusy(false); }
   };
   const moderate = async (review, approve) => {
@@ -108,11 +117,16 @@ function AdminTools({ user, onView }) {
   if (!isAdmin(user)) return null;
   return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Exam content management</h2><p>Only publish original or properly licensed questions and completed-exam guidance.</p></div><ShieldCheck size={28} /></div>
     {message && <p role="status" className="edx-exam-alert">{message}</p>}
+    {lastPublished && <div className="edx-exam-publish-actions">
+      <a className="edx-exam-primary" href={'/?page=exam-prep&subject=' + encodeURIComponent(lastPublished.subject) + '&term=' + encodeURIComponent(lastPublished.term)} target="_blank" rel="noopener noreferrer">Open published {lastPublished.subject} {lastPublished.term} quiz <ChevronRight size={16}/></a>
+      <button type="button" className="edx-exam-secondary" onClick={() => onView?.(lastPublished.subject, lastPublished.term)}>Preview in Admin Panel</button>
+    </div>}
     <form className="edx-exam-card edx-exam-form" onSubmit={addOne}><h3>Add an MCQ</h3><div className="edx-exam-form-grid"><CourseSelector value={draft.subject} onChange={(value) => setDraft((v) => ({ ...v, subject: value }))} /><TermSelector includeQuiz value={draft.term} onChange={(value) => setDraft((v) => ({ ...v, term: value }))} /></div>
       <label className="edx-exam-field">Question<textarea rows={2} maxLength={1000} required value={draft.question} onChange={(e) => setDraft((v) => ({ ...v, question: e.target.value }))} /></label>
       {draft.options.map((option, i) => <label className="edx-exam-field" key={i}>Option {String.fromCharCode(65 + i)}<input required maxLength={350} value={option} onChange={(e) => setDraft((v) => ({ ...v, options: v.options.map((x, j) => i === j ? e.target.value : x) }))} /></label>)}
       <label className="edx-exam-field">Correct option<select value={draft.answer} onChange={(e) => setDraft((v) => ({ ...v, answer: Number(e.target.value) }))}>{draft.options.map((_, i) => <option key={i} value={i}>{String.fromCharCode(65 + i)}</option>)}</select></label>
       <label className="edx-exam-field">Explanation (optional)<textarea rows={2} maxLength={1000} value={draft.explanation} onChange={(e) => setDraft((v) => ({ ...v, explanation: e.target.value }))} /></label>
+      <label className="edx-exam-field">Answer verification source (required)<input type="text" required minLength={12} maxLength={220} value={draft.verificationSource} placeholder="e.g. CS101 handout, lecture 04, page 11" onChange={(e) => setDraft(v => ({ ...v, verificationSource:e.target.value }))}/><small>Use a specific handout or trusted answer key. AI guesses alone cannot verify an answer.</small></label>
       <button className="edx-exam-primary" disabled={busy}>Publish MCQ</button>
     </form>
     <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading JSON importer…</section>}><McqBulkImporter user={user} onView={onView}/></React.Suspense>
@@ -131,23 +145,86 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   useEffect(() => {
     if (!showAdmin && tab === "admin") setTab("mcqs");
   }, [showAdmin, tab]);
-  const [subject, setSubject] = useState("CS101");
-  const [term, setTerm] = useState("finalterm");
+  const initialChoice = () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const stored = JSON.parse(window.localStorage.getItem('edunexus:exam:last-selection:v1') || 'null');
+      const code = courseCode(params.get('subject') || stored?.subject || '');
+      const category = params.get('term') || stored?.term || '';
+      return { subject: validCourse(code) ? code : 'CS101',
+        term: EXAM_CATEGORIES.includes(category) ? category : 'finalterm' };
+    } catch (_) { return { subject:'CS101', term:'finalterm' }; }
+  };
+  const [choice] = useState(initialChoice);
+  const [subject, setSubject] = useState(choice.subject);
+  const [term, setTerm] = useState(choice.term);
+  const [catalog, setCatalog] = useState({ subjects: [], bySubject: {}, total:0 });
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState('');
+  const userPickedFilter = useRef(false);
+  const subjectRef = useRef(subject);
+  const termRef = useRef(term);
+  subjectRef.current = subject; termRef.current = term;
+  useEffect(() => {
+    if (adminWorkspace && tab === 'admin') { setCatalogLoading(false); return; }
+    const source = query(col('examMcqs'), limit(EXAM_SUBJECT_LIMIT));
+    const unsubscribe = onSnapshot(source, snapshot => {
+      const next = publishedExamCatalog(snapshot.docs);
+      setCatalog(next); setCatalogLoading(false); setCatalogError('');
+      // On first visit, choose a combination that actually contains published
+      // questions; never silently override a user's later manual choice.
+      if (!userPickedFilter.current && next.total) {
+        const available = firstAvailableExam(next, subjectRef.current, termRef.current);
+        if (available) {
+          subjectRef.current = available.subject; termRef.current = available.term;
+          setSubject(available.subject); setTerm(available.term);
+        }
+        userPickedFilter.current = true;
+      }
+    }, error => {
+      setCatalogLoading(false);
+      setCatalogError(error?.code === 'permission-denied'
+        ? 'Published question catalogue is blocked by Firestore read rules.'
+        : 'Could not load the published course catalogue. Refresh to try again.');
+    });
+    return () => unsubscribe();
+  }, [adminWorkspace, tab]);
+  const selectSubject = value => { userPickedFilter.current = true; setSubject(courseCode(value)); };
+  const selectTerm = value => { userPickedFilter.current = true; setTerm(value); };
+  useEffect(() => {
+    if (!validCourse(subject) || !EXAM_CATEGORIES.includes(term)) return;
+    try { window.localStorage.setItem('edunexus:exam:last-selection:v1', JSON.stringify({ subject, term })); }
+    catch (_) {}
+  }, [subject, term]);
+  const availableCounts = catalog.bySubject[subject] || { quiz: 0, midterm: 0, finalterm: 0 };
+  const catalogSubjects = [...new Set([...catalog.subjects, ...SUBJECTS, subject])].filter(Boolean);
+
   const changeTab = (next) => {
     if (next === "admin" && !showAdmin) return;
-    if (next === "reviews" && term === "quiz") setTerm("midterm");
+    if (next === "reviews" && term === "quiz") selectTerm("midterm");
     setTab(next);
   };
   return <div className="edx-exam" id="edx-exam-hub">
     <section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><Sparkles size={14} /> EduNexus Exam Prep</span><h1>Practice smarter. Prepare with confidence.</h1><p>Subject-wise MCQs, student-shared completed-exam experiences, and your existing study files in one focused workspace.</p><div className="edx-exam-hero-links"><button onClick={() => changeTab("mcqs")}>Practice MCQs <ChevronRight size={16} /></button><button onClick={() => changeTab("reviews")}>Paper reviews <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
-    <div className="edx-exam-controls"><CourseSelector value={subject} onChange={setSubject} /><TermSelector value={term} onChange={setTerm} includeQuiz={tab === "mcqs" || tab === "admin"} /></div>
+    <div className="edx-exam-controls"><CourseSelector value={subject} onChange={selectSubject} subjects={catalogSubjects} /><TermSelector value={term} onChange={selectTerm} includeQuiz={tab === "mcqs" || tab === "admin"} /></div>
+    {!adminWorkspace && <section className="edx-exam-catalog" aria-label="Published quiz and exam categories">
+      <div className="edx-exam-catalog-head"><strong>Published practice</strong><span>{catalogLoading ? 'Checking published questions…' : catalog.total ? catalog.total + '+ questions across ' + catalog.subjects.length + ' subject(s)' : 'No published questions detected in the first ' + EXAM_SUBJECT_LIMIT + ' records'}</span></div>
+      {!!catalog.subjects.length && <div className="edx-exam-catalog-subjects" role="group" aria-label="Available subject categories">
+        {catalog.subjects.map(code => <button type="button" key={code} onClick={() => { userPickedFilter.current = true; setSubject(code); const best = firstAvailableExam(catalog, code, term); if (best) setTerm(best.term); }} className={subject === code ? 'active' : ''}>{code}</button>)}
+      </div>}
+      <div className="edx-exam-catalog-categories" role="group" aria-label="Exam type and published question counts">
+        {EXAM_CATEGORIES.map(category => <button type="button" key={category} className={term === category ? 'active' : ''} onClick={() => selectTerm(category)}>{category === 'quiz' ? 'Quiz' : category === 'midterm' ? 'Midterm' : 'Finalterm'} <span>{availableCounts[category] || 0}</span></button>)}
+      </div>
+      {catalogError && <p className="edx-exam-alert" role="alert">{catalogError} You can still type a subject code and retry the practice view.</p>}
+      {catalog.total >= EXAM_SUBJECT_LIMIT && <p className="edx-exam-catalog-note">The subject catalogue shows the first {EXAM_SUBJECT_LIMIT} published records. Enter another subject code manually if it is not listed.</p>}
+    </section>}
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
       {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(showAdmin ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)}>{label}</button>)}
     </nav>
-    {tab === "mcqs" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={SUBJECTS} onSubjectChange={setSubject}/></React.Suspense>}
+    {tab === "mcqs" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={catalogSubjects} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm}/></React.Suspense>}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} />}
-    {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { setSubject(code); setTerm(examType); setTab("mcqs"); }} />}
+    {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { selectSubject(code); selectTerm(examType); setTab("mcqs"); }} />}
     <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Student reviews are public, student-contributed educational guidance, not official or live examination material.</p>
   </div>;
 }

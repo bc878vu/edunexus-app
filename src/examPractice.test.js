@@ -16,9 +16,11 @@ test('quiz follows original imported order, even when Firestore returns shuffled
   expect(orderedQuestions(items,'midterm').map(item => item.id)).toEqual(['midterm']);
 });
 test('an unverified source answer is never marked correct nor counted as a verified score', () => {
-  const verified = make('verified','[EduNexus Quiz|order:0001] Original solved source');
+  const verified = make('verified','[EduNexus Quiz|order:0001] Original solved source [EduNexus admin verified] Admin review source: CS620 official handout page 10');
   const guessed = make('guess','[EduNexus Quiz|order:0002] PROVISIONAL ANSWER: uploaded PDF has no answer key.');
   const conflicted = make('conflict','[EduNexus Quiz|order:0003] The conflict requires confirmation.');
+  expect(isVerifiedAnswer(make('unsupported', 'Looks like the right answer'))).toBe(false);
+  expect(isVerifiedAnswer(make('unsupported2', '[EduNexus admin verified]'))).toBe(false);
   expect(isVerifiedAnswer(guessed)).toBe(false);
   expect(isVerifiedAnswer(conflicted)).toBe(false);
   expect(practiceStats([verified,guessed,conflicted],{verified:3,guess:3,conflict:1}))
@@ -34,6 +36,6 @@ test('saved answers are isolated by user, subject and term, and unknown question
     .toEqual({answers:{first:3},currentId:'first',finished:true});
 });
 test('unanswered questions do not inflate the score, and answer 0 remains a valid selection', () => {
-  const a=make('a','Confirmed source');const b={...make('b','Confirmed source'),answer:0};
+  const a=make('a','[EduNexus admin verified] Admin review source: official handout page 12');const b={...make('b','[EduNexus admin verified] Admin review source: official lecture 05 slide 14'),answer:0};
   expect(practiceStats([a,b],{b:0})).toMatchObject({answered:1,checked:1,score:1,unattempted:1});
 });
