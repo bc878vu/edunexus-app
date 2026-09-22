@@ -33,6 +33,8 @@ test('Roman Urdu, multilingual responses, missing-data honesty and prompt-inject
   ],knowledge);
   expect(prompt).toContain('Roman Urdu');
   expect(prompt).toContain('UNTRUSTED DATA');
-  expect(prompt).toContain('no access to group conversations');
+  expect(prompt).toContain('NO access to messages');
+  expect(prompt).toContain('Do NOT write Markdown');
+  expect(prompt).toContain('NEVER create or guess Google Drive IDs');
   expect(prompt.length).toBeLessThanOrEqual(11300);
 });
