@@ -31,7 +31,7 @@ export function renderableLinks(text, approvedUrls = []) {
     const tail = raw.slice(url.length);
     const normalized = normalizePublicUrl(url);
     if (normalized && known.has(normalized)) chunks.push({ text: url, url: normalized });
-    else chunks.push({ text: url });
+    else chunks.push({ text: '[Link could not be verified. Please check Academic Hub.]' });
     if (tail) chunks.push({ text: tail });
     pos = match.index + raw.length;
   }
