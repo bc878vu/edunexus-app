@@ -18,3 +18,19 @@
 .edx-exam .edx-practice-catalog-note{font-size:.76rem;line-height:1.55;color:var(--ex-muted);margin:0}
 @media(max-width:620px){.edx-exam .edx-exam-catalog{gap:10px}.edx-exam .edx-exam-catalog-categories{grid-template-columns:1fr}.edx-exam .edx-exam-catalog-categories button{min-height:45px}.edx-exam .edx-exam-publish-actions>*{width:100%}.edx-exam .edx-exam-catalog-subjects{max-height:140px}}
 @media(prefers-reduced-motion:reduce){.edx-exam .edx-exam-catalog *{transition:none!important;animation:none!important}}
+
+
+.edx-exam .edx-admin-mcqs{display:grid;gap:13px}
+.edx-exam .edx-admin-mcqs h3{margin:0}
+.edx-exam .edx-admin-mcqs .edx-practice-search{display:flex;align-items:center;gap:8px;border:1px solid var(--ex-line);border-radius:12px;background:var(--ex-card);min-height:43px;padding:0 10px}
+.edx-exam .edx-admin-mcqs .edx-practice-search input{border:0;outline:0;padding:8px 0;box-shadow:none;min-width:0;width:100%}
+.edx-exam .edx-admin-mcq-list{display:grid;gap:9px;max-height:590px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+.edx-exam .edx-admin-mcq-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--ex-line);border-radius:13px;padding:12px;background:var(--ex-card);min-width:0}
+.edx-exam .edx-admin-mcq-row>div:first-child{display:grid;gap:6px;min-width:0;flex:1}
+.edx-exam .edx-admin-mcq-row strong{overflow-wrap:anywhere;line-height:1.5}
+.edx-exam .edx-admin-mcq-row small{font-size:.75rem;color:var(--ex-muted)}
+.edx-exam .edx-admin-mcq-row-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.edx-exam .edx-admin-danger{color:#dc2626;border-color:rgba(220,38,38,.35)}
+.edx-exam .edx-admin-mcq-editor{display:grid;gap:12px;padding:clamp(12px,3vw,23px);border:2px solid rgba(99,102,241,.3);border-radius:15px;background:rgba(99,102,241,.045)}
+.edx-exam .edx-admin-mcq-editor small{font-size:.75rem;color:var(--ex-muted);line-height:1.6}
+@media(max-width:650px){.edx-exam .edx-admin-mcq-row{align-items:stretch;flex-direction:column}.edx-exam .edx-admin-mcq-row-actions{justify-content:flex-start}.edx-exam .edx-admin-mcq-row-actions button{flex:1}}
