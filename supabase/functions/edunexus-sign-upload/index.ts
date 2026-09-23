@@ -5,7 +5,7 @@ const PROJECT = "edunexus-live-e0b84";
 const ADMIN_EMAIL = "veducator4@gmail.com";
 const BUCKET = "edunexus-public-files";
 const MAX_SIZE = 45 * 1024 * 1024;
-const ALLOWED_ORIGINS = new Set(["https://edunexus-app.vercel.app", "http://localhost:3000"]);
+const ALLOWED_ORIGINS = new Set(["https://edunexus.dpdns.org", "https://edunexus-app.vercel.app", "http://localhost:3000"]);
 const MIME = new Map(Object.entries({
   pdf: "application/pdf", doc: "application/msword",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

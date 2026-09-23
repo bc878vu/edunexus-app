@@ -2,7 +2,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/
 import { db } from './firebase-client';
 
 export const EDUNEXUS_GROUP = 'https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW';
-export const EDUNEXUS_SITE = 'https://edunexus-app.vercel.app/';
+export const EDUNEXUS_SITE = 'https://edunexus.dpdns.org/';
 export const SITE_GUIDE = Object.freeze([
   { name: 'Home', url: '/?page=home', detail: 'Main study dashboard and navigation to EduNexus tools.' },
   { name: 'Academic Hub', url: '/?page=academic', detail: 'Subject folders, downloadable handouts, past papers, files and resource reviews. Admin can add a link or upload public study files.' },
@@ -31,7 +31,7 @@ export const safeUrl = (value) => {
   try {
     const url = new URL(String(value || ''));
     const permitted = new Set(['drive.google.com', 'docs.google.com', 'res.cloudinary.com',
-      'edunexus-app.vercel.app', 'cprpndovdfnkvekewstv.supabase.co']);
+      'edunexus.dpdns.org', 'edunexus-app.vercel.app', 'cprpndovdfnkvekewstv.supabase.co']);
     if (url.protocol !== 'https:' || !permitted.has(url.hostname)) return '';
     // Storage download links can contain bearer-like query tokens. Never send
     // these query parameters or URL credentials to an external AI provider.
