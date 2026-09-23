@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
 import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
 import { db, storage } from './firebase-client';
 import { getBlob, ref as storageRef } from 'firebase/storage';
@@ -21,6 +21,9 @@ const safeHttp = (raw) => {
   } catch (_) { return null; }
 };
 const nameOf = (f) => cut(f.name || f.title || 'Untitled resource', 170);
+const filePublicPath = (f) => '/vu-notes/file/' + encodeURIComponent(f.id) + '/' +
+  (String(f.name || f.title || 'study-resource').normalize('NFKD').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'study-resource');
 const extOf = (f) => {
   const explicit = cut(f.ext, 10).replace(/[^a-z0-9]/gi, '').toUpperCase();
   if (explicit && explicit !== 'LINK') return explicit;
@@ -47,10 +50,7 @@ const fileLinks = (f) => {
   if (f.sourceType === 'supabase-storage' && f.storageBucket === 'edunexus-public-files') {
     const ext = extOf(f);
     const preview = ['PDF', 'PNG', 'JPG', 'JPEG', 'WEBP'].includes(ext) ? source : '';
-    const filename = String(f.originalFilename || nameOf(f)).replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
-    const downloadUrl = new URL(source);
-    downloadUrl.searchParams.set('download', filename);
-    return { source, preview, download: downloadUrl.href, kind: ext === 'PDF' ? 'pdf' :
+    return { source, preview, download: '/api/resource-download?id=' + encodeURIComponent(f.id), kind: ext === 'PDF' ? 'pdf' :
       ['PNG', 'JPG', 'JPEG', 'WEBP'].includes(ext) ? 'image' : 'external', direct: false };
   }
   // New Firebase uploads have attachment disposition: clicking their URL downloads.
@@ -121,10 +121,9 @@ function ResourcePreview({ file, links, onClose }) {
     <div className="ah-between"><div><span className="ah-eyebrow">In-page preview</span><h3>{nameOf(file)}</h3></div><button type="button" className="ah-icon-button" onClick={onClose} aria-label="Close preview"><X size={19} /></button></div>
     {state === 'loading' && <div className="ah-loading" role="status"><div /><p>Preparing a secure in-page preview…</p></div>}
     {canEmbed ? (isImage ? <img className="ah-preview-image" loading="lazy" src={displayUrl} alt={nameOf(file)} /> :
-      <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={displayUrl} referrerPolicy="strict-origin-when-cross-origin" />) :
-      state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'Inline preview is available for supported PDFs/images up to 20 MiB. For larger files or other formats, use Download or open the original source.'}</p></div>}
-    <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span>{links.source && <a href={links.source} target="_blank" rel="noopener noreferrer">Open original file <ExternalLink size={14} /></a>}</div>
-    <p className="ah-note">Document previews depend on the file host's sharing rules and browser capabilities. Direct Firebase uploads use an attachment URL for downloading.</p>
+      <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={displayUrl} referrerPolicy="no-referrer" />) :
+      state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'Inline preview is available for supported PDFs/images up to 20 MiB. For larger files or other formats, use the Download button.'}</p></div>}
+    <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span></div>
   </section>;
 }
 
@@ -134,6 +133,9 @@ function FileReviews({ file, user, isAdmin }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [pending, setPending] = useState([]);
+  const [editing, setEditing] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [editRating, setEditRating] = useState(5);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -141,7 +143,7 @@ function FileReviews({ file, user, isAdmin }) {
 
   useEffect(() => {
     let alive = true;
-    setItems([]); setMine(null); setStatus(''); setLoading(true); setPending([]);
+    setItems([]); setMine(null); setStatus(''); setLoading(true); setPending([]); setEditing(null);
     const approved = query(REVIEWS(file.id), where('status', '==', 'approved'), limit(100));
     const unsub = onSnapshot(approved, (snap) => {
       if (alive) { setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))); setLoading(false); }
@@ -151,36 +153,57 @@ function FileReviews({ file, user, isAdmin }) {
       if (alive) setMine(snap.exists() ? { id: snap.id, ...snap.data() } : null);
     }, () => {});
     let pendingUnsub = () => {};
-    if (admin) pendingUnsub = onSnapshot(query(REVIEWS(file.id), where('status', '==', 'pending'), limit(40)), (snap) => { if (alive) setPending(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); }, () => { if (alive) setStatus('Pending reviews could not be loaded. Check the published permissions.'); });
+    // Only historical pending records need an administrator action. New reviews publish immediately.
+    if (admin) pendingUnsub = onSnapshot(query(REVIEWS(file.id), where('status', '==', 'pending'), limit(40)), (snap) => { if (alive) setPending(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); }, () => {});
     return () => { alive = false; unsub(); ownUnsub(); pendingUnsub(); };
   }, [file.id, user?.uid, admin]);
 
   const publish = async (event) => {
     event.preventDefault();
-    if (!user?.uid || comment.trim().length < 20 || comment.trim().length > 800) return;
+    const value = comment.trim();
+    if (!user?.uid || mine || value.length < 20 || value.length > 50000 || !Number.isInteger(Number(rating))) return;
     setBusy(true); setStatus('');
     try {
-      await setDoc(reviewDoc(file.id, user.uid), { userId: user.uid, rating: Number(rating), comment: comment.trim(), status: 'pending', createdAt: serverTimestamp() });
-      setMine({ userId: user.uid, rating: Number(rating), comment: comment.trim(), status: 'pending' });
-      setComment(''); setStatus('Your review was submitted and is awaiting moderation. It is not public yet.');
-    } catch (error) { setStatus(error.code === 'permission-denied' ? 'Review submission is blocked. The site administrator must deploy the Academic Hub review rules.' : 'Review could not be saved. Please try again.'); }
+      await setDoc(reviewDoc(file.id, user.uid), {
+        userId: user.uid, rating: Number(rating), comment: value, originalComment: value,
+        status: 'approved', createdAt: serverTimestamp()
+      });
+      setComment(''); setStatus('Your review is now published.');
+    } catch (error) { setStatus(error.code === 'permission-denied' ? 'Review submission is blocked. Publish the updated Academic Hub Firestore rules.' : 'Review could not be saved. Please try again.'); }
     finally { setBusy(false); }
   };
-  const moderate = async (item, nextStatus) => {
+  const moderate = async (item) => {
     setBusy(true); setStatus('');
-    try { await updateDoc(reviewDoc(file.id, item.id), { status: nextStatus, moderatedAt: serverTimestamp() }); setStatus(nextStatus === 'approved' ? 'Review approved.' : 'Review rejected.'); }
-    catch (_) { setStatus('Moderation failed. Check administrator permissions.'); }
+    try { await updateDoc(reviewDoc(file.id, item.id), { status: 'approved', moderatedAt: serverTimestamp() }); setStatus('Earlier pending review published.'); }
+    catch (_) { setStatus('Could not publish this earlier review. Check administrator permissions.'); }
+    finally { setBusy(false); }
+  };
+  const startEdit = (item) => { setEditing(item.id); setEditText(String(item.comment || '')); setEditRating(Number(item.rating || 5)); };
+  const saveEdit = async (item) => {
+    if (!admin || editText.trim().length < 20 || editText.trim().length > 50000) return;
+    setBusy(true); setStatus('');
+    try {
+      await updateDoc(reviewDoc(file.id, item.id), { comment: editText.trim(), rating: Number(editRating), editedAt: serverTimestamp() });
+      setEditing(null); setStatus('Review updated by administrator.');
+    } catch (_) { setStatus('Could not edit the review. Check administrator permissions.'); }
+    finally { setBusy(false); }
+  };
+  const remove = async (item) => {
+    if (!admin || !window.confirm('Permanently delete this resource review?')) return;
+    setBusy(true); setStatus('');
+    try { await deleteDoc(reviewDoc(file.id, item.id)); setStatus('Review deleted.'); }
+    catch (_) { setStatus('Review deletion failed.'); }
     finally { setBusy(false); }
   };
   const average = items.length ? (items.reduce((sum, r) => sum + Number(r.rating || 0), 0) / items.length).toFixed(1) : '';
   return <section className="ah-focus" aria-label="Resource reviews">
-    <div className="ah-between"><div><span className="ah-eyebrow">Student resource reviews</span><h3>Read and review: {nameOf(file)}</h3></div><span className="ah-chip"><Star size={14} /> {average || 'New'} · {items.length} approved</span></div>
-    <p>Tell other students whether this material is clear, relevant and useful for revision. Reviews are about this resource, not a guarantee of exam coverage or correctness.</p>
+    <div className="ah-between"><div><span className="ah-eyebrow">Student resource reviews</span><h3>Read and review: {nameOf(file)}</h3></div><span className="ah-chip"><Star size={14} /> {average || 'New'} · {items.length} published</span></div>
+    <p>Share your own experience with this study material. User-submitted reviews appear immediately and do not represent an official examination guarantee.</p>
     {status && <div role="status" className="ah-message">{status}</div>}
-    {loading ? <p>Loading reviews…</p> : items.length ? <div className="ah-review-list">{items.map((r) => <article className="ah-review" key={r.id}><div className="ah-between"><strong>Student review</strong><span className="ah-stars" aria-label={r.rating + ' out of 5 stars'}>{'★'.repeat(Math.max(0, Math.min(5, r.rating || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, r.rating || 0)))}</span></div><p>{cut(r.comment, 800)}</p></article>)}</div> : <div className="ah-empty">No approved reviews yet. Be the first to share thoughtful feedback.</div>}
-    {user?.uid ? (mine ? <p className="ah-message">{mine.status === 'approved' ? 'Your review has been published.' : mine.status === 'rejected' ? 'Your review was not approved.' : 'Your review is awaiting moderation.'} Each student can submit one review per resource.</p> :
-      <form className="ah-review-form" onSubmit={publish}><h4>Share your experience</h4><label>Rating<select value={rating} onChange={(e) => setRating(Number(e.target.value))}><option value={5}>5 — Excellent</option><option value={4}>4 — Helpful</option><option value={3}>3 — Average</option><option value={2}>2 — Needs improvement</option><option value={1}>1 — Not helpful</option></select></label><label>Written review<textarea required minLength={20} maxLength={800} rows={3} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Describe what you learned and whether the material was clear…" /></label><p className="ah-note">Avoid sharing personal information, copyrighted excerpts or active exam content. Reviews are checked before appearing publicly.</p><button type="submit" className="ah-primary" disabled={busy || comment.trim().length < 20}>{busy ? 'Submitting…' : 'Submit review'}</button></form>) : <p className="ah-note">Sign in to leave a review.</p>}
-    {admin && <div className="ah-review-queue"><h4><ShieldCheck size={17} /> Admin moderation · {pending.length} pending</h4>{pending.length ? pending.map((r) => <article key={r.id} className="ah-review"><strong>{r.rating} / 5 · Student review</strong><p>{cut(r.comment, 800)}</p><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy} onClick={() => moderate(r, 'approved')}>Approve</button><button type="button" className="ah-secondary" disabled={busy} onClick={() => moderate(r, 'rejected')}>Reject</button></div></article>) : <p>No pending reviews for this resource.</p>}</div>}
+    {loading ? <p>Loading reviews…</p> : items.length ? <div className="ah-review-list">{items.map((r) => <article className="ah-review" key={r.id}><div className="ah-between"><strong>Student review {r.editedAt ? '· edited by admin' : ''}</strong><span className="ah-stars" aria-label={r.rating + ' out of 5 stars'}>{'★'.repeat(Math.max(0, Math.min(5, r.rating || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, r.rating || 0)))}</span></div><p>{String(r.comment || '')}</p>{admin && <div className="ah-actions"><button type="button" className="ah-secondary" disabled={busy} onClick={() => startEdit(r)}>Edit</button><button type="button" className="ah-delete" disabled={busy} onClick={() => remove(r)}>Delete</button></div>}{admin && editing === r.id && <div className="ah-review-form"><label>Rating<select value={editRating} onChange={(e) => setEditRating(Number(e.target.value))}>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n} / 5</option>)}</select></label><label>Review text<textarea rows={6} maxLength={50000} value={editText} onChange={(e) => setEditText(e.target.value)} /></label><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy || editText.trim().length < 20} onClick={() => saveEdit(r)}>Save edit</button><button type="button" className="ah-secondary" onClick={() => setEditing(null)}>Cancel</button></div></div>}</article>)}</div> : <div className="ah-empty">No published reviews yet. Be the first to share thoughtful feedback.</div>}
+    {user?.uid ? (mine ? <p className="ah-message">{mine.status === 'approved' ? 'Your review is published.' : mine.status === 'rejected' ? 'Your earlier review was rejected.' : 'Your earlier review is awaiting publication.'} Each account can submit one review per resource.</p> :
+      <form className="ah-review-form" onSubmit={publish}><h4>Share your experience</h4><label>Rating<select value={rating} onChange={(e) => setRating(Number(e.target.value))}><option value={5}>5 — Excellent</option><option value={4}>4 — Helpful</option><option value={3}>3 — Average</option><option value={2}>2 — Needs improvement</option><option value={1}>1 — Not helpful</option></select></label><label>Written review<textarea required minLength={20} maxLength={50000} rows={5} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Write your own detailed review of this file…" /></label><p className="ah-note">Up to 50,000 characters. Reviews publish automatically. Please share genuine feedback, without personal data or active exam content.</p><button type="submit" className="ah-primary" disabled={busy || comment.trim().length < 20 || comment.trim().length > 50000}>{busy ? 'Publishing…' : 'Publish review'}</button></form>) : <p className="ah-note">Sign in to leave a review.</p>}
+    {admin && pending.length > 0 && <div className="ah-review-queue"><h4><ShieldCheck size={17} /> Earlier unpublished reviews ({pending.length})</h4>{pending.map((r) => <article key={r.id} className="ah-review"><strong>{r.rating} / 5 · Student review</strong><p>{String(r.comment || '')}</p><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy} onClick={() => moderate(r)}>Publish earlier review</button><button type="button" className="ah-delete" disabled={busy} onClick={() => remove(r)}>Delete</button></div></article>)}</div>}
   </section>;
 }
 
@@ -195,6 +218,7 @@ function ResourceCard({ file, isAdmin, onDelete, onPreview, onReviews, onDownloa
       <div className="ah-actions">
         <button type="button" className="ah-secondary" disabled={!links.source} onClick={() => onPreview(file)}><BookOpen size={16} /> Preview</button>
         <button type="button" className="ah-secondary" onClick={() => onReviews(file)}><Star size={16} /> Reviews</button>
+        <a className="ah-secondary" href={filePublicPath(file)}>File page</a>
         {links.source ? <a className="ah-primary" href={links.download} download={links.direct ? safeFileName(file) : undefined} target="_blank" rel="noopener noreferrer" onClick={(e) => onDownload(e, file, links)}>{links.kind === "folder" || links.kind === "external-link" ? <ExternalLink size={16} /> : <Download size={16} />}{links.kind === "folder" ? "Open folder" : links.kind === "external-link" ? "Open resource" : "Download"}</a> : <span className="ah-muted">File link unavailable</span>}
         {isAdmin && <button type="button" className="ah-delete" onClick={() => onDelete(file)} aria-label={'Delete ' + title}>Delete</button>}
       </div>
@@ -229,8 +253,8 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const [sortBy, setSortBy] = useState('newest');
   const [subjectsExpanded, setSubjectsExpanded] = useState(true);
   const [subject, setSubject] = useState(() => new URLSearchParams(window.location.search).get('subject') || '');
-  const [selectedId, setSelectedId] = useState('');
-  const [panel, setPanel] = useState('preview');
+  const [selectedId, setSelectedId] = useState(() => new URLSearchParams(window.location.search).get('file') || '');
+  const [panel, setPanel] = useState(() => new URLSearchParams(window.location.search).get('panel') === 'reviews' ? 'reviews' : 'preview');
   const [downloadStatus, setDownloadStatus] = useState({});
   const [visible, setVisible] = useState(18);
   const scroller = useRef(null);
@@ -238,7 +262,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const olderPagesLoaded = useRef(false);
 
   useEffect(() => {
-    const onPop = () => { setSubject(new URLSearchParams(window.location.search).get('subject') || ''); setSelectedId(''); };
+    const onPop = () => { const params = new URLSearchParams(window.location.search); setSubject(params.get('subject') || ''); setSelectedId(params.get('file') || ''); setPanel(params.get('panel') === 'reviews' ? 'reviews' : 'preview'); };
     window.addEventListener('popstate', onPop);
     const unsubFiles = onSnapshot(query(FILES, orderBy('createdAt', 'desc'), limit(PAGE_SIZE)), (snap) => {
       setLatest(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -257,6 +281,14 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     [...older, ...latest].forEach((f) => map.set(f.id, f));
     return [...map.values()].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   }, [latest, older]);
+  useEffect(() => {
+    if (!selectedId || files.some((f) => f.id === selectedId)) return;
+    let alive = true;
+    getDoc(doc(FILES, selectedId)).then((snap) => {
+      if (alive && snap.exists()) setOlder((prev) => [...prev.filter((f) => f.id !== snap.id), { id: snap.id, ...snap.data() }]);
+    }).catch(() => { if (alive) setError('The selected file could not be loaded.'); });
+    return () => { alive = false; };
+  }, [selectedId, files]);
   const counts = useMemo(() => files.reduce((m, f) => { const key = cut(f.subject, 50); if (key) m[key] = (m[key] || 0) + 1; return m; }, {}), [files]);
   const subjects = useMemo(() => [...new Set([...DEFAULT_SUBJECTS, ...folders, ...Object.keys(counts)].filter(Boolean))].sort((a, b) => a.localeCompare(b)), [folders, counts]);
   const normalized = deferredSearch.trim().toLowerCase();
@@ -276,13 +308,19 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     if (value) setSubjectsExpanded(false);
     const url = new URL(window.location.href);
     if (value) url.searchParams.set('subject', value); else url.searchParams.delete('subject');
+    url.searchParams.delete('file'); url.searchParams.delete('panel');
     url.searchParams.set('page', 'academic');
     window.history.pushState({ page: 'academic', subject: value }, '', url.pathname + url.search);
     window.dispatchEvent(new Event('edunexus:navigation'));
   };
   const openPanel = (file, nextPanel) => {
     setSelectedId(file.id); setPanel(nextPanel);
-    // Scroll after React mounts the selected file panel.
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', 'academic');
+    url.searchParams.set('file', file.id);
+    url.searchParams.set('panel', nextPanel);
+    window.history.pushState({ page: 'academic', file: file.id }, '', url.pathname + url.search);
+    window.dispatchEvent(new Event('edunexus:navigation'));
   };
   const more = async () => {
     if (!cursor || loadingMore) return;
@@ -308,7 +346,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   };
   const download = (event, file, links) => {
     if (!links.source) { event.preventDefault(); return; }
-    const note = file.sourceType === 'supabase-storage' ? 'Supabase is preparing your file download. If it does not start, check your browser download permissions.' : file.sourceType === 'firebase-storage' ? 'Downloading the uploaded file. If it does not start, check browser download permissions.' : links.direct ? 'Download requested. The file host may still require sharing permission or confirmation.' : 'Opening the file host. This host may display the file rather than download it directly.';
+    const note = file.sourceType === 'supabase-storage' ? 'Your file download is being prepared. Please check browser download permissions if it does not start.' : file.sourceType === 'firebase-storage' ? 'Downloading the uploaded file. If it does not start, check browser download permissions.' : links.direct ? 'Download requested. The file host may still require sharing permission or confirmation.' : 'Opening the file host. This host may display the file rather than download it directly.';
     setDownloadStatus((prev) => ({ ...prev, [file.id]: note }));
   };
 
