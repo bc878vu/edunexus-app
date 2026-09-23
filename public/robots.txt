@@ -6,3 +6,4 @@ Allow: /
 
 Sitemap: https://edunexus-app.vercel.app/sitemap.xml
 Sitemap: https://edunexus-app.vercel.app/resource-sitemap.xml
+Sitemap: https://edunexus-app.vercel.app/articles-sitemap.xml
