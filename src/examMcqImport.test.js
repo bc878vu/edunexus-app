@@ -65,3 +65,14 @@ test('legacy Quiz 1 source remains a separately named set', () => {
   const item=validateMcq(base(),0,{forImport:true});
   expect(quizSetOf(item)).toBe('QUIZ-1');
 });
+
+test('explicit admin Midterm/Finalterm category assignment survives legacy Quiz mentions in notes', () => {
+  const originallyQuiz = base({ term:'quiz', quizSet:'Quiz 1' });
+  const mid = validateMcq({...originallyQuiz,term:'midterm',explanation:'[EduNexus Midterm] '+originallyQuiz.explanation});
+  const fin = validateMcq({...originallyQuiz,term:'finalterm',explanation:'[EduNexus Finalterm] '+originallyQuiz.explanation});
+  expect(mid.term).toBe('midterm');
+  expect(fin.term).toBe('finalterm');
+  expect(categoryOf(mid)).toBe('midterm');
+  expect(categoryOf(fin)).toBe('finalterm');
+  expect(mid.explanation).toContain('Solved Quiz 1');
+});
