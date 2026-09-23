@@ -90,3 +90,5 @@
 .edx-exam .edx-practice-summary .edx-practice-stat-grid>div{background:var(--ex-card);color:var(--ex-ink)}
 @media(max-width:840px){.edx-exam .edx-practice-setup{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:550px){.edx-exam .edx-practice-setup{grid-template-columns:1fr}.edx-exam .edx-practice-question .edx-exam-option{padding:12px 10px}.edx-exam .edx-practice-question{padding:clamp(13px,4vw,20px)}}
+
+.edx-exam .edx-practice-toolbar>.edx-practice-search-field{grid-column:1/-1;min-width:0}
