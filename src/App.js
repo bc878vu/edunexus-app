@@ -300,7 +300,14 @@ const Navbar = ({
     if (isMenuOpen) toggleMenu();
   };
 
-  const isActive = (id) => page === id;
+  const isActive = (id) => {
+    const route = window.location.pathname.replace(/\\/$/, '') || '/';
+    const specialPage = route === '/live-projects' ? 'portfolio' :
+      ['/study-guides', '/vu-notes-guide', '/past-papers-guide', '/exam-preparation',
+       '/cgpa-guide', '/ai-study-tools', '/student-resources', '/tutorials'].includes(route)
+        ? 'academic' : null;
+    return (specialPage || page) === id;
+  };
 
   return (
     <>
@@ -4557,15 +4564,9 @@ useEffect(() => {
     setPage(targetPage);
     setIsMenuOpen(false); // mobile menu close
 
-    // 🔹 base path (normally "/")
-    const basePath = window.location.pathname || '/';
-
-    // 🔹 URL me ab hash nahi hoga:
-    // home => "/" , baaki => "/?page=cgpa" etc.
-    const newUrl =
-      targetPage === 'home'
-        ? basePath
-        : `${basePath}?page=${targetPage}`;
+    // Switching via the global navbar must leave a friendly-route overlay
+    // instead of appending ?page=home to its previous /study-guides URL.
+    const newUrl = targetPage === 'home' ? '/' : `/?page=${targetPage}`;
 
     // browser history me page push karo → back button work karega
     window.history.pushState(
@@ -4610,7 +4611,11 @@ useEffect(() => {
     setIsMenuOpen(false);
   };
   window.addEventListener('popstate', syncFromHistory);
-  return () => window.removeEventListener('popstate', syncFromHistory);
+  window.addEventListener('edunexus:navigation', syncFromHistory);
+  return () => {
+    window.removeEventListener('popstate', syncFromHistory);
+    window.removeEventListener('edunexus:navigation', syncFromHistory);
+  };
 }, []);
 
 
