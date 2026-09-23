@@ -784,6 +784,7 @@ const Forum = ({ user, theme, showToast }) => {
   const [posts, setPosts] = useState([]);
   const [newPost, setNewPost] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forumReported, setForumReported] = useState({});
 
   useEffect(() => {
     // sab ko posts dikh sakti hain (anon user bhi), is liye user check optional hai
@@ -806,6 +807,9 @@ const Forum = ({ user, theme, showToast }) => {
     }
 
     if (!newPost.trim()) return;
+    if (newPost.length > 10000 || /https?:\/\/|www\./i.test(newPost)) {
+      showToast("Keep discussions under 10,000 characters and avoid promotional links.", "error"); return;
+    }
 
     try {
       setLoading(true);
@@ -816,7 +820,7 @@ const Forum = ({ user, theme, showToast }) => {
           createdAt: serverTimestamp(),
           userId: user.uid || null,
           userName: user.displayName || "Student",
-          userEmail: user.email || "",
+          userEmail: "", // Do not reveal account email in public posts.
         }
       );
       setNewPost("");
@@ -826,6 +830,23 @@ const Forum = ({ user, theme, showToast }) => {
       showToast("Failed to post. Try again.", "error");
     }
     setLoading(false);
+  };
+
+  const reportForumPost = async (post) => {
+    if (!user?.uid || post.userId === user.uid || forumReported[post.id]) return;
+    const requested = window.prompt('Report reason: spam, abuse, copyright, personal-data, or other', 'spam');
+    if (requested === null) return;
+    const reason = String(requested || '').trim().toLowerCase();
+    if (!['spam','abuse','copyright','personal-data','other'].includes(reason)) {
+      showToast('Please choose a valid report reason.', 'error'); return;
+    }
+    try {
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'discussions', post.id, 'reports', user.uid), {
+        reporterUid: user.uid, reason, createdAt: serverTimestamp()
+      });
+      setForumReported((prev)=>({...prev,[post.id]:true}));
+      showToast('Post reported privately to the administrator.', 'success');
+    } catch (_) { showToast('Report failed. Check the updated Firestore rules or use the Contact page.', 'error'); }
   };
 
   return (
@@ -898,7 +919,7 @@ const Forum = ({ user, theme, showToast }) => {
                   {String(p.userName || "Student")}
                 </p>
                 <p className={`text-xs ${theme.textMuted}`}>
-                  {p.userEmail ? String(p.userEmail) + " • " : ""}
+                  
                   {p.createdAt?.toDate
                     ? p.createdAt.toDate().toLocaleString()
                     : ""}
@@ -907,6 +928,7 @@ const Forum = ({ user, theme, showToast }) => {
             </div>
 
             <p className={theme.text}>{String(p.content)}</p>
+            {user?.uid && p.userId !== user.uid && <button type="button" className="text-xs text-indigo-500 hover:underline" disabled={Boolean(forumReported[p.id])} onClick={()=>reportForumPost(p)}>{forumReported[p.id] ? "Reported" : "Report post"}</button>}
 
             {/* Admin reply agar available ho */}
             {p.adminReply && (
