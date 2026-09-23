@@ -169,7 +169,24 @@ function FileReviews({ file, user, isAdmin }) {
         status: 'approved', createdAt: serverTimestamp()
       });
       setComment(''); setStatus('Your review is now published.');
-    } catch (error) { setStatus(error.code === 'permission-denied' ? 'Review submission is blocked. Publish the updated Academic Hub Firestore rules.' : 'Review could not be saved. Please try again.'); }
+    } catch (error) {
+      // Avoid regressing existing submission behavior if Firebase rules deploy
+      // after the Vercel frontend: the old policy accepts only <=800-char drafts.
+      if (error.code === 'permission-denied' && value.length <= 800) {
+        try {
+          await setDoc(reviewDoc(file.id, user.uid), {
+            userId: user.uid, rating: Number(rating), comment: value,
+            status: 'pending', createdAt: serverTimestamp()
+          });
+          setComment('');
+          setStatus('Your review was saved under the existing approval policy. The administrator must deploy the updated Firebase rules to enable instant publication.');
+        } catch (_) { setStatus('Review could not be saved. The updated Firebase rules may still need to be published.'); }
+      } else {
+        setStatus(error.code === 'permission-denied'
+          ? 'The updated Firebase review rules must be published before this long review can appear immediately.'
+          : 'Review could not be saved. Please try again.');
+      }
+    }
     finally { setBusy(false); }
   };
   const moderate = async (item) => {
