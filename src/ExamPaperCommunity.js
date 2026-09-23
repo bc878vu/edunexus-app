@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { addDoc, collection, doc, limit, onSnapshot, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, limit, onSnapshot, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
 import { db, storage } from './firebase-client';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
@@ -18,17 +18,17 @@ const todayLocal = () => {
   const d = new Date(), pad = (v) => String(v).padStart(2, '0');
   return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 };
-const SUBJECTS = ['CS101', 'CS201', 'CS301', 'CS302', 'CS304', 'CS401', 'CS403', 'CS510', 'CS511', 'CS601', 'CS604', 'CS610', 'ENG101', 'ENG201', 'MGT101', 'MGT201', 'MTH101', 'MTH202', 'MTH601', 'PHY101', 'STA301'];
+const SUBJECTS = ['CS101', 'CS201', 'CS301', 'CS302', 'CS304', 'CS401', 'CS403', 'CS510', 'CS511', 'CS601', 'CS604', 'CS610', 'ENG101', 'ENG201', 'MGT101', 'MGT111', 'MGT201', 'MGT611', 'MTH101', 'MTH202', 'MTH601', 'PHY101', 'STA301'];
 const defaultForm = (subject, term) => ({
   subject, term, examDate: '', examTime: '', semesterSeason: 'Spring',
   semesterYear: new Date().getFullYear(), sharedBy: '', difficulty: 'moderate',
   topics: '', summary: ''
 });
 const readError = (error, name) => error?.code === 'permission-denied'
-  ? name + ' are temporarily unavailable. Please try again later.'
+  ? name + ' cannot be loaded with the current database permissions. Please contact the site administrator.'
   : name + ' could not load. Check your connection and retry.';
 
-function ReviewSubmission({ user, subject, term, onPublished }) {
+function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
   const [form, setForm] = useState(() => defaultForm(subject, term));
   const [agreed, setAgreed] = useState(false);
   const [paper, setPaper] = useState(null);
@@ -41,6 +41,17 @@ function ReviewSubmission({ user, subject, term, onPublished }) {
   useEffect(() => {
     setForm((prev) => ({ ...prev, subject, term }));
   }, [subject, term]);
+  useEffect(() => {
+    if (!reuseDraft) return;
+    setForm(prev=>({
+      ...prev, subject:courseCode(reuseDraft.subject), term:reuseDraft.term,
+      examDate:reuseDraft.examDate || '', difficulty:reuseDraft.difficulty || 'moderate',
+      topics:reuseDraft.topics || '', summary:reuseDraft.summary || ''
+    }));
+    setAgreed(false);
+    setNotice('Your earlier text is ready. Add the missing details and confirm before publishing it.');
+    setError('');
+  }, [reuseDraft]);
   const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
   const publish = async (event) => {
     event.preventDefault();
@@ -67,6 +78,11 @@ function ReviewSubmission({ user, subject, term, onPublished }) {
     let orphanUpload = null;
     try {
       const id = [user.uid, code, form.term, form.examDate].join('_');
+      const reviewRef = doc(col(REVIEW_COLLECTION), id);
+      if ((await getDoc(reviewRef)).exists()) {
+        setError('You already shared a review for this course, exam type and date. Find it in the reviews below, or contact the site administrator to correct it.');
+        return;
+      }
       // A paper attachment is optional. The file is only uploaded after the
       // completed-exam confirmation; ordinary text reviews work without storage.
       let attachment = {};
@@ -81,7 +97,7 @@ function ReviewSubmission({ user, subject, term, onPublished }) {
         const paperUrl = await getDownloadURL(destination);
         attachment = { paperName:fileName, paperPath, paperUrl };
       }
-      await setDoc(doc(col(REVIEW_COLLECTION), id), {
+      await setDoc(reviewRef, {
         userId: user.uid, subject: code, term: form.term,
         semester: form.semesterSeason + ' ' + form.semesterYear,
         examDate: form.examDate, examTime: form.examTime,
@@ -99,8 +115,10 @@ function ReviewSubmission({ user, subject, term, onPublished }) {
     } catch (err) {
       if (orphanUpload) await deleteObject(orphanUpload).catch(() => {});
       setError(err?.code === 'permission-denied'
-        ? 'Your review could not be published right now. Please try again later.'
-        : 'Could not publish. This paper may already have a review for the same date, or the connection failed. Your text is still in the form.');
+        ? 'Publishing is blocked by the live database rules. Please ask the site administrator to publish the updated Firestore review rules. Your review text is still here.'
+        : err?.code === 'unavailable' || err?.code === 'deadline-exceeded'
+          ? 'Connection to the review database failed. Check your internet connection and try again; your text is still here.'
+          : 'The review could not be published (' + safe(err?.code || 'unexpected error', 50) + '). Please try again; your text is still here.');
     } finally { saving.current = false; setBusy(false); }
   };
   return <section className="edx-paper-submit" aria-labelledby="edx-paper-share-title">
@@ -169,6 +187,38 @@ function ReviewCard({ review, user }) {
   </article>;
 }
 
+
+function EarlierSubmissions({ user, onReuse }) {
+  const [items, setItems] = useState([]);
+  const [status, setStatus] = useState('loading');
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (!user?.uid) { setItems([]); setStatus('signed-out'); return; }
+    setItems([]); setStatus('loading'); setError('');
+    // Earlier versions saved submissions for moderation rather than publishing
+    // them. They can only be listed by the original Firebase account.
+    return onSnapshot(query(col('examReviewSubmissions'), where('userId', '==', user.uid), limit(100)),
+      snap => { setItems(snap.docs.map(d => ({ id:d.id,...d.data() }))); setStatus('loaded'); },
+      err => { setStatus('error'); setError(err?.code === 'permission-denied'
+        ? 'Previous submissions cannot be loaded until the updated review permissions are published.'
+        : 'Could not check your earlier submissions. Please try again later.'); });
+  }, [user?.uid]);
+  if (status === 'signed-out' || (status === 'loaded' && !items.length)) return null;
+  return <section className="edx-paper-earlier" aria-labelledby="edx-earlier-title">
+    <h2 id="edx-earlier-title">Your earlier submissions</h2>
+    <p>Reviews sent through the older submission form may still be awaiting publication. Only you can see those drafts here.</p>
+    {status === 'loading' && <p role="status">Checking earlier submissions…</p>}
+    {error && <p role="alert">{error}</p>}
+    {items.map(item => <article key={item.id} className="edx-paper-earlier-row">
+      <div><strong>{safe(item.subject,12)} · {String(item.term||'').toLowerCase()==='finalterm' ? 'Finalterm' : 'Midterm'} · {safe(item.examDate,12)}</strong>
+        <span>{item.status === 'approved' ? 'Previously approved' : item.status === 'rejected' ? 'Not published' : 'Awaiting publication'}</span>
+        <p>{safe(item.summary,1500)}</p></div>
+      <button type="button" className="edx-exam-secondary" onClick={()=>onReuse(item)}>Use this text in a new review</button>
+    </article>)}
+    {items.length >= 100 && <small>Showing the first 100 submissions for this account.</small>}
+  </section>;
+}
+
 export default function ExamPaperCommunity({ user, subject, term, onPublished }) {
   const [community, setCommunity] = useState([]);
   const [legacy, setLegacy] = useState([]);
@@ -176,33 +226,62 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
   const [errors, setErrors] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
   const [browseSubject, setBrowseSubject] = useState(subject);
-  const [browseTerm, setBrowseTerm] = useState(term === 'quiz' ? 'midterm' : term);
+  const [allSubjects, setAllSubjects] = useState(true);
+  const [browseTerm, setBrowseTerm] = useState('all');
   const [reviewSearch, setReviewSearch] = useState('');
   const [sortBy, setSortBy] = useState('newest');
+  const [reuseDraft, setReuseDraft] = useState(null);
   useEffect(() => {
-    if (!validCourse(browseSubject)) { setCommunity([]); setLegacy([]); setLoading(false); return; }
     let active = true;
     setCommunity([]); setLegacy([]); setLoading(true); setErrors([]);
-    const pending = { community: true, legacy: true };
-    const done = (key) => { pending[key] = false; if (active && !pending.community && !pending.legacy) setLoading(false); };
-    const observe = (name, setItems, key) => onSnapshot(query(col(name), where('subject', '==', browseSubject), limit(100)),
-      (snapshot) => {
+    const pending = { community:true, legacy:true };
+    const done = key => {
+      pending[key] = false;
+      if (active && !pending.community && !pending.legacy) setLoading(false);
+    };
+    // Fetch public reviews regardless of the MCQ Bank's selected subject or
+    // category. Historical reviews used different subjects/terms and were
+    // previously hidden by an exact-match filter.
+    const observe = (name, setItems, key) => onSnapshot(query(col(name), limit(500)),
+      snapshot => {
         if (!active) return;
-        setItems(snapshot.docs.map((d) => ({ id: d.id, collectionName: name, ...d.data() })).filter((r) => r.term === browseTerm));
-        setErrors((prev) => prev.filter((entry) => entry.key !== key));
+        setItems(snapshot.docs.map(d => ({ id:d.id,collectionName:name,...d.data() })));
+        setErrors(prev => prev.filter(entry=>entry.key!==key));
         done(key);
-      },
-      (error) => {
+      }, err => {
         if (!active) return;
-        setErrors((prev) => [...prev.filter((entry) => entry.key !== key), { key, message: readError(error, key === 'community' ? 'Instant reviews' : 'Previously approved reviews') }]);
+        setErrors(prev=>[...prev.filter(entry=>entry.key!==key),
+          {key,message:readError(err,key==='community'?'Student reviews':'Earlier published reviews')}]);
         done(key);
       }
     );
-    const unsubscribeCommunity = observe(REVIEW_COLLECTION, setCommunity, 'community');
-    const unsubscribeLegacy = observe(LEGACY_COLLECTION, setLegacy, 'legacy');
-    return () => { active = false; unsubscribeCommunity(); unsubscribeLegacy(); };
-  }, [browseSubject, browseTerm, reloadKey]);
-  const reviews = useMemo(() => [...community, ...legacy].filter(r => [r.summary,r.topics,r.sharedBy,r.semester].some(v => String(v || '').toLowerCase().includes(reviewSearch.trim().toLowerCase()))).sort((a,b) => sortBy === 'oldest' ? dateValue(a.createdAt) - dateValue(b.createdAt) : dateValue(b.createdAt) - dateValue(a.createdAt)), [community, legacy, reviewSearch, sortBy]);
+    const stopCommunity = observe(REVIEW_COLLECTION,setCommunity,'community');
+    const stopLegacy = observe(LEGACY_COLLECTION,setLegacy,'legacy');
+    return () => {active=false; stopCommunity(); stopLegacy();};
+  }, [reloadKey]);
+  const reviews = useMemo(() => [...community,...legacy].filter(r =>
+    (allSubjects || courseCode(r.subject)===browseSubject) &&
+    (browseTerm==='all' || String(r.term||'').toLowerCase()===browseTerm) &&
+    [r.subject,r.summary,r.topics,r.sharedBy,r.semester,r.examDate]
+      .some(value => String(value||'').toLowerCase().includes(reviewSearch.trim().toLowerCase()))
+  ).sort((a,b)=>sortBy==='oldest'
+    ? dateValue(a.createdAt)-dateValue(b.createdAt)
+    : dateValue(b.createdAt)-dateValue(a.createdAt)),
+  [community,legacy,allSubjects,browseSubject,browseTerm,reviewSearch,sortBy]);
+  const submitTerm = browseTerm === 'all' ? (term === 'finalterm' ? 'finalterm' : 'midterm') : browseTerm;
+  const reuse = item => {
+    setBrowseSubject(courseCode(item.subject));
+    setAllSubjects(false);
+    setBrowseTerm(String(item.term||'').toLowerCase()==='finalterm'?'finalterm':'midterm');
+    setReuseDraft({ ...item, reuseId: item.id + '-' + Date.now() });
+    document.getElementById('edx-paper-share-title')?.scrollIntoView?.({ behavior:'smooth', block:'start' });
+  };
+  const onSuccessfullyPublished = (code, examTerm) => {
+    setBrowseSubject(code);
+    setAllSubjects(false);
+    setBrowseTerm(examTerm);
+    onPublished?.(code,examTerm);
+  };
   return <div className="edx-paper">
     <section className="edx-paper-hero" aria-labelledby="edx-paper-title">
       <span className="edx-paper-kicker"><MessageCircle size={16}/> Paper reviews</span>
@@ -211,21 +290,24 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
       <div className="edx-paper-hero-actions"><a href="#edx-paper-feed">Browse reviews <ExternalLink size={15}/></a><a href="#edx-paper-share-title">Write a review <Send size={15}/></a></div>
     </section>
     <div className="edx-paper-browser" role="group" aria-label="Find paper reviews">
-      <label>Course code<input value={browseSubject} list="edx-paper-subjects" maxLength={12} placeholder="e.g. CS620" onChange={e=>setBrowseSubject(courseCode(e.target.value))}/><datalist id="edx-paper-subjects">{[...new Set([...SUBJECTS,subject])].map(code=><option key={code} value={code}/>)}</datalist></label>
-      <label>Exam type<select value={browseTerm} onChange={e=>setBrowseTerm(e.target.value)}><option value="midterm">Midterm</option><option value="finalterm">Finalterm</option></select></label>
+      <label>Course code<input value={browseSubject} list="edx-paper-subjects" maxLength={12} placeholder="e.g. CS620" onChange={e=>{setBrowseSubject(courseCode(e.target.value));setAllSubjects(false);}}/><datalist id="edx-paper-subjects">{[...new Set([...SUBJECTS,subject,...community.map(r=>courseCode(r.subject)),...legacy.map(r=>courseCode(r.subject))])].filter(Boolean).map(code=><option key={code} value={code}/>)}</datalist></label>
+      <label>Exam type<select value={browseTerm} onChange={e=>setBrowseTerm(e.target.value)}><option value="all">All exam types</option><option value="midterm">Midterm</option><option value="finalterm">Finalterm</option></select></label>
+      <label className="edx-paper-all-subjects"><input type="checkbox" checked={allSubjects} onChange={e=>setAllSubjects(e.target.checked)}/> Show reviews for all subjects</label>
     </div>
-    <ReviewSubmission user={user} subject={browseSubject} term={browseTerm} onPublished={(code, examTerm) => { setBrowseSubject(code); setBrowseTerm(examTerm); onPublished?.(code, examTerm); }} />
+    <ReviewSubmission user={user} subject={browseSubject} term={submitTerm} reuseDraft={reuseDraft} onPublished={onSuccessfullyPublished} />
+    <EarlierSubmissions user={user} onReuse={reuse}/>
     <section className="edx-paper-feed" id="edx-paper-feed" aria-labelledby="edx-paper-feed-title">
-      <div className="edx-paper-feed-head"><div><span className="edx-paper-kicker"><MessageCircle size={16} /> Shared by students</span><h2 id="edx-paper-feed-title">Paper experiences for {browseSubject}</h2><p>Find what other students shared about their completed exams.</p></div><span className="edx-paper-feed-count">{reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</span></div>
+      <div className="edx-paper-feed-head"><div><span className="edx-paper-kicker"><MessageCircle size={16} /> Shared by students</span><h2 id="edx-paper-feed-title">{allSubjects ? 'Latest paper experiences' : 'Paper experiences for '+browseSubject}</h2><p>Browse shared completed-exam experiences or search for a specific subject.</p></div><span className="edx-paper-feed-count">{reviews.length} {reviews.length===1?'review':'reviews'}</span></div>
       <div className="edx-paper-feed-controls">
-        <label><Search size={17}/><input type="search" value={reviewSearch} onChange={e=>setReviewSearch(e.target.value)} placeholder="Find a topic or keyword…" aria-label="Search paper reviews"/></label>
+        <label><Search size={17}/><input type="search" value={reviewSearch} onChange={e=>setReviewSearch(e.target.value)} placeholder="Find a subject, topic or keyword…" aria-label="Search paper reviews"/></label>
         <select value={sortBy} onChange={e=>setSortBy(e.target.value)} aria-label="Sort paper reviews"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
       </div>
-      <div className="edx-paper-group"><MessageCircle size={19} /><p>Follow EduNexus for more paper discussions and updates.</p><a href={EDUNEXUS_WHATSAPP_GROUP} target="_blank" rel="noopener noreferrer">Join our WhatsApp group <ExternalLink size={15} /></a></div>
+      <div className="edx-paper-group"><MessageCircle size={19}/><p>Follow EduNexus for more paper discussions and updates.</p><a href={EDUNEXUS_WHATSAPP_GROUP} target="_blank" rel="noopener noreferrer">Join our WhatsApp group <ExternalLink size={15}/></a></div>
       {loading && <div className="edx-paper-skeleton" role="status">Loading student reviews…</div>}
-      {errors.map((error) => <div key={error.key} className="edx-paper-alert" role="alert">{error.message} <button type="button" onClick={() => setReloadKey((n) => n + 1)}>Retry</button></div>)}
-      {!loading && !reviews.length && !errors.length && <div className="edx-paper-empty"><MessageCircle size={28} /><h3>No matching reviews yet</h3><p>Try another subject or keyword, or share your experience above.</p></div>}
-      <div className="edx-paper-review-list">{reviews.map((review) => <ReviewCard key={review.collectionName + ':' + review.id} review={review} user={user} />)}</div>
+      {errors.map(error => <div key={error.key} className="edx-paper-alert" role="alert">{error.message} <button type="button" onClick={()=>setReloadKey(n=>n+1)}>Retry</button></div>)}
+      {!loading && !reviews.length && !errors.length && <div className="edx-paper-empty"><MessageCircle size={28}/><h3>{allSubjects?'No published paper reviews yet':'No reviews match these filters'}</h3><p>{allSubjects?'If you shared a review earlier, check Your earlier submissions above.':'Try All subjects, All exam types, or another keyword.'}</p></div>}
+      <div className="edx-paper-review-list">{reviews.map(review=><ReviewCard key={review.collectionName+':'+review.id} review={review} user={user}/>)}</div>
+      {(community.length>=500 || legacy.length>=500) && <p>Showing the first 500 reviews per source. Narrow your search if a recent review is missing.</p>}
       <p className="edx-paper-disclaimer">Student-contributed information is not an official exam paper. Only share material you are allowed to discuss. Reviews containing spam or private exam material may be removed. Sharing and copying are optional.</p>
     </section>
   </div>;
