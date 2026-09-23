@@ -55,3 +55,43 @@ export function sanitizeProgress(record, questions) {
   const matching = typeof record?.currentId === 'string' && ids.has(record.currentId);
   return { answers, currentId: matching ? record.currentId : (questions[0]?.id || null), finished: record?.finished === true };
 }
+
+
+// The displayed practice score follows the stored uploaded answer indexes.
+// This must not be described as independent source verification.
+export function answerKeyStats(questions, answers) {
+  const answered = questions.filter(q => Number.isInteger(answers[q.id]));
+  return {
+    answered: answered.length,
+    score: answered.filter(q => answers[q.id] === q.answer).length,
+    total: questions.length,
+    unanswered: questions.length - answered.length,
+    sourceUnreviewed: answered.filter(q => !isVerifiedAnswer(q)).length
+  };
+}
+export function buildPracticeAttempt(questions, count = 'all', mode = 'sequence', random = Math.random) {
+  const unique = [...new Map(questions.filter(q => typeof q?.id === 'string').map(q => [q.id, q])).values()];
+  const wanted = count === 'all' ? unique.length : Math.min(unique.length, Math.max(1, Number(count) || unique.length));
+  const items = unique.slice();
+  if (mode === 'random') {
+    for (let i=items.length-1;i>0;i--) {
+      const j = Math.max(0, Math.min(i, Math.floor(random()*(i+1))));
+      [items[i],items[j]] = [items[j],items[i]];
+    }
+  }
+  return items.slice(0,wanted).map(q => q.id);
+}
+export function restoreAttemptIds(record, questions) {
+  const available = new Set(questions.map(q=>q.id));
+  const saved = Array.isArray(record?.attemptIds) ? record.attemptIds : null;
+  if (!saved?.length) return questions.map(q=>q.id); // existing v2 attempts remain intact
+  return [...new Set(saved.filter(id => typeof id === 'string' && available.has(id)))];
+}
+export function attemptMessage(score, answered) {
+  if (!answered) return 'Start with a few questions. You can do this!';
+  const rate = score / answered;
+  if (rate >= .9) return 'Congratulations! Excellent work. Keep practicing!';
+  if (rate >= .65) return 'Good progress! Review a few concepts and try again.';
+  if (rate >= .4) return 'Keep going! A little more revision will help.';
+  return 'Keep practicing. Review each explanation and try again!';
+}
