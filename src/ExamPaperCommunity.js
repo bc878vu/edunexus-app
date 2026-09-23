@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { addDoc, collection, doc, limit, onSnapshot, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
 import { db, storage } from './firebase-client';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { examReviewText, formatExamDate, formatExamTime, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import './exam-paper-community.css';
 
@@ -64,6 +64,7 @@ function ReviewSubmission({ user, subject, term, onPublished }) {
       return;
     }
     saving.current = true; setBusy(true);
+    let orphanUpload = null;
     try {
       const id = [user.uid, code, form.term, form.examDate].join('_');
       // A paper attachment is optional. The file is only uploaded after the
@@ -76,6 +77,7 @@ function ReviewSubmission({ user, subject, term, onPublished }) {
         const paperPath = 'exam-papers/' + user.uid + '/' + uploadId + '/' + fileName;
         const destination = storageRef(storage, paperPath);
         await uploadBytes(destination, paper, { contentType: paper.type });
+        orphanUpload = destination;
         const paperUrl = await getDownloadURL(destination);
         attachment = { paperName:fileName, paperPath, paperUrl };
       }
@@ -88,12 +90,14 @@ function ReviewSubmission({ user, subject, term, onPublished }) {
         topics: safe(form.topics, 400), summary, createdAt: serverTimestamp(),
         ...attachment
       });
+      orphanUpload = null;
       setNotice('Your review is now published. Students can read and share it below.');
       if (onPublished) onPublished(code, form.term);
       setForm((prev) => ({ ...defaultForm(prev.subject, prev.term), semesterYear: prev.semesterYear }));
       setAgreed(false); setPaper(null);
       if (fileInput.current) fileInput.current.value = '';
     } catch (err) {
+      if (orphanUpload) await deleteObject(orphanUpload).catch(() => {});
       setError(err?.code === 'permission-denied'
         ? 'Your review could not be published right now. Please try again later.'
         : 'Could not publish. This paper may already have a review for the same date, or the connection failed. Your text is still in the form.');
