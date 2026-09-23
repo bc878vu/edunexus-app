@@ -18,7 +18,7 @@ export function explanationPrompt(question, selection) {
   const options = question.options.map((o,i) => letter(i) + ': ' + String(o).slice(0,350)).join('\n');
   return [
     'You are a concise academic tutor. Explain in the same language as the student question (English, Urdu or Roman Urdu).',
-    'Keep the reply under 95 words. No Markdown, no asterisks, no long introductions or unrelated study advice. For an incorrect answer give two short lines: Why your choice is wrong: ... and Why the correct answer fits: ...; for a correct choice give one short Why this is correct: ... explanation.',
+    'Keep the reply under 45 words, preferably one or two short sentences. No Markdown, asterisks, headings, long introductions or unrelated study advice. If the student chose a wrong option, briefly contrast their choice with the course concept. Do not repeat the question.',
     'Only explain the educational concept. Never imply you read a PDF/handout or independently verified its answer.',
     verified
       ? 'The administrator-approved answer in this question bank is ' + letter(correct) + '. Explain WHY this chosen option is correct based on the meaning of the question. ' +
@@ -32,5 +32,5 @@ export function explanationPrompt(question, selection) {
   ].join('\n\n');
 }
 export function plainFeedback(value) {
-  return String(value || '').replace(/\*\*|__/g,'').replace(/^\s*[-#*>]\s*/gm,'').trim().slice(0,1100);
+  return String(value || '').replace(/\*\*|__/g,'').replace(/^\s*[-#*>]\s*/gm,'').replace(/\s+/g,' ').trim().slice(0,350);
 }
