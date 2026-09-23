@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-li
 import { readFileSync } from 'fs';
 import path from 'path';
 import ExamPaperCommunity from './ExamPaperCommunity';
-import { onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 
 jest.mock('./firebase-client', () => ({ db:{}, storage:{} }));
 jest.mock('firebase/storage', () => ({
@@ -25,6 +25,9 @@ const posted = (id, subject, term, summary) => ({
   difficulty:'moderate',createdAt:{toMillis:()=>Date.parse('2026-09-22')}
 });
 beforeEach(() => {
+  // CRA's Jest configuration resets mock implementations between tests.
+  collection.mockImplementation((_db,...segments)=>({name:segments[segments.length-1]}));
+  query.mockImplementation((reference,...constraints)=>({...reference,constraints}));
   onSnapshot.mockImplementation((source,notify) => {
     const records = source.name === 'examCommunityReviews'
       ? [posted('first','MGT611','finalterm','Previously shared MGT611 final exam review')]
