@@ -5,10 +5,15 @@
 export const QUIZ_MARKER = '[EduNexus Quiz';
 export const isQuizSource = (item) => {
   const explanation = String(item?.explanation || '');
+  if (/^\[EduNexus (?:Midterm|Finalterm)\]/.test(explanation)) return false;
   return item?.term === 'quiz' || explanation.startsWith(QUIZ_MARKER) ||
     /quiz-practice item listed under midterm|(?:^|[.;]\s*)(?:solved\s+)?quiz\s*(?:no\.?\s*)?\d+/i.test(explanation);
 };
-export const categoryOf = (item) => isQuizSource(item) ? 'quiz' : item?.term;
+export const categoryOf = (item) => {
+  const match = String(item?.explanation || '').match(/^\[EduNexus (Midterm|Finalterm)\]/);
+  if (match) return match[1].toLowerCase();
+  return isQuizSource(item) ? 'quiz' : item?.term;
+};
 export const orderOf = (item) => {
   const found = String(item?.explanation || '').match(/^\[EduNexus Quiz(?:\|set:[A-Z0-9_-]{1,40})?(?:\|order:([0-9]{4}))?\]/);
   return found?.[1] ? Number(found[1]) : null;
@@ -56,6 +61,9 @@ export function validateMcq(item, index = 0, { forImport = false } = {}) {
   }
   if (item.explanation != null && typeof item.explanation !== 'string') fail('explanation must be a string.');
   let explanation = String(item.explanation || '').trim();
+  // A deliberate admin category override takes precedence over old textual
+  // references like 'Quiz 1' in notes, without altering those source notes.
+  if (category !== 'quiz') explanation = explanation.replace(/^\[EduNexus (?:Midterm|Finalterm)\]\s*/, '');
   if (category === 'quiz') {
     const originalOrder = orderOf(item);
     explanation = stripQuizMarker(explanation).replace(outdatedTag, '').trim();
