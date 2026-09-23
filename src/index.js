@@ -16,10 +16,11 @@ import './admin-resource-manager-v2.css';
 import './firebase-console';
 import App from './App';
 import DashboardEnhancerSafe from './DashboardEnhancerSafe';
+import { SEOManager } from './SEO';
+
 const ContentHub = React.lazy(() => import('./ContentHub'));
 const TutorialHub = React.lazy(() => import('./TutorialHub'));
 const AdminResourceManagerV2 = React.lazy(() => import('./AdminResourceManagerV2'));
-import { SEOManager } from './SEO';
 
 const FRIENDLY_ROUTES = {
   '/vu-notes': 'academic', '/handouts': 'academic', '/past-papers': 'academic',
