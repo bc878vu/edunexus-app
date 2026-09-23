@@ -21,6 +21,9 @@ export default function AdminAcademicReviews({ user }) {
   const [editRating, setEditRating] = useState(5);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const [rightsFile, setRightsFile] = useState('');
+  const [rightsBasis, setRightsBasis] = useState('');
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const permitted = adminPanelAccess(user);
 
   useEffect(() => {
@@ -99,9 +102,39 @@ export default function AdminAcademicReviews({ user }) {
       setNotice('Earlier pending review published.');
     } catch (_) { setNotice('Unable to publish earlier review.'); } finally { setBusy(false); }
   };
+  const confirmRights = async () => {
+    if (!permitted || busy || !rightsFile || !rightsBasis || !rightsConfirmed) return;
+    setBusy(true); setNotice('');
+    try {
+      await updateDoc(doc(FILES, rightsFile), {
+        rightsBasis, rightsConfirmed: true, rightsConfirmedAt: serverTimestamp()
+      });
+      setFiles((prev)=>prev.map((item)=>item.id === rightsFile
+        ? {...item,rightsBasis,rightsConfirmed:true} : item));
+      setRightsFile(''); setRightsBasis(''); setRightsConfirmed(false);
+      setNotice('Rights declaration recorded for the selected existing resource. This is not an independent copyright verification.');
+    } catch (_) { setNotice('Could not save sharing-rights declaration.'); }
+    finally { setBusy(false); }
+  };
   if (!permitted) return <p>Verified administrator access is required to manage reviews.</p>;
   return <section className="edx-admin-reviews" aria-label="Manage Academic Hub file reviews">
     <h3>Academic file reviews</h3>
+    <section className="edx-review-entry" aria-label="Existing file copyright audit">
+      <h4>Existing file sharing-rights audit</h4>
+      <p>{files.filter((file)=>!file.rightsConfirmed).length} of {files.length} loaded files still need a documented sharing-rights check. No existing files are removed or automatically declared licensed.</p>
+      <label>Choose an existing file to inspect
+        <select value={rightsFile} onChange={(e)=>{setRightsFile(e.target.value);setRightsConfirmed(false);setRightsBasis('');}}>
+          <option value="">Select a file…</option>
+          {files.filter((file)=>!file.rightsConfirmed).map((file)=><option value={file.id} key={file.id}>{file.subject || 'General'} · {file.name || file.title || file.id}</option>)}
+        </select>
+      </label>
+      {rightsFile && <>
+        <p><a href={String(files.find((file)=>file.id===rightsFile)?.url || '#')} target="_blank" rel="noopener noreferrer">Inspect the original file and its permissions ↗</a></p>
+        <label>Verified sharing basis<select value={rightsBasis} onChange={(e)=>setRightsBasis(e.target.value)}><option value="">Choose only after checking the actual document</option><option value="original-work">Original work owned by EduNexus</option><option value="written-permission">Written permission from copyright owner</option><option value="open-license">Licence permits redistribution</option><option value="public-domain">Verified public-domain work</option></select></label>
+        <label><input type="checkbox" checked={rightsConfirmed} onChange={(e)=>setRightsConfirmed(e.target.checked)} style={{width:'auto',marginRight:8}}/> I checked the sharing rights of this exact existing resource and can support this declaration.</label>
+        <button type="button" disabled={busy || !rightsBasis || !rightsConfirmed} onClick={confirmRights}>Record rights declaration</button>
+      </>}
+    </section>
     <p>New student reviews publish automatically. Select a file below to edit, remove or inspect its genuine submitted reviews. Earlier pending records can still be published.</p>
     {notice && <p role="status" className="edx-review-message">{notice}</p>}
     <label>Find a resource <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search the loaded files by title or course code" /></label>
