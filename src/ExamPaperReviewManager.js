@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { Edit3, MessageCircle, Plus, Search, Trash2 } from 'lucide-react';
-import { db } from './firebase-client';
+import { db, storage } from './firebase-client';
+import { deleteObject, ref as storageRef } from 'firebase/storage';
 import { adminPanelAccess } from './adminSession';
 
 const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
@@ -37,7 +38,8 @@ export function validateReviewDraft(draft, original = null) {
   if (!validCode(values.subject) || !['midterm','finalterm'].includes(values.term) ||
     !['easy','moderate','challenging'].includes(values.difficulty) ||
     values.summary.length < 20 || !/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(values.examDate) ||
-    !['', 'Spring', 'Fall', 'Summer'].some(season => !season || values.semester.startsWith(season + ' '))) {
+    (values.semester && !/^(Spring|Fall|Summer) 20[0-9]{2}$/.test(values.semester)) ||
+    (values.sharedBy.length > 0 && values.sharedBy.length < 2)) {
     throw new Error('Enter a valid subject, exam type, completed exam date and at least 20 characters of review text.');
   }
   if (values.examTime && !/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(values.examTime))
@@ -107,10 +109,15 @@ export default function ExamPaperReviewManager({ user }) {
     setBusy(true); setError(''); setNotice('');
     try {
       await deleteDoc(doc(col(record.collectionName),record.id));
+      let attachmentNotice = '';
+      if (record.paperPath && record.paperPath.startsWith('exam-papers/' + record.userId + '/')) {
+        try { await deleteObject(storageRef(storage, record.paperPath)); }
+        catch (_) { attachmentNotice = ' The review was removed; its attached file may still need to be deleted from storage.'; }
+      }
       if (selected?.id === record.id && selected?.collectionName === record.collectionName) {
         setSelected(null); setDraft(initial());
       }
-      setNotice('Review deleted.');
+      setNotice('Review deleted.' + attachmentNotice);
     } catch (_) { setError('Could not delete this review. Please check your access.'); }
     finally { setBusy(false); }
   };
