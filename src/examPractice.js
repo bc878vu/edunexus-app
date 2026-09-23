@@ -70,7 +70,14 @@ export function answerKeyStats(questions, answers) {
   };
 }
 export function buildPracticeAttempt(questions, count = 'all', mode = 'sequence', random = Math.random) {
-  const unique = [...new Map(questions.filter(q => typeof q?.id === 'string').map(q => [q.id, q])).values()];
+  const seen = new Set();
+  const unique = questions.filter(q => {
+    if (typeof q?.id !== 'string') return false;
+    const key = String(q.question || '').toLowerCase().replace(/\\s+/g,' ').replace(/[^a-z0-9 ]/g,'').trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   const wanted = count === 'all' ? unique.length : Math.min(unique.length, Math.max(1, Number(count) || unique.length));
   const items = unique.slice();
   if (mode === 'random') {
@@ -84,8 +91,15 @@ export function buildPracticeAttempt(questions, count = 'all', mode = 'sequence'
 export function restoreAttemptIds(record, questions) {
   const available = new Set(questions.map(q=>q.id));
   const saved = Array.isArray(record?.attemptIds) ? record.attemptIds : null;
-  if (!saved?.length) return questions.map(q=>q.id); // existing v2 attempts remain intact
-  return [...new Set(saved.filter(id => typeof id === 'string' && available.has(id)))];
+  if (!saved?.length) return buildPracticeAttempt(questions); // existing v2 attempts retain original order
+  const byId = new Map(questions.map(q=>[q.id,q]));
+  const seenQuestions = new Set();
+  return [...new Set(saved.filter(id => typeof id === 'string' && available.has(id)))].filter(id => {
+    const key = String(byId.get(id)?.question || '').toLowerCase().replace(/\\s+/g,' ').replace(/[^a-z0-9 ]/g,'').trim();
+    if (seenQuestions.has(key)) return false;
+    seenQuestions.add(key);
+    return true;
+  });
 }
 export function attemptMessage(score, answered) {
   if (!answered) return 'Start with a few questions. You can do this!';
