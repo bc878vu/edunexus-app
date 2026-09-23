@@ -298,6 +298,26 @@ service cloud.firestore {
       allow delete: if admin();
     }
 
+    // Report abuse without changing or hiding an existing public review.
+    // Each signed-in Firebase UID may report another user's review once.
+    // Reports are private and visible only to the verified administrator and
+    // the reporter's own exact record. No user can list other people's reports.
+    match /artifacts/edunexus-live/public/data/files/{fileId}/reviews/{reviewId}/reports/{reporterId} {
+      allow get: if admin() || (signedIn() && reporterId == request.auth.uid);
+      allow list: if admin();
+      allow create: if signedIn()
+        && reporterId == request.auth.uid
+        && reviewId != request.auth.uid
+        && exists(/databases/$(database)/documents/artifacts/edunexus-live/public/data/files/$(fileId)/reviews/$(reviewId))
+        && request.resource.data.keys().hasOnly(['reporterUid','reason','createdAt'])
+        && request.resource.data.keys().hasAll(['reporterUid','reason','createdAt'])
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.reason in ['spam','abuse','copyright','personal-data','other']
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if admin();
+    }
+
     // All other Firestore paths remain denied by default.
     match /{document=**} {
       allow read, write: if false;
