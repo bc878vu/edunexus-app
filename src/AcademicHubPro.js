@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
+import { average, collection, count, deleteDoc, doc, getAggregateFromServer, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
 import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
 import { db, storage } from './firebase-client';
 import { getBlob, ref as storageRef } from 'firebase/storage';
@@ -168,7 +168,7 @@ function FileReviews({ file, user, isAdmin }) {
         userId: user.uid, rating: Number(rating), comment: value, originalComment: value,
         status: 'approved', createdAt: serverTimestamp()
       });
-      setComment(''); setStatus('Your review is now published.');
+      setComment(''); setStatus(''); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id } }));
     } catch (error) {
       // Avoid regressing existing submission behavior if Firebase rules deploy
       // after the Vercel frontend: the old policy accepts only <=800-char drafts.
@@ -191,7 +191,7 @@ function FileReviews({ file, user, isAdmin }) {
   };
   const moderate = async (item) => {
     setBusy(true); setStatus('');
-    try { await updateDoc(reviewDoc(file.id, item.id), { status: 'approved', moderatedAt: serverTimestamp() }); setStatus('Earlier pending review published.'); }
+    try { await updateDoc(reviewDoc(file.id, item.id), { status: 'approved', moderatedAt: serverTimestamp() }); setStatus('Earlier pending review published.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id } })); }
     catch (_) { setStatus('Could not publish this earlier review. Check administrator permissions.'); }
     finally { setBusy(false); }
   };
@@ -201,14 +201,14 @@ function FileReviews({ file, user, isAdmin }) {
     setBusy(true); setStatus('');
     try {
       await updateDoc(reviewDoc(file.id, item.id), { comment: editText.trim(), rating: Number(editRating), editedAt: serverTimestamp() });
-      setEditing(null); setStatus('Review updated by administrator.');
+      setEditing(null); setStatus('Review updated by administrator.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id } }));
     } catch (_) { setStatus('Could not edit the review. Check administrator permissions.'); }
     finally { setBusy(false); }
   };
   const remove = async (item) => {
     if (!admin || !window.confirm('Permanently delete this resource review?')) return;
     setBusy(true); setStatus('');
-    try { await deleteDoc(reviewDoc(file.id, item.id)); setStatus('Review deleted.'); }
+    try { await deleteDoc(reviewDoc(file.id, item.id)); setStatus('Review deleted.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id } })); }
     catch (_) { setStatus('Review deletion failed.'); }
     finally { setBusy(false); }
   };
@@ -218,10 +218,43 @@ function FileReviews({ file, user, isAdmin }) {
     <p>Share your own experience with this study material. User-submitted reviews appear immediately and do not represent an official examination guarantee.</p>
     {status && <div role="status" className="ah-message">{status}</div>}
     {loading ? <p>Loading reviews…</p> : items.length ? <div className="ah-review-list">{items.map((r) => <article className="ah-review" key={r.id}><div className="ah-between"><strong>Student review {r.editedAt ? '· edited by admin' : ''}</strong><span className="ah-stars" aria-label={r.rating + ' out of 5 stars'}>{'★'.repeat(Math.max(0, Math.min(5, r.rating || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, r.rating || 0)))}</span></div><p>{String(r.comment || '')}</p>{admin && <div className="ah-actions"><button type="button" className="ah-secondary" disabled={busy} onClick={() => startEdit(r)}>Edit</button><button type="button" className="ah-delete" disabled={busy} onClick={() => remove(r)}>Delete</button></div>}{admin && editing === r.id && <div className="ah-review-form"><label>Rating<select value={editRating} onChange={(e) => setEditRating(Number(e.target.value))}>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n} / 5</option>)}</select></label><label>Review text<textarea rows={6} maxLength={50000} value={editText} onChange={(e) => setEditText(e.target.value)} /></label><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy || editText.trim().length < 20} onClick={() => saveEdit(r)}>Save edit</button><button type="button" className="ah-secondary" onClick={() => setEditing(null)}>Cancel</button></div></div>}</article>)}</div> : <div className="ah-empty">No published reviews yet. Be the first to share thoughtful feedback.</div>}
-    {user?.uid ? (mine ? <p className="ah-message">{mine.status === 'approved' ? 'Your review is published.' : mine.status === 'rejected' ? 'Your earlier review was rejected.' : 'Your earlier review is awaiting publication.'} Each account can submit one review per resource.</p> :
+    {user?.uid ? (mine ? null :
       <form className="ah-review-form" onSubmit={publish}><h4>Share your experience</h4><label>Rating<select value={rating} onChange={(e) => setRating(Number(e.target.value))}><option value={5}>5 — Excellent</option><option value={4}>4 — Helpful</option><option value={3}>3 — Average</option><option value={2}>2 — Needs improvement</option><option value={1}>1 — Not helpful</option></select></label><label>Written review<textarea required minLength={20} maxLength={50000} rows={5} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Write your own detailed review of this file…" /></label><p className="ah-note">Up to 50,000 characters. Reviews publish automatically. Please share genuine feedback, without personal data or active exam content.</p><button type="submit" className="ah-primary" disabled={busy || comment.trim().length < 20 || comment.trim().length > 50000}>{busy ? 'Publishing…' : 'Publish review'}</button></form>) : <p className="ah-note">Sign in to leave a review.</p>}
     {admin && pending.length > 0 && <div className="ah-review-queue"><h4><ShieldCheck size={17} /> Earlier unpublished reviews ({pending.length})</h4>{pending.map((r) => <article key={r.id} className="ah-review"><strong>{r.rating} / 5 · Student review</strong><p>{String(r.comment || '')}</p><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy} onClick={() => moderate(r)}>Publish earlier review</button><button type="button" className="ah-delete" disabled={busy} onClick={() => remove(r)}>Delete</button></div></article>)}</div>}
   </section>;
+}
+
+function FileCardRating({ fileId }) {
+  const [score, setScore] = useState(null);
+  useEffect(() => {
+    let active = true;
+    let revision = 0;
+    const refresh = async () => {
+      const current = ++revision;
+      try {
+        // Server-side aggregation includes ALL approved reviews without a 100-item cap.
+        const result = await getAggregateFromServer(
+          query(REVIEWS(fileId), where('status', '==', 'approved')),
+          { reviewCount: count(), ratingAverage: average('rating') }
+        );
+        const data = result.data();
+        const value = Number(data.ratingAverage);
+        if (active && current === revision) {
+          setScore(Number(data.reviewCount) > 0 && Number.isFinite(value) ? value : null);
+        }
+      } catch (_) { if (active && current === revision) setScore(null); }
+    };
+    void refresh();
+    const onReviewChange = (event) => { if (!event.detail?.fileId || event.detail.fileId === fileId) void refresh(); };
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    window.addEventListener('edunexus:file-review-changed', onReviewChange);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { active = false; window.removeEventListener('edunexus:file-review-changed', onReviewChange); document.removeEventListener('visibilitychange', onVisible); };
+  }, [fileId]);
+  if (score === null) return null;
+  return <span className="ah-card-rating" aria-label={'Average student rating ' + score.toFixed(1) + ' out of 5'}>
+    <Star size={15} fill="currentColor" aria-hidden="true" /><span>{score.toFixed(1)}</span>
+  </span>;
 }
 
 function ResourceCard({ file, isAdmin, onDelete, onPreview, onReviews, onDownload, downloadStatus }) {
@@ -230,7 +263,7 @@ function ResourceCard({ file, isAdmin, onDelete, onPreview, onReviews, onDownloa
   return <article className="ah-resource">
     <div className="ah-file-icon"><FileText size={22} /></div>
     <div className="ah-resource-content"><div className="ah-between ah-file-top"><h3>{title}</h3><span className="ah-chip">{extOf(file)}</span></div>
-      <p className="ah-meta">{cut(file.subject, 50) || 'General'}{dateOf(file) ? ' · Added ' + dateOf(file) : ''}</p>
+      <div className="ah-meta-rating-row"><p className="ah-meta">{cut(file.subject, 50) || 'General'}{dateOf(file) ? ' · Added ' + dateOf(file) : ''}</p><FileCardRating fileId={file.id} /></div>
       {file.description && <p className="ah-description">{cut(file.description, 320)}</p>}
       <div className="ah-actions">
         <button type="button" className="ah-secondary" disabled={!links.source} onClick={() => onPreview(file)}><BookOpen size={16} /> Preview</button>
