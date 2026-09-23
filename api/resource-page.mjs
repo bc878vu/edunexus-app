@@ -98,8 +98,15 @@ export default async function handler(req, res) {
     const summary = description || ('Preview and download ' + name + ' for ' + subject + ' in the EduNexus Academic Hub.');
     const title = (reviewPage > 1 ? 'Student Reviews — Page ' + reviewPage + ' | ' : '') +
       name + ' | ' + subject + (name.toLowerCase().includes('edunexus') ? '' : ' | EduNexus');
-    const { items: reviews, hasMore } = await listApprovedReviews(id, reviewPage);
-    if (reviewPage > 1 && reviews.length === 0) return res.status(404).send('No reviews on this page');
+    // Keep the file accessible when the review backend is temporarily unavailable.
+    let reviews = [], hasMore = false, reviewsUnavailable = false;
+    try {
+      ({ items: reviews, hasMore } = await listApprovedReviews(id, reviewPage));
+    } catch (error) {
+      reviewsUnavailable = true;
+      console.error('Resource reviews temporarily unavailable', error?.message || 'unknown');
+    }
+    if (reviewPage > 1 && !reviewsUnavailable && reviews.length === 0) return res.status(404).send('No reviews on this page');
     const appUrl = '/?page=academic&file=' + encodeURIComponent(id);
     const reviewUrl = appUrl + '&panel=reviews';
     const downloadLink = file.sourceType === 'supabase-storage' && file.storageBucket === 'edunexus-public-files'
@@ -113,7 +120,9 @@ export default async function handler(req, res) {
           (safeRating ? '<span class="stars" aria-label="' + safeRating + ' out of 5 stars">' + '★'.repeat(safeRating) + '☆'.repeat(5 - safeRating) + '</span><span>' + safeRating + '/5</span>' : '') +
           '</div><p>' + h(String(review.comment || '')) + '</p></article>';
       }).join('')
-      : '<p>No published reviews yet. Open this resource in EduNexus to share your experience.</p>';
+      : reviewsUnavailable
+        ? '<p>Reviews are temporarily unavailable. Open Academic Hub to try again.</p>'
+        : '<p>No published reviews yet. Open this resource in EduNexus to share your experience.</p>';
     const pagination = '<nav class="pager" aria-label="Review pages">' +
       (reviewPage > 1 ? '<a rel="prev" href="' + h(linkToPage(path, reviewPage - 1)) + '">← Previous reviews</a>' : '<span></span>') +
       '<span>Reviews page ' + reviewPage + '</span>' +
