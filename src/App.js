@@ -551,6 +551,12 @@ const optimizeImageUrl = (url) => {
 };
 
 // 3. Articles
+const articlePublicPath = (article) => {
+  const id = String(article.id || '');
+  const slug = String(article.title || 'article').normalize('NFKD').toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80) || 'article';
+  return '/articles/read/' + encodeURIComponent(id) + '/' + slug;
+};
 const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
   // 🔹 Pehli dafa component load hote hi localStorage se data lene ki koshish
   const [articles, setArticles] = useState(() => {
@@ -626,7 +632,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
     const shareData = {
       title: art.title,
       text: art.content.substring(0, 100) + "...",
-      url: window.location.href,
+      url: window.location.origin + articlePublicPath(art),
     };
 
     if (navigator.share) {
@@ -714,7 +720,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
               {/* TITLE */}
               <div className="flex justify-between items-start mb-2">
                 <h2 className={`text-2xl font-bold ${theme.text}`}>
-                  {String(art.title)}
+                  <a href={articlePublicPath(art)} className="hover:text-indigo-500 hover:underline">{String(art.title)}</a>
                 </h2>
               </div>
 
@@ -756,6 +762,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
                   {art.likes} Likes
                 </button>
 
+                <a href={articlePublicPath(art)} className={`inline-flex items-center gap-2 font-semibold ${theme.textMuted} hover:text-indigo-500`} aria-label={'Read article: ' + art.title}><BookOpen size={18} /> Read article</a>
                 <button
                   onClick={() => handleShare(art)}
                   className={`flex items-center gap-2 ${theme.textMuted} hover:text-green-500 transition-colors`}
