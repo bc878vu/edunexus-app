@@ -86,7 +86,7 @@ import {
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
   serverTimestamp, doc,  increment, deleteDoc, where, updateDoc,
-  getDoc, getDocs, setDoc, arrayUnion
+  getDoc, getDocs, getCountFromServer, setDoc, arrayUnion
 } from 'firebase/firestore';
 import {
   getStorage,
