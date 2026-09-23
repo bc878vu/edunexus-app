@@ -114,3 +114,21 @@
 .edx-exam .edx-paper-attachment small{color:var(--ep-muted);font-weight:400;line-height:1.5;overflow-wrap:anywhere}
 .edx-exam .edx-paper-file-link{display:inline-flex;align-items:center;gap:7px;max-width:100%;width:fit-content;overflow-wrap:anywhere;text-decoration:none;border:1px solid var(--ep-border);border-radius:10px;padding:9px 12px;background:var(--ep-soft);color:var(--ep-ink);font-size:.82rem;font-weight:750}
 .edx-exam .edx-paper-file-link:hover{border-color:#818cf8}
+
+/* Earlier submissions remain private and never appear in the public feed. */
+.edx-exam .edx-paper-browser .edx-paper-all-subjects{grid-column:1/-1;display:flex;align-items:center;gap:9px;font-weight:600}
+.edx-exam .edx-paper-all-subjects input{width:17px;height:17px;min-height:0;flex:none;margin:0;accent-color:#5551df}
+.edx-exam .edx-paper-earlier{display:grid;gap:12px;padding:clamp(15px,3vw,22px);border:1px solid var(--ep-border);border-radius:17px;background:var(--ep-surface);min-width:0}
+.edx-exam .edx-paper-earlier h2{font-size:1.1rem;color:var(--ep-ink);margin:0}
+.edx-exam .edx-paper-earlier>p{font-size:.84rem;color:var(--ep-muted);margin:0;line-height:1.5}
+.edx-exam .edx-paper-earlier-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;border:1px solid var(--ep-border);border-radius:12px;padding:14px;min-width:0}
+.edx-exam .edx-paper-earlier-row>div{min-width:0;flex:1 1 280px;display:grid;gap:5px}
+.edx-exam .edx-paper-earlier-row strong{color:var(--ep-ink);font-size:.85rem;overflow-wrap:anywhere}
+.edx-exam .edx-paper-earlier-row span{color:var(--ep-muted);font-size:.76rem}
+.edx-exam .edx-paper-earlier-row p{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;color:var(--ep-ink);font-size:.86rem;line-height:1.55}
+.edx-exam .edx-paper-earlier-row button{max-width:100%;min-height:42px;white-space:normal}
+@media(max-width:700px){
+ .edx-exam .edx-paper-earlier-row{align-items:stretch;flex-direction:column}
+ .edx-exam .edx-paper-earlier-row button{width:100%}
+ .edx-exam .edx-paper-browser .edx-paper-all-subjects{grid-column:1}
+}
