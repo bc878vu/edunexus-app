@@ -103,7 +103,7 @@ test('file pages include responsive full navbar, genuine complete reviews and no
     assert.match(res.body, /aria-label="Mobile navigation"/);
     // Google does not support Review snippets on LearningResource parent nodes.
     // Keep authentic ratings in HTML without fabricating Course/Product schema.
-    const schema = JSON.parse(res.body.match(/<script type="application\\/ld\\+json">([\\s\\S]*?)<\\/script>/)[1]);
+    const schema = JSON.parse(res.body.split('<script type="application/ld+json">')[1].split('</script>')[0]);
     assert.equal(schema['@type'], 'LearningResource');
     assert.equal(schema.review, undefined);
     assert.equal(schema.aggregateRating, undefined);
