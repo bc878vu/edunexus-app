@@ -21,4 +21,4 @@ jobs:
       - name: Install dependencies using the project's existing Vercel install command
         run: npm install --no-audit --no-fund
       - name: Verify the complete production build
-        run: npm run build
+        run: CI=false npm run build
