@@ -23,4 +23,10 @@
   <url><loc>https://edunexus-app.vercel.app/contact</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
   <url><loc>https://edunexus-app.vercel.app/privacy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
   <url><loc>https://edunexus-app.vercel.app/terms</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
+  <url><loc>https://edunexus-app.vercel.app/learning/cs101/cs101-from-bits-to-programs-a-practical-study-guide</loc></url>
+  <url><loc>https://edunexus-app.vercel.app/learning/cs201/cs201-variables-functions-and-program-tracing</loc></url>
+  <url><loc>https://edunexus-app.vercel.app/learning/cs620/cs620-models-randomness-and-simulation-experiments</loc></url>
+  <url><loc>https://edunexus-app.vercel.app/learning/hrm613/hrm613-goals-feedback-and-fair-performance-evaluation</loc></url>
+  <url><loc>https://edunexus-app.vercel.app/learning/phy101/phy101-motion-forces-and-units-worked-through</loc></url>
+  <url><loc>https://edunexus-app.vercel.app/learning/mth101/mth101-limits-derivatives-and-interpreting-change</loc></url>
 </urlset>
