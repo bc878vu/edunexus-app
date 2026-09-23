@@ -37,6 +37,9 @@ export default function McqBulkImporter({ user, onView }) {
       const items = parseMcqJson(bulk).map(item => ({ ...item,
         subject: overrideSubject.trim() || item.subject,
         term: overrideTerm === 'keep' ? item.term : overrideTerm,
+        explanation: overrideTerm === 'midterm' || overrideTerm === 'finalterm'
+          ? '[EduNexus ' + (overrideTerm === 'midterm' ? 'Midterm' : 'Finalterm') + '] ' + String(item.explanation || '').replace(/^\[EduNexus Quiz(?:\|set:[A-Z0-9_-]{1,40})?(?:\|order:[0-9]{4})?\]\s*/, '')
+          : item.explanation,
         quizSet: (overrideTerm === 'quiz' || (overrideTerm === 'keep' && categoryOf(item) === 'quiz')) ? quizSet.trim() || item.quizSet : item.quizSet
       }));
       return { summary: summarizeImport(items), items, issue: '' };
