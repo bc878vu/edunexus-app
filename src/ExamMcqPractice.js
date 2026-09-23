@@ -328,7 +328,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
         <button type="button" className="edx-exam-primary edx-practice-start" disabled={!questions.length || loading || restoring}
           onClick={()=>startConfiguredAttempt()}>{stats.answered || finished ? 'Start new selected practice' : 'Apply practice settings'}</button>
       </div>
-      <label className="edx-exam-field">Search questions <span className="edx-practice-search"><Search size={17}/>
+      <label className="edx-exam-field edx-practice-search-field">Search questions <span className="edx-practice-search"><Search size={17}/>
         <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Find a question or topic…"/></span></label>
       <div className="edx-practice-toolbar-right"><span className="edx-exam-pill">{CATEGORY_NAMES[term] || term}</span><span className="edx-exam-pill">Answered: {stats.answered}/{actualQuestions.length}</span>
         <span className="edx-exam-pill">Score: {stats.score}/{stats.answered}</span>
