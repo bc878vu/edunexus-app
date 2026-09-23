@@ -301,7 +301,7 @@ const Navbar = ({
   };
 
   const isActive = (id) => {
-    const route = window.location.pathname.replace(/\\/$/, '') || '/';
+    const route = window.location.pathname.replace(/\/$/, '') || '/';
     const specialPage = route === '/live-projects' ? 'portfolio' :
       ['/study-guides', '/vu-notes-guide', '/past-papers-guide', '/exam-preparation',
        '/cgpa-guide', '/ai-study-tools', '/student-resources', '/tutorials'].includes(route)
