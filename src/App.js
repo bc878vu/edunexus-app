@@ -33,6 +33,7 @@ import {
   Folder,
   File,
   FileText,
+  BookOpen,
   Loader,
   Layers,
   ArrowRight,
@@ -85,7 +86,7 @@ import {
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
   serverTimestamp, doc,  increment, deleteDoc, where, updateDoc,
-  getDoc, setDoc, arrayUnion
+  getDoc, getDocs, setDoc, arrayUnion
 } from 'firebase/firestore';
 import {
   getStorage,
