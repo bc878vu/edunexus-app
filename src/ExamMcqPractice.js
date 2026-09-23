@@ -121,6 +121,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   // isolated by their authenticated UID for private cloud syncing.
   const recordKey = progressKey(subject, term, user?.isAnonymous ? 'guest' : (user?.uid || 'guest')) + (term === 'quiz' && quizSet !== 'all' ? ':set:' + quizSet : '');
   const cloudProgressId = subject + '_' + term + (term === 'quiz' && quizSet !== 'all' ? '_set_' + quizSet : '');
+  useEffect(() => { setQuizSet('all'); }, [subject, term]);
   const eligible = validSubject(subject);
   const actualQuestions = useMemo(() => questions.map(q => sourceChanges[q.id] || q), [questions, sourceChanges]);
   const index = Math.max(0, actualQuestions.findIndex(q => q.id === currentId));
