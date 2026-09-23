@@ -57,7 +57,15 @@ const validReviewPage = (raw) => {
   return Number.isSafeInteger(n) && n <= 1000 ? n : null;
 };
 function linkToPage(path, page) { return path + (page > 1 ? '?reviews=' + page : ''); }
-function buildSchema({ name, subject, summary, canonical, reviews, hasMore, reviewPage }) {
+function buildSchema({ name, subject, summary, canonical }) {
+  // A downloadable PDF page is a LearningResource, not necessarily a Course,
+  // Book, Product or other Google review-rich-result eligible entity. Google
+  // treats Review/AggregateRating nested on LearningResource as an invalid
+  // parent type. Do not turn files into fictitious Products or Courses to
+  // obtain stars. Student feedback and ratings remain visible in page HTML
+  // and in the Academic Hub; only ineligible review JSON-LD is omitted.
+  // Review authors are not captured as public, verified names; do not invent
+  // author data for a markup-only workaround.
   const schema = {
     '@context': 'https://schema.org', '@type': 'LearningResource',
     name, description: summary, url: canonical, educationalUse: 'revision',
@@ -65,22 +73,6 @@ function buildSchema({ name, subject, summary, canonical, reviews, hasMore, revi
     isAccessibleForFree: true,
     provider: { '@type': 'Organization', name: 'EduNexus', url: SITE }
   };
-  // Only include reviews actually shown in HTML; do not invent names or
-  // ratings. Never claim an aggregate across a truncated/paginated sample.
-  if (reviews.length) {
-    schema.review = reviews.map((review) => ({
-      '@type': 'Review', reviewBody: String(review.comment || ''),
-      reviewRating: { '@type': 'Rating', ratingValue: Number(review.rating), bestRating: 5, worstRating: 1 },
-      ...(review.createdAt && !Number.isNaN(Date.parse(review.createdAt)) ? { datePublished: review.createdAt } : {})
-    }));
-    if (reviewPage === 1 && !hasMore) {
-      schema.aggregateRating = {
-        '@type': 'AggregateRating',
-        ratingValue: Number((reviews.reduce((total, review) => total + Number(review.rating || 0), 0) / reviews.length).toFixed(2)),
-        reviewCount: reviews.length, bestRating: 5, worstRating: 1
-      };
-    }
-  }
   return JSON.stringify(schema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 }
 export default async function handler(req, res) {
@@ -125,7 +117,7 @@ export default async function handler(req, res) {
         String(item.subject || '').trim().toUpperCase() === subject.trim().toUpperCase()).slice(0, 4);
     } catch (error) { console.error('Related file lookup unavailable', error?.message || 'unknown'); }
     const relatedLinks = relatedFiles.length ? '<section class="reviews" aria-label="More files in this subject"><h2>More ' + h(subject) + ' study material</h2>' + relatedFiles.map((item) => '<p><a href="' + h(resourcePath(item.id, item.name || item.title)) + '">' + h(item.name || item.title || 'Study file') + '</a></p>').join('') + '</section>' : '';
-    const schema = buildSchema({ name, subject, summary, canonical, reviews, hasMore, reviewPage });
+    const schema = buildSchema({ name, subject, summary, canonical });
     const renderedReviews = reviews.length
       ? reviews.map((review) => {
         const rating = Number(review.rating);
