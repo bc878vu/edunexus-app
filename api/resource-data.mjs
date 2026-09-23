@@ -79,3 +79,26 @@ export async function listApprovedReviews(id, page = 1, pageSize = 20) {
     return { items: rows.slice(0, pageSize), hasMore: rows.length > pageSize };
   } finally { clearTimeout(timer); }
 }
+
+const ARTICLES = 'artifacts/edunexus-live/public/data/articles';
+export const articlePath = (id, title) => '/articles/read/' + encodeURIComponent(id) + '/' + slugFor(title);
+export async function getPublicArticle(id) {
+  if (!validId(id)) return null;
+  const doc = await getJson(endpoint(ARTICLES + '/' + encodeURIComponent(id)));
+  return doc ? decodeDoc(doc) : null;
+}
+export async function listPublicArticles(maxPages = 10) {
+  const result = []; let token = '';
+  for (let i = 0; i < maxPages; i += 1) {
+    const url = new URL(ENDPOINT + ARTICLES);
+    url.searchParams.set('key', API_KEY);
+    url.searchParams.set('pageSize','100');
+    if (token) url.searchParams.set('pageToken', token);
+    const json = await getJson(url.href);
+    if (!json) break;
+    result.push(...(json.documents || []).map(decodeDoc));
+    token = json.nextPageToken || '';
+    if (!token) break;
+  }
+  return result;
+}
