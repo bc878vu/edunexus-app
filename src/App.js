@@ -3437,7 +3437,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'highlights' && <HighlightsTab />}
         {activeTab === 'academic' && <AcademicTab theme={theme} user={user} showToast={showToast} />}
-        {activeTab === 'exam' && <React.Suspense fallback={<p>Loading Exam Prep management…</p>}><ExamPrepHub user={user} initialTab="admin" adminWorkspace /></React.Suspense>}
+        {activeTab === 'exam' && <React.Suspense fallback={<p>Loading Exam Prep management…</p>}><ExamPrepHub user={user} initialTab="admin" adminWorkspace isDark={isDark} /></React.Suspense>}
         {activeTab === 'blog' && <BlogTab />}
        {activeTab === 'forum' && (
   <ForumTab theme={theme} showToast={showToast} />
@@ -4688,7 +4688,7 @@ useEffect(() => {
         {page === 'exam' && <ExamPrep theme={theme} />}
         {page === 'exam-prep' && (
           <React.Suspense fallback={<div role="status" className="text-sm text-slate-500">Loading Exam Prep…</div>}>
-            <ExamPrepHub user={user} />
+            <ExamPrepHub user={user} isDark={isDark} />
           </React.Suspense>
         )}
         {page === 'aiquiz' && (
