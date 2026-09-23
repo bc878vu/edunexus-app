@@ -28,6 +28,18 @@
   ],
   "rewrites": [
     {
+      "source": "/learning/:code/:slug",
+      "destination": "/api/learning-page?code=:code&slug=:slug"
+    },
+    {
+      "source": "/articles/read/:id/:slug",
+      "destination": "/api/article-page?id=:id&slug=:slug"
+    },
+    {
+      "source": "/articles-sitemap.xml",
+      "destination": "/api/article-sitemap"
+    },
+    {
       "source": "/resource-sitemap.xml",
       "destination": "/api/resource-sitemap"
     },

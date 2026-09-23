@@ -1,4 +1,6 @@
-import { escapeHtml as h, getPublicFile, listApprovedReviews, resourcePath, SITE, slugFor, validId } from './resource-data.mjs';
+import { standaloneAdScript, standaloneContentSecurityPolicy } from './ad-support.mjs';
+import { escapeHtml as h, getPublicFile, listPublicFiles, listApprovedReviews, resourcePath, SITE, slugFor, validId } from './resource-data.mjs';
+import { guideForFile, SUBJECT_GUIDES } from './subject-guides.mjs';
 
 // Keep the same destinations and labels as src/App.js's MAIN_ITEMS. This HTML
 // is rendered on the server so search crawlers see actual file/review content.
@@ -16,12 +18,12 @@ const NAV = [
 const navLinks = (mobile = false) => NAV.map(([url, label]) =>
   '<a href="' + h(url) + '"' + (label === 'Academic Hub' ? ' aria-current="page"' : '') +
   '>' + h(label) + '</a>').join('');
-const navbar = `<header class="site-header"><div class="nav-wrap">
+export const navbar = `<header class="site-header"><div class="nav-wrap">
   <a class="brand" href="/" aria-label="EduNexus home"><span class="brand-icon" aria-hidden="true">🎓</span><span><strong>EduNexus</strong><small>Study Material • Mock Tests • AI Tools</small></span></a>
   <nav class="desktop-links" aria-label="Main navigation">${navLinks()}</nav>
   <details class="mobile-menu"><summary aria-label="Open navigation menu">☰ <span>Menu</span></summary><nav aria-label="Mobile navigation">${navLinks(true)}</nav></details>
 </div></header>`;
-const styles = `:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:light}*{box-sizing:border-box}
+export const styles = `:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:light}*{box-sizing:border-box}
 body{margin:0;background:#f6f8ff;color:#172036;line-height:1.65}a{color:#4f46e5}
 .site-header{position:sticky;top:0;z-index:30;background:#171d2d;color:#fff;border-bottom:1px solid #313a54}
 .nav-wrap{max-width:1450px;padding:10px 18px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:22px;min-height:70px}
@@ -111,6 +113,18 @@ export default async function handler(req, res) {
     const reviewUrl = appUrl + '&panel=reviews';
     const downloadLink = file.sourceType === 'supabase-storage' && file.storageBucket === 'edunexus-public-files'
       ? '<a class="button secondary" href="/api/resource-download?id=' + encodeURIComponent(id) + '">Download file</a>' : '';
+    const guideCode = guideForFile(file);
+    const guide = guideCode ? SUBJECT_GUIDES[guideCode] : null;
+    const guideSlug = guide ? slugFor(guide.title) : '';
+    const guideUrl = guide ? '/learning/' + guideCode.toLowerCase() + '/' + guideSlug : '';
+    const educationalContext = guide ? '<section class="reviews" aria-label="Original course guide"><div class="meta">Original learning material · ' + h(guideCode) + '</div><h2>' + h(guide.title) + '</h2><p>' + h(guide.intro) + '</p><h3>' + h(guide.sections[0].heading) + '</h3><p>' + h(guide.sections[0].text) + '</p><a class="button" href="' + h(guideUrl) + '">Read the complete ' + h(guideCode) + ' study guide</a><p>These independent explanations do not claim to verify the contents or current syllabus of this uploaded file.</p></section>' : '';
+    let relatedFiles = [];
+    try {
+      const library = await listPublicFiles(2);
+      relatedFiles = library.filter((item) => item.id !== id &&
+        String(item.subject || '').trim().toUpperCase() === subject.trim().toUpperCase()).slice(0, 4);
+    } catch (error) { console.error('Related file lookup unavailable', error?.message || 'unknown'); }
+    const relatedLinks = relatedFiles.length ? '<section class="reviews" aria-label="More files in this subject"><h2>More ' + h(subject) + ' study material</h2>' + relatedFiles.map((item) => '<p><a href="' + h(resourcePath(item.id, item.name || item.title)) + '">' + h(item.name || item.title || 'Study file') + '</a></p>').join('') + '</section>' : '';
     const schema = buildSchema({ name, subject, summary, canonical, reviews, hasMore, reviewPage });
     const renderedReviews = reviews.length
       ? reviews.map((review) => {
@@ -131,16 +145,17 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy', standaloneContentSecurityPolicy);
     if (req.method === 'HEAD') return res.status(200).end();
     return res.status(200).send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title>
 <meta name="description" content="${h((reviewPage > 1 ? 'Student reviews page ' + reviewPage + ': ' : '') + summary.slice(0, 155))}"><meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">
-<meta name="google-adsense-account" content="ca-pub-5179042048080611"><link rel="canonical" href="${h(canonical)}">
+<meta name="google-adsense-account" content="ca-pub-5179042048080611">${standaloneAdScript}<link rel="canonical" href="${h(canonical)}">
 <meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(summary.slice(0, 190))}"><meta property="og:url" content="${h(canonical)}">
 <script type="application/ld+json">${schema}</script><style>${styles}</style></head><body>${navbar}
 <main><article class="resource"><div class="meta">${h(subject)} · ${h(String(file.ext || 'Study file').toUpperCase().slice(0, 12))}</div>
 <h1>${h(name)}</h1><p>${h(summary)}</p><div class="buttons"><a class="button" href="${h(appUrl)}">Preview this file on EduNexus</a>${downloadLink}<a class="button secondary" href="${h(reviewUrl)}">Read and write reviews</a></div>
-<p>EduNexus is an independent student learning platform. Check current course requirements with your institution.</p></article>
+<p>EduNexus is an independent student learning platform. Check current course requirements with your institution. If you own rights to material that should not be shared, please contact us through the Contact page.</p></article>
+${educationalContext}${relatedLinks}
 <section class="reviews" aria-label="Student reviews"><h2>Student reviews${reviewPage > 1 ? ' — page ' + reviewPage : ''}</h2>
 ${renderedReviews}${pagination}<a href="${h(reviewUrl)}">Read and write reviews in Academic Hub</a></section></main>
 <footer class="site-footer"><p>© EduNexus · Independent student study resources</p><nav aria-label="Footer links"><a href="/?page=academic">Academic Hub</a><a href="/?page=about">About</a><a href="/?page=contact">Contact</a><a href="/?page=privacy">Privacy Policy</a><a href="/?page=terms">Terms of Service</a></nav></footer></body></html>`);

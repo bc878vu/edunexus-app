@@ -68,6 +68,8 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
   const [subject, setSubject] = useState(initialSubject || 'CS101');
   const [customFolder, setCustomFolder] = useState(false);
   const [description, setDescription] = useState('');
+  const [rightsBasis, setRightsBasis] = useState('');
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [phase, setPhase] = useState('idle');
   const [progress, setProgress] = useState(0);
   const [notice, setNotice] = useState('');
@@ -113,8 +115,8 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     if (inFlight.current) return;
     const invalid = validFile(file);
     const code = subject.trim().replace(/\s+/g, ' ');
-    if (invalid || !code || code.length > 120 || !title.trim() || title.trim().length > 150) {
-      setError(invalid || 'A folder and a resource title are required.'); return;
+    if (invalid || !code || code.length > 120 || !title.trim() || title.trim().length > 150 || !rightsConfirmed || !rightsBasis) {
+      setError(invalid || 'A folder, title, valid sharing-rights basis and copyright confirmation are required.'); return;
     }
     if (!adminPanelAccess(user)) {
       setError('Sign in as the email-verified EduNexus administrator.'); return;
@@ -138,10 +140,10 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
         url, ext: extension(file.name), originalFilename: safeName(file.name),
         storagePath: signed.path, sourceType: 'supabase-storage',
         storageBucket: BUCKET, isLinkOnly: false, size: file.size,
-        uploadedBy: 'Admin', createdAt: serverTimestamp()
+        uploadedBy: 'Admin', rightsBasis, rightsConfirmed: true, rightsConfirmedAt: serverTimestamp(), createdAt: serverTimestamp()
       });
       if (mounted.current) {
-        setPhase('done'); setFile(null); setTitle(''); setDescription('');
+        setPhase('done'); setFile(null); setTitle(''); setDescription(''); setRightsBasis(''); setRightsConfirmed(false);
         if (fileInput.current) fileInput.current.value = '';
         setNotice('File uploaded to free Supabase Storage and published in the existing EduNexus library.');
         if (onUploaded) onUploaded(code);
@@ -199,6 +201,19 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
           <textarea rows={3} maxLength={1000} disabled={busy} value={description}
             onChange={(e) => setDescription(e.target.value)} placeholder="Topics covered and how this file helps students."/>
         </label>
+        <label className="ah-upload-description">Your legal basis for sharing this file
+          <select required disabled={busy} value={rightsBasis} onChange={(e) => setRightsBasis(e.target.value)}>
+            <option value="">Select a verified basis…</option>
+            <option value="original-work">I created this material and hold sharing rights</option>
+            <option value="written-permission">The copyright owner gave explicit permission</option>
+            <option value="open-license">An open licence permits redistribution under its terms</option>
+            <option value="public-domain">I checked that this work is in the public domain</option>
+          </select>
+        </label>
+        <label className="ah-upload-description" style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+          <input type="checkbox" style={{width:'auto',marginTop:5}} required disabled={busy} checked={rightsConfirmed} onChange={(e)=>setRightsConfirmed(e.target.checked)}/>
+          <span>I have checked the actual sharing rights for this exact document. I will not upload private or confidential exam material. This declaration records my assessment, not an independent legal verification.</span>
+        </label>
       </div>
       {busy && <div role="status" className="ah-upload-progress">
         <div className="ah-between"><span>{phase === 'authorizing' ? 'Verifying secure administrator upload…' :
@@ -208,7 +223,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
       {error && <p className="ah-message ah-upload-error" role="alert">{error}</p>}
       {notice && <p className="ah-message ah-upload-success" role="status"><CheckCircle2 size={17}/>{notice}</p>}
       <div className="ah-actions">
-        <button type="submit" className="ah-primary" disabled={busy || !file}><CloudUpload size={16}/>{busy ? 'Uploading…' : 'Upload & publish file'}</button>
+        <button type="submit" className="ah-primary" disabled={busy || !file || !rightsBasis || !rightsConfirmed}><CloudUpload size={16}/>{busy ? 'Uploading…' : 'Upload & publish file'}</button>
         {phase === 'uploading' && <button type="button" className="ah-secondary" onClick={cancel}><X size={15}/>Cancel upload</button>}
       </div>
       <p className="ah-note"><FileText size={14}/> Firebase Authentication and all existing Firestore files remain unchanged. The free Supabase bucket is for public study resources only. Use Google Drive for larger files.</p>

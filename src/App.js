@@ -33,6 +33,7 @@ import {
   Folder,
   File,
   FileText,
+  BookOpen,
   Loader,
   Layers,
   ArrowRight,
@@ -85,7 +86,7 @@ import {
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
   serverTimestamp, doc,  increment, deleteDoc, where, updateDoc,
-  getDoc, setDoc, arrayUnion
+  getDoc, getDocs, getCountFromServer, setDoc, arrayUnion
 } from 'firebase/firestore';
 import {
   getStorage,
@@ -551,6 +552,12 @@ const optimizeImageUrl = (url) => {
 };
 
 // 3. Articles
+const articlePublicPath = (article) => {
+  const id = String(article.id || '');
+  const slug = String(article.title || 'article').normalize('NFKD').toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80) || 'article';
+  return '/articles/read/' + encodeURIComponent(id) + '/' + slug;
+};
 const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
   // 🔹 Pehli dafa component load hote hi localStorage se data lene ki koshish
   const [articles, setArticles] = useState(() => {
@@ -626,7 +633,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
     const shareData = {
       title: art.title,
       text: art.content.substring(0, 100) + "...",
-      url: window.location.href,
+      url: window.location.origin + articlePublicPath(art),
     };
 
     if (navigator.share) {
@@ -714,7 +721,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
               {/* TITLE */}
               <div className="flex justify-between items-start mb-2">
                 <h2 className={`text-2xl font-bold ${theme.text}`}>
-                  {String(art.title)}
+                  <a href={articlePublicPath(art)} className="hover:text-indigo-500 hover:underline">{String(art.title)}</a>
                 </h2>
               </div>
 
@@ -756,6 +763,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
                   {art.likes} Likes
                 </button>
 
+                <a href={articlePublicPath(art)} className={`inline-flex items-center gap-2 font-semibold ${theme.textMuted} hover:text-indigo-500`} aria-label={'Read article: ' + art.title}><BookOpen size={18} /> Read article</a>
                 <button
                   onClick={() => handleShare(art)}
                   className={`flex items-center gap-2 ${theme.textMuted} hover:text-green-500 transition-colors`}
@@ -777,6 +785,7 @@ const Forum = ({ user, theme, showToast }) => {
   const [posts, setPosts] = useState([]);
   const [newPost, setNewPost] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forumReported, setForumReported] = useState({});
 
   useEffect(() => {
     // sab ko posts dikh sakti hain (anon user bhi), is liye user check optional hai
@@ -799,6 +808,9 @@ const Forum = ({ user, theme, showToast }) => {
     }
 
     if (!newPost.trim()) return;
+    if (newPost.length > 10000 || /https?:\/\/|www\./i.test(newPost)) {
+      showToast("Keep discussions under 10,000 characters and avoid promotional links.", "error"); return;
+    }
 
     try {
       setLoading(true);
@@ -809,7 +821,7 @@ const Forum = ({ user, theme, showToast }) => {
           createdAt: serverTimestamp(),
           userId: user.uid || null,
           userName: user.displayName || "Student",
-          userEmail: user.email || "",
+          userEmail: "", // Do not reveal account email in public posts.
         }
       );
       setNewPost("");
@@ -819,6 +831,23 @@ const Forum = ({ user, theme, showToast }) => {
       showToast("Failed to post. Try again.", "error");
     }
     setLoading(false);
+  };
+
+  const reportForumPost = async (post) => {
+    if (!user?.uid || post.userId === user.uid || forumReported[post.id]) return;
+    const requested = window.prompt('Report reason: spam, abuse, copyright, personal-data, or other', 'spam');
+    if (requested === null) return;
+    const reason = String(requested || '').trim().toLowerCase();
+    if (!['spam','abuse','copyright','personal-data','other'].includes(reason)) {
+      showToast('Please choose a valid report reason.', 'error'); return;
+    }
+    try {
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'discussions', post.id, 'reports', user.uid), {
+        reporterUid: user.uid, reason, createdAt: serverTimestamp()
+      });
+      setForumReported((prev)=>({...prev,[post.id]:true}));
+      showToast('Post reported privately to the administrator.', 'success');
+    } catch (_) { showToast('Report failed. Check the updated Firestore rules or use the Contact page.', 'error'); }
   };
 
   return (
@@ -891,7 +920,7 @@ const Forum = ({ user, theme, showToast }) => {
                   {String(p.userName || "Student")}
                 </p>
                 <p className={`text-xs ${theme.textMuted}`}>
-                  {p.userEmail ? String(p.userEmail) + " • " : ""}
+                  
                   {p.createdAt?.toDate
                     ? p.createdAt.toDate().toLocaleString()
                     : ""}
@@ -900,6 +929,7 @@ const Forum = ({ user, theme, showToast }) => {
             </div>
 
             <p className={theme.text}>{String(p.content)}</p>
+            {user?.uid && p.userId !== user.uid && <button type="button" className="text-xs text-indigo-500 hover:underline" disabled={Boolean(forumReported[p.id])} onClick={()=>reportForumPost(p)}>{forumReported[p.id] ? "Reported" : "Report post"}</button>}
 
             {/* Admin reply agar available ho */}
             {p.adminReply && (
@@ -2207,6 +2237,8 @@ const AcademicTab = ({ theme, user, showToast }) => {
   const [editName, setEditName] = useState('');
   const [editSubject, setEditSubject] = useState('');
   const [uDriveLink, setUDriveLink] = useState("");
+  const [linkRightsBasis, setLinkRightsBasis] = useState("");
+  const [linkRightsConfirmed, setLinkRightsConfirmed] = useState(false);
   const [newFolder, setNewFolder] = useState("");
   const [subjects, setSubjects] = useState(DEFAULT_FOLDERS);
   const [selSubject, setSelSubject] = useState("CS101");
@@ -2277,6 +2309,10 @@ const AcademicTab = ({ theme, user, showToast }) => {
       showToast('Select a subject folder first.', 'error');
       return;
     }
+    if (!linkRightsConfirmed || !linkRightsBasis) {
+      showToast('Confirm the sharing rights of the linked resource before publishing.', 'error');
+      return;
+    }
     setLinkSaving(true);
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'files'), {
@@ -2286,10 +2322,11 @@ const AcademicTab = ({ theme, user, showToast }) => {
         ext: 'LINK',
         isLinkOnly: true,
         uploadedBy: 'Admin',
+        rightsBasis: linkRightsBasis, rightsConfirmed: true, rightsConfirmedAt: serverTimestamp(),
         createdAt: serverTimestamp()
       });
       setUName('');
-      setUDriveLink('');
+      setUDriveLink(''); setLinkRightsBasis(''); setLinkRightsConfirmed(false);
       showToast('Resource link added to the Academic Hub.', 'success');
     } catch (error) {
       showToast('Could not save the link: ' + (error.message || 'Check Firestore permissions.'), 'error');
@@ -2502,7 +2539,13 @@ const AcademicTab = ({ theme, user, showToast }) => {
                 Google Drive or resource URL
                 <input type="url" value={uDriveLink} onChange={(e) => setUDriveLink(e.target.value)} placeholder="https://drive.google.com/…" className={`${theme.input} p-3 rounded-xl w-full`} />
               </label>
-              <button type="button" onClick={handleUploadFile} disabled={linkSaving || !uDriveLink.trim()} className="edx-admin-link-submit">
+              <label className={theme.text}>Permission to share this linked resource
+                <select value={linkRightsBasis} onChange={(e)=>setLinkRightsBasis(e.target.value)} className={`${theme.input} p-3 rounded-xl w-full`}>
+                  <option value="">Choose a verified legal basis…</option><option value="original-work">My original work</option><option value="written-permission">Written copyright-holder permission</option><option value="open-license">Redistribution permitted by licence</option><option value="public-domain">Verified public domain</option>
+                </select>
+              </label>
+              <label className={theme.text}><input type="checkbox" checked={linkRightsConfirmed} onChange={(e)=>setLinkRightsConfirmed(e.target.checked)}/> I checked permission for this exact linked file before publishing.</label>
+              <button type="button" onClick={handleUploadFile} disabled={linkSaving || !uDriveLink.trim() || !linkRightsConfirmed || !linkRightsBasis} className="edx-admin-link-submit">
                 {linkSaving ? 'Saving link…' : 'Save resource link'}
               </button>
             </div>
@@ -2803,6 +2846,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [imageUrl, setImageUrl] = useState('');
+    const [originalConfirmed, setOriginalConfirmed] = useState(false);
 
     useEffect(() => {
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), orderBy('createdAt', 'desc'));
@@ -2811,17 +2855,21 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     }, []);
 
     const handleSubmit = async () => {
-      if(!title || !content) return;
+      if(!title.trim() || !content.trim()) return;
+      if (!editId && (content.trim().length < 450 || !originalConfirmed)) {
+        showToast('New articles need meaningful original content (at least 450 characters) and an authorship/permission declaration.', 'error');
+        return;
+      }
       if(editId) {
         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', editId), { title, content, imageUrl });
         showToast("Article Updated", "success");
       } else {
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), { 
-          title, content, imageUrl, author: 'Admin', likes: 0, likedBy: [], createdAt: serverTimestamp() 
+          title, content, imageUrl, author: 'Admin', rightsConfirmed: true, originalContentConfirmed: true, likes: 0, likedBy: [], createdAt: serverTimestamp() 
         });
         showToast("Article Published", "success");
       }
-      setEditId(null); setTitle(''); setContent(''); setImageUrl('');
+      setEditId(null); setTitle(''); setContent(''); setImageUrl(''); setOriginalConfirmed(false);
     };
 
     const handleEdit = (art) => { setEditId(art.id); setTitle(art.title); setContent(art.content); setImageUrl(art.imageUrl || ''); };
@@ -2855,6 +2903,11 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           </div>
 
           <textarea value={content} onChange={e=>setContent(e.target.value)} placeholder="Content" className={`w-full ${theme.input} p-2 rounded h-48 mb-2`} />
+          {!editId && <label className={`flex items-start gap-2 text-sm ${theme.textMuted} mb-2`}>
+            <input type="checkbox" checked={originalConfirmed} onChange={e=>setOriginalConfirmed(e.target.checked)} />
+            <span>I have personally checked that this article adds original learning value and that I hold the rights or permission to publish the text and images. This is my declaration, not an independent certification.</span>
+          </label>}
+          <p className={`text-xs ${theme.textMuted} mb-3`}>New articles require original paragraphs and examples (at least 450 characters). Existing articles can still be edited.</p>
           <div className="flex gap-2">
             <button onClick={handleSubmit} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold flex-1">{editId ? 'Update' : 'Publish'}</button>
             {editId && <button onClick={()=>{setEditId(null);setTitle('');setContent('');setImageUrl('')}} className="bg-slate-500 text-white px-4 py-2 rounded font-bold">Cancel</button>}
@@ -2874,6 +2927,7 @@ const ForumTab = ({ theme, showToast }) => {
   const [editId, setEditId] = useState(null);     // jis post ka reply edit ho raha hai
   const [replyText, setReplyText] = useState(""); // current reply text
   const [saving, setSaving] = useState(false);
+  const [forumReports, setForumReports] = useState({});
 
   // Live discussions sync
   useEffect(() => {
@@ -2888,6 +2942,13 @@ const ForumTab = ({ theme, showToast }) => {
 
     return () => unsub();
   }, []);
+
+  const inspectForumReports = async (post) => {
+    try {
+      const snap=await getDocs(collection(db, "artifacts", appId, "public", "data", "discussions", post.id, "reports"));
+      setForumReports((prev)=>({...prev,[post.id]:snap.docs.map((r)=>r.data().reason)}));
+    } catch (_) { showToast("Could not load private post reports. Deploy the updated Firestore rules.", "error"); }
+  };
 
   // Post delete (user ka message delete)
   const handleDeletePost = async (id) => {
@@ -2997,6 +3058,8 @@ const ForumTab = ({ theme, showToast }) => {
                 </p>
               </div>
 
+              <button type="button" className="text-xs text-indigo-500 hover:underline" onClick={()=>inspectForumReports(p)}>Check reports</button>
+              {forumReports[p.id] && <p className="text-xs" role="status">{forumReports[p.id].length ? forumReports[p.id].length + " report(s): " + forumReports[p.id].join(", ") : "No reports for this post."}</p>}
               <button
                 onClick={() => handleDeletePost(p.id)}
                 className="text-red-500 text-xs font-bold hover:underline"
