@@ -247,3 +247,11 @@
     transform: none !important;
   }
 }
+
+/* Compact rating only: preserve file-type chip and card actions across themes. */
+.ah-root .ah-meta-rating-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;flex-wrap:wrap}
+.ah-root .ah-meta-rating-row .ah-meta{margin:8px 0;flex:1 1 auto;min-width:0}
+.ah-root .ah-card-rating{margin-left:auto;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;color:#b45309;font-size:.85rem;font-weight:800;line-height:1.25;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ah-root .ah-card-rating svg{display:block;width:15px;height:15px}
+.dark .ah-root .ah-card-rating{color:#facc15}
+@media(max-width:470px){.ah-root .ah-meta-rating-row{gap:5px}.ah-root .ah-card-rating{font-size:.8rem}}
