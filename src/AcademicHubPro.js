@@ -12,6 +12,14 @@ const BASE = ['artifacts', 'edunexus-live', 'public', 'data'];
 const FILES = collection(db, ...BASE, 'files');
 const FOLDERS = doc(db, ...BASE, 'meta', 'folders');
 const DEFAULT_SUBJECTS = ['PHY101', 'CS101', 'MGT101', 'ENG101', 'CS201', 'MTH101', 'ISL201', 'PAK301'];
+const EDITORIAL_GUIDES = [
+  ['CS101','CS101: Computing fundamentals','cs101-from-bits-to-programs-a-practical-study-guide'],
+  ['CS201','CS201: Programming examples','cs201-variables-functions-and-program-tracing'],
+  ['CS620','CS620: Models and simulation','cs620-models-randomness-and-simulation-experiments'],
+  ['HRM613','HRM613: Performance management','hrm613-goals-feedback-and-fair-performance-evaluation'],
+  ['PHY101','PHY101: Motion and forces','phy101-motion-forces-and-units-worked-through'],
+  ['MTH101','MTH101: Calculus worked examples','mth101-limits-derivatives-and-interpreting-change']
+];
 const PAGE_SIZE = 60;
 const cut = (v, n = 300) => String(v == null ? '' : v).trim().slice(0, n);
 const safeHttp = (raw) => {
@@ -441,6 +449,8 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     <section className="ah-hero"><div><span className="ah-eyebrow ah-hero-kicker"><GraduationCap size={15} /> EduNexus Learning Library</span><h1>Academic Hub</h1><p className="ah-hero-lead">Your organized space for course handouts, lecture notes, study guides and carefully selected revision material. Explore a subject, preview supported resources, download files, and read or submit resource reviews without leaving your learning workspace.</p><div className="ah-hero-links"><a href="#academic-library">Explore the library <ArrowRight size={17} /></a><a href="#academic-study-guide">Study smarter <BookOpen size={17} /></a></div></div><div className="ah-hero-graphic" aria-hidden="true"><FolderOpen size={76} /><span>Learn · Practice · Review</span></div></section>
 
     <section className="ah-intro" aria-label="About the Academic Hub"><div className="ah-section-heading"><span className="ah-eyebrow">One library · multiple ways to learn</span><h2>Find the right material for your next study session</h2></div><p>The Academic Hub brings EduNexus resources into a subject-first experience. Instead of opening many folders and unrelated websites, begin with a course code and work through the available materials in one place. Each file card provides its title, subject and available viewing options, while the review panel gives students room to share useful feedback about a specific resource.</p><p>New uploads appear in the library as they become available. The page initially loads a manageable batch for faster rendering and lets you bring in additional files as needed. Counts shown below describe resources currently loaded in this browser, not the total size of the entire database. Use the existing administrator upload tools to keep adding folders, documents and links without changing the original storage system.</p></section>
+
+    <section className="ah-intro" aria-label="Original subject study guides"><div className="ah-section-heading"><span className="ah-eyebrow">Learn before downloading</span><h2>Original subject explanations and worked examples</h2></div><p>Read an independently written explanation before choosing a PDF. These guides cover general course concepts; verify current syllabus and assignment requirements with your institution.</p><div className="ah-actions">{EDITORIAL_GUIDES.map(([code,label,slug]) => <a className="ah-secondary" key={code} href={'/learning/' + code.toLowerCase() + '/' + slug}>{label} <ArrowRight size={15} /></a>)}</div></section>
 
     {reviewIsAdmin(user, isAdmin) && <React.Suspense fallback={<p className="ah-note" role="status">Opening secure upload workspace…</p>}><AcademicAdminUploader user={user} subjects={subjects} initialSubject={subject} onUploaded={(code) => { setSearch(''); setFormat('all'); openSubject(code); }} /></React.Suspense>}
 
