@@ -55,3 +55,38 @@
 .edx-exam .edx-practice-pending-note{font-size:.82rem;line-height:1.65}
 .edx-exam .edx-practice-ai p{white-space:pre-line;line-height:1.7}
 @media(min-width:850px){.edx-exam .edx-practice-toolbar:has(>label:nth-child(3)){grid-template-columns:repeat(2,minmax(0,1fr))}.edx-exam .edx-practice-toolbar:has(>label:nth-child(3))>label:first-child{grid-column:1}.edx-exam .edx-practice-toolbar:has(>label:nth-child(3))>label:nth-child(2){grid-column:2}.edx-exam .edx-practice-toolbar:has(>label:nth-child(3))>label:nth-child(3){grid-column:1/-1}}
+
+/* Readable Quiz cards on light, dark and custom themes. Keep disabled answers fully visible. */
+.edx-exam .edx-practice-question{background:var(--ex-card)!important;color:var(--ex-ink)!important;opacity:1!important}
+.edx-exam .edx-practice-question h3{color:var(--ex-ink)!important;overflow-wrap:anywhere}
+.edx-exam .edx-practice-question .edx-exam-option{background:var(--ex-card);color:var(--ex-ink);border:1px solid var(--ex-line);opacity:1!important;min-width:0;overflow-wrap:anywhere;line-height:1.55}
+.edx-exam .edx-practice-question .edx-exam-option:disabled{color:var(--ex-ink)!important;opacity:1!important;filter:none!important;-webkit-text-fill-color:currentColor}
+.edx-exam .edx-practice-question .edx-exam-option>span{color:var(--ex-ink);background:rgba(99,102,241,.1);opacity:1}
+.edx-exam .edx-practice-question .edx-exam-option.correct,
+.edx-exam .edx-practice-question .edx-exam-option.correct:disabled{background:#e8f8ef!important;border-color:#65bf96!important;color:#145c37!important;-webkit-text-fill-color:#145c37!important}
+.edx-exam .edx-practice-question .edx-exam-option.incorrect,
+.edx-exam .edx-practice-question .edx-exam-option.incorrect:disabled{background:#ffedef!important;border-color:#eda1aa!important;color:#912c3d!important;-webkit-text-fill-color:#912c3d!important}
+.edx-exam .edx-practice-question .edx-exam-option.correct>span{color:#145c37!important;background:#d2f1df!important}
+.edx-exam .edx-practice-question .edx-exam-option.incorrect>span{color:#912c3d!important;background:#f9d7dc!important}
+.dark .edx-exam .edx-practice-question .edx-exam-option.correct,
+.dark .edx-exam .edx-practice-question .edx-exam-option.correct:disabled{background:#153d2e!important;color:#c3f8d9!important;-webkit-text-fill-color:#c3f8d9!important;border-color:#30885f!important}
+.dark .edx-exam .edx-practice-question .edx-exam-option.incorrect,
+.dark .edx-exam .edx-practice-question .edx-exam-option.incorrect:disabled{background:#4a2029!important;color:#ffe2e6!important;-webkit-text-fill-color:#ffe2e6!important;border-color:#ac5567!important}
+.dark .edx-exam .edx-practice-question .edx-exam-option.correct>span{color:#c3f8d9!important;background:#20523c!important}
+.dark .edx-exam .edx-practice-question .edx-exam-option.incorrect>span{color:#ffe2e6!important;background:#70303e!important}
+.edx-exam .edx-practice-inline-result{font-size:.81rem;line-height:1.5;margin:12px 0 0;color:var(--ex-muted)}
+.edx-exam .edx-practice-inline-result.is-right{color:#14804b}.edx-exam .edx-practice-inline-result.is-wrong{color:#bd364c}
+.dark .edx-exam .edx-practice-inline-result.is-right{color:#9ae6b4}.dark .edx-exam .edx-practice-inline-result.is-wrong{color:#ffabb8}
+.edx-exam .edx-practice-ai{padding:11px 13px;gap:5px;margin-top:10px;background:var(--ex-card);color:var(--ex-ink);border-color:var(--ex-line)}
+.edx-exam .edx-practice-ai p{font-size:.82rem;line-height:1.58;color:var(--ex-ink);margin:0;max-width:100%}
+.edx-exam .edx-practice-setup{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end;min-width:0}
+.edx-exam .edx-practice-setup>label{min-width:0}
+.edx-exam .edx-practice-setup .edx-practice-start{min-height:46px;width:100%;white-space:normal;text-align:center}
+.edx-exam .edx-practice-key-note{grid-column:1/-1;font-size:.74rem;line-height:1.55;color:var(--ex-muted);margin:0}
+.edx-exam .edx-practice-performance{font-weight:800;font-size:1rem;color:var(--ex-ink)}
+.edx-exam .edx-practice-score-note{font-size:.77rem!important;line-height:1.6;color:var(--ex-muted)}
+.edx-exam .edx-practice-visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;border:0!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important}
+.edx-exam .edx-practice-summary{color:var(--ex-ink);background:var(--ex-card)}
+.edx-exam .edx-practice-summary .edx-practice-stat-grid>div{background:var(--ex-card);color:var(--ex-ink)}
+@media(max-width:840px){.edx-exam .edx-practice-setup{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:550px){.edx-exam .edx-practice-setup{grid-template-columns:1fr}.edx-exam .edx-practice-question .edx-exam-option{padding:12px 10px}.edx-exam .edx-practice-question{padding:clamp(13px,4vw,20px)}}
