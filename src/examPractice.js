@@ -59,6 +59,20 @@ export function sanitizeProgress(record, questions) {
 
 // The displayed practice score follows the stored uploaded answer indexes.
 // This must not be described as independent source verification.
+// Answer selections are immutable within an attempt; only a new attempt resets them.
+export function recordAnswer(answers, id, option) {
+  if (typeof id !== 'string' || !Number.isInteger(option) || option < 0 || option > 3 ||
+      Object.prototype.hasOwnProperty.call(answers, id)) return answers;
+  return { ...answers, [id]: option };
+}
+
+// Keep the Next button and its handler on the same rule. A previously
+// answered question can be revisited without unlocking its answer.
+export function canAdvance(questions, answers, index) {
+  return index >= 0 && index < questions.length - 1 &&
+    Number.isInteger(answers[questions[index]?.id]);
+}
+
 export function answerKeyStats(questions, answers) {
   const answered = questions.filter(q => Number.isInteger(answers[q.id]));
   return {
@@ -101,8 +115,10 @@ export function restoreAttemptIds(record, questions) {
     return true;
   });
 }
-export function attemptMessage(score, answered) {
-  if (!answered) return 'Start with a few questions. You can do this!';
+export function attemptMessage(score, answered, total = answered) {
+  if (!answered) return 'Try again! Start with a few questions and build your confidence.';
+  if (total > answered && answered / total < .5)
+    return 'You finished early. Answer more questions next time to track your progress.';
   const rate = score / answered;
   if (rate >= .9) return 'Congratulations! Excellent work. Keep practicing!';
   if (rate >= .65) return 'Good progress! Review a few concepts and try again.';
