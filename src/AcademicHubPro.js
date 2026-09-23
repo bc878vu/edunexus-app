@@ -5,6 +5,7 @@ import { db, storage } from './firebase-client';
 import { getBlob, ref as storageRef } from 'firebase/storage';
 import './academic-hub-pro.css';
 import './academic-hub-v2.css';
+import { reviewQualityMessage } from './reviewQuality';
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 
 const BASE = ['artifacts', 'edunexus-live', 'public', 'data'];
@@ -139,6 +140,8 @@ function FileReviews({ file, user, isAdmin }) {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [reported, setReported] = useState({});
+  const [reportResults, setReportResults] = useState({});
   const admin = reviewIsAdmin(user, isAdmin);
 
   useEffect(() => {
@@ -161,7 +164,9 @@ function FileReviews({ file, user, isAdmin }) {
   const publish = async (event) => {
     event.preventDefault();
     const value = comment.trim();
-    if (!user?.uid || mine || value.length < 20 || value.length > 50000 || !Number.isInteger(Number(rating))) return;
+    if (!user?.uid || mine || !Number.isInteger(Number(rating))) return;
+    const safetyMessage = reviewQualityMessage(value);
+    if (safetyMessage) { setStatus(safetyMessage); return; }
     setBusy(true); setStatus('');
     try {
       await setDoc(reviewDoc(file.id, user.uid), {
@@ -212,12 +217,44 @@ function FileReviews({ file, user, isAdmin }) {
     catch (_) { setStatus('Review deletion failed.'); }
     finally { setBusy(false); }
   };
+  const reportReview = async (review) => {
+    if (!user?.uid || review.id === user.uid || busy || reported[review.id]) return;
+    const reason = window.prompt('Report reason: spam, abuse, copyright, personal-data, or other', 'spam');
+    if (reason === null) return;
+    const value = String(reason || '').trim().toLowerCase();
+    if (!['spam','abuse','copyright','personal-data','other'].includes(value)) {
+      setStatus('Choose a valid report reason: spam, abuse, copyright, personal-data, or other.'); return;
+    }
+    setBusy(true); setStatus('');
+    try {
+      await setDoc(doc(db, ...BASE, 'files', file.id, 'reviews', review.id, 'reports', user.uid), {
+        reporterUid: user.uid, reason: value, createdAt: serverTimestamp()
+      });
+      setReported((prev) => ({ ...prev, [review.id]: true }));
+      setStatus('Thanks. The review has been reported to the administrator for inspection.');
+    } catch (error) {
+      setStatus(error.code === 'permission-denied'
+        ? 'Reports require the updated Firestore rules. Please use the Contact page until they are published.'
+        : 'This report could not be saved. Please try again.');
+    } finally { setBusy(false); }
+  };
+  const inspectReports = async (review) => {
+    if (!admin || busy) return;
+    setBusy(true); setStatus('');
+    try {
+      const snapshot = await getDocs(collection(db, ...BASE, 'files', file.id, 'reviews', review.id, 'reports'));
+      setReportResults((prev) => ({
+        ...prev, [review.id]: snapshot.docs.map((record) => ({ id: record.id, ...record.data() }))
+      }));
+    } catch (_) { setStatus('Review reports could not be loaded. Check deployed Firestore rules.'); }
+    finally { setBusy(false); }
+  };
   const average = items.length ? (items.reduce((sum, r) => sum + Number(r.rating || 0), 0) / items.length).toFixed(1) : '';
   return <section className="ah-focus" aria-label="Resource reviews">
     <div className="ah-between"><div><span className="ah-eyebrow">Student resource reviews</span><h3>Read and review: {nameOf(file)}</h3></div><span className="ah-chip"><Star size={14} /> {average || 'New'} · {items.length} published</span></div>
     <p>Share your own experience with this study material. User-submitted reviews appear immediately and do not represent an official examination guarantee.</p>
     {status && <div role="status" className="ah-message">{status}</div>}
-    {loading ? <p>Loading reviews…</p> : items.length ? <div className="ah-review-list">{items.map((r) => <article className="ah-review" key={r.id}><div className="ah-between"><strong>Student review {r.editedAt ? '· edited by admin' : ''}</strong><span className="ah-stars" aria-label={r.rating + ' out of 5 stars'}>{'★'.repeat(Math.max(0, Math.min(5, r.rating || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, r.rating || 0)))}</span></div><p>{String(r.comment || '')}</p>{admin && <div className="ah-actions"><button type="button" className="ah-secondary" disabled={busy} onClick={() => startEdit(r)}>Edit</button><button type="button" className="ah-delete" disabled={busy} onClick={() => remove(r)}>Delete</button></div>}{admin && editing === r.id && <div className="ah-review-form"><label>Rating<select value={editRating} onChange={(e) => setEditRating(Number(e.target.value))}>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n} / 5</option>)}</select></label><label>Review text<textarea rows={6} maxLength={50000} value={editText} onChange={(e) => setEditText(e.target.value)} /></label><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy || editText.trim().length < 20} onClick={() => saveEdit(r)}>Save edit</button><button type="button" className="ah-secondary" onClick={() => setEditing(null)}>Cancel</button></div></div>}</article>)}</div> : <div className="ah-empty">No published reviews yet. Be the first to share thoughtful feedback.</div>}
+    {loading ? <p>Loading reviews…</p> : items.length ? <div className="ah-review-list">{items.map((r) => <article className="ah-review" key={r.id}><div className="ah-between"><strong>Student review {r.editedAt ? '· edited by admin' : ''}</strong><span className="ah-stars" aria-label={r.rating + ' out of 5 stars'}>{'★'.repeat(Math.max(0, Math.min(5, r.rating || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, r.rating || 0)))}</span></div><p>{String(r.comment || '')}</p><div className="ah-actions">{user?.uid && user.uid !== r.id && !admin && <button type="button" className="ah-secondary" disabled={busy || reported[r.id]} onClick={() => reportReview(r)}>{reported[r.id] ? 'Reported' : 'Report review'}</button>}{admin && <button type="button" className="ah-secondary" disabled={busy} onClick={() => inspectReports(r)}>Check reports</button>}</div>{admin && reportResults[r.id] && <p className="ah-note" role="status">{reportResults[r.id].length ? reportResults[r.id].length + ' report(s): ' + reportResults[r.id].map((item) => item.reason).join(', ') : 'No reports on this review.'}</p>}{admin && <div className="ah-actions"><button type="button" className="ah-secondary" disabled={busy} onClick={() => startEdit(r)}>Edit</button><button type="button" className="ah-delete" disabled={busy} onClick={() => remove(r)}>Delete</button></div>}{admin && editing === r.id && <div className="ah-review-form"><label>Rating<select value={editRating} onChange={(e) => setEditRating(Number(e.target.value))}>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n} / 5</option>)}</select></label><label>Review text<textarea rows={6} maxLength={50000} value={editText} onChange={(e) => setEditText(e.target.value)} /></label><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy || editText.trim().length < 20} onClick={() => saveEdit(r)}>Save edit</button><button type="button" className="ah-secondary" onClick={() => setEditing(null)}>Cancel</button></div></div>}</article>)}</div> : <div className="ah-empty">No published reviews yet. Be the first to share thoughtful feedback.</div>}
     {user?.uid ? (mine ? null :
       <form className="ah-review-form" onSubmit={publish}><h4>Share your experience</h4><label>Rating<select value={rating} onChange={(e) => setRating(Number(e.target.value))}><option value={5}>5 — Excellent</option><option value={4}>4 — Helpful</option><option value={3}>3 — Average</option><option value={2}>2 — Needs improvement</option><option value={1}>1 — Not helpful</option></select></label><label>Written review<textarea required minLength={20} maxLength={50000} rows={5} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Write your own detailed review of this file…" /></label><p className="ah-note">Up to 50,000 characters. Reviews publish automatically. Please share genuine feedback, without personal data or active exam content.</p><button type="submit" className="ah-primary" disabled={busy || comment.trim().length < 20 || comment.trim().length > 50000}>{busy ? 'Publishing…' : 'Publish review'}</button></form>) : <p className="ah-note">Sign in to leave a review.</p>}
     {admin && pending.length > 0 && <div className="ah-review-queue"><h4><ShieldCheck size={17} /> Earlier unpublished reviews ({pending.length})</h4>{pending.map((r) => <article key={r.id} className="ah-review"><strong>{r.rating} / 5 · Student review</strong><p>{String(r.comment || '')}</p><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy} onClick={() => moderate(r)}>Publish earlier review</button><button type="button" className="ah-delete" disabled={busy} onClick={() => remove(r)}>Delete</button></div></article>)}</div>}
@@ -284,7 +321,7 @@ const guidance = [
   { icon: '04', title: 'Review resources before downloading', body: 'Open the Preview action to inspect a supported document in this page before saving it. Look at its subject code, title, topics, legibility and publication context. If a file looks outdated or unrelated, compare it with the current course material. Student reviews may help you discover useful notes, but their opinions should not replace your own evaluation of a source.' },
   { icon: '05', title: 'Plan small, repeatable revision sessions', body: 'Divide each course into manageable topics and reserve a separate slot for examples, practice and error correction. After a study session, record the topics you can explain independently and the questions that still need attention. Revisit the latter in your next session. A clear sequence of retrieval, feedback and revision is more actionable than one long session of passive reading.' },
   { icon: '06', title: 'Download and organize material responsibly', body: 'Save files under meaningful subject and topic names and avoid creating multiple confusing copies. Check the file type before opening unfamiliar downloads, and keep your browser and document viewer updated. External file hosts may require the uploader to enable sharing or may present a confirmation page for larger downloads. Respect authorship and use resources only where sharing and use are permitted.' },
-  { icon: '07', title: 'Contribute constructive resource reviews', body: 'Once you have used a file, describe its clarity, strengths and limitations in a short review. Mention whether the examples are understandable and whether the material appears aligned with your course. Avoid uploading examination content that is still confidential or active. Reviews go through moderation before they are visible so the library remains focused on study guidance.' },
+  { icon: '07', title: 'Contribute constructive resource reviews', body: 'Once you have used a file, describe its clarity, strengths and limitations in a short review. Mention whether examples are understandable and whether material appears aligned with your course. Avoid confidential examination content, spam and private information. Genuine reviews may appear immediately; visitors can report inappropriate submissions for administrator review.' },
   { icon: '08', title: 'Get more from your EduNexus workspace', body: 'Use the Academic Hub for files, the Exam Prep section for curated practice MCQs and completed-paper experiences, and the existing study tools when you need a different way to revise. These features complement one another: a document provides the source, practice checks recall, and your own notes capture what still needs work. There is no need to install a separate browser extension to browse this library.' }
 ];
 
