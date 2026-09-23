@@ -183,7 +183,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       setAttemptMode(latest?.attemptMode === 'random' ? 'random' : 'sequence');
       setAttemptLimit(latest?.attemptLimit || 'all');
       setDesiredMode(latest?.attemptMode === 'random' ? 'random' : 'sequence');
-      setDesiredCount(latest?.attemptLimit === 'all' || !latest?.attemptLimit ? 'all' : 'custom');
+      setDesiredCount(latest?.attemptLimit === 'all' || !latest?.attemptLimit ? 'all' : [5,10,20,30,50,100].includes(Number(latest.attemptLimit)) ? String(latest.attemptLimit) : 'custom');
       if (latest?.attemptLimit !== 'all' && Number.isInteger(Number(latest?.attemptLimit)))
         setCustomCount(Math.max(1,Math.min(QUESTION_LIMIT,Number(latest.attemptLimit))));
       setAnswers(restored.answers); setCurrentId(restored.currentId); setFinished(restored.finished);
@@ -254,10 +254,10 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     if ((stats.answered || finished) &&
       !window.confirm('Start a new attempt? Your saved choices for this subject and quiz set will be replaced.')) return;
     const mode = resetOnly ? attemptMode : desiredMode;
-    const count = resetOnly ? attemptLimit : desiredCount === 'all' ? 'all' : Math.max(1, Math.min(questions.length, Number(customCount) || 1));
+    const count = resetOnly ? attemptLimit : desiredCount === 'all' ? 'all' : Math.max(1, Math.min(questions.length, Number(desiredCount === 'custom' ? customCount : desiredCount) || 1));
     const ids = buildPracticeAttempt(questions, count, mode);
     setAttemptIds(ids); setAttemptMode(mode); setAttemptLimit(count);
-    setDesiredMode(mode); setDesiredCount(count === 'all' ? 'all' : 'custom');
+    setDesiredMode(mode); setDesiredCount(count === 'all' ? 'all' : [5,10,20,30,50,100].includes(count) ? String(count) : 'custom');
     setCustomCount(count === 'all' ? Math.min(10, questions.length) : count);
     setAnswers({}); setFinished(false); setAi({ id:null, busy:false, answer:'', error:'' }); setSearch('');
     setCurrentId(ids[0] || null);
@@ -298,7 +298,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   return <section className="edx-exam-stack edx-practice" aria-label="Subject-wise exam practice">
     <div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Practice workspace</span>
       <h2>{subject} · {CATEGORY_NAMES[term] || term} practice</h2>
-      <p>Original question and option order is preserved. Resume your saved attempt, search questions, or finish whenever you want.</p>
+      <p>Choose your question count and original or random order. Your selected questions and progress stay saved in this browser.</p>
     </div><BookOpen size={28}/></div>
     <div className="edx-exam-card edx-practice-toolbar">
       <label className="edx-exam-field">Subject category
@@ -310,11 +310,30 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
           <option value="all">All quizzes ({quizSets.length} sets)</option>
           {quizSets.map(set=><option value={set} key={set}>{set}</option>)}
         </select></label>}
+      <div className="edx-practice-setup" role="group" aria-label="Customize this practice attempt">
+        <label className="edx-exam-field">Number of questions
+          <select value={desiredCount} onChange={e=>setDesiredCount(e.target.value)}>
+            <option value="all">All available ({questions.length})</option>
+            {[5,10,20,30,50,100].filter(n=>n<=questions.length).map(n=><option key={n} value={String(n)}>{n} questions</option>)}
+            <option value="custom">Custom count…</option>
+          </select>
+        </label>
+        {desiredCount === 'custom' && <label className="edx-exam-field">Your count<input type="number" min={1} max={Math.max(1,questions.length)} value={customCount}
+          onChange={e=>setCustomCount(e.target.value)} aria-label="Custom question count"/></label>}
+        <label className="edx-exam-field">Question order
+          <select value={desiredMode} onChange={e=>setDesiredMode(e.target.value)}>
+            <option value="sequence">Original file sequence</option><option value="random">Random (no repeats)</option>
+          </select>
+        </label>
+        <button type="button" className="edx-exam-primary edx-practice-start" disabled={!questions.length || loading || restoring}
+          onClick={()=>startConfiguredAttempt()}>{stats.answered || finished ? 'Start new selected practice' : 'Apply practice settings'}</button>
+      </div>
       <label className="edx-exam-field">Search questions <span className="edx-practice-search"><Search size={17}/>
         <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Find a question or topic…"/></span></label>
       <div className="edx-practice-toolbar-right"><span className="edx-exam-pill">{CATEGORY_NAMES[term] || term}</span><span className="edx-exam-pill">Answered: {stats.answered}/{actualQuestions.length}</span>
-        <span className="edx-exam-pill">Verified score: {stats.score}/{stats.checked}</span>
+        <span className="edx-exam-pill">Score: {stats.score}/{stats.answered}</span>
         {!finished && actualQuestions.length > 0 && <button type="button" className="edx-exam-primary" onClick={finish}>Finish now</button>}</div>
+      <p className="edx-practice-key-note">Scores are based on the uploaded answer keys. Where a key has not been independently reviewed, treat its result as a practice estimate.</p>
       {search.trim() && <div className="edx-practice-results"><strong>{matches.length} matching questions{matches.length === 80 ? ' (first 80)' : ''}</strong>
         <div>{matches.map(({ q, i }) => <button type="button" key={q.id} onClick={() => { setSearch(''); goTo(q, true); }}>
           <span>Q{i+1}</span> {q.question.slice(0, 145)} {answers[q.id] !== undefined ? ' ✓' : ''}
@@ -322,7 +341,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
         {!matches.length && <p>No questions match your search in {subject} · {CATEGORY_NAMES[term]}.</p>}
       </div>}
     </div>
-    <p className="edx-practice-save" role="status">{saveStatus || (user?.isAnonymous ? 'Guest practice is saved in this browser; anonymous Firebase accounts may change between sessions. Use a personal account where available for private cross-device progress. IP addresses are not used.' : user?.uid ? 'Signed-in progress is saved by your private Firebase user ID, not your IP address.' : 'Guest progress is saved in this browser when storage is available.')}</p>
+    <p className="edx-practice-save edx-practice-visually-hidden" role="status">{saveStatus || (user?.isAnonymous ? 'Guest practice is saved in this browser; anonymous Firebase accounts may change between sessions. Use a personal account where available for private cross-device progress. IP addresses are not used.' : user?.uid ? 'Signed-in progress is saved by your private Firebase user ID, not your IP address.' : 'Guest progress is saved in this browser when storage is available.')}</p>
     {(loading || restoring) && <div className="edx-exam-card" role="status">Loading your questions and saved progress…</div>}
     {limited && <p className="edx-practice-catalog-note">Showing up to {QUESTION_LIMIT} published questions for this subject. If the subject has more questions, ask the site administrator to split large banks into smaller sets.</p>}
     {loadError && <div className="edx-exam-alert" role="alert">{loadError} <button type="button" className="edx-exam-secondary" onClick={() => setRefresh(v => v + 1)}>Retry</button></div>}
@@ -342,10 +361,11 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       <div className="edx-exam-card edx-practice-summary">
         <CheckCircle2 size={34}/><h3>Practice completed · {subject} {CATEGORY_NAMES[term]}</h3>
         <div className="edx-practice-stat-grid"><div><strong>{stats.answered}/{actualQuestions.length}</strong><span>Answered</span></div>
-          <div><strong>{stats.score}/{stats.checked}</strong><span>Verified score</span></div>
-          <div><strong>{stats.provisional}</strong><span>Answered with unverified answer keys</span></div>
+          <div><strong>{stats.score}/{stats.answered}</strong><span>Practice score</span></div>
+          <div><strong>{stats.answered ? Math.round(100 * stats.score / stats.answered) : 0}%</strong><span>Accuracy on answered questions</span></div>
           <div><strong>{stats.unattempted}</strong><span>Unanswered</span></div></div>
-        <p>Unverified or conflicting answer keys are excluded from the verified score. Answers you have already selected remain saved even when you finish early.</p>
+        <p className="edx-practice-performance" role="status">{attemptMessage(stats.score, stats.answered)}</p>
+        <p className="edx-practice-score-note">Practice score follows uploaded answer keys; some keys may not have independent source confirmation. Answer choices remain saved even if you finish early.</p>
         <div className="edx-practice-actions"><button type="button" className="edx-exam-primary" onClick={() => { setFinished(false); save(answers, currentId, false); }}>Review or continue this attempt</button>
           <button type="button" className="edx-exam-secondary" onClick={restart}><RotateCcw size={15}/> Start a new attempt</button></div>
       </div>}
