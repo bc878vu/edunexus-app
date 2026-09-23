@@ -3,7 +3,7 @@ import { addDoc, collection, doc, limit, onSnapshot, query, serverTimestamp, set
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
 import { db, storage } from './firebase-client';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
-import { examReviewText, formatExamDate, formatExamTime, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
+import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import './exam-paper-community.css';
 
 const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
@@ -158,7 +158,7 @@ function ReviewCard({ review, user }) {
     finally { setWorking(false); }
   };
   const legacy = review.collectionName === LEGACY_COLLECTION;
-  const paperUrl = (() => { try { const url = new URL(review.paperUrl || ''); return review.paperPath?.startsWith('exam-papers/') && url.protocol === 'https:' && url.hostname === 'firebasestorage.googleapis.com' && url.pathname.startsWith('/v0/b/edunexus-live-e0b84.firebasestorage.app/o/') ? url.href : ''; } catch (_) { return ''; } })();
+  const paperUrl = safePaperUrl(review);
   return <article className="edx-paper-card">
     <div className="edx-paper-card-head"><div className="edx-paper-course"><GraduationCap size={18} /><strong>{safe(review.subject, 12)}</strong><span>{review.term === 'midterm' ? 'Midterm' : 'Finalterm'}{review.semester ? ' · ' + safe(review.semester, 20) : ''}</span></div><span className="edx-paper-chip">{legacy ? 'Previous paper' : 'Shared experience'}</span></div>
     <div className="edx-paper-card-meta"><span><CalendarDays size={15} /> {formatExamDate(review.examDate)}</span>{review.examTime && <span><Clock3 size={15} /> {formatExamTime(review.examTime)}</span>}<span><Users size={15} /> {safe(review.sharedBy, 60) || 'Student'}</span><span className="edx-paper-difficulty">{safe(review.difficulty, 20) || 'Unrated'}</span></div>
