@@ -4,7 +4,8 @@ import guidePage from '../api/learning-page.mjs';
 import articlePage from '../api/article-page.mjs';
 import articleSitemap from '../api/article-sitemap.mjs';
 import { SUBJECT_GUIDES, GUIDE_CODES, guideForFile } from '../api/subject-guides.mjs';
-import { articlePath } from '../api/resource-data.mjs';
+import { articlePath, SITE } from '../api/resource-data.mjs';
+import { readFileSync } from 'node:fs';
 
 function response(){
   return {statusCode:200,headers:{},body:'',location:'',
@@ -81,4 +82,19 @@ test('article sitemap excludes thin entries and includes existing substantial or
     assert.match(res.body,/articles\/read\/good\/original-article/);
     assert.doesNotMatch(res.body,/articles\/read\/thin/);
   }finally{global.fetch=fetchBefore;}
+});
+
+test('custom domain is canonical while the old hostname remains an allowed fallback', () => {
+  assert.equal(SITE, 'https://edunexus.dpdns.org');
+  for (const path of ['public/index.html', 'public/sitemap.xml', 'public/robots.txt', 'src/SEO.js']) {
+    const content = readFileSync(new URL('../' + path, import.meta.url), 'utf8');
+    assert.ok(content.includes('https://edunexus.dpdns.org'), path + ' must reference new domain');
+    assert.ok(!content.includes('https://edunexus-app.vercel.app'), path + ' must not declare old canonical domain');
+  }
+  const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+  assert.equal(config.git.deploymentEnabled.main, true);
+  assert.equal(config.git.deploymentEnabled['**'], false);
+  const edge = readFileSync(new URL('../supabase/functions/edunexus-sign-upload/index.ts', import.meta.url), 'utf8');
+  assert.ok(edge.includes('"https://edunexus.dpdns.org"'));
+  assert.ok(edge.includes('"https://edunexus-app.vercel.app"'));
 });

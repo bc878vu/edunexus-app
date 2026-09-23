@@ -3,7 +3,7 @@ const PROJECT = 'edunexus-live-e0b84';
 const API_KEY = process.env.FIREBASE_WEB_API_KEY || 'AIzaSyCdoWl5a0irdMGftJUYkng-dQLUI1ZImP8';
 const ROOT = 'artifacts/edunexus-live/public/data/files';
 const ENDPOINT = 'https://firestore.googleapis.com/v1/projects/' + PROJECT + '/databases/(default)/documents/';
-export const SITE = 'https://edunexus-app.vercel.app';
+export const SITE = 'https://edunexus.dpdns.org';
 export const validId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id);
 export const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 export const slugFor = (name) => String(name || 'study-resource').normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'study-resource';

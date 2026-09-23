@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-const SITE = "https://edunexus-app.vercel.app";
+const SITE = "https://edunexus.dpdns.org";
 const ROUTES = {
   home: "/",
   academic: "/vu-notes",

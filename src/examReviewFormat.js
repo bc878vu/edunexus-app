@@ -1,4 +1,4 @@
-export const EXAM_REVIEW_URL = 'https://edunexus-app.vercel.app/?page=exam-prep';
+export const EXAM_REVIEW_URL = 'https://edunexus.dpdns.org/?page=exam-prep';
 export const EDUNEXUS_WHATSAPP_GROUP = 'https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW';
 
 export const formatExamDate = (iso) => {
