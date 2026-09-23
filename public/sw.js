@@ -1,8 +1,8 @@
 // Only content-hashed build files use cache-first. Mutable pages, sitemaps and
 // APIs remain network-first so a new deployment is not hidden by an old shell.
 const CACHE = 'edunexus-static-v4';
-const STATIC_EXT = /\\.(?:js|css|png|jpg|jpeg|webp|svg|ico|woff2?|ttf)$/i;
-const IMMUTABLE_BUILD = /^\\/static\\/(?:js|css|media)\\/.*\\.[a-f0-9]{8,}\\./i;
+const STATIC_EXT = /\.(?:js|css|png|jpg|jpeg|webp|svg|ico|woff2?|ttf)$/i;
+const IMMUTABLE_BUILD = /^\/static\/(?:js|css|media)\/.*\.[a-f0-9]{8,}\./i;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(['/'])));
