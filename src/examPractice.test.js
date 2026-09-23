@@ -1,4 +1,4 @@
-import { isVerifiedAnswer, orderedQuestions, practiceStats, progressKey, sanitizeProgress } from './examPractice';
+import { answerKeyStats, attemptMessage, buildPracticeAttempt, isVerifiedAnswer, orderedQuestions, practiceStats, progressKey, restoreAttemptIds, sanitizeProgress } from './examPractice';
 
 const make = (id, explanation, timestamp = 1) => ({
   id, subject:'CS620',term:'midterm',question:'Question ' + id,
@@ -38,4 +38,38 @@ test('saved answers are isolated by user, subject and term, and unknown question
 test('unanswered questions do not inflate the score, and answer 0 remains a valid selection', () => {
   const a=make('a','[EduNexus admin verified] Admin review source: official handout page 12');const b={...make('b','[EduNexus admin verified] Admin review source: official lecture 05 slide 14'),answer:0};
   expect(practiceStats([a,b],{b:0})).toMatchObject({answered:1,checked:1,score:1,unattempted:1});
+});
+
+test('student chooses 3 random questions from the same category with no repeated document or question wording', () => {
+  const source = [
+    make('a','Note'),make('b','Note'),make('c','Note'),make('d','Note'),
+    make('e','Note'),make('a','Note'),
+    {...make('same','Note'),question:'QUESTION A'}
+  ];
+  const ids = buildPracticeAttempt(source,3,'random',() => 0);
+  expect(ids).toHaveLength(3);
+  expect(new Set(ids).size).toBe(3);
+  expect(ids).not.toContain('same');
+  expect(source.filter(q=>ids.includes(q.id)).every(q=>q.subject==='CS620')).toBe(true);
+  expect(buildPracticeAttempt(source,3,'sequence')).toEqual(['a','b','c']);
+});
+test('restoring a random saved attempt preserves exactly the same IDs, order and previous answers', () => {
+  const source=['a','b','c','d','e'].map(id=>make(id,'Original uploaded answer'));
+  const initial=buildPracticeAttempt(source,3,'random',()=>0);
+  const record={attemptIds:initial,attemptMode:'random',attemptLimit:3,answers:{[initial[0]]:3},currentId:initial[1],finished:false};
+  expect(restoreAttemptIds(record,source)).toEqual(initial);
+  expect(sanitizeProgress(record,initial.map(id=>source.find(q=>q.id===id))))
+    .toMatchObject({answers:{[initial[0]]:3},currentId:initial[1],finished:false});
+});
+test('legacy progress keeps deterministic source order and its stored answer selections',()=>{
+  const src=['a','b','c'].map(id=>make(id,'Some answer'));
+  expect(restoreAttemptIds({answers:{a:3}},src)).toEqual(['a','b','c']);
+  expect(sanitizeProgress({answers:{a:3}},src).answers).toEqual({a:3});
+});
+test('practice score follows stored source keys without falsely claiming independent verification',()=>{
+  const source=[make('a','Uploaded answer'),make('b','Uploaded answer'),make('c','Uploaded answer')];
+  expect(answerKeyStats(source,{a:3,b:0})).toMatchObject({score:1,answered:2,total:3,unanswered:1,sourceUnreviewed:2});
+  expect(attemptMessage(2,2)).toMatch(/Congratulations/);
+  expect(attemptMessage(0,2)).toMatch(/Keep practicing/);
+  expect(attemptMessage(0,0)).toMatch(/Start with/);
 });
