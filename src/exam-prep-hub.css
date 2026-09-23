@@ -80,3 +80,10 @@
  .edx-exam .edx-review-manager-actions button{flex:1}
  .edx-exam .edx-review-manager-form>button{width:100%}
 }
+
+/* One-time bulk correction for a wrongly selected subject on an import. */
+.edx-exam .edx-admin-subject-move{display:grid;gap:11px;border:1px solid var(--ex-line);border-radius:15px;padding:clamp(13px,2.5vw,20px);background:var(--ex-card);min-width:0}
+.edx-exam .edx-admin-subject-move h4{margin:0;font-size:1rem}
+.edx-exam .edx-admin-subject-move p{margin:0;color:var(--ex-muted);font-size:.85rem;line-height:1.55}
+.edx-exam .edx-admin-subject-move>button{justify-self:start;max-width:100%;white-space:normal;min-height:43px}
+@media(max-width:650px){.edx-exam .edx-admin-subject-move>button{justify-self:stretch;width:100%}}
