@@ -2810,6 +2810,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [imageUrl, setImageUrl] = useState('');
+    const [originalConfirmed, setOriginalConfirmed] = useState(false);
 
     useEffect(() => {
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), orderBy('createdAt', 'desc'));
@@ -2818,17 +2819,21 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     }, []);
 
     const handleSubmit = async () => {
-      if(!title || !content) return;
+      if(!title.trim() || !content.trim()) return;
+      if (!editId && (content.trim().length < 450 || !originalConfirmed)) {
+        showToast('New articles need meaningful original content (at least 450 characters) and an authorship/permission declaration.', 'error');
+        return;
+      }
       if(editId) {
         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', editId), { title, content, imageUrl });
         showToast("Article Updated", "success");
       } else {
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), { 
-          title, content, imageUrl, author: 'Admin', likes: 0, likedBy: [], createdAt: serverTimestamp() 
+          title, content, imageUrl, author: 'Admin', rightsConfirmed: true, originalContentConfirmed: true, likes: 0, likedBy: [], createdAt: serverTimestamp() 
         });
         showToast("Article Published", "success");
       }
-      setEditId(null); setTitle(''); setContent(''); setImageUrl('');
+      setEditId(null); setTitle(''); setContent(''); setImageUrl(''); setOriginalConfirmed(false);
     };
 
     const handleEdit = (art) => { setEditId(art.id); setTitle(art.title); setContent(art.content); setImageUrl(art.imageUrl || ''); };
@@ -2862,6 +2867,11 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           </div>
 
           <textarea value={content} onChange={e=>setContent(e.target.value)} placeholder="Content" className={`w-full ${theme.input} p-2 rounded h-48 mb-2`} />
+          {!editId && <label className={`flex items-start gap-2 text-sm ${theme.textMuted} mb-2`}>
+            <input type="checkbox" checked={originalConfirmed} onChange={e=>setOriginalConfirmed(e.target.checked)} />
+            <span>I have personally checked that this article adds original learning value and that I hold the rights or permission to publish the text and images. This is my declaration, not an independent certification.</span>
+          </label>}
+          <p className={`text-xs ${theme.textMuted} mb-3`}>New articles require original paragraphs and examples (at least 450 characters). Existing articles can still be edited.</p>
           <div className="flex gap-2">
             <button onClick={handleSubmit} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold flex-1">{editId ? 'Update' : 'Publish'}</button>
             {editId && <button onClick={()=>{setEditId(null);setTitle('');setContent('');setImageUrl('')}} className="bg-slate-500 text-white px-4 py-2 rounded font-bold">Cancel</button>}
