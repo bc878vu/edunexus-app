@@ -1,3 +1,4 @@
+import { standaloneAdScript, standaloneContentSecurityPolicy } from './ad-support.mjs';
 import { escapeHtml as h, getPublicFile, listPublicFiles, listApprovedReviews, resourcePath, SITE, slugFor, validId } from './resource-data.mjs';
 import { guideForFile, SUBJECT_GUIDES } from './subject-guides.mjs';
 
@@ -144,11 +145,11 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy', standaloneContentSecurityPolicy);
     if (req.method === 'HEAD') return res.status(200).end();
     return res.status(200).send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title>
 <meta name="description" content="${h((reviewPage > 1 ? 'Student reviews page ' + reviewPage + ': ' : '') + summary.slice(0, 155))}"><meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">
-<meta name="google-adsense-account" content="ca-pub-5179042048080611"><link rel="canonical" href="${h(canonical)}">
+<meta name="google-adsense-account" content="ca-pub-5179042048080611">${standaloneAdScript}<link rel="canonical" href="${h(canonical)}">
 <meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(summary.slice(0, 190))}"><meta property="og:url" content="${h(canonical)}">
 <script type="application/ld+json">${schema}</script><style>${styles}</style></head><body>${navbar}
 <main><article class="resource"><div class="meta">${h(subject)} · ${h(String(file.ext || 'Study file').toUpperCase().slice(0, 12))}</div>
