@@ -16,12 +16,12 @@ const NAV = [
 const navLinks = (mobile = false) => NAV.map(([url, label]) =>
   '<a href="' + h(url) + '"' + (label === 'Academic Hub' ? ' aria-current="page"' : '') +
   '>' + h(label) + '</a>').join('');
-const navbar = `<header class="site-header"><div class="nav-wrap">
+export const navbar = `<header class="site-header"><div class="nav-wrap">
   <a class="brand" href="/" aria-label="EduNexus home"><span class="brand-icon" aria-hidden="true">🎓</span><span><strong>EduNexus</strong><small>Study Material • Mock Tests • AI Tools</small></span></a>
   <nav class="desktop-links" aria-label="Main navigation">${navLinks()}</nav>
   <details class="mobile-menu"><summary aria-label="Open navigation menu">☰ <span>Menu</span></summary><nav aria-label="Mobile navigation">${navLinks(true)}</nav></details>
 </div></header>`;
-const styles = `:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:light}*{box-sizing:border-box}
+export const styles = `:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:light}*{box-sizing:border-box}
 body{margin:0;background:#f6f8ff;color:#172036;line-height:1.65}a{color:#4f46e5}
 .site-header{position:sticky;top:0;z-index:30;background:#171d2d;color:#fff;border-bottom:1px solid #313a54}
 .nav-wrap{max-width:1450px;padding:10px 18px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:22px;min-height:70px}
