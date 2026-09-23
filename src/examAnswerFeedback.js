@@ -5,6 +5,7 @@ import { isVerifiedAnswer } from './examPractice';
 export function explanationForStudent(item) {
   return String(item?.explanation || '')
     .replace(/^\[EduNexus Quiz(?:\|set:[A-Z0-9_-]{1,40})?(?:\|order:[0-9]{4})?\]\s*/, '')
+    .replace(/^\[EduNexus (?:Midterm|Finalterm)\]\s*/, '')
     .replace(/\s*\[EduNexus admin verified\]\s*Admin review source:\s*.{12,}$/,'')
     .replace(/\s*\[EduNexus admin verified\]\s*/g,'')
     .trim().slice(0,750);
