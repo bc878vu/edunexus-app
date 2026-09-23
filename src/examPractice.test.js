@@ -53,6 +53,19 @@ test('student chooses 3 random questions from the same category with no repeated
   expect(source.filter(q=>ids.includes(q.id)).every(q=>q.subject==='CS620')).toBe(true);
   expect(buildPracticeAttempt(source,3,'sequence')).toEqual(['a','b','c']);
 });
+test('random and sequence attempts remove duplicate question wording even when spacing, case or punctuation differ', () => {
+  const source = [
+    {...make('a','Key'),question:'What is PMS?'},
+    {...make('b','Key'),question:'  what   is   PMS ? '},
+    {...make('c','Key'),question:'Goal theory focuses on goals.'},
+    {...make('d','Key'),question:'Reward systems motivate employees.'}
+  ];
+  expect(buildPracticeAttempt(source,'all','sequence')).toEqual(['a','c','d']);
+  const randomIds=buildPracticeAttempt(source,'all','random',()=>0.4);
+  expect(randomIds).toHaveLength(3);
+  expect(new Set(randomIds).size).toBe(3);
+});
+
 test('restoring a random saved attempt preserves exactly the same IDs, order and previous answers', () => {
   const source=['a','b','c','d','e'].map(id=>make(id,'Original uploaded answer'));
   const initial=buildPracticeAttempt(source,3,'random',()=>0);
