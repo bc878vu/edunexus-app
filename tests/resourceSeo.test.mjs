@@ -53,7 +53,7 @@ test('resource SEO page uses escaped metadata, canonical URL, and only site link
     assert.doesNotMatch(res.body, /<img src=x onerror/);
     assert.doesNotMatch(res.body, /supabase\.co|firestore\.googleapis\.com/);
     assert.match(res.body, /\/api\/resource-download\?id=abc123/);
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 3);
   } finally { global.fetch = originalFetch; }
 });
 test('invalid resource IDs never trigger a database or third-party fetch', async () => {
