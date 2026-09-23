@@ -1,4 +1,4 @@
-import { answerKeyStats, attemptMessage, buildPracticeAttempt, isVerifiedAnswer, orderedQuestions, practiceStats, progressKey, restoreAttemptIds, sanitizeProgress } from './examPractice';
+import { answerKeyStats, attemptMessage, buildPracticeAttempt, canAdvance, isVerifiedAnswer, orderedQuestions, practiceStats, progressKey, recordAnswer, restoreAttemptIds, sanitizeProgress } from './examPractice';
 
 const make = (id, explanation, timestamp = 1) => ({
   id, subject:'CS620',term:'midterm',question:'Question ' + id,
@@ -72,4 +72,38 @@ test('practice score follows stored source keys without falsely claiming indepen
   expect(attemptMessage(2,2)).toMatch(/Congratulations/);
   expect(attemptMessage(0,2)).toMatch(/Keep practicing/);
   expect(attemptMessage(0,0)).toMatch(/Start with/);
+});
+
+test('Next is locked until the current question has an answer and stays locked at the last question', () => {
+  const questions = ['a','b','c'].map(id => make(id,'Uploaded key'));
+  expect(canAdvance(questions, {}, 0)).toBe(false);
+  expect(canAdvance(questions, {a:0}, 0)).toBe(true);
+  expect(canAdvance(questions, {a:0}, 1)).toBe(false);
+  expect(canAdvance(questions, {a:0,b:2}, 1)).toBe(true);
+  expect(canAdvance(questions, {a:0,b:2,c:3}, 2)).toBe(false);
+  expect(canAdvance(questions, {a:0}, -1)).toBe(false);
+});
+
+test('answer remains immutable on repeat taps and after navigating back to the same question', () => {
+  const initial = {};
+  const first = recordAnswer(initial, 'a', 0);
+  expect(first).toEqual({a:0});
+  expect(initial).toEqual({});
+  expect(recordAnswer(first, 'a', 2)).toBe(first);
+  expect(recordAnswer(first, 'a', 0)).toBe(first);
+  expect(recordAnswer(first, 'b', -1)).toBe(first);
+  const second = recordAnswer(first, 'b', 2);
+  expect(second).toEqual({a:0,b:2});
+  const restored = sanitizeProgress({answers:second,currentId:'a'},['a','b'].map(id=>make(id,'Uploaded key')));
+  expect(restored.answers.a).toBe(0);
+  expect(recordAnswer(restored.answers, 'a', 3)).toBe(restored.answers);
+  expect(canAdvance(['a','b'].map(id=>make(id,'Uploaded key')), restored.answers, 0)).toBe(true);
+  expect(recordAnswer({}, 'a', 3)).toEqual({a:3}); // New attempt can answer afresh.
+});
+
+test('completion messages consider how much of the selected attempt was answered', () => {
+  expect(attemptMessage(1,1,20)).toMatch(/finished early/);
+  expect(attemptMessage(18,20,20)).toMatch(/Congratulations/);
+  expect(attemptMessage(9,20,20)).toMatch(/revision/);
+  expect(attemptMessage(0,0,20)).toMatch(/Try again/);
 });
