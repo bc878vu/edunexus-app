@@ -79,3 +79,38 @@
 @media(max-width:700px){.edx-paper-fields{grid-template-columns:1fr}.edx-paper-card-bottom{align-items:stretch}.edx-paper-card-bottom>span{max-width:100%}.edx-paper-card-actions{width:100%}.edx-paper-card-actions>*{flex:1}.edx-paper-feed-count{align-self:flex-start}}
 @media(max-width:470px){.edx-paper{gap:22px}.edx-paper-submit{border-radius:18px}.edx-paper-submit-head,.edx-paper-form{padding:18px}.edx-paper-card{padding:18px}.edx-paper-group>a{width:100%}.edx-paper-card-actions>*{min-width:100%}.edx-paper-course span{width:100%;margin-left:26px}.edx-paper-submit-head p{font-size:.88rem}}
 @media(prefers-reduced-motion:reduce){.edx-paper *{animation:none!important;transition:none!important;transform:none!important;scroll-behavior:auto!important}}
+
+
+/* Paper reviews have their own heading and browse controls, independent of MCQs. */
+.edx-exam .edx-paper-hero{background:linear-gradient(125deg,#181f40,#3730a3);color:#fff;border-radius:22px;padding:clamp(22px,4vw,40px);display:grid;gap:12px;min-width:0}
+.edx-exam .edx-paper-hero .edx-paper-kicker{color:#c7d2fe}
+.edx-exam .edx-paper-hero h1{font-size:clamp(1.45rem,3.8vw,2.35rem);line-height:1.2;letter-spacing:-.035em;margin:0;max-width:720px;color:#fff}
+.edx-exam .edx-paper-hero p{color:#e0e7ff;font-size:.94rem;margin:0;max-width:650px}
+.edx-exam .edx-paper-hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.edx-exam .edx-paper-hero-actions a{min-height:43px;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:#fff;color:#282373;border-radius:11px;text-decoration:none;padding:10px 14px;font-size:.85rem;font-weight:750}
+.edx-exam .edx-paper-hero-actions a+ a{color:#fff;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.11)}
+.edx-exam .edx-paper-browser{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;background:var(--ep-surface);border:1px solid var(--ep-border);border-radius:18px;padding:clamp(16px,3vw,22px)}
+.edx-exam .edx-paper-browser label{display:grid;gap:7px;min-width:0;color:var(--ep-ink);font-weight:750;font-size:.84rem}
+.edx-exam .edx-paper-browser :is(input,select){width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--ep-border);border-radius:11px;background:var(--ep-surface);color:var(--ep-ink)}
+.edx-exam .edx-paper-feed-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,200px);gap:10px}
+.edx-exam .edx-paper-feed-controls label{display:flex;gap:8px;align-items:center;border:1px solid var(--ep-border);background:var(--ep-surface);border-radius:11px;padding:0 12px;color:var(--ep-muted);min-width:0}
+.edx-exam .edx-paper-feed-controls input{flex:1;min-width:0;border:0;background:transparent;color:var(--ep-ink);padding:11px 0;outline:0}
+.edx-exam .edx-paper-feed-controls select{width:100%;min-height:44px;border:1px solid var(--ep-border);border-radius:11px;padding:9px 11px;color:var(--ep-ink);background:var(--ep-surface)}
+.edx-exam .edx-paper-submit,.edx-exam .edx-paper-card{max-width:100%;min-width:0}
+@media(max-width:700px){
+ .edx-exam .edx-paper-browser,.edx-exam .edx-paper-feed-controls{grid-template-columns:minmax(0,1fr)}
+ .edx-exam .edx-paper-hero{border-radius:17px;padding:22px 18px}
+ .edx-exam .edx-paper-hero-actions a{flex:1 1 130px}
+ .edx-exam .edx-paper-submit-head,.edx-exam .edx-paper-form{padding:18px}
+ .edx-exam .edx-paper-submit-head h2{font-size:1.35rem}
+ .edx-exam .edx-paper-fields{grid-template-columns:minmax(0,1fr)}
+ .edx-exam .edx-paper-fields .edx-paper-full{grid-column:1}
+ .edx-exam .edx-paper-card-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+ .edx-exam .edx-paper-card-actions>*{width:100%;min-width:0}
+}
+
+.edx-exam .edx-paper-attachment{display:grid;gap:8px;color:var(--ep-ink);font-weight:750;font-size:.85rem;min-width:0}
+.edx-exam .edx-paper-attachment input{max-width:100%;min-width:0;border:1px dashed var(--ep-border);border-radius:12px;background:var(--ep-surface);color:var(--ep-ink);padding:12px;font-size:.84rem}
+.edx-exam .edx-paper-attachment small{color:var(--ep-muted);font-weight:400;line-height:1.5;overflow-wrap:anywhere}
+.edx-exam .edx-paper-file-link{display:inline-flex;align-items:center;gap:7px;max-width:100%;width:fit-content;overflow-wrap:anywhere;text-decoration:none;border:1px solid var(--ep-border);border-radius:10px;padding:9px 12px;background:var(--ep-soft);color:var(--ep-ink);font-size:.82rem;font-weight:750}
+.edx-exam .edx-paper-file-link:hover{border-color:#818cf8}

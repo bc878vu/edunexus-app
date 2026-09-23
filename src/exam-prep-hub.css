@@ -34,3 +34,49 @@
 .edx-exam .edx-admin-mcq-editor{display:grid;gap:12px;padding:clamp(12px,3vw,23px);border:2px solid rgba(99,102,241,.3);border-radius:15px;background:rgba(99,102,241,.045)}
 .edx-exam .edx-admin-mcq-editor small{font-size:.75rem;color:var(--ex-muted);line-height:1.6}
 @media(max-width:650px){.edx-exam .edx-admin-mcq-row{align-items:stretch;flex-direction:column}.edx-exam .edx-admin-mcq-row-actions{justify-content:flex-start}.edx-exam .edx-admin-mcq-row-actions button{flex:1}}
+
+
+/* Study Files is a separate resource browser, not an MCQ catalogue. */
+.edx-exam .edx-study-page{display:grid;gap:16px;min-width:0}
+.edx-exam .edx-study-hero{border-radius:22px;padding:clamp(22px,4vw,38px);display:grid;gap:10px;color:#fff;background:linear-gradient(125deg,#143047,#185f7a)}
+.edx-exam .edx-study-hero .edx-exam-eyebrow{display:inline-flex;align-items:center;gap:8px;color:#d5f4ff}
+.edx-exam .edx-study-hero h1{color:#fff;font-size:clamp(1.5rem,3.5vw,2.25rem);margin:0;line-height:1.2}
+.edx-exam .edx-study-hero p{color:#e3f4f7;margin:0;font-size:.94rem}
+.edx-exam .edx-study-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:clamp(15px,3vw,22px);border:1px solid var(--ex-line);border-radius:17px;background:var(--ex-card)}
+.edx-exam .edx-study-search{display:flex;gap:9px;align-items:center;min-width:0;border:1px solid var(--ex-line);border-radius:12px;background:var(--ex-card);padding:0 11px;color:var(--ex-muted)}
+.edx-exam .edx-study-search input{width:100%;min-width:0;border:0!important;box-shadow:none!important;background:transparent;color:var(--ex-ink);padding:10px 0;outline:0!important}
+.edx-exam .edx-study-results{display:grid;gap:16px}
+.edx-exam .edx-study-results h2{font-size:1.2rem;margin:0}
+.edx-exam .edx-study-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.edx-exam .edx-study-file{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;min-width:0;border:1px solid var(--ex-line);border-radius:14px;padding:15px;background:var(--ex-card)}
+.edx-exam .edx-study-icon{display:grid;place-items:center;border-radius:11px;width:36px;height:36px;background:rgba(99,102,241,.1);color:#6366f1}
+.edx-exam .edx-study-file>div:nth-child(2){min-width:0;display:grid;gap:4px}
+.edx-exam .edx-study-file strong{color:var(--ex-ink);font-size:.88rem;overflow-wrap:anywhere}
+.edx-exam .edx-study-file small{color:var(--ex-muted);font-size:.72rem}
+.edx-exam .edx-study-file a{grid-column:1/-1;justify-self:start;min-height:40px}
+.edx-exam .edx-study-browse{justify-self:start;min-height:44px}
+.edx-exam .edx-study-empty{display:grid;gap:9px;justify-items:center;text-align:center;padding:22px 8px}
+.edx-exam .edx-study-empty p{margin:0}
+.edx-exam .edx-review-manager{display:grid;gap:15px}
+.edx-exam .edx-review-manager h3,.edx-exam .edx-review-manager h4{margin:0}
+.edx-exam .edx-review-manager-controls,.edx-exam .edx-review-manager-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.edx-exam .edx-review-manager-list{display:grid;gap:9px;max-height:460px;overflow-y:auto}
+.edx-exam .edx-review-manager-list article{display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0;border:1px solid var(--ex-line);border-radius:13px;padding:12px}
+.edx-exam .edx-review-manager-list article>div:first-child{min-width:0;flex:1}
+.edx-exam .edx-review-manager-list strong,.edx-exam .edx-review-manager-list small{display:block;overflow-wrap:anywhere}
+.edx-exam .edx-review-manager-list small{color:var(--ex-muted);font-size:.72rem;margin:5px 0}
+.edx-exam .edx-review-manager-list p{margin:0;font-size:.8rem;overflow-wrap:anywhere;white-space:pre-wrap}
+.edx-exam .edx-review-manager-actions{display:flex;gap:7px;flex-wrap:wrap}
+.edx-exam .edx-review-manager-form{display:grid;gap:13px;padding:clamp(12px,2.5vw,20px);border:1px solid var(--ex-line);border-radius:14px}
+.edx-exam .edx-review-manager-wide{grid-column:1/-1}
+.edx-exam .edx-review-manager-form>button{justify-self:start}
+@media(max-width:760px){
+ .edx-exam .edx-study-hero{border-radius:17px;padding:22px 18px}
+ .edx-exam .edx-study-controls,.edx-exam .edx-study-grid,.edx-exam .edx-review-manager-controls,.edx-exam .edx-review-manager-fields{grid-template-columns:minmax(0,1fr)}
+ .edx-exam .edx-study-file{grid-template-columns:36px minmax(0,1fr)}
+ .edx-exam .edx-study-file a{grid-column:1/-1;width:100%}
+ .edx-exam .edx-review-manager-wide{grid-column:1}
+ .edx-exam .edx-review-manager-list article{align-items:stretch;flex-direction:column}
+ .edx-exam .edx-review-manager-actions button{flex:1}
+ .edx-exam .edx-review-manager-form>button{width:100%}
+}

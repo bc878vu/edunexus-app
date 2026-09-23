@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { adminPanelAccess } from './adminSession';
-import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
-import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Sparkles, Trash2, Users } from 'lucide-react';
-import { db } from './firebase-client';
-import { examReviewText, formatExamDate, formatExamTime, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
+import { addDoc, collection, doc, limit, onSnapshot, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
+import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
+import { db, storage } from './firebase-client';
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import './exam-paper-community.css';
 
 const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
@@ -13,7 +13,6 @@ const LEGACY_COLLECTION = 'examReviews';
 const safe = (value, max = 1500) => String(value == null ? '' : value).trim().slice(0, max);
 const courseCode = (value) => safe(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, '');
 const validCourse = (value) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(value);
-const isAdmin = (user) => adminPanelAccess(user);
 const dateValue = (value) => value && typeof value.toMillis === 'function' ? value.toMillis() : 0;
 const todayLocal = () => {
   const d = new Date(), pad = (v) => String(v).padStart(2, '0');
@@ -26,17 +25,19 @@ const defaultForm = (subject, term) => ({
   topics: '', summary: ''
 });
 const readError = (error, name) => error?.code === 'permission-denied'
-  ? name + ' cannot load. Publish the updated Firestore rules for the new public review collection.'
+  ? name + ' are temporarily unavailable. Please try again later.'
   : name + ' could not load. Check your connection and retry.';
 
 function ReviewSubmission({ user, subject, term, onPublished }) {
   const [form, setForm] = useState(() => defaultForm(subject, term));
   const [agreed, setAgreed] = useState(false);
+  const [paper, setPaper] = useState(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const listId = React.useId();
   const saving = useRef(false);
+  const fileInput = useRef(null);
   useEffect(() => {
     setForm((prev) => ({ ...prev, subject, term }));
   }, [subject, term]);
@@ -49,6 +50,9 @@ function ReviewSubmission({ user, subject, term, onPublished }) {
     const code = courseCode(form.subject);
     const name = safe(form.sharedBy, 60);
     const summary = safe(form.summary, 1500);
+    if (paper && (paper.size > 5 * 1024 * 1024 || paper.size === 0 || !['application/pdf','image/jpeg','image/png'].includes(paper.type))) {
+      setError('Choose a PDF, JPG or PNG file no larger than 5 MB.'); return;
+    }
     const examMoment = new Date(form.examDate + 'T' + form.examTime + ':00');
     const futureExam = !Number.isFinite(examMoment.getTime()) || examMoment.getTime() > Date.now();
     if (!validCourse(code) || !form.examDate || !/^([01]\d|2[0-3]):[0-5]\d$/.test(form.examTime)
@@ -60,30 +64,49 @@ function ReviewSubmission({ user, subject, term, onPublished }) {
       return;
     }
     saving.current = true; setBusy(true);
+    let orphanUpload = null;
     try {
       const id = [user.uid, code, form.term, form.examDate].join('_');
+      // A paper attachment is optional. The file is only uploaded after the
+      // completed-exam confirmation; ordinary text reviews work without storage.
+      let attachment = {};
+      if (paper) {
+        const ext = paper.type === 'application/pdf' ? 'pdf' : paper.type === 'image/png' ? 'png' : 'jpg';
+        const fileName = paper.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 95) || 'paper.' + ext;
+        const uploadId = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+        const paperPath = 'exam-papers/' + user.uid + '/' + uploadId + '/' + fileName;
+        const destination = storageRef(storage, paperPath);
+        await uploadBytes(destination, paper, { contentType: paper.type });
+        orphanUpload = destination;
+        const paperUrl = await getDownloadURL(destination);
+        attachment = { paperName:fileName, paperPath, paperUrl };
+      }
       await setDoc(doc(col(REVIEW_COLLECTION), id), {
         userId: user.uid, subject: code, term: form.term,
         semester: form.semesterSeason + ' ' + form.semesterYear,
         examDate: form.examDate, examTime: form.examTime,
         examAt: Timestamp.fromDate(examMoment),
         sharedBy: name, difficulty: form.difficulty,
-        topics: safe(form.topics, 400), summary, createdAt: serverTimestamp()
+        topics: safe(form.topics, 400), summary, createdAt: serverTimestamp(),
+        ...attachment
       });
-      setNotice('Your review is live! Students can copy or share it below without waiting for admin approval.');
+      orphanUpload = null;
+      setNotice('Your review is now published. Students can read and share it below.');
       if (onPublished) onPublished(code, form.term);
       setForm((prev) => ({ ...defaultForm(prev.subject, prev.term), semesterYear: prev.semesterYear }));
-      setAgreed(false);
+      setAgreed(false); setPaper(null);
+      if (fileInput.current) fileInput.current.value = '';
     } catch (err) {
+      if (orphanUpload) await deleteObject(orphanUpload).catch(() => {});
       setError(err?.code === 'permission-denied'
-        ? 'Instant publishing is not enabled in live Firebase yet. Please publish the updated Firestore rules, then retry.'
-        : 'Could not publish. A review for this subject, exam type and date may already exist for your account, or your connection failed.');
+        ? 'Your review could not be published right now. Please try again later.'
+        : 'Could not publish. This paper may already have a review for the same date, or the connection failed. Your text is still in the form.');
     } finally { saving.current = false; setBusy(false); }
   };
   return <section className="edx-paper-submit" aria-labelledby="edx-paper-share-title">
-    <div className="edx-paper-submit-head"><span className="edx-paper-kicker"><Sparkles size={15} /> Share with the EduNexus community</span><h2 id="edx-paper-share-title">Share your completed-exam experience</h2>
-      <p>Write a helpful review and publish it directly. Students can read, copy and share your experience on WhatsApp as soon as it appears. Only share content from a completed exam that you are permitted to discuss.</p>
-      <div className="edx-paper-info"><CheckCircle2 size={15} /> Instant publishing · No admin approval required · Public student contribution</div>
+    <div className="edx-paper-submit-head"><span className="edx-paper-kicker"><BookOpen size={15} /> Share your experience</span><h2 id="edx-paper-share-title">How was your paper?</h2>
+      <p>Help other students prepare. Write about a completed exam, the topics you remember and what helped you study. Your review appears as soon as you publish it.</p>
+      <div className="edx-paper-info"><CheckCircle2 size={15} /> Your review appears right away</div>
     </div>
     <form className="edx-paper-form" onSubmit={publish}>
       <div className="edx-paper-fields">
@@ -96,29 +119,23 @@ function ReviewSubmission({ user, subject, term, onPublished }) {
         <label>Shared by (display name) <input required minLength={2} maxLength={60} autoComplete="nickname" placeholder="Your name or preferred display name" value={form.sharedBy} onChange={(e) => update('sharedBy', e.target.value)} /></label>
         <label>Exam difficulty <select value={form.difficulty} onChange={(e) => update('difficulty', e.target.value)}><option value="easy">Easy</option><option value="moderate">Moderate</option><option value="challenging">Challenging</option></select></label>
         <label className="edx-paper-full">Main topics (optional) <input maxLength={400} placeholder="e.g. important definitions, lecture topics or general preparation tips" value={form.topics} onChange={(e) => update('topics', e.target.value)} /></label>
-        <label className="edx-paper-full">Paper content and preparation advice <textarea required minLength={20} maxLength={1500} rows={5} placeholder="Describe your completed exam experience, general topics and study advice…" value={form.summary} onChange={(e) => update('summary', e.target.value)} /><span className="edx-paper-count">{form.summary.length} / 1500</span></label>
+        <label className="edx-paper-full">Your paper experience and study tips <textarea required minLength={20} maxLength={1500} rows={5} placeholder="What topics came up? What would you suggest other students revise?" value={form.summary} onChange={(e) => update('summary', e.target.value)} /><span className="edx-paper-count">{form.summary.length} / 1500</span></label>
       </div>
+      <label className="edx-paper-attachment">Attach your completed paper (optional) <input ref={fileInput} type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" disabled={busy} onChange={e=>{const file=e.target.files?.[0] || null; if(file && (file.size>5*1024*1024 || file.size===0 || !["application/pdf","image/jpeg","image/png"].includes(file.type))){setPaper(null);setError("Choose a PDF, JPG or PNG file no larger than 5 MB.");e.target.value="";return;}setError("");setPaper(file);}}/><small>{paper ? paper.name : "PDF, JPG or PNG · Up to 5 MB · Only upload material you are allowed to share."}</small></label>
       <label className="edx-paper-consent"><input type="checkbox" required checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /><span>I have completed this exam, and my review does not disclose confidential or active examination material. I understand that my display name and review will be publicly visible.</span></label>
       {error && <div className="edx-paper-alert" role="alert">{error}</div>}
       {notice && <div className="edx-paper-success" role="status"><CheckCircle2 size={18} /> {notice} <a href="#edx-paper-feed">View reviews</a></div>}
-      <button className="edx-paper-publish" type="submit" disabled={busy || !user || !agreed}><Send size={18} /> {busy ? 'Publishing your review…' : 'Publish paper review now'}</button>
+      <button className="edx-paper-publish" type="submit" disabled={busy || !user || !agreed}><Send size={18} /> {busy ? 'Publishing your review…' : 'Share my paper experience'}</button>
       {!user && <p className="edx-paper-hint">Waiting for a student session. Reload the page if the button remains disabled.</p>}
     </form>
   </section>;
 }
 
-function ReviewCard({ review, user, onRemoved }) {
+function ReviewCard({ review, user }) {
   const [notice, setNotice] = useState('');
   const [working, setWorking] = useState(false);
   const text = useMemo(() => examReviewText(review), [review]);
   const shareLink = useMemo(() => whatsAppReviewUrl(review), [review]);
-  const remove = async () => {
-    if (!isAdmin(user) || !window.confirm('Remove this review from EduNexus?')) return;
-    setWorking(true); setNotice('');
-    try { await deleteDoc(doc(col(review.collectionName), review.id)); if (onRemoved) onRemoved(review); }
-    catch (_) { setNotice('Could not remove this review. Check admin permissions.'); }
-    finally { setWorking(false); }
-  };
   const copy = async () => {
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
@@ -136,17 +153,18 @@ function ReviewCard({ review, user, onRemoved }) {
         reason: 'Please check this public exam review for inappropriate or confidential content.',
         createdAt: serverTimestamp()
       });
-      setNotice('Report sent to the EduNexus administrator.');
+      setNotice('Thanks for your report. We will review it.');
     } catch (_) { setNotice('Report could not be sent. Please try again.'); }
     finally { setWorking(false); }
   };
   const legacy = review.collectionName === LEGACY_COLLECTION;
+  const paperUrl = safePaperUrl(review);
   return <article className="edx-paper-card">
-    <div className="edx-paper-card-head"><div className="edx-paper-course"><GraduationCap size={18} /><strong>{safe(review.subject, 12)}</strong><span>{review.term === 'midterm' ? 'Midterm' : 'Finalterm'}{review.semester ? ' · ' + safe(review.semester, 20) : ''}</span></div><span className="edx-paper-chip">{legacy ? 'Previously approved' : 'Student shared'}</span></div>
+    <div className="edx-paper-card-head"><div className="edx-paper-course"><GraduationCap size={18} /><strong>{safe(review.subject, 12)}</strong><span>{review.term === 'midterm' ? 'Midterm' : 'Finalterm'}{review.semester ? ' · ' + safe(review.semester, 20) : ''}</span></div><span className="edx-paper-chip">{legacy ? 'Previous paper' : 'Shared experience'}</span></div>
     <div className="edx-paper-card-meta"><span><CalendarDays size={15} /> {formatExamDate(review.examDate)}</span>{review.examTime && <span><Clock3 size={15} /> {formatExamTime(review.examTime)}</span>}<span><Users size={15} /> {safe(review.sharedBy, 60) || 'Student'}</span><span className="edx-paper-difficulty">{safe(review.difficulty, 20) || 'Unrated'}</span></div>
-    <div className="edx-paper-content"><strong><FileText size={17} /> Paper content & preparation advice</strong>{review.topics && <p className="edx-paper-topics">Topics: {safe(review.topics, 400)}</p>}<p>{safe(review.summary, 1500)}</p></div>
-    <div className="edx-paper-card-bottom"><span>EduNexus community contribution · Not verified by Virtual University</span><div className="edx-paper-card-actions"><button type="button" onClick={copy} className="edx-paper-copy"><ClipboardCopy size={16} /> Copy</button><a href={shareLink} target="_blank" rel="noopener noreferrer" className="edx-paper-whatsapp"><Share2 size={16} /> Share on WhatsApp</a></div></div>
-    <div className="edx-paper-card-secondary"><button type="button" onClick={report} disabled={working}><ShieldAlert size={14} /> Report</button>{isAdmin(user) && <button type="button" onClick={remove} disabled={working}><Trash2 size={14} /> Remove review</button>}</div>
+    <div className="edx-paper-content"><strong><FileText size={17} /> Paper content & preparation advice</strong>{review.topics && <p className="edx-paper-topics">Topics: {safe(review.topics, 400)}</p>}<p>{safe(review.summary, 1500)}</p>{paperUrl && <a className="edx-paper-file-link" href={paperUrl} target="_blank" rel="noopener noreferrer"><FileText size={16}/> View shared paper ({safe(review.paperName,95) || 'PDF or image'}) <ExternalLink size={14}/></a>}</div>
+    <div className="edx-paper-card-bottom"><span>Shared by a student · Not an official exam paper</span><div className="edx-paper-card-actions"><button type="button" onClick={copy} className="edx-paper-copy"><ClipboardCopy size={16} /> Copy</button><a href={shareLink} target="_blank" rel="noopener noreferrer" className="edx-paper-whatsapp"><Share2 size={16} /> Share on WhatsApp</a></div></div>
+    <div className="edx-paper-card-secondary"><button type="button" onClick={report} disabled={working}><ShieldAlert size={14} /> Report</button></div>
     {notice && <p className="edx-paper-notice" role="status">{notice}</p>}
   </article>;
 }
@@ -157,16 +175,20 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
+  const [browseSubject, setBrowseSubject] = useState(subject);
+  const [browseTerm, setBrowseTerm] = useState(term === 'quiz' ? 'midterm' : term);
+  const [reviewSearch, setReviewSearch] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
   useEffect(() => {
-    if (!validCourse(subject)) { setCommunity([]); setLegacy([]); setLoading(false); return; }
+    if (!validCourse(browseSubject)) { setCommunity([]); setLegacy([]); setLoading(false); return; }
     let active = true;
     setCommunity([]); setLegacy([]); setLoading(true); setErrors([]);
     const pending = { community: true, legacy: true };
     const done = (key) => { pending[key] = false; if (active && !pending.community && !pending.legacy) setLoading(false); };
-    const observe = (name, setItems, key) => onSnapshot(query(col(name), where('subject', '==', subject), limit(100)),
+    const observe = (name, setItems, key) => onSnapshot(query(col(name), where('subject', '==', browseSubject), limit(100)),
       (snapshot) => {
         if (!active) return;
-        setItems(snapshot.docs.map((d) => ({ id: d.id, collectionName: name, ...d.data() })).filter((r) => r.term === term));
+        setItems(snapshot.docs.map((d) => ({ id: d.id, collectionName: name, ...d.data() })).filter((r) => r.term === browseTerm));
         setErrors((prev) => prev.filter((entry) => entry.key !== key));
         done(key);
       },
@@ -179,18 +201,32 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
     const unsubscribeCommunity = observe(REVIEW_COLLECTION, setCommunity, 'community');
     const unsubscribeLegacy = observe(LEGACY_COLLECTION, setLegacy, 'legacy');
     return () => { active = false; unsubscribeCommunity(); unsubscribeLegacy(); };
-  }, [subject, term, reloadKey]);
-  const reviews = useMemo(() => [...community, ...legacy].sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt)), [community, legacy]);
+  }, [browseSubject, browseTerm, reloadKey]);
+  const reviews = useMemo(() => [...community, ...legacy].filter(r => [r.summary,r.topics,r.sharedBy,r.semester].some(v => String(v || '').toLowerCase().includes(reviewSearch.trim().toLowerCase()))).sort((a,b) => sortBy === 'oldest' ? dateValue(a.createdAt) - dateValue(b.createdAt) : dateValue(b.createdAt) - dateValue(a.createdAt)), [community, legacy, reviewSearch, sortBy]);
   return <div className="edx-paper">
-    <ReviewSubmission user={user} subject={subject} term={term} onPublished={onPublished} />
+    <section className="edx-paper-hero" aria-labelledby="edx-paper-title">
+      <span className="edx-paper-kicker"><MessageCircle size={16}/> Paper reviews</span>
+      <h1 id="edx-paper-title">Learn from students who have taken the exam.</h1>
+      <p>Read recent paper experiences, share yours and pick up useful preparation tips.</p>
+      <div className="edx-paper-hero-actions"><a href="#edx-paper-feed">Browse reviews <ExternalLink size={15}/></a><a href="#edx-paper-share-title">Write a review <Send size={15}/></a></div>
+    </section>
+    <div className="edx-paper-browser" role="group" aria-label="Find paper reviews">
+      <label>Course code<input value={browseSubject} list="edx-paper-subjects" maxLength={12} placeholder="e.g. CS620" onChange={e=>setBrowseSubject(courseCode(e.target.value))}/><datalist id="edx-paper-subjects">{[...new Set([...SUBJECTS,subject])].map(code=><option key={code} value={code}/>)}</datalist></label>
+      <label>Exam type<select value={browseTerm} onChange={e=>setBrowseTerm(e.target.value)}><option value="midterm">Midterm</option><option value="finalterm">Finalterm</option></select></label>
+    </div>
+    <ReviewSubmission user={user} subject={browseSubject} term={browseTerm} onPublished={(code, examTerm) => { setBrowseSubject(code); setBrowseTerm(examTerm); onPublished?.(code, examTerm); }} />
     <section className="edx-paper-feed" id="edx-paper-feed" aria-labelledby="edx-paper-feed-title">
-      <div className="edx-paper-feed-head"><div><span className="edx-paper-kicker"><MessageCircle size={16} /> EduNexus student community</span><h2 id="edx-paper-feed-title">Latest completed-paper reviews</h2><p>Student experiences and general preparation advice appear here as they are published. Use Copy or WhatsApp Share to send a review in the EduNexus format.</p></div><span className="edx-paper-feed-count">{reviews.length} loaded reviews</span></div>
+      <div className="edx-paper-feed-head"><div><span className="edx-paper-kicker"><MessageCircle size={16} /> Shared by students</span><h2 id="edx-paper-feed-title">Paper experiences for {browseSubject}</h2><p>Find what other students shared about their completed exams.</p></div><span className="edx-paper-feed-count">{reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</span></div>
+      <div className="edx-paper-feed-controls">
+        <label><Search size={17}/><input type="search" value={reviewSearch} onChange={e=>setReviewSearch(e.target.value)} placeholder="Find a topic or keyword…" aria-label="Search paper reviews"/></label>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} aria-label="Sort paper reviews"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
+      </div>
       <div className="edx-paper-group"><MessageCircle size={19} /><p>Follow EduNexus for more paper discussions and updates.</p><a href={EDUNEXUS_WHATSAPP_GROUP} target="_blank" rel="noopener noreferrer">Join our WhatsApp group <ExternalLink size={15} /></a></div>
       {loading && <div className="edx-paper-skeleton" role="status">Loading student reviews…</div>}
       {errors.map((error) => <div key={error.key} className="edx-paper-alert" role="alert">{error.message} <button type="button" onClick={() => setReloadKey((n) => n + 1)}>Retry</button></div>)}
-      {!loading && !reviews.length && !errors.length && <div className="edx-paper-empty"><MessageCircle size={28} /><h3>No reviews for this subject yet</h3><p>Submit your completed-exam experience above to help other students.</p></div>}
+      {!loading && !reviews.length && !errors.length && <div className="edx-paper-empty"><MessageCircle size={28} /><h3>No matching reviews yet</h3><p>Try another subject or keyword, or share your experience above.</p></div>}
       <div className="edx-paper-review-list">{reviews.map((review) => <ReviewCard key={review.collectionName + ':' + review.id} review={review} user={user} />)}</div>
-      <p className="edx-paper-disclaimer">Student-contributed information is not an official exam paper. Public reviews may be removed by the administrator if they contain spam, confidential questions or inappropriate content. Sharing and copying are optional.</p>
+      <p className="edx-paper-disclaimer">Student-contributed information is not an official exam paper. Only share material you are allowed to discuss. Reviews containing spam or private exam material may be removed. Sharing and copying are optional.</p>
     </section>
   </div>;
 }

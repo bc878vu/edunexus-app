@@ -153,11 +153,13 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly([
           'userId', 'subject', 'term', 'semester', 'examDate', 'examTime',
-          'examAt', 'sharedBy', 'difficulty', 'topics', 'summary', 'createdAt'
+          'examAt', 'sharedBy', 'difficulty', 'topics', 'summary', 'createdAt',
+          'paperName', 'paperPath', 'paperUrl'
         ])
         && request.resource.data.keys().hasAll([
           'userId', 'subject', 'term', 'semester', 'examDate', 'examTime',
-          'examAt', 'sharedBy', 'difficulty', 'topics', 'summary', 'createdAt'
+          'examAt', 'sharedBy', 'difficulty', 'topics', 'summary', 'createdAt',
+          'paperName', 'paperPath', 'paperUrl'
         ])
         && request.resource.data.userId == request.auth.uid
         && validCourse(request.resource.data.subject)
@@ -181,9 +183,61 @@ service cloud.firestore {
         && request.resource.data.summary is string
         && request.resource.data.summary.size() >= 20
         && request.resource.data.summary.size() <= 1500
-        && request.resource.data.createdAt == request.time;
+        && request.resource.data.createdAt == request.time
+        && (
+          !request.resource.data.keys().hasAny(['paperName', 'paperPath', 'paperUrl'])
+          || (
+            request.resource.data.keys().hasAll(['paperName', 'paperPath', 'paperUrl'])
+            && request.resource.data.paperName is string
+            && request.resource.data.paperName.matches('^[A-Za-z0-9._-]{1,95}$')
+            && request.resource.data.paperPath is string
+            && request.resource.data.paperPath.matches('^exam-papers/' + request.resource.data.userId + '/[a-z0-9_]{8,32}/[A-Za-z0-9._-]{1,95}$')
+            && request.resource.data.paperUrl is string
+            && request.resource.data.paperUrl.matches('^https://firebasestorage.googleapis.com/v0/b/edunexus-live-e0b84[.]firebasestorage[.]app/o/.*$')
+          )
+        );
       // Authenticated students cannot rewrite public content; admin can remove it.
-      allow update: if false;
+      // Students cannot edit public reviews. Admins can fix public content
+      // without changing the author's UID or the original publication date.
+      allow update: if admin()
+        && request.resource.data.keys().hasOnly([
+          'userId', 'subject', 'term', 'semester', 'examDate', 'examTime',
+          'examAt', 'sharedBy', 'difficulty', 'topics', 'summary', 'createdAt',
+          'paperName', 'paperPath', 'paperUrl'
+        ])
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validCourse(request.resource.data.subject)
+        && validExamTerm(request.resource.data.term)
+        && request.resource.data.semester is string
+        && request.resource.data.semester.matches('^(Spring|Fall|Summer) 20[0-9]{2}$')
+        && request.resource.data.examDate is string
+        && request.resource.data.examDate.matches('^20[0-9]{2}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.examTime is string
+        && request.resource.data.examTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+        && request.resource.data.examAt is timestamp
+        && request.resource.data.examAt <= request.time
+        && request.resource.data.sharedBy is string
+        && request.resource.data.sharedBy.size() >= 2
+        && request.resource.data.sharedBy.size() <= 60
+        && request.resource.data.difficulty in ['easy', 'moderate', 'challenging']
+        && request.resource.data.topics is string
+        && request.resource.data.topics.size() <= 400
+        && request.resource.data.summary is string
+        && request.resource.data.summary.size() >= 20
+        && request.resource.data.summary.size() <= 1500
+        && (
+          !request.resource.data.keys().hasAny(['paperName', 'paperPath', 'paperUrl'])
+          || (
+            request.resource.data.keys().hasAll(['paperName', 'paperPath', 'paperUrl'])
+            && request.resource.data.paperName is string
+            && request.resource.data.paperName.matches('^[A-Za-z0-9._-]{1,95}$')
+            && request.resource.data.paperPath is string
+            && request.resource.data.paperPath.matches('^exam-papers/' + request.resource.data.userId + '/[a-z0-9_]{8,32}/[A-Za-z0-9._-]{1,95}$')
+            && request.resource.data.paperUrl is string
+            && request.resource.data.paperUrl.matches('^https://firebasestorage.googleapis.com/v0/b/edunexus-live-e0b84[.]firebasestorage[.]app/o/.*$')
+          )
+        );
       allow delete: if admin();
     }
 

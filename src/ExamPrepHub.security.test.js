@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import ExamPrepHub from './ExamPrepHub';
 import { ADMIN_TAB_KEY, ADMIN_EMAIL, clearAdminTab, grantAdminTab } from './adminSession';
 
@@ -20,6 +20,7 @@ jest.mock('./ExamMcqPractice', () => () => <div>Public exam practice</div>);
 jest.mock('./ExamPaperCommunity', () => () => <div>Student paper reviews</div>);
 jest.mock('./McqBulkImporter', () => () => <div>Secure MCQ uploader</div>);
 jest.mock('./ExamMcqAdminManager', () => () => <div>Verified admin question manager</div>);
+jest.mock('./ExamPaperReviewManager', () => () => <div>Admin paper review manager</div>);
 
 const admin = { uid: 'valid-uid', email: ADMIN_EMAIL, emailVerified: true, isAnonymous: false };
 beforeEach(() => {
@@ -69,4 +70,18 @@ test('logout clears privileges even if the same admin user object is passed agai
   view.rerender(<ExamPrepHub user={admin} initialTab="admin" adminWorkspace />);
   expect(screen.queryByText('Exam content management')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Admin tools' })).toBeNull();
+});
+
+test('Each public view has its own layout and the MCQ catalogue is shown only on MCQ Bank', async () => {
+  render(<ExamPrepHub user={null}/>);
+  await waitFor(() => expect(screen.getByText('Public exam practice')).toBeTruthy());
+  expect(screen.getByRole('region', { name: 'Published quiz and exam categories' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Paper Reviews' }));
+  await waitFor(() => expect(screen.getByText('Student paper reviews')).toBeTruthy());
+  expect(screen.queryByRole('region', { name: 'Published quiz and exam categories' })).toBeNull();
+  expect(screen.queryByText('Practice smarter. Prepare with confidence.')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Study Files' }));
+  await waitFor(() => expect(screen.getByText('Find the material you need.')).toBeTruthy());
+  expect(screen.queryByRole('region', { name: 'Published quiz and exam categories' })).toBeNull();
+  expect(screen.queryByText('Student paper reviews')).toBeNull();
 });

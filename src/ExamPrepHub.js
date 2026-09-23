@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
-import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles } from "lucide-react";
+import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, BookOpen, MessageCircle, ArrowDownUp } from "lucide-react";
 import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
 import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, firstAvailableExam, publishedExamCatalog } from "./examCatalog";
@@ -8,6 +8,7 @@ import { adminPanelAccess } from './adminSession';
 
 import "./exam-prep-hub.css";
 const ExamPaperCommunity = React.lazy(() => import("./ExamPaperCommunity"));
+const ExamPaperReviewManager = React.lazy(() => import("./ExamPaperReviewManager"));
 const McqBulkImporter = React.lazy(() => import("./McqBulkImporter"));
 const ExamMcqAdminManager = React.lazy(() => import("./ExamMcqAdminManager"));
 const ExamMcqPractice = React.lazy(() => import("./ExamMcqPractice"));
@@ -56,21 +57,57 @@ function TermSelector({ value, onChange, includeQuiz = false }) {
   </label>;
 }
 
-function StudyFiles({ subject }) {
-  const [files, setFiles] = useState([]), [loading, setLoading] = useState(false);
+function StudyFiles({ subject, onSubjectChange, subjects }) {
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('newest');
   useEffect(() => {
-    if (!validCourse(subject)) { setFiles([]); return; }
-    let live = true; setLoading(true);
-    getDocs(query(col("files"), where("subject", "==", subject), limit(30)))
-      .then((snapshot) => { if (live) setFiles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })).filter((f) => safeUrl(f.url || f.downloadUrl || f.fileUrl))); })
-      .catch(() => { if (live) setFiles([]); })
-      .finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
+    if (!validCourse(subject)) { setFiles([]); setLoading(false); return; }
+    let live = true;
+    setLoading(true); setError('');
+    const unsubscribe = onSnapshot(query(col("files"), where("subject", "==", subject), limit(100)),
+      (snapshot) => {
+        if (!live) return;
+        setFiles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .filter((f) => safeUrl(f.url || f.downloadUrl || f.fileUrl)));
+        setLoading(false);
+      },
+      () => { if (live) { setError('Study files could not load. Please try again.'); setLoading(false); } });
+    return () => { live = false; unsubscribe(); };
   }, [subject]);
-  return <section className="edx-exam-card"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Existing EduNexus library</span><h2>Study files & handouts</h2><p>Available resources for {subject}. Use the Academic Hub to explore other subjects.</p></div><FileText size={26} /></div>
-    {loading ? <p>Loading files…</p> : files.length ? <div className="edx-exam-files">{files.map((file) => <a key={file.id} target="_blank" rel="noopener noreferrer" href={safeUrl(file.url || file.downloadUrl || file.fileUrl)}><FileText size={18} /><span>{safe(file.name || file.title, 120) || "Study resource"}</span><ChevronRight size={16} /></a>)}</div> : <p>No linked study files for this subject yet.</p>}
-    <a className="edx-exam-secondary" href="/?page=academic">Open Academic Hub <ChevronRight size={16} /></a>
-  </section>;
+  const visible = useMemo(() => files.filter(file =>
+    [file.name, file.title, file.description, file.ext].some(value =>
+      String(value || '').toLowerCase().includes(search.trim().toLowerCase())))
+    .sort((a,b) => {
+      if (sort === 'name') return safe(a.name || a.title).localeCompare(safe(b.name || b.title));
+      return dateValue(b.createdAt) - dateValue(a.createdAt);
+    }), [files, search, sort]);
+  return <div className="edx-study-page">
+    <section className="edx-study-hero"><span className="edx-exam-eyebrow"><BookOpen size={15}/> Your study library</span>
+      <h1>Find the material you need.</h1>
+      <p>Browse handouts, notes and shared resources for your subject.</p></section>
+    <div className="edx-study-controls">
+      <CourseSelector value={subject} onChange={onSubjectChange} subjects={subjects}/>
+      <label className="edx-exam-field">Find a file <span className="edx-study-search"><Search size={17}/><input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search title or file type…"/></span></label>
+      <label className="edx-exam-field">Sort files <select value={sort} onChange={e=>setSort(e.target.value)}>
+        <option value="newest">Recently added</option><option value="name">Name A–Z</option>
+      </select></label>
+    </div>
+    <section className="edx-exam-card edx-study-results" aria-live="polite">
+      <div className="edx-exam-between"><h2>{subject} study files</h2><span className="edx-exam-pill">{visible.length} {visible.length === 1 ? 'file' : 'files'}</span></div>
+      {loading && <p role="status">Loading study files…</p>}
+      {error && <p role="alert">{error}</p>}
+      {!loading && !error && !visible.length && <div className="edx-study-empty"><FileText size={26}/><h3>{search ? 'No matching files' : 'No files shared for this subject yet'}</h3><p>{search ? 'Try another search or clear the search box.' : 'Browse the Academic Hub to find resources for other subjects.'}</p>{search && <button type="button" className="edx-exam-secondary" onClick={()=>setSearch('')}>Clear search</button>}</div>}
+      {!loading && !!visible.length && <div className="edx-study-grid">{visible.map(file =>
+        <article className="edx-study-file" key={file.id}><div className="edx-study-icon"><FileText size={21}/></div>
+          <div><strong>{safe(file.name || file.title,120) || 'Study resource'}</strong><small>{safe(file.ext,10).toUpperCase() || 'RESOURCE'} · {subject}</small></div>
+          <a className="edx-exam-secondary" target="_blank" rel="noopener noreferrer" href={safeUrl(file.url || file.downloadUrl || file.fileUrl)}>Open <ChevronRight size={16}/></a>
+        </article>)}</div>}
+      <a className="edx-exam-secondary edx-study-browse" href="/?page=academic">Browse all study material <ChevronRight size={16}/></a>
+    </section>
+  </div>;
 }
 
 function AdminTools({ user, onView }) {
@@ -133,6 +170,7 @@ function AdminTools({ user, onView }) {
     </form>
     <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading JSON importer…</section>}><McqBulkImporter user={user} onView={onView}/></React.Suspense>
     <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading question manager…</section>}><ExamMcqAdminManager user={user} initialSubject={draft.subject}/></React.Suspense>
+    <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper review manager…</section>}><ExamPaperReviewManager user={user}/></React.Suspense>
     <section className="edx-exam-card edx-exam-form"><div className="edx-exam-between"><h3>Legacy pending paper reviews ({pending.filter((r) => r.status === "pending").length})</h3><button className="edx-exam-secondary" onClick={reload} disabled={busy}>Refresh</button></div>
       {pending.filter((r) => r.status === "pending").map((r) => <div className="edx-exam-pending" key={r.id}><p><strong>{safe(r.subject, 12)} · {safe(r.term, 10)} · {safe(r.examDate, 10)}</strong></p><p>{safe(r.topics, 400)}</p><p>{safe(r.summary, 1500)}</p><div className="edx-exam-actions"><button className="edx-exam-primary" disabled={busy} onClick={() => moderate(r, true)}>Approve</button><button className="edx-exam-secondary" disabled={busy} onClick={() => moderate(r, false)}>Reject</button></div></div>)}
       {!pending.some((r) => r.status === "pending") && <p>No pending reviews in the latest 100 submissions.</p>}
@@ -208,9 +246,9 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     setTab(next);
   };
   return <div className="edx-exam" id="edx-exam-hub">
-    <section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><Sparkles size={14} /> EduNexus Exam Prep</span><h1>Practice smarter. Prepare with confidence.</h1><p>Subject-wise MCQs, student-shared completed-exam experiences, and your existing study files in one focused workspace.</p><div className="edx-exam-hero-links"><button onClick={() => changeTab("mcqs")}>Practice MCQs <ChevronRight size={16} /></button><button onClick={() => changeTab("reviews")}>Paper reviews <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
-    <div className="edx-exam-controls"><CourseSelector value={subject} onChange={selectSubject} subjects={catalogSubjects} /><TermSelector value={term} onChange={selectTerm} includeQuiz={tab === "mcqs" || tab === "admin"} /></div>
-    {!adminWorkspace && <section className="edx-exam-catalog" aria-label="Published quiz and exam categories">
+    {tab === "mcqs" && <><section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><GraduationCap size={14} /> MCQ Bank</span><h1>Practice smarter. Prepare with confidence.</h1><p>Choose a subject, set your question count and practise at your own pace.</p><div className="edx-exam-hero-links"><button onClick={() => document.querySelector('.edx-practice-toolbar')?.scrollIntoView({behavior:'smooth',block:'start'})}>Start practising <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
+    <div className="edx-exam-controls"><CourseSelector value={subject} onChange={selectSubject} subjects={catalogSubjects} /><TermSelector value={term} onChange={selectTerm} includeQuiz /></div></>}
+    {tab === "mcqs" && !adminWorkspace && <section className="edx-exam-catalog" aria-label="Published quiz and exam categories">
       <div className="edx-exam-catalog-head"><strong>Published practice</strong><span>{catalogLoading ? 'Checking published questions…' : catalog.total ? catalog.total + '+ questions across ' + catalog.subjects.length + ' subject(s)' : 'No published questions detected in the first ' + EXAM_SUBJECT_LIMIT + ' records'}</span></div>
       {!!catalog.subjects.length && <div className="edx-exam-catalog-subjects" role="group" aria-label="Available subject categories">
         {catalog.subjects.map(code => <button type="button" key={code} onClick={() => { userPickedFilter.current = true; setSubject(code); const best = firstAvailableExam(catalog, code, term); if (best) setTerm(best.term); }} className={subject === code ? 'active' : ''}>{code}</button>)}
@@ -226,8 +264,8 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     </nav>
     {tab === "mcqs" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={catalogSubjects} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm}/></React.Suspense>}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
-    {tab === "files" && <StudyFiles subject={subject} />}
+    {tab === "files" && <StudyFiles subject={subject} onSubjectChange={selectSubject} subjects={catalogSubjects} />}
     {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { selectSubject(code); selectTerm(examType); setTab("mcqs"); }} />}
-    <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Student reviews are public, student-contributed educational guidance, not official or live examination material.</p>
+    <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Shared reviews and study materials are not official exam papers.</p>
   </div>;
 }

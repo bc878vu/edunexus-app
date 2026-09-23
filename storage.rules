@@ -31,6 +31,42 @@ service firebase.storage {
         && request.resource.contentType.matches('^(application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document|application/vnd.ms-powerpoint|application/vnd.openxmlformats-officedocument.presentationml.presentation|application/vnd.ms-excel|application/vnd.openxmlformats-officedocument.spreadsheetml.sheet|text/plain|text/csv|image/jpeg|image/png|image/webp)$');
       allow delete: if admin();
     }
+    // Student-shared completed exam papers. Restrict student writes to their
+    // own one-time PDF/image objects; no overwrites or executable file types.
+    match /exam-papers/{userId}/{uploadId}/{fileName} {
+      allow read: if true;
+      allow create: if signedIn() && request.auth.uid == userId
+        && uploadId.matches('^[a-z0-9_]{8,32}
+    // the verified administrator and a 15 MB per-file limit.
+    match /{allPaths=**} {
+      allow read: if true;
+      allow create, update: if admin()
+        && request.resource.size < 15 * 1024 * 1024;
+      allow delete: if admin();
+    }
+  }
+}
+)
+        && fileName.matches('^[A-Za-z0-9._-]{1,95}
+    // the verified administrator and a 15 MB per-file limit.
+    match /{allPaths=**} {
+      allow read: if true;
+      allow create, update: if admin()
+        && request.resource.size < 15 * 1024 * 1024;
+      allow delete: if admin();
+    }
+  }
+}
+)
+        && request.resource.size > 0
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png'];
+      allow update: if false;
+      // Users may clean up their own failed uploads. Admins can remove files
+      // when a public review is deleted or reported.
+      allow delete: if admin() || (signedIn() && request.auth.uid == userId);
+    }
+
     // Existing site files remain publicly readable, but all mutations require
     // the verified administrator and a 15 MB per-file limit.
     match /{allPaths=**} {
