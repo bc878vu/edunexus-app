@@ -14,7 +14,7 @@ const SOURCE_TAG = '[EduNexus admin verified] Admin review source: ';
 const fromRecord = q => ({
   subject:q.subject, term:categoryOf(q), quizSet:quizSetOf(q), question:q.question,
   options:[...q.options], answer:q.answer, explanation:explanationForStudent(q),
-  verificationSource:isVerifiedAnswer(q) ? String(q.explanation).split(SOURCE_TAG).pop().trim() : ''
+  verificationSource:''
 });
 const errorText = e => e?.code === 'permission-denied' ? 'Firebase denied this change. Reopen the verified Admin Panel and check your Firestore rules.' : e?.message || 'Action could not be completed. Try again.';
 
@@ -56,6 +56,8 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         previous.question !== draft.question.trim() ||
         previous.options.some((v,i)=>v !== draft.options[i].trim());
       const supplied = String(draft.verificationSource || '').trim();
+      const originalSource = isVerifiedAnswer(selected) ? String(selected.explanation).split(SOURCE_TAG).pop().trim() : '';
+      const activeSource = supplied.length >= 12 ? supplied : (!keysChanged ? originalSource : '');
       if (keysChanged && supplied.length < 12)
         throw new Error('For an edited answer, question or option, provide the handout or trusted answer-key reference (at least 12 characters).');
       let normalized = validateMcq({
@@ -67,8 +69,8 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
           ? '[EduNexus Quiz|order:' + String(orderOf(selected) || 1).padStart(4,'0') + '] ' + draft.explanation
           : draft.explanation
       });
-      if (supplied.length >= 12) {
-        const note = ' ' + SOURCE_TAG + supplied.slice(0,200);
+      if (activeSource.length >= 12) {
+        const note = ' ' + SOURCE_TAG + activeSource.slice(0,200);
         if (normalized.explanation.length + note.length > 1000)
           throw new Error('Explanation + source reference exceed the 1000-character Firestore limit.');
         normalized.explanation += note;
@@ -136,7 +138,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       <label className="edx-exam-field">Answer verification reference<input minLength={12} maxLength={200}
         placeholder="Handout or solved quiz source, lecture, page" value={draft.verificationSource}
         onChange={e=>setDraft(v=>({...v,verificationSource:e.target.value}))}/>
-        <small>Required to verify or change an answer. AI alone is not a source of answer-key verification.</small></label>
+        <small>A NEW source is required when changing the question, options or answer. If you only edit its category or notes, a previously verified source remains attached. AI alone cannot verify an answer key.</small></label>
       <button type="submit" className="edx-exam-primary" disabled={busy}>{busy?'Saving…':'Save question changes'}</button>
     </form>}
   </section>;
