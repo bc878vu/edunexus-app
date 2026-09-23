@@ -1,0 +1,24 @@
+name: EduNexus navigation and production build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  navigation-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Test shared navigation, route overlays and cache strategy
+        run: node --test scripts/navigation-regression.test.mjs
+      - name: Install existing dependency lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Verify the complete production build
+        run: npm run build
