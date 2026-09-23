@@ -87,7 +87,7 @@ export function buildPracticeAttempt(questions, count = 'all', mode = 'sequence'
   const seen = new Set();
   const unique = questions.filter(q => {
     if (typeof q?.id !== 'string') return false;
-    const key = String(q.question || '').toLowerCase().replace(/\\s+/g,' ').replace(/[^a-z0-9 ]/g,'').trim();
+    const key = String(q.question || '').toLowerCase().replace(/\s+/g,' ').replace(/[^a-z0-9 ]/g,'').trim();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -109,7 +109,7 @@ export function restoreAttemptIds(record, questions) {
   const byId = new Map(questions.map(q=>[q.id,q]));
   const seenQuestions = new Set();
   return [...new Set(saved.filter(id => typeof id === 'string' && available.has(id)))].filter(id => {
-    const key = String(byId.get(id)?.question || '').toLowerCase().replace(/\\s+/g,' ').replace(/[^a-z0-9 ]/g,'').trim();
+    const key = String(byId.get(id)?.question || '').toLowerCase().replace(/\s+/g,' ').replace(/[^a-z0-9 ]/g,'').trim();
     if (seenQuestions.has(key)) return false;
     seenQuestions.add(key);
     return true;
