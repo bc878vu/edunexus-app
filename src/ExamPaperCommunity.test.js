@@ -68,7 +68,7 @@ test('a previous private submission can prefill a new review without publishing 
   render(<ExamPaperCommunity user={{uid:'reader123'}} subject="MGT611" term="midterm"/>);
   await screen.findByText('An older privately submitted paper review');
   fireEvent.click(screen.getByRole('button',{name:'Use this text in a new review'}));
-  expect(screen.getByLabelText('Your paper experience and study tips').value).toBe('An older privately submitted paper review');
+  expect(screen.getByLabelText(/Your paper experience and study tips/i).value).toBe('An older privately submitted paper review');
   expect(screen.getByLabelText(/I have completed this exam/i)).not.toBeChecked();
 });
 
@@ -79,7 +79,9 @@ test('Firestore allows student submissions without attachments and private looku
   const publicRules=rules.slice(start,end);
   const create=publicRules.slice(publicRules.indexOf('allow create:'),publicRules.indexOf('allow update:'));
   expect(create).toContain("'examAt', 'sharedBy', 'difficulty', 'topics', 'summary', 'createdAt'");
-  expect(create).not.toMatch(/keys\(\)\.hasAll\(\[\s*'userId',[\s\S]*?'paperName'/);
+  const requiredFields = create.match(/keys\\(\\)\\.hasAll\\(\\[([\\s\\S]*?)\\]\\)/)?.[1];
+  expect(requiredFields).toBeDefined();
+  expect(requiredFields).not.toContain("'paperName'");
   expect(create).toContain("!request.resource.data.keys().hasAny(['paperName', 'paperPath', 'paperUrl'])");
   const prior = rules.slice(rules.indexOf('match /artifacts/edunexus-live/public/data/examReviewSubmissions'),start);
   expect(prior).toContain("resource.data.userId == request.auth.uid");
