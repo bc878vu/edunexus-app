@@ -5,7 +5,7 @@ import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { categoryOf, quizSetOf } from './examMcqImport';
 import { explanationForStudent, explanationPrompt, plainFeedback } from './examAnswerFeedback';
-import { CATEGORY_NAMES, isVerifiedAnswer, orderedQuestions, practiceStats, progressKey, QUESTION_LIMIT, sanitizeProgress } from './examPractice';
+import { CATEGORY_NAMES, answerKeyStats, attemptMessage, buildPracticeAttempt, isVerifiedAnswer, orderedQuestions, progressKey, QUESTION_LIMIT, restoreAttemptIds, sanitizeProgress } from './examPractice';
 import './exam-mcq-practice.css';
 
 const MCQS = ['artifacts', 'edunexus-live', 'public', 'data', 'examMcqs'];
@@ -22,39 +22,30 @@ const localPut = (key, value) => {
 const updatedAt = (record) => Number(record?.updatedAt || 0);
 function QuestionReview({ question, selected, onSelect, number, total, onPrevious, onNext, onFinish, onAskAI, aiBusy, aiError, aiAnswer }) {
   const answered = Number.isInteger(selected);
-  const verified = isVerifiedAnswer(question);
-  const status = !answered ? '' : verified ? selected === question.answer ? 'Correct answer ✓' : 'Incorrect answer' : 'Answer saved';
+  const right = answered && selected === question.answer;
   return <section className="edx-exam-card edx-exam-question edx-practice-question" aria-label={'Question ' + number}>
     <div className="edx-exam-between"><span className="edx-exam-eyebrow">Question {number} of {total}</span><span className="edx-exam-pill">{question.subject} · {CATEGORY_NAMES[categoryOf(question)] || 'Practice'}</span></div>
     <div className="edx-exam-progress"><span style={{ width: (number / total * 100) + '%' }}/></div>
     <h3>{question.question}</h3>
     <div className="edx-exam-options">{question.options.map((option, i) => {
-      // Inferred/contested answers must not be presented as authoritative
-      // green correct choices or counted towards the verified score.
-      const state = answered && verified && i === question.answer ? ' correct' :
-        answered && i === selected && verified ? ' incorrect' :
-          answered && i === selected ? ' edx-practice-selected' : '';
+      const state = answered && i === question.answer ? ' correct' :
+        answered && i === selected ? ' incorrect' : '';
       return <button key={i} type="button" disabled={answered}
         className={'edx-exam-option' + state} aria-pressed={selected === i}
         onClick={() => onSelect(question.id, i)}><span>{String.fromCharCode(65 + i)}</span>{option}</button>;
     })}</div>
-    {answered && <div className={'edx-exam-feedback edx-practice-answer-' + (verified ? selected === question.answer ? 'right' : 'wrong' : 'pending')} role="status">
-      <strong>{status}</strong>
-      {verified ? <>
-        {selected !== question.answer && <p><strong>Your selection:</strong> {String.fromCharCode(65 + selected)} — {question.options[selected]}. <strong>Verified answer:</strong> {String.fromCharCode(65 + question.answer)} — {question.options[question.answer]}.</p>}
-        <p><strong>Why the correct choice fits:</strong> {explanationForStudent(question) || 'See the short AI explanation below for this question.'}</p>
-        {selected !== question.answer && <p><strong>Why your option is wrong:</strong> The selected choice does not match the administrator-reviewed answer for this question. The question-specific AI explanation appears below.</p>}
-      </> : <p className="edx-practice-pending-note">Your choice has been saved. A reliable answer key has not yet been confirmed for this question, so its correctness is not assessed. {explanationForStudent(question)}</p>}
-    </div>}
+    {answered && <p className={'edx-practice-inline-result ' + (right ? 'is-right' : 'is-wrong')} role="status">
+      {right ? 'Correct according to the uploaded answer key.' :
+        'Your answer differs from the uploaded key. It lists ' + String.fromCharCode(65 + question.answer) + ' — ' + question.options[question.answer] + '.'}
+    </p>}
     <div className="edx-practice-actions"><button type="button" className="edx-exam-secondary" onClick={onPrevious} disabled={number === 1}><ChevronLeft size={16}/> Previous</button>
-      <button type="button" className="edx-exam-secondary" onClick={onAskAI} disabled={aiBusy}><BrainCircuit size={16}/>{aiBusy ? 'Explaining…' : 'Ask AI about this question'}</button>
+      <button type="button" className="edx-exam-secondary" onClick={onAskAI} disabled={aiBusy}><BrainCircuit size={16}/>{aiBusy ? 'Explaining…' : 'Short AI explanation'}</button>
       <button type="button" className="edx-exam-primary" onClick={onNext} disabled={number === total}>Next <ChevronRight size={16}/></button></div>
-    {(aiBusy || aiError || aiAnswer) && <section className="edx-practice-ai" aria-live="polite">
-      <strong><BrainCircuit size={17}/> Short AI explanation for this question</strong>
-      {aiBusy && <p>Preparing a study explanation…</p>}
-      {aiError && <p role="alert">{aiError}</p>}
+    {answered && (aiBusy || aiError || aiAnswer) && <section className="edx-practice-ai" aria-live="polite">
+      <strong><BrainCircuit size={17}/> Quick explanation</strong>
+      {aiBusy && <p>Explaining this question…</p>}
+      {aiError && <p role="status">{aiError}</p>}
       {aiAnswer && <p>{aiAnswer}</p>}
-      <small>AI explanations are learning aids and can be wrong; only the administrator-reviewed key determines verified score.</small>
     </section>}
     <button type="button" className="edx-exam-secondary edx-practice-finish-bottom" onClick={onFinish}>Finish now · see my score</button>
   </section>;
@@ -112,6 +103,12 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   const [sourceChanges, setSourceChanges] = useState({});
   const [quizSet, setQuizSet] = useState('all');
   const [quizSets, setQuizSets] = useState([]);
+  const [attemptIds, setAttemptIds] = useState(null);
+  const [attemptMode, setAttemptMode] = useState('sequence');
+  const [desiredMode, setDesiredMode] = useState('sequence');
+  const [desiredCount, setDesiredCount] = useState('all');
+  const [customCount, setCustomCount] = useState(10);
+  const [attemptLimit, setAttemptLimit] = useState('all');
   const sessionRef = useRef(0);
   const writeTimer = useRef(null);
   const pendingCloud = useRef(null);
@@ -123,10 +120,14 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   const cloudProgressId = subject + '_' + term + (term === 'quiz' && quizSet !== 'all' ? '_set_' + quizSet : '');
   useEffect(() => { setQuizSet('all'); }, [subject, term]);
   const eligible = validSubject(subject);
-  const actualQuestions = useMemo(() => questions.map(q => sourceChanges[q.id] || q), [questions, sourceChanges]);
+  const actualQuestions = useMemo(() => {
+    const available = new Map(questions.map(q => [q.id, sourceChanges[q.id] || q]));
+    if (!attemptIds) return questions.map(q => available.get(q.id));
+    return attemptIds.map(id => available.get(id)).filter(Boolean);
+  }, [questions, sourceChanges, attemptIds]);
   const index = Math.max(0, actualQuestions.findIndex(q => q.id === currentId));
   const current = actualQuestions[index];
-  const stats = useMemo(() => practiceStats(actualQuestions, answers), [actualQuestions, answers]);
+  const stats = useMemo(() => answerKeyStats(actualQuestions, answers), [actualQuestions, answers]);
   const matches = useMemo(() => {
     const needle = search.trim().toLowerCase();
     if (!needle) return [];
@@ -140,7 +141,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const session = ++sessionRef.current;
     if (writeTimer.current) clearTimeout(writeTimer.current);
     if (pendingCloud.current) { const queued = pendingCloud.current; pendingCloud.current = null; void setDoc(queued.ref, queued.payload).catch(() => {}); }
-    setQuestions([]); setAnswers({}); setCurrentId(null); setFinished(false); setRestoring(true); setLimited(false);
+    setQuestions([]); setAnswers({}); setCurrentId(null); setFinished(false); setRestoring(true); setLimited(false); setAttemptIds(null);
     setSourceChanges({}); setSearch(''); setLoadError(''); setSaveStatus(''); setAi({ id: null, busy: false, answer: '', error: '' });
     if (!eligible) { setLoading(false); setRestoring(false); setLoadError('Enter a valid subject code.'); return; }
     setLoading(true);
@@ -175,7 +176,16 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       }
       if (sessionRef.current !== session) return;
       const latest = updatedAt(local) >= updatedAt(cloud) ? local : cloud;
-      const restored = sanitizeProgress(latest, ordered);
+      const savedIds = restoreAttemptIds(latest, ordered);
+      const selectedQuestions = savedIds.map(id => ordered.find(q => q.id === id)).filter(Boolean);
+      const restored = sanitizeProgress(latest, selectedQuestions);
+      setAttemptIds(savedIds);
+      setAttemptMode(latest?.attemptMode === 'random' ? 'random' : 'sequence');
+      setAttemptLimit(latest?.attemptLimit || 'all');
+      setDesiredMode(latest?.attemptMode === 'random' ? 'random' : 'sequence');
+      setDesiredCount(latest?.attemptLimit === 'all' || !latest?.attemptLimit ? 'all' : 'custom');
+      if (latest?.attemptLimit !== 'all' && Number.isInteger(Number(latest?.attemptLimit)))
+        setCustomCount(Math.max(1,Math.min(QUESTION_LIMIT,Number(latest.attemptLimit))));
       setAnswers(restored.answers); setCurrentId(restored.currentId); setFinished(restored.finished);
       if (latest) setSaveStatus('Your saved practice has been restored.');
       setLoading(false); setRestoring(false);
@@ -197,10 +207,10 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     };
   }, [subject, term, quizSet, refresh, user?.uid, recordKey, cloudProgressId, eligible]);
 
-  const save = useCallback((nextAnswers, nextId, nextFinished) => {
+  const save = useCallback((nextAnswers, nextId, nextFinished, nextAttempt = null) => {
     if (restoring || !actualQuestions.length) return;
     const payload = { answers: nextAnswers, currentId: nextId, finished: nextFinished,
-      subject, term, updatedAt: Date.now() };
+      subject, term, attemptIds: nextAttempt?.ids || attemptIds, attemptMode: nextAttempt?.mode || attemptMode, attemptLimit: nextAttempt?.count ?? attemptLimit, updatedAt: Date.now() };
     const localSaved = localPut(recordKey, payload);
     setSaveStatus(localSaved ? 'Saved in this browser · syncing to Firebase…' : 'Local storage unavailable · syncing to Firebase…');
     if (writeTimer.current) clearTimeout(writeTimer.current);
@@ -222,7 +232,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
         }
       }, 650);
     } else { pendingCloud.current = null; setSaveStatus(localSaved ? 'Saved on this device. Sign in to sync between devices.' : 'Could not save progress. Enable browser storage.'); }
-  }, [restoring, actualQuestions.length, recordKey, subject, term, cloudProgressId, user?.uid]);
+  }, [restoring, actualQuestions.length, recordKey, subject, term, cloudProgressId, user?.uid, attemptIds, attemptMode, attemptLimit]);
 
   const select = (id, option) => {
     if (finished || answers[id] !== undefined) return;
@@ -239,12 +249,21 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   const finish = () => {
     setFinished(true); save(answers, currentId, true);
   };
-  const restart = () => {
-    if (!window.confirm('Start a new attempt? The saved answers and score for this subject and term will be replaced.')) return;
-    setAnswers({}); setFinished(false);
-    setCurrentId(actualQuestions[0]?.id || null);
-    save({}, actualQuestions[0]?.id || null, false);
+  const startConfiguredAttempt = (resetOnly = false) => {
+    if (!questions.length || loading || restoring) return;
+    if ((stats.answered || finished) &&
+      !window.confirm('Start a new attempt? Your saved choices for this subject and quiz set will be replaced.')) return;
+    const mode = resetOnly ? attemptMode : desiredMode;
+    const count = resetOnly ? attemptLimit : desiredCount === 'all' ? 'all' : Math.max(1, Math.min(questions.length, Number(customCount) || 1));
+    const ids = buildPracticeAttempt(questions, count, mode);
+    setAttemptIds(ids); setAttemptMode(mode); setAttemptLimit(count);
+    setDesiredMode(mode); setDesiredCount(count === 'all' ? 'all' : 'custom');
+    setCustomCount(count === 'all' ? Math.min(10, questions.length) : count);
+    setAnswers({}); setFinished(false); setAi({ id:null, busy:false, answer:'', error:'' }); setSearch('');
+    setCurrentId(ids[0] || null);
+    save({}, ids[0] || null, false, { ids, mode, count });
   };
+  const restart = () => startConfiguredAttempt(true);
   const askAI = async (selectedOption = null) => {
     if (!current || ai.busy) return;
     const questionId = current.id;
