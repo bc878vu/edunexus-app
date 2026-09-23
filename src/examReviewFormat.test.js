@@ -1,4 +1,4 @@
-import { examReviewText, formatExamDate, formatExamTime, whatsAppReviewUrl, EXAM_REVIEW_URL, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
+import { examReviewText, formatExamDate, formatExamTime, whatsAppReviewUrl, safePaperUrl, EXAM_REVIEW_URL, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 
 const example = {
   subject: 'CS101', term: 'finalterm', semester: 'Spring 2026',
@@ -40,4 +40,15 @@ test('WhatsApp URL safely encodes the same exact copy text', () => {
   const url = whatsAppReviewUrl({...example, summary:'Topics & handouts #1'});
   expect(url.startsWith('https://api.whatsapp.com/send?text=')).toBe(true);
   expect(decodeURIComponent(url.split('?text=')[1])).toBe(examReviewText({...example, summary:'Topics & handouts #1'}));
+});
+
+test('only EduNexus Firebase paper links appear in review copies', () => {
+  const url = 'https://firebasestorage.googleapis.com/v0/b/edunexus-live-e0b84.firebasestorage.app/o/exam-papers%2Fabc%2Fid%2Fpaper.pdf?alt=media';
+  const shared = {...example, paperPath:'exam-papers/abc/id/paper.pdf', paperUrl:url};
+  expect(safePaperUrl(shared)).toBe(url);
+  expect(examReviewText(shared)).toContain('*Shared paper:*');
+  expect(examReviewText(shared)).toContain(url);
+  expect(safePaperUrl({...shared, paperUrl:'javascript:alert(1)'})).toBe('');
+  expect(safePaperUrl({...shared, paperUrl:'https://example.com/not-a-paper'})).toBe('');
+  expect(examReviewText({...shared, paperUrl:'https://example.com/not-a-paper'})).not.toContain('*Shared paper:*');
 });
