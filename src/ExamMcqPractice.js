@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, doc, getDoc, limit, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
-import { AlertTriangle, BookOpen, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, RotateCcw, Search, ShieldCheck } from 'lucide-react';
+import { BookOpen, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { categoryOf, quizSetOf } from './examMcqImport';
@@ -20,10 +20,6 @@ const localPut = (key, value) => {
   catch (_) { return false; }
 };
 const updatedAt = (record) => Number(record?.updatedAt || 0);
-const explain = (question) => String(question?.explanation || '')
-  .replace(/^\[EduNexus Quiz(?:\|order:[0-9]{4})?\]\s*/, '')
-  .replace(/\[EduNexus admin verified\]/g, '').trim();
-
 function QuestionReview({ question, selected, onSelect, number, total, onPrevious, onNext, onFinish, onAskAI, aiBusy, aiError, aiAnswer }) {
   const answered = Number.isInteger(selected);
   const verified = isVerifiedAnswer(question);
