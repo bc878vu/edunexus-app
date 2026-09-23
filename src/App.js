@@ -2913,6 +2913,7 @@ const ForumTab = ({ theme, showToast }) => {
   const [editId, setEditId] = useState(null);     // jis post ka reply edit ho raha hai
   const [replyText, setReplyText] = useState(""); // current reply text
   const [saving, setSaving] = useState(false);
+  const [forumReports, setForumReports] = useState({});
 
   // Live discussions sync
   useEffect(() => {
@@ -2927,6 +2928,13 @@ const ForumTab = ({ theme, showToast }) => {
 
     return () => unsub();
   }, []);
+
+  const inspectForumReports = async (post) => {
+    try {
+      const snap=await getDocs(collection(db, "artifacts", appId, "public", "data", "discussions", post.id, "reports"));
+      setForumReports((prev)=>({...prev,[post.id]:snap.docs.map((r)=>r.data().reason)}));
+    } catch (_) { showToast("Could not load private post reports. Deploy the updated Firestore rules.", "error"); }
+  };
 
   // Post delete (user ka message delete)
   const handleDeletePost = async (id) => {
@@ -3036,6 +3044,8 @@ const ForumTab = ({ theme, showToast }) => {
                 </p>
               </div>
 
+              <button type="button" className="text-xs text-indigo-500 hover:underline" onClick={()=>inspectForumReports(p)}>Check reports</button>
+              {forumReports[p.id] && <p className="text-xs" role="status">{forumReports[p.id].length ? forumReports[p.id].length + " report(s): " + forumReports[p.id].join(", ") : "No reports for this post."}</p>}
               <button
                 onClick={() => handleDeletePost(p.id)}
                 className="text-red-500 text-xs font-bold hover:underline"
