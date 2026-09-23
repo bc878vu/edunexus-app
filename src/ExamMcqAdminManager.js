@@ -65,9 +65,9 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         subject:clean(draft.subject),
         answer:Number(draft.answer),
         // Preserve original imported quiz sequence even if category changes.
-        explanation:categoryOf(selected)==='quiz' && draft.term === 'quiz'
+        explanation:draft.term === 'quiz'
           ? '[EduNexus Quiz|order:' + String(orderOf(selected) || 1).padStart(4,'0') + '] ' + draft.explanation
-          : draft.explanation
+          : '[EduNexus ' + (draft.term === 'midterm' ? 'Midterm' : 'Finalterm') + '] ' + draft.explanation
       });
       if (activeSource.length >= 12) {
         const note = ' ' + SOURCE_TAG + activeSource.slice(0,200);
