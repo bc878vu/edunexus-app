@@ -77,6 +77,7 @@ import {
 
 
 
+import { MAIN_ITEMS, MOBILE_ITEMS } from './site-navigation.mjs';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { 
   getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, 
@@ -291,33 +292,8 @@ const Navbar = ({
   toggleMenu,
   isMenuOpen,
 }) => {
-  // ✅ Yahan "Portfolio" add kiya hai taake PC Header par show ho
-  const MAIN_ITEMS = [
-    { id: "home",      label: "Home" },
-    { id: "academic",  label: "Academic Hub" },
-    { id: "exam-prep", label: "Exam Prep" },
-    { id: "cgpa",      label: "CGPA Calc" },
-    { id: "articles",  label: "Articles" },
-    { id: "forum",     label: "Discussion" },
-    { id: "portfolio", label: "Portfolio" }, // 👈 Added specifically for Top Navbar
-    { id: "about",     label: "About" },
-    { id: "contact",   label: "Contact" },
-  ];
-
-  const ALL_ITEMS = [
-    { id: "home",      label: "Home" },
-    { id: "academic",  label: "Academic Hub" },
-    { id: "exam-prep", label: "Exam Prep" },
-    { id: "cgpa",      label: "CGPA Calc" },
-    { id: "articles",  label: "Articles" },
-    { id: "planner",   label: "Study Planner" },
-    { id: "flashcards",label: "AI Flashcards" },
-    { id: "aiquiz",    label: "AI Quiz" },
-    { id: "forum",     label: "Discussion" },
-    { id: "portfolio", label: "Portfolio" },
-    { id: "about",     label: "About" },
-    { id: "contact",   label: "Contact" },
-  ];
+  // A single shared nav contract also powers the SSR resource, article and guide pages.
+  const ALL_ITEMS = MOBILE_ITEMS;
 
   const handleNavClick = (targetPage) => {
     setPage(targetPage);
@@ -338,11 +314,11 @@ const Navbar = ({
           text-white
         "
       >
-        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
+        <div className="max-w-[1450px] mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
           {/* Brand */}
           <button
             onClick={() => handleNavClick("home")}
-            className="flex items-center gap-3 group"
+            className="flex items-center gap-3 group shrink-0"
           >
             <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-lg">
               <GraduationCap className="h-6 w-6" />
@@ -365,13 +341,13 @@ const Navbar = ({
           </button>
 
           {/* Desktop links (PC HEADER) */}
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden xl:flex items-center justify-center gap-0 min-w-0">
             {MAIN_ITEMS.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
                 className={`
-                  px-4 py-2.5 rounded-full
+                  px-3 py-2.5 rounded-full whitespace-nowrap
                   text-[15px] font-semibold tracking-wide
                   transition-all
                   ${
@@ -387,7 +363,7 @@ const Navbar = ({
           </nav>
 
           {/* Right side desktop */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden xl:flex items-center gap-3 shrink-0">
             {isAdmin && (
               <span className="text-[11px] px-2 py-1 rounded-full border border-emerald-400/70 text-emerald-300 bg-emerald-500/10">
                 Admin mode
@@ -404,12 +380,14 @@ const Navbar = ({
           <button
             onClick={toggleMenu}
             className="
-              lg:hidden inline-flex items-center justify-center
+              xl:hidden inline-flex items-center justify-center
               h-9 w-9 rounded-full border
               border-slate-600 bg-slate-900/90 text-slate-100
               shadow-sm
             "
-            aria-label="Toggle navigation"
+            aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={isMenuOpen}
+            aria-controls="edunexus-mobile-nav"
           >
             {isMenuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
@@ -418,8 +396,10 @@ const Navbar = ({
 
       {/* 🔹 Mobile drawer */}
       <div
+        id="edunexus-mobile-nav"
+        aria-hidden={!isMenuOpen}
         className={`
-          lg:hidden fixed inset-0
+          xl:hidden fixed inset-0
           z-50
           transition-opacity duration-200
           ${isMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}
@@ -459,6 +439,7 @@ const Navbar = ({
             </div>
             <button
               onClick={toggleMenu}
+              aria-label="Close navigation"
               className="
                 h-8 w-8 rounded-full flex items-center justify-center
                 border border-slate-700 text-slate-300
