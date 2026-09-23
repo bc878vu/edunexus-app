@@ -178,7 +178,7 @@ function AdminTools({ user, onView }) {
   </div>;
 }
 
-export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace = false }) {
+export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace = false, isDark = false }) {
   // Admin tools are never part of the public Exam Prep module. Even an old
   // persisted Firebase admin identity cannot reveal them on ?page=exam-prep.
   const showAdmin = adminWorkspace === true && isAdmin(user);
@@ -245,7 +245,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     if (next === "reviews" && term === "quiz") selectTerm("midterm");
     setTab(next);
   };
-  return <div className="edx-exam" id="edx-exam-hub">
+  return <div className={"edx-exam" + (isDark ? " edx-exam-dark" : "")} id="edx-exam-hub">
     {tab === "mcqs" && <><section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><GraduationCap size={14} /> MCQ Bank</span><h1>Practice smarter. Prepare with confidence.</h1><p>Choose a subject, set your question count and practise at your own pace.</p><div className="edx-exam-hero-links"><button onClick={() => document.querySelector('.edx-practice-toolbar')?.scrollIntoView({behavior:'smooth',block:'start'})}>Start practising <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
     <div className="edx-exam-controls"><CourseSelector value={subject} onChange={selectSubject} subjects={catalogSubjects} /><TermSelector value={term} onChange={selectTerm} includeQuiz /></div></>}
     {tab === "mcqs" && !adminWorkspace && <section className="edx-exam-catalog" aria-label="Published quiz and exam categories">

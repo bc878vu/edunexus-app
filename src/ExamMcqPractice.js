@@ -35,11 +35,11 @@ function QuestionReview({ question, selected, onSelect, number, total, onPreviou
         onClick={() => onSelect(question.id, i)}><span>{String.fromCharCode(65 + i)}</span>{option}</button>;
     })}</div>
     {answered && <p className={'edx-practice-inline-result ' + (right ? 'is-right' : 'is-wrong')} role="status">
-      {right ? 'Correct according to the uploaded answer key.' :
-        'Your answer differs from the uploaded key. It lists ' + String.fromCharCode(65 + question.answer) + ' — ' + question.options[question.answer] + '.'}
+      {right ? 'Correct!' :
+        'Incorrect. Correct answer: ' + String.fromCharCode(65 + question.answer) + ' — ' + question.options[question.answer] + '.'}
     </p>}
     <div className="edx-practice-actions"><button type="button" className="edx-exam-secondary" onClick={onPrevious} disabled={number === 1}><ChevronLeft size={16}/> Previous</button>
-      <button type="button" className="edx-exam-secondary" onClick={onAskAI} disabled={!answered || aiBusy}><BrainCircuit size={16}/>{aiBusy ? 'Explaining…' : 'Short AI explanation'}</button>
+      {aiError && <button type="button" className="edx-exam-secondary" onClick={onAskAI} disabled={!answered || aiBusy}><BrainCircuit size={16}/>{aiBusy ? 'Explaining…' : 'Retry explanation'}</button>}
       <button type="button" className="edx-exam-primary" onClick={onNext} disabled={!answered || number === total} title={!answered ? 'Select an answer to continue' : undefined}>Next <ChevronRight size={16}/></button></div>
     {answered && (aiBusy || aiError || aiAnswer) && <section className="edx-practice-ai" aria-live="polite">
       <strong><BrainCircuit size={17}/> Quick explanation</strong>
@@ -359,7 +359,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       <div className="edx-practice-toolbar-right"><span className="edx-exam-pill">{CATEGORY_NAMES[term] || term}</span><span className="edx-exam-pill">Answered: {stats.answered}/{actualQuestions.length}</span>
         <span className="edx-exam-pill">Score: {stats.score}/{stats.answered}</span>
         {!finished && actualQuestions.length > 0 && <button type="button" className="edx-exam-primary" onClick={finish}>Finish now</button>}</div>
-      <p className="edx-practice-key-note">Scores are based on the uploaded answer keys. Where a key has not been independently reviewed, treat its result as a practice estimate.</p>
+      <p className="edx-practice-key-note">Score follows the saved answer key for this practice bank.</p>
       {search.trim() && <div className="edx-practice-results"><strong>{matches.length} matching questions{matches.length === 80 ? ' (first 80)' : ''}</strong>
         <div>{matches.map(({ q, i }) => <button type="button" key={q.id} onClick={() => { setSearch(''); goTo(q, true); }}>
           <span>Q{i+1}</span> {q.question.slice(0, 145)} {answers[q.id] !== undefined ? ' ✓' : ''}
@@ -391,7 +391,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
           <div><strong>{stats.answered ? Math.round(100 * stats.score / stats.answered) : 0}%</strong><span>Accuracy on answered questions</span></div>
           <div><strong>{stats.unattempted}</strong><span>Unanswered</span></div></div>
         <p className="edx-practice-performance" role="status">{attemptMessage(stats.score, stats.answered, actualQuestions.length)}</p>
-        <p className="edx-practice-score-note">Practice score follows uploaded answer keys; some keys may not have independent source confirmation. Answer choices remain saved even if you finish early.</p>
+        <p className="edx-practice-score-note">Your score follows this practice bank’s saved answer key. Answer choices remain saved even if you finish early.</p>
         <div className="edx-practice-actions"><button type="button" className="edx-exam-primary" onClick={() => { setFinished(false); save(answersRef.current, currentId, false); }}>Review or continue this attempt</button>
           <button type="button" className="edx-exam-secondary" onClick={restart}><RotateCcw size={15}/> Start a new attempt</button></div>
       </div>}

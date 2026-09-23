@@ -8,16 +8,16 @@ test('stored educational explanation excludes admin control tags and reference m
 });
 test('incorrect selection receives a concise question-specific two-sided teaching prompt but cannot alter the answer key',()=>{
   const prompt=explanationPrompt(question,0);
-  expect(prompt).toContain('administrator-approved answer in this question bank is C');
+  expect(prompt).toContain('uploaded answer key marks C as the correct option');
   expect(prompt).toContain('The student selected A');
-  expect(prompt).toContain('Why your choice is wrong:');
-  expect(prompt).toContain('Why the correct answer fits:');
+  expect(prompt).toContain('why that option does not fit');
+  expect(prompt).toContain('why C fits');
   expect(prompt).toContain('An instantaneous change in system state');
 });
-test('provisional keys are never supplied as trusted correct choices to AI',()=>{
-  const prompt=explanationPrompt({...question,explanation:'[EduNexus Quiz|set:QUIZ-1|order:0002] Solved Quiz 1 (source not verified)'},0);
-  expect(prompt).toContain('NO verified answer');
-  expect(prompt).not.toContain('administrator-approved answer');
-  expect(prompt).toContain('without claiming ANY specific option is correct');
+test('public AI explanation follows the saved practice key without verification jargon or changing scoring',()=>{
+  const prompt=explanationPrompt({...question,explanation:'[EduNexus Quiz|set:QUIZ-1|order:0002] Solved Quiz 1'},0);
+  expect(prompt).toContain('uploaded answer key marks C as the correct option');
+  expect(prompt).not.toContain('verified answer');
+  expect(prompt).not.toContain('administrator-approved');
   expect(plainFeedback('**Wrong:** option A\n**Correct:** option C')).toBe('Wrong: option A\nCorrect: option C');
 });
