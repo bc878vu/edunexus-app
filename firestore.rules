@@ -136,7 +136,8 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
       allow get: if admin() ||
         (signedIn() && resource.data.userId == request.auth.uid);
-      allow list: if admin();
+      allow list: if admin() ||
+        (signedIn() && resource.data.userId == request.auth.uid);
       allow update, delete: if admin();
     }
 
@@ -156,10 +157,10 @@ service cloud.firestore {
           'examAt', 'sharedBy', 'difficulty', 'topics', 'summary', 'createdAt',
           'paperName', 'paperPath', 'paperUrl'
         ])
+        // Paper attachments are optional; a plain-text review must be valid.
         && request.resource.data.keys().hasAll([
           'userId', 'subject', 'term', 'semester', 'examDate', 'examTime',
-          'examAt', 'sharedBy', 'difficulty', 'topics', 'summary', 'createdAt',
-          'paperName', 'paperPath', 'paperUrl'
+          'examAt', 'sharedBy', 'difficulty', 'topics', 'summary', 'createdAt'
         ])
         && request.resource.data.userId == request.auth.uid
         && validCourse(request.resource.data.subject)
