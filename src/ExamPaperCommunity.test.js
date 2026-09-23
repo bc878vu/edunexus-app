@@ -79,7 +79,7 @@ test('Firestore allows student submissions without attachments and private looku
   const publicRules=rules.slice(start,end);
   const create=publicRules.slice(publicRules.indexOf('allow create:'),publicRules.indexOf('allow update:'));
   expect(create).toContain("'examAt', 'sharedBy', 'difficulty', 'topics', 'summary', 'createdAt'");
-  const requiredFields = create.match(/keys\\(\\)\\.hasAll\\(\\[([\\s\\S]*?)\\]\\)/)?.[1];
+  const requiredFields = create.split('keys().hasAll([')[1]?.split('])')[0];
   expect(requiredFields).toBeDefined();
   expect(requiredFields).not.toContain("'paperName'");
   expect(create).toContain("!request.resource.data.keys().hasAny(['paperName', 'paperPath', 'paperUrl'])");
