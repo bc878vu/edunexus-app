@@ -1,4 +1,5 @@
-import { escapeHtml as h, getPublicFile, listApprovedReviews, resourcePath, SITE, slugFor, validId } from './resource-data.mjs';
+import { escapeHtml as h, getPublicFile, listPublicFiles, listApprovedReviews, resourcePath, SITE, slugFor, validId } from './resource-data.mjs';
+import { guideForFile, SUBJECT_GUIDES } from './subject-guides.mjs';
 
 // Keep the same destinations and labels as src/App.js's MAIN_ITEMS. This HTML
 // is rendered on the server so search crawlers see actual file/review content.
@@ -111,6 +112,18 @@ export default async function handler(req, res) {
     const reviewUrl = appUrl + '&panel=reviews';
     const downloadLink = file.sourceType === 'supabase-storage' && file.storageBucket === 'edunexus-public-files'
       ? '<a class="button secondary" href="/api/resource-download?id=' + encodeURIComponent(id) + '">Download file</a>' : '';
+    const guideCode = guideForFile(file);
+    const guide = guideCode ? SUBJECT_GUIDES[guideCode] : null;
+    const guideSlug = guide ? slugFor(guide.title) : '';
+    const guideUrl = guide ? '/learning/' + guideCode.toLowerCase() + '/' + guideSlug : '';
+    const educationalContext = guide ? '<section class="reviews" aria-label="Original course guide"><div class="meta">Original learning material · ' + h(guideCode) + '</div><h2>' + h(guide.title) + '</h2><p>' + h(guide.intro) + '</p><h3>' + h(guide.sections[0].heading) + '</h3><p>' + h(guide.sections[0].text) + '</p><a class="button" href="' + h(guideUrl) + '">Read the complete ' + h(guideCode) + ' study guide</a><p>These independent explanations do not claim to verify the contents or current syllabus of this uploaded file.</p></section>' : '';
+    let relatedFiles = [];
+    try {
+      const library = await listPublicFiles(2);
+      relatedFiles = library.filter((item) => item.id !== id &&
+        String(item.subject || '').trim().toUpperCase() === subject.trim().toUpperCase()).slice(0, 4);
+    } catch (error) { console.error('Related file lookup unavailable', error?.message || 'unknown'); }
+    const relatedLinks = relatedFiles.length ? '<section class="reviews" aria-label="More files in this subject"><h2>More ' + h(subject) + ' study material</h2>' + relatedFiles.map((item) => '<p><a href="' + h(resourcePath(item.id, item.name || item.title)) + '">' + h(item.name || item.title || 'Study file') + '</a></p>').join('') + '</section>' : '';
     const schema = buildSchema({ name, subject, summary, canonical, reviews, hasMore, reviewPage });
     const renderedReviews = reviews.length
       ? reviews.map((review) => {
@@ -140,7 +153,8 @@ export default async function handler(req, res) {
 <script type="application/ld+json">${schema}</script><style>${styles}</style></head><body>${navbar}
 <main><article class="resource"><div class="meta">${h(subject)} · ${h(String(file.ext || 'Study file').toUpperCase().slice(0, 12))}</div>
 <h1>${h(name)}</h1><p>${h(summary)}</p><div class="buttons"><a class="button" href="${h(appUrl)}">Preview this file on EduNexus</a>${downloadLink}<a class="button secondary" href="${h(reviewUrl)}">Read and write reviews</a></div>
-<p>EduNexus is an independent student learning platform. Check current course requirements with your institution.</p></article>
+<p>EduNexus is an independent student learning platform. Check current course requirements with your institution. If you own rights to material that should not be shared, please contact us through the Contact page.</p></article>
+${educationalContext}${relatedLinks}
 <section class="reviews" aria-label="Student reviews"><h2>Student reviews${reviewPage > 1 ? ' — page ' + reviewPage : ''}</h2>
 ${renderedReviews}${pagination}<a href="${h(reviewUrl)}">Read and write reviews in Academic Hub</a></section></main>
 <footer class="site-footer"><p>© EduNexus · Independent student study resources</p><nav aria-label="Footer links"><a href="/?page=academic">Academic Hub</a><a href="/?page=about">About</a><a href="/?page=contact">Contact</a><a href="/?page=privacy">Privacy Policy</a><a href="/?page=terms">Terms of Service</a></nav></footer></body></html>`);
