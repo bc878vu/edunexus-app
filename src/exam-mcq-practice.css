@@ -69,14 +69,22 @@
 .edx-exam .edx-practice-question .edx-exam-option.correct>span{color:#145c37!important;background:#d2f1df!important}
 .edx-exam .edx-practice-question .edx-exam-option.incorrect>span{color:#912c3d!important;background:#f9d7dc!important}
 .dark .edx-exam .edx-practice-question .edx-exam-option.correct,
-.dark .edx-exam .edx-practice-question .edx-exam-option.correct:disabled{background:#153d2e!important;color:#c3f8d9!important;-webkit-text-fill-color:#c3f8d9!important;border-color:#30885f!important}
+.dark .edx-exam .edx-practice-question .edx-exam-option.correct:disabled,
+.edx-exam.edx-exam-dark .edx-practice-question .edx-exam-option.correct,
+.edx-exam.edx-exam-dark .edx-practice-question .edx-exam-option.correct:disabled{background:#153d2e!important;color:#c3f8d9!important;-webkit-text-fill-color:#c3f8d9!important;border-color:#30885f!important}
 .dark .edx-exam .edx-practice-question .edx-exam-option.incorrect,
-.dark .edx-exam .edx-practice-question .edx-exam-option.incorrect:disabled{background:#4a2029!important;color:#ffe2e6!important;-webkit-text-fill-color:#ffe2e6!important;border-color:#ac5567!important}
-.dark .edx-exam .edx-practice-question .edx-exam-option.correct>span{color:#c3f8d9!important;background:#20523c!important}
-.dark .edx-exam .edx-practice-question .edx-exam-option.incorrect>span{color:#ffe2e6!important;background:#70303e!important}
+.dark .edx-exam .edx-practice-question .edx-exam-option.incorrect:disabled,
+.edx-exam.edx-exam-dark .edx-practice-question .edx-exam-option.incorrect,
+.edx-exam.edx-exam-dark .edx-practice-question .edx-exam-option.incorrect:disabled{background:#4a2029!important;color:#ffe2e6!important;-webkit-text-fill-color:#ffe2e6!important;border-color:#ac5567!important}
+.dark .edx-exam .edx-practice-question .edx-exam-option.correct>span,
+.edx-exam.edx-exam-dark .edx-practice-question .edx-exam-option.correct>span{color:#c3f8d9!important;background:#20523c!important}
+.dark .edx-exam .edx-practice-question .edx-exam-option.incorrect>span,
+.edx-exam.edx-exam-dark .edx-practice-question .edx-exam-option.incorrect>span{color:#ffe2e6!important;background:#70303e!important}
 .edx-exam .edx-practice-inline-result{font-size:.81rem;line-height:1.5;margin:12px 0 0;color:var(--ex-muted)}
 .edx-exam .edx-practice-inline-result.is-right{color:#14804b}.edx-exam .edx-practice-inline-result.is-wrong{color:#bd364c}
-.dark .edx-exam .edx-practice-inline-result.is-right{color:#9ae6b4}.dark .edx-exam .edx-practice-inline-result.is-wrong{color:#ffabb8}
+.dark .edx-exam .edx-practice-inline-result.is-right,
+.edx-exam.edx-exam-dark .edx-practice-inline-result.is-right{color:#9ae6b4}.dark .edx-exam .edx-practice-inline-result.is-wrong,
+.edx-exam.edx-exam-dark .edx-practice-inline-result.is-wrong{color:#ffabb8}
 .edx-exam .edx-practice-ai{padding:11px 13px;gap:5px;margin-top:10px;background:var(--ex-card);color:var(--ex-ink);border-color:var(--ex-line)}
 .edx-exam .edx-practice-ai p{font-size:.82rem;line-height:1.58;color:var(--ex-ink);margin:0;max-width:100%}
 .edx-exam .edx-practice-setup{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end;min-width:0}
