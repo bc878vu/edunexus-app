@@ -61,9 +61,8 @@ export function validateMcq(item, index = 0, { forImport = false } = {}) {
   }
   if (item.explanation != null && typeof item.explanation !== 'string') fail('explanation must be a string.');
   let explanation = String(item.explanation || '').trim();
-  // A deliberate admin category override takes precedence over old textual
-  // references like 'Quiz 1' in notes, without altering those source notes.
-  if (category !== 'quiz') explanation = explanation.replace(/^\[EduNexus (?:Midterm|Finalterm)\]\s*/, '');
+  // Explicit non-Quiz markers must remain in Firestore: older notes may
+  // mention Quiz 1 even when the administrator reclassified this question.
   if (category === 'quiz') {
     const originalOrder = orderOf(item);
     explanation = stripQuizMarker(explanation).replace(outdatedTag, '').trim();
