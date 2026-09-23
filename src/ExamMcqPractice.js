@@ -3,7 +3,8 @@ import { collection, doc, getDoc, limit, onSnapshot, query, setDoc, updateDoc, w
 import { AlertTriangle, BookOpen, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
-import { categoryOf } from './examMcqImport';
+import { categoryOf, quizSetOf } from './examMcqImport';
+import { explanationForStudent, explanationPrompt, plainFeedback } from './examAnswerFeedback';
 import { CATEGORY_NAMES, isVerifiedAnswer, orderedQuestions, practiceStats, progressKey, QUESTION_LIMIT, sanitizeProgress } from './examPractice';
 import './exam-mcq-practice.css';
 
@@ -26,8 +27,7 @@ const explain = (question) => String(question?.explanation || '')
 function QuestionReview({ question, selected, onSelect, number, total, onPrevious, onNext, onFinish, onAskAI, aiBusy, aiError, aiAnswer }) {
   const answered = Number.isInteger(selected);
   const verified = isVerifiedAnswer(question);
-  const flagged = !verified;
-  const status = !answered ? '' : verified ? selected === question.answer ? 'Correct' : 'Incorrect' : 'Answer recorded · awaiting verification';
+  const status = !answered ? '' : verified ? selected === question.answer ? 'Correct answer ✓' : 'Incorrect answer' : 'Answer saved';
   return <section className="edx-exam-card edx-exam-question edx-practice-question" aria-label={'Question ' + number}>
     <div className="edx-exam-between"><span className="edx-exam-eyebrow">Question {number} of {total}</span><span className="edx-exam-pill">{question.subject} · {CATEGORY_NAMES[categoryOf(question)] || 'Practice'}</span></div>
     <div className="edx-exam-progress"><span style={{ width: (number / total * 100) + '%' }}/></div>
@@ -42,21 +42,23 @@ function QuestionReview({ question, selected, onSelect, number, total, onPreviou
         className={'edx-exam-option' + state} aria-pressed={selected === i}
         onClick={() => onSelect(question.id, i)}><span>{String.fromCharCode(65 + i)}</span>{option}</button>;
     })}</div>
-    {flagged && <div className="edx-practice-caution" role="note"><AlertTriangle size={18}/>
-      <span>Answer key is provisional or conflicting. EduNexus will not mark an option as correct or include this question in your verified score until its answer is reviewed.</span></div>}
-    {answered && <div className="edx-exam-feedback" role="status"><strong>{status}</strong>
-      {verified ? <p>Stored correct option: {String.fromCharCode(65 + question.answer)}. {explain(question)}</p> :
-        <p>Your choice: {String.fromCharCode(65 + selected)}. The uploaded source did not establish a reliable answer. {explain(question)}</p>}
+    {answered && <div className={'edx-exam-feedback edx-practice-answer-' + (verified ? selected === question.answer ? 'right' : 'wrong' : 'pending')} role="status">
+      <strong>{status}</strong>
+      {verified ? <>
+        {selected !== question.answer && <p><strong>Your selection:</strong> {String.fromCharCode(65 + selected)} — {question.options[selected]}. <strong>Verified answer:</strong> {String.fromCharCode(65 + question.answer)} — {question.options[question.answer]}.</p>}
+        <p><strong>Why the correct choice fits:</strong> {explanationForStudent(question) || 'See the short AI explanation below for this question.'}</p>
+        {selected !== question.answer && <p><strong>Why your option is wrong:</strong> The selected choice does not match the administrator-reviewed answer for this question. The question-specific AI explanation appears below.</p>}
+      </> : <p className="edx-practice-pending-note">Your choice has been saved. A reliable answer key has not yet been confirmed for this question, so its correctness is not assessed. {explanationForStudent(question)}</p>}
     </div>}
     <div className="edx-practice-actions"><button type="button" className="edx-exam-secondary" onClick={onPrevious} disabled={number === 1}><ChevronLeft size={16}/> Previous</button>
       <button type="button" className="edx-exam-secondary" onClick={onAskAI} disabled={aiBusy}><BrainCircuit size={16}/>{aiBusy ? 'Explaining…' : 'Ask AI about this question'}</button>
       <button type="button" className="edx-exam-primary" onClick={onNext} disabled={number === total}>Next <ChevronRight size={16}/></button></div>
     {(aiBusy || aiError || aiAnswer) && <section className="edx-practice-ai" aria-live="polite">
-      <strong><BrainCircuit size={17}/> AI study explanation · not an official answer key</strong>
+      <strong><BrainCircuit size={17}/> Short AI explanation for this question</strong>
       {aiBusy && <p>Preparing a study explanation…</p>}
       {aiError && <p role="alert">{aiError}</p>}
       {aiAnswer && <p>{aiAnswer}</p>}
-      <small>AI can make mistakes. Its suggestions do not change your answers, stored answer key or score.</small>
+      <small>AI explanations are learning aids and can be wrong; only the administrator-reviewed key determines verified score.</small>
     </section>}
     <button type="button" className="edx-exam-secondary edx-practice-finish-bottom" onClick={onFinish}>Finish now · see my score</button>
   </section>;
@@ -112,6 +114,8 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   const [search, setSearch] = useState('');
   const [ai, setAi] = useState({ id: null, busy: false, answer: '', error: '' });
   const [sourceChanges, setSourceChanges] = useState({});
+  const [quizSet, setQuizSet] = useState('all');
+  const [quizSets, setQuizSets] = useState([]);
   const sessionRef = useRef(0);
   const writeTimer = useRef(null);
   const pendingCloud = useRef(null);
@@ -119,7 +123,8 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   // Anonymous Firebase UIDs can rotate after browser/session restart. Use a
   // stable device-local key for guest progress; signed-in students remain
   // isolated by their authenticated UID for private cloud syncing.
-  const recordKey = progressKey(subject, term, user?.isAnonymous ? 'guest' : (user?.uid || 'guest'));
+  const recordKey = progressKey(subject, term, user?.isAnonymous ? 'guest' : (user?.uid || 'guest')) + (term === 'quiz' && quizSet !== 'all' ? ':set:' + quizSet : '');
+  const cloudProgressId = subject + '_' + term + (term === 'quiz' && quizSet !== 'all' ? '_set_' + quizSet : '');
   const eligible = validSubject(subject);
   const actualQuestions = useMemo(() => questions.map(q => sourceChanges[q.id] || q), [questions, sourceChanges]);
   const index = Math.max(0, actualQuestions.findIndex(q => q.id === currentId));
@@ -150,7 +155,10 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       collection(db, ...MCQS), where('subject', '==', subject), limit(QUESTION_LIMIT)
     ), async snapshot => {
       if (sessionRef.current !== session) return;
-      const ordered = orderedQuestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })), term);
+      const all = orderedQuestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })), term);
+      if (term === 'quiz') setQuizSets([...new Set(all.map(quizSetOf))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})));
+      else setQuizSets([]);
+      const ordered = term === 'quiz' && quizSet !== 'all' ? all.filter(q => quizSetOf(q) === quizSet) : all;
       setQuestions(ordered);
       setLimited(snapshot.docs.length >= QUESTION_LIMIT);
       setLoadError('');
@@ -161,7 +169,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       if (user?.uid) {
         try {
           const saved = await getDoc(doc(db, 'artifacts', 'edunexus-live', 'users',
-            user.uid, 'examProgress', subject + '_' + term));
+            user.uid, 'examProgress', cloudProgressId));
           if (saved.exists()) cloud = saved.data();
         } catch (_) {
           if (sessionRef.current === session)
@@ -190,7 +198,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       }
       sessionRef.current++;
     };
-  }, [subject, term, refresh, user?.uid, recordKey, eligible]);
+  }, [subject, term, quizSet, refresh, user?.uid, recordKey, cloudProgressId, eligible]);
 
   const save = useCallback((nextAnswers, nextId, nextFinished) => {
     if (restoring || !actualQuestions.length) return;
@@ -203,7 +211,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const session = sessionRef.current;
     if (user?.uid) {
       pendingCloud.current = { ref: doc(db, 'artifacts', 'edunexus-live', 'users', user.uid,
-        'examProgress', subject + '_' + term), payload };
+        'examProgress', cloudProgressId), payload };
       writeTimer.current = setTimeout(async () => {
         const queued = pendingCloud.current;
         pendingCloud.current = null;
@@ -217,12 +225,13 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
         }
       }, 650);
     } else { pendingCloud.current = null; setSaveStatus(localSaved ? 'Saved on this device. Sign in to sync between devices.' : 'Could not save progress. Enable browser storage.'); }
-  }, [restoring, actualQuestions.length, recordKey, subject, term, user?.uid]);
+  }, [restoring, actualQuestions.length, recordKey, subject, term, cloudProgressId, user?.uid]);
 
   const select = (id, option) => {
     if (finished || answers[id] !== undefined) return;
     const next = { ...answers, [id]: option };
     setAnswers(next); save(next, id, false);
+    void askAI(option);
   };
   const goTo = (target, resume = false) => {
     if (!target) return;
@@ -239,26 +248,29 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     setCurrentId(actualQuestions[0]?.id || null);
     save({}, actualQuestions[0]?.id || null, false);
   };
-  const askAI = async () => {
+  const askAI = async (selectedOption = null) => {
     if (!current || ai.busy) return;
     const questionId = current.id;
+    const selectedValue = Number.isInteger(selectedOption) ? selectedOption : answers[questionId];
     setAi({ id: questionId, busy: true, answer: '', error: '' });
-    const optionText = current.options.map((x, i) => String.fromCharCode(65+i) + ': ' + x).join('\n');
-    const prompt = 'You are a careful educational tutor. Explain the underlying concept for this practice MCQ; do not assume that a stored answer is true. If ambiguous or uncertain, state that plainly. Never claim you verified source handouts. Keep the response to 150 words. This is study material, not a live exam.\nQuestion: ' +
-      current.question.slice(0, 1000) + '\nOptions:\n' + optionText.slice(0, 1400);
+    const prompt = explanationPrompt(current, selectedValue);
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 25000);
+      const timer = setTimeout(() => controller.abort(), 24000);
       let response;
       try {
         response = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt }), signal: controller.signal });
       } finally { clearTimeout(timer); }
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || typeof data.text !== 'string' || !data.text.trim()) throw new Error('AI explanation is unavailable. Try again later.');
-      if (sessionRef.current && currentId === questionId) setAi({ id: questionId, busy: false, answer: data.text.slice(0, 1800), error: '' });
+      if (!response.ok || typeof data.text !== 'string' || !data.text.trim())
+        throw new Error('AI explanation is unavailable.');
+      if (currentId === questionId)
+        setAi({ id: questionId, busy: false, answer: plainFeedback(data.text), error: '' });
     } catch (_) {
-      if (currentId === questionId) setAi({ id: questionId, busy: false, answer: '', error: 'AI study help is currently unavailable. You can continue the quiz without it.' });
+      if (currentId === questionId)
+        setAi({ id: questionId, busy: false, answer: '',
+          error:'AI explanation is temporarily unavailable; your answer and progress are saved.' });
     }
   };
 
@@ -277,6 +289,11 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
         <select value={subject} onChange={(e) => onSubjectChange(e.target.value)}>
           {[...new Set([subject, ...subjects])].filter(Boolean).map(code => <option key={code} value={code}>{code}</option>)}
         </select></label>
+      {term === 'quiz' && quizSets.length > 1 && <label className="edx-exam-field">Quiz set
+        <select value={quizSet} onChange={e=>setQuizSet(e.target.value)}>
+          <option value="all">All quizzes ({quizSets.length} sets)</option>
+          {quizSets.map(set=><option value={set} key={set}>{set}</option>)}
+        </select></label>}
       <label className="edx-exam-field">Search questions <span className="edx-practice-search"><Search size={17}/>
         <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Find a question or topic…"/></span></label>
       <div className="edx-practice-toolbar-right"><span className="edx-exam-pill">{CATEGORY_NAMES[term] || term}</span><span className="edx-exam-pill">Answered: {stats.answered}/{actualQuestions.length}</span>
