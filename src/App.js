@@ -99,6 +99,7 @@ import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, adminLoginStarted,
 const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
+const AdminAcademicReviews = React.lazy(() => import('./AdminAcademicReviews'));
 const EduBotAssistant = React.lazy(() => import('./EduBotAssistant'));
 
 // --- Configuration (YOUR KEYS) ---
@@ -3436,7 +3437,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
       <div className="animate-slide-up">
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'highlights' && <HighlightsTab />}
-        {activeTab === 'academic' && <AcademicTab theme={theme} user={user} showToast={showToast} />}
+        {activeTab === 'academic' && <><AcademicTab theme={theme} user={user} showToast={showToast} /><React.Suspense fallback={<p>Loading file review management…</p>}><AdminAcademicReviews user={user} /></React.Suspense></>}
         {activeTab === 'exam' && <React.Suspense fallback={<p>Loading Exam Prep management…</p>}><ExamPrepHub user={user} initialTab="admin" adminWorkspace isDark={isDark} /></React.Suspense>}
         {activeTab === 'blog' && <BlogTab />}
        {activeTab === 'forum' && (
@@ -4544,9 +4545,11 @@ useEffect(() => {
   const initialUrl =
     initialPage === 'home'
       ? basePath
-      : initialPage === 'academic' && params.get('subject')
-        ? `${basePath}?page=academic&subject=${encodeURIComponent(params.get('subject'))}`
-        : `${basePath}?page=${initialPage}`;
+      : initialPage === 'academic' && params.get('file')
+        ? `${basePath}?page=academic&file=${encodeURIComponent(params.get('file'))}${params.get('panel') === 'reviews' ? '&panel=reviews' : ''}`
+        : initialPage === 'academic' && params.get('subject')
+          ? `${basePath}?page=academic&subject=${encodeURIComponent(params.get('subject'))}`
+          : `${basePath}?page=${initialPage}`;
 
   window.history.replaceState(
     { page: initialPage },

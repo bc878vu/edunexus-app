@@ -28,6 +28,14 @@
   ],
   "rewrites": [
     {
+      "source": "/resource-sitemap.xml",
+      "destination": "/api/resource-sitemap"
+    },
+    {
+      "source": "/vu-notes/file/:id/:slug",
+      "destination": "/api/resource-page?id=:id&slug=:slug"
+    },
+    {
       "source": "/vu-notes",
       "destination": "/index.html"
     },
