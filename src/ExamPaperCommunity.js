@@ -274,7 +274,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
     setAllSubjects(false);
     setBrowseTerm(String(item.term||'').toLowerCase()==='finalterm'?'finalterm':'midterm');
     setReuseDraft({ ...item, reuseId: item.id + '-' + Date.now() });
-    document.getElementById('edx-paper-share-title')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    document.getElementById('edx-paper-share-title')?.scrollIntoView?.({ behavior:'smooth', block:'start' });
   };
   const onSuccessfullyPublished = (code, examTerm) => {
     setBrowseSubject(code);
