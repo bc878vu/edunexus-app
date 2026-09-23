@@ -53,22 +53,29 @@ export async function listPublicFiles(maxPages = 30) {
   }
   return result;
 }
-export async function listApprovedReviews(id) {
-  if (!validId(id)) return [];
-  const url = new URL(ENDPOINT + ROOT + '/' + encodeURIComponent(id) + '/reviews');
-  url.searchParams.set('key', API_KEY);
-  url.searchParams.set('pageSize', '100');
-  // Rules permit list queries constrained by status; public REST collection listing
-  // does not express a where-clause, so use runQuery with a server-side predicate.
+// Each page shows complete, unabridged reviews. Pagination prevents very long
+// user submissions from producing unbounded HTML and keeps all pages crawlable.
+export async function listApprovedReviews(id, page = 1, pageSize = 20) {
+  if (!validId(id) || !Number.isSafeInteger(page) || page < 1 || page > 1000) {
+    return { items: [], hasMore: false };
+  }
   const queryUrl = ENDPOINT + ROOT + '/' + encodeURIComponent(id) + ':runQuery?key=' + encodeURIComponent(API_KEY);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    const response = await fetch(queryUrl, { method: 'POST', signal: controller.signal,
+    const structuredQuery = {
+      from: [{ collectionId: 'reviews' }],
+      where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'approved' } } },
+      limit: pageSize + 1
+    };
+    if (page > 1) structuredQuery.offset = (page - 1) * pageSize;
+    const response = await fetch(queryUrl, {
+      method: 'POST', signal: controller.signal,
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'reviews' }],
-        where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'approved' } } }, limit: 50 } }) });
-    if (!response.ok) return [];
-    return (await response.json()).filter((row) => row.document).map((row) => decodeDoc(row.document));
-  } catch (_) { return []; } finally { clearTimeout(timer); }
+      body: JSON.stringify({ structuredQuery })
+    });
+    if (!response.ok) throw new Error('Public review query failed: HTTP ' + response.status);
+    const rows = (await response.json()).filter((row) => row.document).map((row) => decodeDoc(row.document));
+    return { items: rows.slice(0, pageSize), hasMore: rows.length > pageSize };
+  } finally { clearTimeout(timer); }
 }
