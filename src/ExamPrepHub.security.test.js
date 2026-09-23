@@ -19,6 +19,7 @@ jest.mock('firebase/firestore', () => ({
 jest.mock('./ExamMcqPractice', () => () => <div>Public exam practice</div>);
 jest.mock('./ExamPaperCommunity', () => () => <div>Student paper reviews</div>);
 jest.mock('./McqBulkImporter', () => () => <div>Secure MCQ uploader</div>);
+jest.mock('./ExamMcqAdminManager', () => () => <div>Verified admin question manager</div>);
 
 const admin = { uid: 'valid-uid', email: ADMIN_EMAIL, emailVerified: true, isAnonymous: false };
 beforeEach(() => {

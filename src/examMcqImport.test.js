@@ -1,4 +1,4 @@
-import { categoryOf, isQuizSource, orderOf, parseMcqJson, summarizeImport, validateMcq } from './examMcqImport';
+import { categoryOf, isQuizSource, orderOf, quizSetOf, parseMcqJson, summarizeImport, validateMcq } from './examMcqImport';
 
 const base = (overrides = {}) => ({
   subject: 'CS620', term: 'midterm',
@@ -38,7 +38,7 @@ test('accepts one 42-question JSON file but rejects oversized batches and invali
   const parsed = parseMcqJson(JSON.stringify(items));
   expect(parsed).toHaveLength(42);
   expect(summarizeImport(parsed)).toMatchObject({ count:42, totals:{quiz:42,midterm:0,finalterm:0}, subjects:['CS620'] });
-  expect(() => parseMcqJson(JSON.stringify(Array.from({ length:51 }, (_, i) => base({ question:'Q '+i }))))).toThrow(/1–50/);
+  expect(() => parseMcqJson(JSON.stringify(Array.from({ length:201 }, (_, i) => base({ question:'Q '+i }))))).toThrow(/1–200/);
   expect(() => parseMcqJson('[{"broken"')).toThrow(/Invalid JSON/);
 });
 test('counts provisional answers and conflicting solved source keys before publishing', () => {
@@ -47,4 +47,32 @@ test('counts provisional answers and conflicting solved source keys before publi
     base({ explanation:'Solved Quiz 1 (20 questions). The conflict requires confirmation.' })
   ];
   expect(summarizeImport(items)).toMatchObject({ provisional:1, answerConflicts:1, totals:{quiz:2,midterm:0,finalterm:0} });
+});
+
+test('200-question batch can contain multiple independently named quizzes with original relative order', () => {
+  const items = [
+    base({term:'quiz',explanation:'',quizSet:'Quiz 1',question:'Q1'}),
+    base({term:'quiz',explanation:'',quizSet:'Quiz 1',question:'Q2'}),
+    base({term:'quiz',explanation:'',quizSet:'Quiz 2',question:'Q1 again'})
+  ];
+  const normalized = items.map((item,i)=>validateMcq(item,i,{forImport:true}));
+  expect(normalized.map(quizSetOf)).toEqual(['QUIZ-1','QUIZ-1','QUIZ-2']);
+  expect(normalized.map(orderOf)).toEqual([1,2,3]);
+  expect(normalized.every(q=>q.term==='midterm')).toBe(true);
+  expect(parseMcqJson(JSON.stringify(Array.from({length:200}, (_,i) => ({...items[0],question:'Q '+i}))))).toHaveLength(200);
+});
+test('legacy Quiz 1 source remains a separately named set', () => {
+  const item=validateMcq(base(),0,{forImport:true});
+  expect(quizSetOf(item)).toBe('QUIZ-1');
+});
+
+test('explicit admin Midterm/Finalterm category assignment survives legacy Quiz mentions in notes', () => {
+  const originallyQuiz = base({ term:'quiz', quizSet:'Quiz 1' });
+  const mid = validateMcq({...originallyQuiz,term:'midterm',explanation:'[EduNexus Midterm] '+originallyQuiz.explanation});
+  const fin = validateMcq({...originallyQuiz,term:'finalterm',explanation:'[EduNexus Finalterm] '+originallyQuiz.explanation});
+  expect(mid.term).toBe('midterm');
+  expect(fin.term).toBe('finalterm');
+  expect(categoryOf(mid)).toBe('midterm');
+  expect(categoryOf(fin)).toBe('finalterm');
+  expect(mid.explanation).toContain('Solved Quiz 1');
 });

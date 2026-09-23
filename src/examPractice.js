@@ -1,4 +1,4 @@
-import { categoryOf, orderOf } from './examMcqImport';
+import { categoryOf, orderOf, quizSetOf } from './examMcqImport';
 
 export const CATEGORY_NAMES = { quiz: 'Quiz', midterm: 'Midterm', finalterm: 'Finalterm' };
 export const QUESTION_LIMIT = 1000;
@@ -19,6 +19,8 @@ export function orderedQuestions(items, term) {
   // sequence; older items have deterministic createdAt/id tie breakers.
   return valid.sort((a, b) => {
     if (term === 'quiz') {
+      const group = quizSetOf(a).localeCompare(quizSetOf(b), undefined, {numeric:true});
+      if (group !== 0) return group;
       const aOrder = orderOf(a), bOrder = orderOf(b);
       if (aOrder !== null && bOrder !== null && aOrder !== bOrder) return aOrder - bOrder;
       if (aOrder !== null && bOrder === null) return -1;

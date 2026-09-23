@@ -9,6 +9,7 @@ import { adminPanelAccess } from './adminSession';
 import "./exam-prep-hub.css";
 const ExamPaperCommunity = React.lazy(() => import("./ExamPaperCommunity"));
 const McqBulkImporter = React.lazy(() => import("./McqBulkImporter"));
+const ExamMcqAdminManager = React.lazy(() => import("./ExamMcqAdminManager"));
 const ExamMcqPractice = React.lazy(() => import("./ExamMcqPractice"));
 
 const ROOT = ["artifacts", "edunexus-live", "public", "data"];
@@ -33,7 +34,7 @@ const safeUrl = (value) => {
   } catch (_) { return ""; }
 };
 const SUBJECTS = ["CS620", "CS101", "CS201", "CS301", "CS302", "CS304", "CS401", "CS403", "CS510", "CS511", "CS601", "CS604", "CS610", "ENG101", "ENG201", "MGT101", "MGT201", "MTH101", "MTH202", "MTH601", "PHY101", "STA301"];
-const EMPTY_MCQ = { subject: "CS101", term: "finalterm", question: "", options: ["", "", "", ""], answer: 0, explanation: "", verificationSource: "" };
+const EMPTY_MCQ = { subject: "CS101", term: "finalterm", quizSet:"GENERAL-QUIZ", question: "", options: ["", "", "", ""], answer: 0, explanation: "", verificationSource: "" };
 
 const databaseReadError = (error, resource) => error?.code === "permission-denied"
   ? `${resource} temporarily unavailable: the database denied access. The website administrator must publish the updated Firestore rules.`
@@ -122,6 +123,7 @@ function AdminTools({ user, onView }) {
       <button type="button" className="edx-exam-secondary" onClick={() => onView?.(lastPublished.subject, lastPublished.term)}>Preview in Admin Panel</button>
     </div>}
     <form className="edx-exam-card edx-exam-form" onSubmit={addOne}><h3>Add an MCQ</h3><div className="edx-exam-form-grid"><CourseSelector value={draft.subject} onChange={(value) => setDraft((v) => ({ ...v, subject: value }))} /><TermSelector includeQuiz value={draft.term} onChange={(value) => setDraft((v) => ({ ...v, term: value }))} /></div>
+      {draft.term === "quiz" && <label className="edx-exam-field">Quiz set / category<input maxLength={40} value={draft.quizSet} placeholder="QUIZ-1" onChange={(e) => setDraft((v) => ({...v,quizSet:e.target.value}))}/></label>}
       <label className="edx-exam-field">Question<textarea rows={2} maxLength={1000} required value={draft.question} onChange={(e) => setDraft((v) => ({ ...v, question: e.target.value }))} /></label>
       {draft.options.map((option, i) => <label className="edx-exam-field" key={i}>Option {String.fromCharCode(65 + i)}<input required maxLength={350} value={option} onChange={(e) => setDraft((v) => ({ ...v, options: v.options.map((x, j) => i === j ? e.target.value : x) }))} /></label>)}
       <label className="edx-exam-field">Correct option<select value={draft.answer} onChange={(e) => setDraft((v) => ({ ...v, answer: Number(e.target.value) }))}>{draft.options.map((_, i) => <option key={i} value={i}>{String.fromCharCode(65 + i)}</option>)}</select></label>
@@ -130,6 +132,7 @@ function AdminTools({ user, onView }) {
       <button className="edx-exam-primary" disabled={busy}>Publish MCQ</button>
     </form>
     <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading JSON importer…</section>}><McqBulkImporter user={user} onView={onView}/></React.Suspense>
+    <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading question manager…</section>}><ExamMcqAdminManager user={user} initialSubject={draft.subject}/></React.Suspense>
     <section className="edx-exam-card edx-exam-form"><div className="edx-exam-between"><h3>Legacy pending paper reviews ({pending.filter((r) => r.status === "pending").length})</h3><button className="edx-exam-secondary" onClick={reload} disabled={busy}>Refresh</button></div>
       {pending.filter((r) => r.status === "pending").map((r) => <div className="edx-exam-pending" key={r.id}><p><strong>{safe(r.subject, 12)} · {safe(r.term, 10)} · {safe(r.examDate, 10)}</strong></p><p>{safe(r.topics, 400)}</p><p>{safe(r.summary, 1500)}</p><div className="edx-exam-actions"><button className="edx-exam-primary" disabled={busy} onClick={() => moderate(r, true)}>Approve</button><button className="edx-exam-secondary" disabled={busy} onClick={() => moderate(r, false)}>Reject</button></div></div>)}
       {!pending.some((r) => r.status === "pending") && <p>No pending reviews in the latest 100 submissions.</p>}
