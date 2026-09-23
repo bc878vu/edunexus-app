@@ -101,8 +101,14 @@ test('file pages include responsive full navbar, genuine complete reviews and no
     assert.match(res.body, /class="desktop-links"/);
     assert.match(res.body, /class="mobile-menu"/);
     assert.match(res.body, /aria-label="Mobile navigation"/);
-    assert.match(res.body, /"aggregateRating"/);
-    assert.match(res.body, /"reviewCount":1/);
+    // Google does not support Review snippets on LearningResource parent nodes.
+    // Keep authentic ratings in HTML without fabricating Course/Product schema.
+    const schema = JSON.parse(res.body.match(/<script type="application\\/ld\\+json">([\\s\\S]*?)<\\/script>/)[1]);
+    assert.equal(schema['@type'], 'LearningResource');
+    assert.equal(schema.review, undefined);
+    assert.equal(schema.aggregateRating, undefined);
+    assert.match(res.body, /aria-label="4 out of 5 stars"/);
+    assert.match(res.body, /Student review/);
     assert.ok(res.body.includes(escapeHtml(longReview)), 'The full review should not be truncated');
     assert.doesNotMatch(res.body, /<not markup>/);
     assert.match(res.body, /Privacy Policy/);
