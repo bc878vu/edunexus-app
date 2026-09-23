@@ -2562,7 +2562,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
 
 
 
-const AdminPanel = ({ theme, user, showToast }) => { 
+const AdminPanel = ({ theme, user, showToast, isDark = false }) => { 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [feedbacks, setFeedbacks] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
@@ -4747,6 +4747,7 @@ useEffect(() => {
             theme={theme}
             user={user}
             showToast={showToast}
+            isDark={isDark}
           />
         )}
         {page === 'admin' && !adminAuthorized && (
