@@ -2237,6 +2237,8 @@ const AcademicTab = ({ theme, user, showToast }) => {
   const [editName, setEditName] = useState('');
   const [editSubject, setEditSubject] = useState('');
   const [uDriveLink, setUDriveLink] = useState("");
+  const [linkRightsBasis, setLinkRightsBasis] = useState("");
+  const [linkRightsConfirmed, setLinkRightsConfirmed] = useState(false);
   const [newFolder, setNewFolder] = useState("");
   const [subjects, setSubjects] = useState(DEFAULT_FOLDERS);
   const [selSubject, setSelSubject] = useState("CS101");
@@ -2307,6 +2309,10 @@ const AcademicTab = ({ theme, user, showToast }) => {
       showToast('Select a subject folder first.', 'error');
       return;
     }
+    if (!linkRightsConfirmed || !linkRightsBasis) {
+      showToast('Confirm the sharing rights of the linked resource before publishing.', 'error');
+      return;
+    }
     setLinkSaving(true);
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'files'), {
@@ -2316,10 +2322,11 @@ const AcademicTab = ({ theme, user, showToast }) => {
         ext: 'LINK',
         isLinkOnly: true,
         uploadedBy: 'Admin',
+        rightsBasis: linkRightsBasis, rightsConfirmed: true, rightsConfirmedAt: serverTimestamp(),
         createdAt: serverTimestamp()
       });
       setUName('');
-      setUDriveLink('');
+      setUDriveLink(''); setLinkRightsBasis(''); setLinkRightsConfirmed(false);
       showToast('Resource link added to the Academic Hub.', 'success');
     } catch (error) {
       showToast('Could not save the link: ' + (error.message || 'Check Firestore permissions.'), 'error');
@@ -2532,7 +2539,13 @@ const AcademicTab = ({ theme, user, showToast }) => {
                 Google Drive or resource URL
                 <input type="url" value={uDriveLink} onChange={(e) => setUDriveLink(e.target.value)} placeholder="https://drive.google.com/…" className={`${theme.input} p-3 rounded-xl w-full`} />
               </label>
-              <button type="button" onClick={handleUploadFile} disabled={linkSaving || !uDriveLink.trim()} className="edx-admin-link-submit">
+              <label className={theme.text}>Permission to share this linked resource
+                <select value={linkRightsBasis} onChange={(e)=>setLinkRightsBasis(e.target.value)} className={`${theme.input} p-3 rounded-xl w-full`}>
+                  <option value="">Choose a verified legal basis…</option><option value="original-work">My original work</option><option value="written-permission">Written copyright-holder permission</option><option value="open-license">Redistribution permitted by licence</option><option value="public-domain">Verified public domain</option>
+                </select>
+              </label>
+              <label className={theme.text}><input type="checkbox" checked={linkRightsConfirmed} onChange={(e)=>setLinkRightsConfirmed(e.target.checked)}/> I checked permission for this exact linked file before publishing.</label>
+              <button type="button" onClick={handleUploadFile} disabled={linkSaving || !uDriveLink.trim() || !linkRightsConfirmed || !linkRightsBasis} className="edx-admin-link-submit">
                 {linkSaving ? 'Saving link…' : 'Save resource link'}
               </button>
             </div>
