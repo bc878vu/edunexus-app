@@ -1,40 +1,11 @@
 import { standaloneAdScript, standaloneContentSecurityPolicy } from './ad-support.mjs';
+import { renderNavbar, navStyles } from './site-shell.mjs';
 import { escapeHtml as h, getPublicFile, listPublicFiles, listApprovedReviews, resourcePath, SITE, slugFor, validId } from './resource-data.mjs';
 import { guideForFile, SUBJECT_GUIDES } from './subject-guides.mjs';
 
-// Keep the same destinations and labels as src/App.js's MAIN_ITEMS. This HTML
-// is rendered on the server so search crawlers see actual file/review content.
-const NAV = [
-  ['/', 'Home'],
-  ['/?page=academic', 'Academic Hub'],
-  ['/?page=exam-prep', 'Exam Prep'],
-  ['/?page=cgpa', 'CGPA Calc'],
-  ['/?page=articles', 'Articles'],
-  ['/?page=forum', 'Discussion'],
-  ['/?page=portfolio', 'Portfolio'],
-  ['/?page=about', 'About'],
-  ['/?page=contact', 'Contact']
-];
-const navLinks = (mobile = false) => NAV.map(([url, label]) =>
-  '<a href="' + h(url) + '"' + (label === 'Academic Hub' ? ' aria-current="page"' : '') +
-  '>' + h(label) + '</a>').join('');
-export const navbar = `<header class="site-header"><div class="nav-wrap">
-  <a class="brand" href="/" aria-label="EduNexus home"><span class="brand-icon" aria-hidden="true">🎓</span><span><strong>EduNexus</strong><small>Study Material • Mock Tests • AI Tools</small></span></a>
-  <nav class="desktop-links" aria-label="Main navigation">${navLinks()}</nav>
-  <details class="mobile-menu"><summary aria-label="Open navigation menu">☰ <span>Menu</span></summary><nav aria-label="Mobile navigation">${navLinks(true)}</nav></details>
-</div></header>`;
+export const navbar = renderNavbar('academic');
 export const styles = `:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:light}*{box-sizing:border-box}
 body{margin:0;background:#f6f8ff;color:#172036;line-height:1.65}a{color:#4f46e5}
-.site-header{position:sticky;top:0;z-index:30;background:#171d2d;color:#fff;border-bottom:1px solid #313a54}
-.nav-wrap{max-width:1450px;padding:10px 18px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:22px;min-height:70px}
-.brand{display:flex;gap:12px;align-items:center;flex-shrink:0;text-decoration:none;color:#e0e7ff}.brand-icon{width:43px;height:43px;border-radius:17px;display:grid;place-items:center;background:linear-gradient(125deg,#6366f1,#8b5cf6);font-size:25px}
-.brand strong{display:block;color:#93c5fd;font-size:1.2rem;line-height:1.1;font-weight:850}.brand small{display:block;color:#cbd5e1;font-size:.73rem;margin-top:3px}
-.desktop-links{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:2px}
-.desktop-links a,.mobile-menu nav a{color:#e2e8f0;text-decoration:none;font-weight:650;white-space:nowrap;padding:10px 12px;border-radius:28px;font-size:.9rem}
-.desktop-links a:hover,.mobile-menu nav a:hover{background:#334155}.desktop-links [aria-current=page],.mobile-menu nav [aria-current=page]{background:#6366f1;color:white}
-.mobile-menu{display:none;position:relative}.mobile-menu summary{cursor:pointer;padding:8px 12px;border:1px solid #52607b;border-radius:10px;list-style:none;font-weight:700}.mobile-menu summary::-webkit-details-marker{display:none}
-.mobile-menu nav{position:absolute;right:0;top:calc(100% + 12px);width:min(290px,calc(100vw - 25px));padding:12px;display:grid;gap:4px;background:#1e293b;border:1px solid #64748b;box-shadow:0 12px 30px #0003;border-radius:12px}
-.mobile-menu nav a{display:block}.mobile-menu:not([open]) nav{display:none}
 main{max-width:1000px;margin:32px auto;padding:0 20px}
 .resource,.reviews{background:white;border:1px solid #dce1f0;border-radius:20px;padding:clamp(20px,4vw,38px);box-shadow:0 12px 30px -24px #253366}
 h1{font-size:clamp(1.55rem,3.1vw,2.25rem);line-height:1.28;overflow-wrap:anywhere}h2{font-size:1.35rem}
@@ -48,8 +19,8 @@ p{white-space:pre-wrap;overflow-wrap:anywhere}.meta{color:#4f46e5;font-size:.9re
 .site-footer nav{display:flex;flex-wrap:wrap;gap:14px}.site-footer a{color:#334155}
 a:focus-visible,summary:focus-visible{outline:3px solid #818cf8;outline-offset:3px}
 @media(max-width:1250px){.desktop-links{display:none}.mobile-menu{display:block}}
-@media(max-width:480px){.nav-wrap{padding:8px 12px}.brand small{font-size:.62rem}.brand-icon{width:36px;height:36px}.resource,.reviews{padding:18px}main{margin-top:17px;padding:0 12px}}
-`;
+@media(max-width:480px){.resource,.reviews{padding:18px}main{margin-top:17px;padding:0 12px}}
+${navStyles}`;
 const validReviewPage = (raw) => {
   if (raw == null || raw === '') return 1;
   if (!/^[1-9][0-9]{0,3}$/.test(String(raw))) return null;
