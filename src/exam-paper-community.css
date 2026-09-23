@@ -108,3 +108,9 @@
  .edx-exam .edx-paper-card-actions{display:grid;grid-template-columns:minmax(0,1fr)}
  .edx-exam .edx-paper-card-actions>*{width:100%;min-width:0}
 }
+
+.edx-exam .edx-paper-attachment{display:grid;gap:8px;color:var(--ep-ink);font-weight:750;font-size:.85rem;min-width:0}
+.edx-exam .edx-paper-attachment input{max-width:100%;min-width:0;border:1px dashed var(--ep-border);border-radius:12px;background:var(--ep-surface);color:var(--ep-ink);padding:12px;font-size:.84rem}
+.edx-exam .edx-paper-attachment small{color:var(--ep-muted);font-weight:400;line-height:1.5;overflow-wrap:anywhere}
+.edx-exam .edx-paper-file-link{display:inline-flex;align-items:center;gap:7px;max-width:100%;width:fit-content;overflow-wrap:anywhere;text-decoration:none;border:1px solid var(--ep-border);border-radius:10px;padding:9px 12px;background:var(--ep-soft);color:var(--ep-ink);font-size:.82rem;font-weight:750}
+.edx-exam .edx-paper-file-link:hover{border-color:#818cf8}
