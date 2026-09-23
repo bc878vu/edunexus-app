@@ -92,3 +92,62 @@
 @media(max-width:550px){.edx-exam .edx-practice-setup{grid-template-columns:1fr}.edx-exam .edx-practice-question .edx-exam-option{padding:12px 10px}.edx-exam .edx-practice-question{padding:clamp(13px,4vw,20px)}}
 
 .edx-exam .edx-practice-toolbar>.edx-practice-search-field{grid-column:1/-1;min-width:0}
+
+
+/* Compact, app-like result card: icon and title share a row rather than
+   stacking into a tall desktop banner. The original statistics remain intact. */
+.edx-exam .edx-practice-summary{
+  grid-template-columns:auto minmax(0,1fr);
+  justify-items:stretch;
+  align-items:center;
+  text-align:left;
+  gap:14px 16px;
+}
+.edx-exam .edx-practice-summary>svg{grid-column:1;grid-row:1}
+.edx-exam .edx-practice-summary>h3{grid-column:2;grid-row:1;min-width:0;overflow-wrap:anywhere}
+.edx-exam .edx-practice-summary>.edx-practice-stat-grid,
+.edx-exam .edx-practice-summary>p,
+.edx-exam .edx-practice-summary>.edx-practice-actions{grid-column:1/-1}
+.edx-exam .edx-practice-summary .edx-practice-stat-grid>div{min-height:78px}
+.edx-exam .edx-practice-summary .edx-practice-actions{width:100%;margin-top:4px}
+.edx-exam .edx-practice-question .edx-exam-option:disabled{cursor:default}
+.edx-exam .edx-practice-question .edx-exam-primary:disabled{opacity:.52;cursor:not-allowed}
+.edx-exam .edx-practice .edx-exam-card,
+.edx-exam .edx-practice .edx-exam-field,
+.edx-exam .edx-practice .edx-exam-option{max-width:100%;min-width:0}
+
+@media(max-width:760px){
+  .edx-exam .edx-practice{width:100%;gap:13px;overflow-wrap:anywhere}
+  .edx-exam .edx-practice .edx-exam-card{padding:clamp(14px,4vw,21px);border-radius:17px}
+  .edx-exam .edx-practice .edx-exam-section-title{align-items:flex-start}
+  .edx-exam .edx-practice .edx-exam-section-title h2{font-size:clamp(1.1rem,4.5vw,1.35rem);line-height:1.35}
+  .edx-exam .edx-practice .edx-exam-section-title p{font-size:.82rem;line-height:1.5;margin:5px 0 0}
+  .edx-exam .edx-practice .edx-exam-section-title>svg{width:21px;height:21px}
+  .edx-exam .edx-practice-toolbar{grid-template-columns:minmax(0,1fr);align-items:stretch;gap:12px}
+  .edx-exam .edx-practice-setup{grid-template-columns:minmax(0,1fr);gap:11px}
+  .edx-exam .edx-practice-setup>label,
+  .edx-exam .edx-practice-toolbar>label{grid-column:1/-1;width:100%}
+  .edx-exam .edx-practice-setup :is(input,select),
+  .edx-exam .edx-practice-toolbar :is(input,select){width:100%;max-width:100%;min-width:0}
+  .edx-exam .edx-practice-toolbar-right{gap:7px}
+  .edx-exam .edx-practice-toolbar-right>.edx-exam-primary{margin-left:0;width:100%;min-height:44px}
+  .edx-exam .edx-practice-question h3{font-size:clamp(1rem,4vw,1.12rem);line-height:1.5;margin:15px 0}
+  .edx-exam .edx-practice-question .edx-exam-option{min-height:48px;padding:11px 12px;font-size:.9rem;align-items:center}
+  .edx-exam .edx-practice-question .edx-exam-between{gap:8px}
+  .edx-exam .edx-practice-question .edx-exam-pill{max-width:100%;white-space:normal}
+  .edx-exam .edx-practice-question .edx-practice-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .edx-exam .edx-practice-question .edx-practice-actions button{width:100%;margin:0;min-height:44px;white-space:normal}
+  .edx-exam .edx-practice-question .edx-practice-actions button:last-child{grid-column:1/-1}
+  .edx-exam .edx-practice-summary{grid-template-columns:26px minmax(0,1fr);gap:12px;text-align:left}
+  .edx-exam .edx-practice-summary>svg{width:26px;height:26px}
+  .edx-exam .edx-practice-summary .edx-practice-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .edx-exam .edx-practice-summary .edx-practice-stat-grid>div{min-height:70px;padding:10px 6px}
+  .edx-exam .edx-practice-summary .edx-practice-stat-grid strong{font-size:1.3rem}
+  .edx-exam .edx-practice-summary .edx-practice-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
+  .edx-exam .edx-practice-summary .edx-practice-actions button{width:100%;margin:0;min-height:44px;white-space:normal}
+}
+@media(max-width:380px){
+  .edx-exam .edx-practice-question .edx-practice-actions{grid-template-columns:minmax(0,1fr)}
+  .edx-exam .edx-practice-question .edx-practice-actions button:last-child{grid-column:1}
+  .edx-exam .edx-practice-question .edx-exam-between{align-items:flex-start}
+}
