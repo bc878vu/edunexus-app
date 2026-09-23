@@ -4879,6 +4879,7 @@ useEffect(() => {
         <div className="flex items-center gap-3 pt-2">
           <a
             href="https://github.com/Asad2327"
+            aria-label="EduNexus developer on GitHub"
             target="_blank"
             rel="noreferrer"
             className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
@@ -4887,6 +4888,7 @@ useEffect(() => {
           </a>
           <a
             href="https://www.linkedin.com"
+            aria-label="LinkedIn"
             target="_blank"
             rel="noreferrer"
             className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
