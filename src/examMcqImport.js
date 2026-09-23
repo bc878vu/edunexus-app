@@ -10,22 +10,31 @@ export const isQuizSource = (item) => {
 };
 export const categoryOf = (item) => isQuizSource(item) ? 'quiz' : item?.term;
 export const orderOf = (item) => {
-  const found = String(item?.explanation || '').match(/^\[EduNexus Quiz(?:\|order:([0-9]{4}))?\]/);
+  const found = String(item?.explanation || '').match(/^\[EduNexus Quiz(?:\|set:[A-Z0-9_-]{1,40})?(?:\|order:([0-9]{4}))?\]/);
   return found?.[1] ? Number(found[1]) : null;
 };
 const normalizeCode = (v) => String(v || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 const validCourse = (v) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(v);
-export const MAX_IMPORT = 50;
-export const MAX_JSON_BYTES = 1024 * 1024;
+export const MAX_IMPORT = 200;
+export const MAX_JSON_BYTES = 2 * 1024 * 1024;
+export const quizSetName = value => String(value || '').trim().toUpperCase().replace(/[^A-Z0-9_-]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+export const quizSetOf = item => {
+  if (categoryOf(item) !== 'quiz') return '';
+  const match = String(item?.explanation || '').match(/^\[EduNexus Quiz\|set:([A-Z0-9_-]{1,40})(?:\|order:[0-9]{4})?\]/);
+  if (match) return match[1];
+  const legacy = String(item?.explanation || '').match(/\b(?:solved\s+)?quiz\s*(?:no\.?\s*)?(\d{1,3})\b/i);
+  return legacy ? 'QUIZ-' + legacy[1] : 'GENERAL-QUIZ';
+};
+export const stripQuizMarker = value => String(value || '').replace(/^\[EduNexus Quiz(?:\|set:[A-Z0-9_-]{1,40})?(?:\|order:[0-9]{4})?\]\s*/, '');
 const outdatedTag = /Quiz-practice item listed under Midterm because the site has no Quiz category\./gi;
 export function parseMcqJson(text) {
   if (typeof text !== 'string' || !text.trim()) throw new Error('Paste JSON or choose a .json file to import.');
-  if (text.length > MAX_JSON_BYTES) throw new Error('JSON is too large; use a batch of up to 50 questions.');
+  if (text.length > MAX_JSON_BYTES) throw new Error('JSON is too large; use a batch of up to 200 questions.');
   let parsed;
   try { parsed = JSON.parse(text); }
   catch (error) { throw new Error('Invalid JSON: ' + error.message); }
   if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > MAX_IMPORT) {
-    throw new Error('Provide a JSON array containing 1–50 questions.');
+    throw new Error('Provide a JSON array containing 1–200 questions.');
   }
   return parsed;
 }
@@ -48,8 +57,11 @@ export function validateMcq(item, index = 0, { forImport = false } = {}) {
   if (item.explanation != null && typeof item.explanation !== 'string') fail('explanation must be a string.');
   let explanation = String(item.explanation || '').trim();
   if (category === 'quiz') {
-    explanation = explanation.replace(/^\[EduNexus Quiz(?:\|order:[0-9]{4})?\]\s*/, '').replace(outdatedTag, '').trim();
-    const marker = '[EduNexus Quiz' + (forImport ? '|order:' + String(index + 1).padStart(4, '0') : '') + ']';
+    const originalOrder = orderOf(item);
+    explanation = stripQuizMarker(explanation).replace(outdatedTag, '').trim();
+    const set = quizSetName(item.quizSet || quizSetOf(item));
+    const order = forImport ? index + 1 : originalOrder;
+    const marker = '[EduNexus Quiz' + (set ? '|set:' + set : '') + (order != null ? '|order:' + String(order).padStart(4, '0') : '') + ']';
     explanation = marker + (explanation ? ' ' + explanation : '');
   }
   if (explanation.length > 1000) fail('explanation exceeds the 1000-character Firestore limit.');
