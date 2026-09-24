@@ -10,7 +10,7 @@ const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
 const col = (name) => collection(db, ...ROOT, name);
 const REVIEW_COLLECTION = 'examCommunityReviews';
 const LEGACY_COLLECTION = 'examReviews';
-const safe = (value, max = 1500) => String(value == null ? '' : value).trim().slice(0, max);
+const safe = (value, max = 10000) => String(value == null ? '' : value).trim().slice(0, max);
 const courseCode = (value) => safe(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, '');
 const validCourse = (value) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(value);
 const dateValue = (value) => value && typeof value.toMillis === 'function' ? value.toMillis() : 0;
@@ -20,7 +20,7 @@ const todayLocal = () => {
 };
 const SUBJECTS = ['CS101', 'CS201', 'CS301', 'CS302', 'CS304', 'CS401', 'CS403', 'CS510', 'CS511', 'CS601', 'CS604', 'CS610', 'ENG101', 'ENG201', 'MGT101', 'MGT111', 'MGT201', 'MGT611', 'MTH101', 'MTH202', 'MTH601', 'PHY101', 'STA301'];
 const defaultForm = (subject, term) => ({
-  subject, term, examDate: '', examTime: '', semesterSeason: 'Spring',
+  subject: '', term, examDate: '', examTime: '', semesterSeason: 'Spring',
   semesterYear: new Date().getFullYear(), sharedBy: '', difficulty: 'moderate',
   topics: '', summary: ''
 });
@@ -39,7 +39,7 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
   const saving = useRef(false);
   const fileInput = useRef(null);
   useEffect(() => {
-    setForm((prev) => ({ ...prev, subject, term }));
+    setForm((prev) => ({ ...prev, term }));
   }, [subject, term]);
   useEffect(() => {
     if (!reuseDraft) return;
@@ -60,14 +60,14 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
     if (!user?.uid) { setError('Please sign in to share a review.'); return; }
     const code = courseCode(form.subject);
     const name = safe(form.sharedBy, 60);
-    const summary = safe(form.summary, 1500);
+    const summary = safe(form.summary, 10000);
     if (paper && (paper.size > 5 * 1024 * 1024 || paper.size === 0 || !['application/pdf','image/jpeg','image/png'].includes(paper.type))) {
       setError('Choose a PDF, JPG or PNG file no larger than 5 MB.'); return;
     }
     const examMoment = new Date(form.examDate + 'T' + form.examTime + ':00');
     const futureExam = !Number.isFinite(examMoment.getTime()) || examMoment.getTime() > Date.now();
     if (!validCourse(code) || !form.examDate || !/^([01]\d|2[0-3]):[0-5]\d$/.test(form.examTime)
-      || futureExam || name.length < 2 || summary.length < 20 || summary.length > 1500
+      || futureExam || name.length < 2 || summary.length < 20 || summary.length > 10000
       || !['Spring', 'Fall', 'Summer'].includes(form.semesterSeason)
       || !Number.isInteger(Number(form.semesterYear)) || Number(form.semesterYear) < 2020
       || Number(form.semesterYear) > new Date().getFullYear() + 1 || !agreed) {
@@ -137,7 +137,7 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
         <label>Shared by (display name) <input required minLength={2} maxLength={60} autoComplete="nickname" placeholder="Your name or preferred display name" value={form.sharedBy} onChange={(e) => update('sharedBy', e.target.value)} /></label>
         <label>Exam difficulty <select value={form.difficulty} onChange={(e) => update('difficulty', e.target.value)}><option value="easy">Easy</option><option value="moderate">Moderate</option><option value="challenging">Challenging</option></select></label>
         <label className="edx-paper-full">Main topics (optional) <input maxLength={400} placeholder="e.g. important definitions, lecture topics or general preparation tips" value={form.topics} onChange={(e) => update('topics', e.target.value)} /></label>
-        <label className="edx-paper-full">Your paper experience and study tips <textarea required minLength={20} maxLength={1500} rows={5} placeholder="What topics came up? What would you suggest other students revise?" value={form.summary} onChange={(e) => update('summary', e.target.value)} /><span className="edx-paper-count">{form.summary.length} / 1500</span></label>
+        <label className="edx-paper-full">Your paper experience and study tips <textarea required minLength={20} maxLength={10000} rows={10} placeholder="What topics came up? What would you suggest other students revise?" value={form.summary} onChange={(e) => update('summary', e.target.value)} /><span className="edx-paper-count">{form.summary.length} / 10000</span></label>
       </div>
       <label className="edx-paper-attachment">Attach your completed paper (optional) <input ref={fileInput} type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" disabled={busy} onChange={e=>{const file=e.target.files?.[0] || null; if(file && (file.size>5*1024*1024 || file.size===0 || !["application/pdf","image/jpeg","image/png"].includes(file.type))){setPaper(null);setError("Choose a PDF, JPG or PNG file no larger than 5 MB.");e.target.value="";return;}setError("");setPaper(file);}}/><small>{paper ? paper.name : "PDF, JPG or PNG · Up to 5 MB · Only upload material you are allowed to share."}</small></label>
       <label className="edx-paper-consent"><input type="checkbox" required checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /><span>I have completed this exam, and my review does not disclose confidential or active examination material. I understand that my display name and review will be publicly visible.</span></label>
@@ -147,6 +147,24 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
       {!user && <p className="edx-paper-hint">Waiting for a student session. Reload the page if the button remains disabled.</p>}
     </form>
   </section>;
+}
+
+// React escapes review text. Only http(s) URLs become links; no user HTML is injected.
+const reviewUrlPattern = /https?:\/\/[^\s<>"']+/gi;
+function renderReviewContent(value) {
+  return String(value || '').split('\n').map((line, index) => <React.Fragment key={index}>{index > 0 && <br />}{line.split(reviewUrlPattern).reduce((parts, segment, i, segments) => {
+    parts.push(segment);
+    if (i < segments.length - 1) {
+      const match = line.match(reviewUrlPattern) || [];
+      const raw = match[i];
+      if (raw) {
+        const url = raw.replace(/[.,;!?)]*$/, '');
+        parts.push(<a key={i} href={url} target="_blank" rel="noopener noreferrer nofollow ugc">{url}</a>);
+        parts.push(raw.slice(url.length));
+      }
+    }
+    return parts;
+  }, [])}</React.Fragment>);
 }
 
 function ReviewCard({ review, user }) {
@@ -180,8 +198,8 @@ function ReviewCard({ review, user }) {
   return <article className="edx-paper-card">
     <div className="edx-paper-card-head"><div className="edx-paper-course"><GraduationCap size={18} /><strong>{safe(review.subject, 12)}</strong><span>{review.term === 'midterm' ? 'Midterm' : 'Finalterm'}{review.semester ? ' · ' + safe(review.semester, 20) : ''}</span></div><span className="edx-paper-chip">{legacy ? 'Previous paper' : 'Shared experience'}</span></div>
     <div className="edx-paper-card-meta"><span><CalendarDays size={15} /> {formatExamDate(review.examDate)}</span>{review.examTime && <span><Clock3 size={15} /> {formatExamTime(review.examTime)}</span>}<span><Users size={15} /> {safe(review.sharedBy, 60) || 'Student'}</span><span className="edx-paper-difficulty">{safe(review.difficulty, 20) || 'Unrated'}</span></div>
-    <div className="edx-paper-content"><strong><FileText size={17} /> Paper content & preparation advice</strong>{review.topics && <p className="edx-paper-topics">Topics: {safe(review.topics, 400)}</p>}<p>{safe(review.summary, 1500)}</p>{paperUrl && <a className="edx-paper-file-link" href={paperUrl} target="_blank" rel="noopener noreferrer"><FileText size={16}/> View shared paper ({safe(review.paperName,95) || 'PDF or image'}) <ExternalLink size={14}/></a>}</div>
-    <div className="edx-paper-card-bottom"><span>Shared by a student · Not an official exam paper</span><div className="edx-paper-card-actions"><button type="button" onClick={copy} className="edx-paper-copy"><ClipboardCopy size={16} /> Copy</button><a href={shareLink} target="_blank" rel="noopener noreferrer" className="edx-paper-whatsapp"><Share2 size={16} /> Share on WhatsApp</a></div></div>
+    <div className="edx-paper-content"><strong><FileText size={17} /> Paper content & preparation advice</strong>{review.topics && <p className="edx-paper-topics">Topics: {safe(review.topics, 400)}</p>}<p>{renderReviewContent(review.summary)}</p>{paperUrl && <a className="edx-paper-file-link" href={paperUrl} target="_blank" rel="noopener noreferrer"><FileText size={16}/> View shared paper ({safe(review.paperName,95) || 'PDF or image'}) <ExternalLink size={14}/></a>}</div>
+    <div className="edx-paper-card-bottom"><span>Shared by a student</span><div className="edx-paper-card-actions"><button type="button" onClick={copy} className="edx-paper-copy"><ClipboardCopy size={16} /> Copy</button><a href={shareLink} target="_blank" rel="noopener noreferrer" className="edx-paper-whatsapp"><Share2 size={16} /> Share on WhatsApp</a></div></div>
     <div className="edx-paper-card-secondary"><button type="button" onClick={report} disabled={working}><ShieldAlert size={14} /> Report</button></div>
     {notice && <p className="edx-paper-notice" role="status">{notice}</p>}
   </article>;
@@ -212,7 +230,7 @@ function EarlierSubmissions({ user, onReuse }) {
     {items.map(item => <article key={item.id} className="edx-paper-earlier-row">
       <div><strong>{safe(item.subject,12)} · {String(item.term||'').toLowerCase()==='finalterm' ? 'Finalterm' : 'Midterm'} · {safe(item.examDate,12)}</strong>
         <span>{item.status === 'approved' ? 'Previously approved' : item.status === 'rejected' ? 'Not published' : 'Awaiting publication'}</span>
-        <p>{safe(item.summary,1500)}</p></div>
+        <p>{safe(item.summary,10000)}</p></div>
       <button type="button" className="edx-exam-secondary" onClick={()=>onReuse(item)}>Use this text in a new review</button>
     </article>)}
     {items.length >= 100 && <small>Showing the first 100 submissions for this account.</small>}
@@ -225,7 +243,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
-  const [browseSubject, setBrowseSubject] = useState(subject);
+  const [browseSubject, setBrowseSubject] = useState('');
   const [allSubjects, setAllSubjects] = useState(true);
   const [browseTerm, setBrowseTerm] = useState('all');
   const [reviewSearch, setReviewSearch] = useState('');
@@ -242,7 +260,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
     // Fetch public reviews regardless of the MCQ Bank's selected subject or
     // category. Historical reviews used different subjects/terms and were
     // previously hidden by an exact-match filter.
-    const observe = (name, setItems, key) => onSnapshot(query(col(name), limit(500)),
+    const observe = (name, setItems, key) => onSnapshot(query(col(name)),
       snapshot => {
         if (!active) return;
         setItems(snapshot.docs.map(d => ({ id:d.id,collectionName:name,...d.data() })));
@@ -278,8 +296,8 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
   };
   const onSuccessfullyPublished = (code, examTerm) => {
     setBrowseSubject(code);
-    setAllSubjects(false);
-    setBrowseTerm(examTerm);
+    setAllSubjects(true);
+    setBrowseTerm('all');
     onPublished?.(code,examTerm);
   };
   return <div className="edx-paper">
@@ -307,8 +325,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
       {errors.map(error => <div key={error.key} className="edx-paper-alert" role="alert">{error.message} <button type="button" onClick={()=>setReloadKey(n=>n+1)}>Retry</button></div>)}
       {!loading && !reviews.length && !errors.length && <div className="edx-paper-empty"><MessageCircle size={28}/><h3>{allSubjects?'No published paper reviews yet':'No reviews match these filters'}</h3><p>{allSubjects?'If you shared a review earlier, check Your earlier submissions above.':'Try All subjects, All exam types, or another keyword.'}</p></div>}
       <div className="edx-paper-review-list">{reviews.map(review=><ReviewCard key={review.collectionName+':'+review.id} review={review} user={user}/>)}</div>
-      {(community.length>=500 || legacy.length>=500) && <p>Showing the first 500 reviews per source. Narrow your search if a recent review is missing.</p>}
-      <p className="edx-paper-disclaimer">Student-contributed information is not an official exam paper. Only share material you are allowed to discuss. Reviews containing spam or private exam material may be removed. Sharing and copying are optional.</p>
+      <p className="edx-paper-disclaimer">Only share material you are allowed to discuss. Reviews containing spam or private exam material may be removed.</p>
     </section>
   </div>;
 }
