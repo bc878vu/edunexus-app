@@ -9,7 +9,8 @@ export const SITE = 'https://edunexus.dpdns.org';
 // pathForPage supplies a working ?page= URL for other SPA pages.
 const INDEXABLE_FRIENDLY_PATHS = Object.freeze({
   home: '/', academic: '/vu-notes', articles: '/articles',
-  aiquiz: '/quizzes', cgpa: '/cgpa-calculator'
+  aiquiz: '/quizzes', cgpa: '/cgpa-calculator',
+  forum: '/forum', portfolio: '/portfolio', privacy: '/privacy', terms: '/terms'
 });
 
 export function canonicalPath(page) {
