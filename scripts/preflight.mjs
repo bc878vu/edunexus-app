@@ -66,6 +66,30 @@ if (!rules.includes("request.auth.token.email_verified == true")) {
   failures.push('Firestore rules must require verified admin email for privileged writes.');
 }
 
+// Fail fast on the specific corruption found in Firebase Storage rules.
+// The Storage emulator workflow performs actual compilation and access tests.
+const storageRules = fs.readFileSync('storage.rules', 'utf8');
+const examStart = storageRules.indexOf('match /exam-papers/{userId}/{uploadId}/{fileName} {');
+const catchAllStart = storageRules.indexOf('match /{allPaths=**} {', examStart);
+const examRules = examStart >= 0 && catchAllStart > examStart
+  ? storageRules.slice(examStart, catchAllStart) : '';
+if ((storageRules.match(/match \/\{allPaths=\*\*\} \{/g) || []).length !== 1
+  || !examRules.includes("uploadId.matches('^[a-z0-9_]{8,32}$')")
+  || !examRules.includes("fileName.matches('^[A-Za-z0-9._-]{1,95}$')")
+  || !examRules.includes('resource == null')
+  || !examRules.includes('request.auth.uid == userId')
+  || !examRules.includes('request.resource.size <= 5 * 1024 * 1024')
+  || !examRules.includes("request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png']")
+  || !examRules.includes('allow update: if false;')) {
+  failures.push('Firebase Storage exam-paper upload restrictions are malformed.');
+}
+if (!storageRules.includes('match /tutorials/{fileName} {')
+  || !storageRules.includes('match /academic-hub/{userId}/{uploadId}/{fileName} {')
+  || !storageRules.includes('allow create, update: if admin()')
+  || !storageRules.includes('allow read: if true;')) {
+  failures.push('Existing Firebase Storage admin/public paths were unexpectedly changed.');
+}
+
 if (failures.length) {
   console.error('EduNexus production preflight FAILED:');
   for (const failure of failures) console.error(`- ${failure}`);
