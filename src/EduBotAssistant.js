@@ -28,8 +28,6 @@ export default function EduBotAssistant() {
   const [voiceError, setVoiceError] = useState('');
   const [language, setLanguage] = useState('ur-PK');
   const [availableVoices, setAvailableVoices] = useState([]);
-  const [selectedVoice, setSelectedVoice] = useState('');
-  const [autoSpeak, setAutoSpeak] = useState(false);
   const [speakingId, setSpeakingId] = useState(null);
   const speechTokenRef = useRef(0);
   const [expanded, setExpanded] = useState(false);
@@ -50,8 +48,15 @@ export default function EduBotAssistant() {
     window.speechSynthesis.addEventListener?.('voiceschanged', refreshVoices);
     return () => window.speechSynthesis.removeEventListener?.('voiceschanged', refreshVoices);
   }, [canSpeak]);
-  const languageVoices = availableVoices.filter(voice => voice.lang.toLowerCase().split('-')[0] === language.toLowerCase().split('-')[0]);
-  const preferredVoice = languageVoices.find(voice => /female|zira|samantha|jenny|aria|sara|heera|ayesha|neerja|susan|hazel|natasha/i.test(voice.name)) || languageVoices.find(voice => voice.default) || languageVoices[0];
+  const detectSpeechLanguage = value => {
+    if (/[\u0600-\u06FF]/.test(value)) return 'ur-PK';
+    if (/\b(hai|hain|kya|kaise|mujhe|aap|ap|mera|meri|nahi|nahin|batao|btao|karo|kro|chahiye|raha|rha|theek|acha)\b/i.test(value)) return 'hi-IN';
+    return 'en-US';
+  };
+  const pickVoice = lang => {
+    const voices = availableVoices.filter(voice => voice.lang.toLowerCase().split('-')[0] === lang.split('-')[0].toLowerCase());
+    return voices.find(voice => /female|zira|samantha|jenny|aria|sara|heera|ayesha|neerja|susan|hazel|natasha/i.test(voice.name)) || voices.find(voice => voice.default) || voices[0] || null;
+  };
 
   const stopSpeech = () => {
     speechTokenRef.current += 1;
@@ -73,9 +78,10 @@ export default function EduBotAssistant() {
     const speechText = plainSpeechText(text).trim();
     if (!speechText) return;
     const utterance = new window.SpeechSynthesisUtterance(speechText);
-    const voice = availableVoices.find(item => item.voiceURI === selectedVoice && item.lang.toLowerCase().split('-')[0] === language.toLowerCase().split('-')[0]) || preferredVoice;
+    const detectedLanguage = detectSpeechLanguage(speechText);
+    const voice = pickVoice(detectedLanguage);
     if (voice) utterance.voice = voice;
-    utterance.lang = voice?.lang || language;
+    utterance.lang = voice?.lang || detectedLanguage;
     utterance.rate = 0.92;
     utterance.pitch = 1.05;
     utterance.onstart = () => { if (speechTokenRef.current === token) setSpeakingId(messageId); };
@@ -208,7 +214,6 @@ export default function EduBotAssistant() {
       const reply = cleanEduBotText(body.text.slice(0, 4500));
       if (!controller.signal.aborted) {
         setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), { role: 'ai', text: reply, approvedUrls: allowed, suggestions }]);
-        if (autoSpeak && openRef.current) speak(reply, next.length);
       }
     } catch (error) {
       if (!controller.signal.aborted || error?.name === 'AbortError') {
@@ -259,13 +264,7 @@ export default function EduBotAssistant() {
         {busy && <p className="edx-bot-thinking" role="status"><Loader2 size={15}/> Finding an answer…</p>}
         <div ref={bottomRef}/>
       </div>
-      <div className="edx-bot-tools">
-        <label>Voice language <select value={language} onChange={(e) => { stopListening(); stopSpeech(); setLanguage(e.target.value); }}>
-          <option value="ur-PK">Urdu (Pakistan)</option><option value="en-US">English</option><option value="hi-IN">Hindi</option>
-        </select></label>
-        {canSpeak && <label>Voice <select aria-label="Choose speech voice" value={languageVoices.some(voice => voice.voiceURI === selectedVoice) ? selectedVoice : (preferredVoice?.voiceURI || '')} onChange={event => { stopSpeech(); setSelectedVoice(event.target.value); }}><option value="" disabled>{languageVoices.length ? 'Choose a voice' : 'Device default voice'}</option>{languageVoices.map(voice => <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name}</option>)}</select></label>}
-        <label className="edx-bot-autospeak"><input type="checkbox" checked={autoSpeak} onChange={e => { setAutoSpeak(e.target.checked); if (!e.target.checked) stopSpeech(); }} disabled={!canSpeak}/> Read replies aloud</label>
-      </div>
+
       {(interim || voiceError) && <p className={'edx-bot-voice-hint' + (voiceError ? ' error' : '')} role="status">{voiceError || ('Listening: ' + interim)}</p>}
       <form className="edx-bot-compose" onSubmit={e => { e.preventDefault(); void send(); }}>
         <button type="button" aria-label={listening ? 'Stop listening' : 'Speak your question'} title={listening ? 'Stop microphone' : 'Speak your question'}
