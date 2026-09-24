@@ -166,6 +166,15 @@ const HomePage = ({setPage, theme, showToast, user}) => {
 
       <section className="mt-10 overflow-hidden rounded-3xl border border-indigo-200/60 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-600 via-violet-600 to-slate-950 p-6 sm:p-8 lg:p-10 text-white shadow-2xl"><div className="grid lg:grid-cols-[1fr_auto] items-center gap-7"><div><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[.18em]"><Sparkles size={14} className="text-yellow-300"/> Your next step</span><h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">Turn today’s study time into real progress.</h2><p className="mt-3 max-w-2xl text-sm sm:text-base leading-7 text-indigo-100">Pick one resource, one practice task and one revision task. EduNexus keeps the workflow simple so you can spend more time learning.</p></div><div className="flex flex-col sm:flex-row lg:flex-col gap-3"><button onClick={()=>setPage('planner')} className="rounded-2xl bg-white px-5 py-3.5 font-black text-slate-950 hover:-translate-y-1">Plan my session</button><button onClick={()=>setPage('aiquiz')} className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3.5 font-black text-white hover:bg-white/15">Practice with AI</button></div></div></section>
 
+      <nav aria-label="Explore EduNexus study resources" className={`mt-8 rounded-2xl border p-5 sm:p-6 ${theme.border} ${theme.card}`}>
+        <h2 className={`text-lg font-bold ${theme.text}`}>Explore Virtual University study resources</h2>
+        <p className={`mt-2 text-sm ${theme.textMuted}`}>Browse subject-wise MCQs, student paper reviews, notes and handouts, or calculate your estimated CGPA. These links open the existing EduNexus pages.</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {[['VU MCQ Bank and practice quizzes','exam-prep'],['Student paper reviews','exam-prep'],['VU study files and handouts','academic'],['CGPA calculator','cgpa']].map(([label,target],index)=><a key={label} href={target==='exam-prep'?(index===1?'/?page=exam-prep&section=reviews':'/?page=exam-prep&section=quiz'):`/?page=${target}`} onClick={event=>{event.preventDefault();setPage(target);if(target==='exam-prep')window.history.pushState({},'',index===1?'/?page=exam-prep&section=reviews':'/?page=exam-prep&section=quiz');else window.history.pushState({},'',`/?page=${target}`);window.dispatchEvent(new Event('edunexus:navigation'));}} className="rounded-full border border-indigo-300/50 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-indigo-400/40 dark:bg-indigo-400/15 dark:text-indigo-100 dark:hover:bg-indigo-400/25">{label}</a>)}
+        </div>
+        <p className={`mt-3 text-xs ${theme.textMuted}`}>#VUExamPreparation · #VUMCQs · #VUPastPapers · #VUStudyFiles</p>
+      </nav>
+
       <div className="mt-10"><Feedback theme={theme} showToast={showToast} /></div>
     </div>
   );
