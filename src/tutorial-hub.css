@@ -6,3 +6,9 @@
 .edux-tutorial-bg{inset:70px 0 0}
 .edux-tutorial-modal{top:70px}
 @media(max-width:639px){.edux-tutorial-overlay,.edux-tutorial-bg,.edux-tutorial-modal{top:60px}.edux-tutorial-main{padding-top:22px}}
+
+/* Tutorials share App's page shell; only the admin upload dialog is a viewport overlay. */
+.edux-tutorial-overlay{position:relative;inset:auto;z-index:auto;overflow:visible;width:100%;min-height:0}
+.edux-tutorial-bg{position:absolute;inset:0}
+.edux-tutorial-modal{inset:0;z-index:100}
+@media(max-width:639px){.edux-tutorial-overlay,.edux-tutorial-bg{top:auto}.edux-tutorial-modal{top:0}}

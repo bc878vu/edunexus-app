@@ -5,3 +5,8 @@
 .edux-content-nav{display:none}
 .edux-content-bg{inset:70px 0 0}
 @media(max-width:639px){.edux-content-overlay,.edux-content-bg{top:60px}.edux-content-main{padding-top:18px}}
+
+/* The App owns the shared navbar, page scroll and footer: guides stay in document flow. */
+.edux-content-overlay{position:relative;inset:auto;z-index:auto;overflow:visible;width:100%;min-height:0}
+.edux-content-bg{position:absolute;inset:0}
+@media(max-width:639px){.edux-content-overlay,.edux-content-bg{top:auto}}
