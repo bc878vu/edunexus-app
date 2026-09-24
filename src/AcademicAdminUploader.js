@@ -4,6 +4,7 @@ import { CheckCircle2, CloudUpload, FileText, ShieldCheck, X } from 'lucide-reac
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { uploadToSignedObject } from './signedObjectUpload';
+import { validateAcademicFileHeader } from './academic-upload-validation.mjs';
 
 const FILES = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'files');
 const SUPABASE_PROJECT = 'cprpndovdfnkvekewstv';
@@ -126,6 +127,8 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     inFlight.current = true; setError(''); setNotice(''); setPhase('authorizing'); setProgress(0);
     let uploadedPath = '';
     try {
+      const signatureIssue = await validateAcademicFileHeader(file);
+      if (signatureIssue) throw new Error(signatureIssue);
       const signed = await signUpload(user, file);
       if (!mounted.current) throw new Error('Page closed.');
       setPhase('uploading');
