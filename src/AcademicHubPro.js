@@ -6,6 +6,7 @@ import { getBlob, ref as storageRef } from 'firebase/storage';
 import './academic-hub-pro.css';
 import './academic-hub-v2.css';
 import { reviewQualityMessage } from './reviewQuality';
+import { trustedPreviewUrl, previewSandbox } from './academic-preview.mjs';
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 
 const BASE = ['artifacts', 'edunexus-live', 'public', 'data'];
@@ -86,7 +87,7 @@ const fileLinks = (f) => {
   }
   if (isDriveFolder) return { source, preview: '', download: source, kind: 'folder', direct: false };
   const ext = extOf(f);
-  const image = ['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'SVG'].includes(ext);
+  const image = ['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF'].includes(ext);
   const pdf = ext === 'PDF';
   if (url.hostname.endsWith('.cloudinary.com') && /^res\.cloudinary\.com$/i.test(url.hostname) && /\/(?:image|raw|video|auto)\/upload\//.test(url.pathname)) {
     const download = source.replace(/\/(image|raw|video|auto)\/upload\//, '/$1/upload/fl_attachment/');
@@ -125,13 +126,14 @@ function ResourcePreview({ file, links, onClose }) {
     return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [file.storagePath, supportedFirebase]);
   const displayUrl = localUrl || links.preview;
-  const canEmbed = Boolean(displayUrl && (isImage || ['pdf', 'drive', 'document', 'spreadsheet', 'presentation'].includes(links.kind) || supportedFirebase));
+  const frameUrl = trustedPreviewUrl(links, links.preview, localUrl);
+  const canEmbed = Boolean(isImage ? displayUrl : frameUrl);
   return <section className="ah-focus" aria-label="Resource preview">
     <div className="ah-between"><div><span className="ah-eyebrow">In-page preview</span><h3>{nameOf(file)}</h3></div><button type="button" className="ah-icon-button" onClick={onClose} aria-label="Close preview"><X size={19} /></button></div>
     {state === 'loading' && <div className="ah-loading" role="status"><div /><p>Preparing a secure in-page preview…</p></div>}
     {canEmbed ? (isImage ? <img className="ah-preview-image" loading="lazy" src={displayUrl} alt={nameOf(file)} /> :
-      <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={displayUrl} referrerPolicy="no-referrer" />) :
-      state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'Inline preview is available for supported PDFs/images up to 20 MiB. For larger files or other formats, use the Download button.'}</p></div>}
+      <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={frameUrl} sandbox={previewSandbox(links.kind)} referrerPolicy="no-referrer" />) :
+      state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'Only known PDF and document hosts are previewed inside EduNexus. If the viewer cannot load, use the existing Download button to open the original file.'}</p></div>}
     <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span></div>
   </section>;
 }
