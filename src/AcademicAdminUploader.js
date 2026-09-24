@@ -42,7 +42,9 @@ async function signUpload(user, file) {
     const response = await fetch('https://' + SUPABASE_PROJECT + '.supabase.co/functions/v1/edunexus-sign-upload', {
       method: 'POST',
       headers: { authorization: 'Bearer ' + idToken, 'content-type': 'application/json' },
-      body: JSON.stringify({ filename: file.name, size: file.size, contentType: file.type || allowedMime(file) }),
+      // Browser MIME detection varies (especially for Office files); the server validates the extension.
+      // Send the canonical allowlisted MIME type used for the actual multipart file part.
+      body: JSON.stringify({ filename: file.name, size: file.size, contentType: allowedMime(file) }),
       signal: controller.signal
     });
     const json = await response.json().catch(() => ({}));
