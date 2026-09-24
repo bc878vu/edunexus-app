@@ -6,6 +6,7 @@ import { adminPanelAccess } from './adminSession';
 import { categoryOf, quizSetOf } from './examMcqImport';
 import { explanationForStudent, explanationPrompt, plainFeedback } from './examAnswerFeedback';
 import { CATEGORY_NAMES, answerKeyStats, attemptMessage, buildPracticeAttempt, canAdvance, isVerifiedAnswer, orderedQuestions, progressKey, QUESTION_LIMIT, recordAnswer, restoreAttemptIds, sanitizeProgress } from './examPractice';
+import RichContent from './RichContent';
 import './exam-mcq-practice.css';
 
 const MCQS = ['artifacts', 'edunexus-live', 'public', 'data', 'examMcqs'];
@@ -26,17 +27,17 @@ function QuestionReview({ question, selected, onSelect, number, total, onPreviou
   return <section className="edx-exam-card edx-exam-question edx-practice-question" aria-label={'Question ' + number}>
     <div className="edx-exam-between"><span className="edx-exam-eyebrow">Question {number} of {total}</span><span className="edx-exam-pill">{question.subject} · {CATEGORY_NAMES[categoryOf(question)] || 'Practice'}</span></div>
     <div className="edx-exam-progress"><span style={{ width: (number / total * 100) + '%' }}/></div>
-    <h3>{question.question}</h3>
+    <h3><RichContent value={question.question}/></h3>
     <div className="edx-exam-options">{question.options.map((option, i) => {
       const state = answered && i === question.answer ? ' correct' :
         answered && i === selected ? ' incorrect' : '';
       return <button key={i} type="button" disabled={answered}
         className={'edx-exam-option' + state} aria-pressed={selected === i}
-        onClick={() => onSelect(question.id, i)}><span>{String.fromCharCode(65 + i)}</span>{option}</button>;
+        onClick={() => onSelect(question.id, i)}><span>{String.fromCharCode(65 + i)}</span><RichContent value={option}/></button>;
     })}</div>
     {answered && <p className={'edx-practice-inline-result ' + (right ? 'is-right' : 'is-wrong')} role="status">
       {right ? 'Correct!' :
-        'Incorrect. Correct answer: ' + String.fromCharCode(65 + question.answer) + ' — ' + question.options[question.answer] + '.'}
+        <>Incorrect. Correct answer: {String.fromCharCode(65 + question.answer)} — <RichContent value={question.options[question.answer]}/>.</>}
     </p>}
     <div className="edx-practice-actions"><button type="button" className="edx-exam-secondary" onClick={onPrevious} disabled={number === 1}><ChevronLeft size={16}/> Previous</button>
       {aiError && <button type="button" className="edx-exam-secondary" onClick={onAskAI} disabled={!answered || aiBusy}><BrainCircuit size={16}/>{aiBusy ? 'Explaining…' : 'Retry explanation'}</button>}
@@ -45,7 +46,7 @@ function QuestionReview({ question, selected, onSelect, number, total, onPreviou
       <strong><BrainCircuit size={17}/> Quick explanation</strong>
       {aiBusy && <p>Explaining this question…</p>}
       {aiError && <p role="status">{aiError}</p>}
-      {aiAnswer && <p>{aiAnswer}</p>}
+      {aiAnswer && <p><RichContent value={aiAnswer}/></p>}
     </section>}
     <button type="button" className="edx-exam-secondary edx-practice-finish-bottom" onClick={onFinish}>Finish now · see my score</button>
   </section>;
