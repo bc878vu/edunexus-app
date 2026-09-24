@@ -34,7 +34,7 @@ test('multiline programming blocks keep indentation, braces, operators and code 
   assert.equal(blocks[1].type,'codeBlock');
   assert.equal(blocks[1].language,'javascript');
   assert.equal(blocks[1].value,code);
-  assert.equal(blocks[0].parts[0].value,'Question:\n');
+  assert.equal(blocks[0].parts[0].value,'Question:');
 });
 
 test('inline code and literal HTML are text, never executable markup', () => {
