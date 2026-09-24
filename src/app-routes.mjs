@@ -3,6 +3,7 @@ export const FRIENDLY_ROUTES = Object.freeze({
   '/vu-notes': 'academic', '/handouts': 'academic', '/past-papers': 'academic',
   '/quizzes': 'aiquiz', '/cgpa-calculator': 'cgpa', '/ai-tools': 'aiquiz',
   '/articles': 'articles', '/about': 'about', '/contact': 'contact',
+  '/forum': 'forum', '/portfolio': 'portfolio', '/privacy': 'privacy', '/terms': 'terms',
   '/study-guides': 'guides', '/vu-notes-guide': 'vu-notes-guide',
   '/past-papers-guide': 'past-papers', '/exam-preparation': 'exam-preparation',
   '/cgpa-guide': 'cgpa-guide', '/ai-study-tools': 'ai-study-tools',
