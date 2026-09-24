@@ -59,20 +59,20 @@ test('guides and tutorials render inside the shared App main and footer', () => 
   const app = readFileSync('src/App.js', 'utf8');
   const guides = readFileSync('src/ContentHub.js', 'utf8');
   const tutorials = readFileSync('src/TutorialHub.js', 'utf8');
-  assert.doesNotMatch(entry, /<ContentHub\\s*\\/>|<TutorialHub\\s*\\/>/);
-  assert.match(app, /CONTENT_PAGE_IDS\\.includes\\(page\\)/);
+  assert.doesNotMatch(entry, /<ContentHub\s*\/>|<TutorialHub\s*\/>/);
+  assert.match(app, /CONTENT_PAGE_IDS\.includes\(page\)/);
   assert.match(app, /page === 'tutorials'/);
-  assert.match(app, /<ContentHub\\s*\\/>/);
-  assert.match(app, /<TutorialHub\\s*\\/>/);
+  assert.match(app, /<ContentHub\s*\/>/);
+  assert.match(app, /<TutorialHub\s*\/>/);
   assert.equal(CONTENT_PAGE_IDS.length, 8);
   assert.doesNotMatch(guides, /<main className="edux-content-main">/);
   assert.doesNotMatch(tutorials, /<main className='edux-tutorial-main'>/);
   assert.match(readFileSync('src/content-hub.css', 'utf8'),
-    /\\.edux-content-overlay\\{position:relative;inset:auto;z-index:auto;overflow:visible/);
+    /\.edux-content-overlay\{position:relative;inset:auto;z-index:auto;overflow:visible/);
   assert.match(readFileSync('src/tutorial-hub.css', 'utf8'),
-    /\\.edux-tutorial-overlay\\{position:relative;inset:auto;z-index:auto;overflow:visible/);
-  assert.match(readFileSync('src/content-hub.css', 'utf8'), /\\.edux-content-nav\\{display:none\\}/);
-  assert.match(readFileSync('src/tutorial-hub.css', 'utf8'), /\\.edux-tutorial-nav\\{display:none\\}/);
+    /\.edux-tutorial-overlay\{position:relative;inset:auto;z-index:auto;overflow:visible/);
+  assert.match(readFileSync('src/content-hub.css', 'utf8'), /\.edux-content-nav\{display:none\}/);
+  assert.match(readFileSync('src/tutorial-hub.css', 'utf8'), /\.edux-tutorial-nav\{display:none\}/);
 });
 
 test('only content-hashed assets are eligible for service worker cache-first strategy', () => {
