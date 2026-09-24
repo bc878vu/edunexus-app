@@ -76,6 +76,7 @@ const examRules = examStart >= 0 && catchAllStart > examStart
 if ((storageRules.match(/match \/\{allPaths=\*\*\} \{/g) || []).length !== 1
   || !examRules.includes("uploadId.matches('^[a-z0-9_]{8,32}$')")
   || !examRules.includes("fileName.matches('^[A-Za-z0-9._-]{1,95}$')")
+  || !examRules.includes('resource == null')
   || !examRules.includes('request.auth.uid == userId')
   || !examRules.includes('request.resource.size <= 5 * 1024 * 1024')
   || !examRules.includes("request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png']")
