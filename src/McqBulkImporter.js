@@ -3,7 +3,7 @@ import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore
 import { CheckCircle2, FileJson2, UploadCloud, AlertTriangle } from 'lucide-react';
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
-import { categoryOf, MAX_IMPORT, MAX_JSON_BYTES, parseMcqJson, summarizeImport, validateMcq } from './examMcqImport';
+import { categoryOf, MAX_IMPORT, MAX_JSON_BYTES, parseMcqJson, summarizeImport, suggestImportMetadata, validateMcq } from './examMcqImport';
 import './exam-mcq-import.css';
 
 const MCQS = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'examMcqs');
@@ -28,6 +28,7 @@ export default function McqBulkImporter({ user, onView }) {
   const [verificationSource, setVerificationSource] = useState('');
   const [sourceChecked, setSourceChecked] = useState(false);
   const [destination, setDestination] = useState(null);
+  const [progress, setProgress] = useState('');
   const working = useRef(false);
   const chooser = useRef(null);
 
@@ -42,8 +43,10 @@ export default function McqBulkImporter({ user, onView }) {
           : item.explanation,
         quizSet: (overrideTerm === 'quiz' || (overrideTerm === 'keep' && categoryOf(item) === 'quiz')) ? quizSet.trim() || item.quizSet : item.quizSet
       }));
-      return { summary: summarizeImport(items), items, issue: '' };
-    } catch (cause) { return { summary: null, items: null, issue: cause.message }; }
+      const valid = []; const rejected = [];
+      items.forEach((item, index) => { try { validateMcq(item, index, { forImport: true }); if (item.answerMismatch) throw new Error('correct_answer does not match the selected option.'); valid.push(item); } catch (e) { rejected.push({ number: index + 1, id: item?.id, reason: e.message }); } });
+      return { summary: valid.length ? summarizeImport(valid) : null, items: valid, rejected, total: items.length, issue: '' };
+    } catch (cause) { return { summary: null, items: null, rejected: [], issue: cause.message }; }
   }, [bulk, overrideSubject, overrideTerm, quizSet]);
   const mustVerify = Boolean(inspection.summary && (inspection.summary.provisional || inspection.summary.answerConflicts));
   const selectFile = async (event) => {
@@ -51,17 +54,21 @@ export default function McqBulkImporter({ user, onView }) {
     if (!file) return;
     setError(''); setSuccess(''); setVerified(false); setDestination(null);
     if (!/\.json$/i.test(file.name) || file.size > MAX_JSON_BYTES) {
-      setError('Select a .json file under 2 MiB (maximum 200 questions).');
+      setError('Select a .json file under 32 MiB. Split larger files into multiple JSON files.');
       return;
     }
-    try { setBulk(await file.text()); setSourceName(file.name); }
+    try { const contents = await file.text(); const parsed = parseMcqJson(contents); const suggestion = suggestImportMetadata(file.name, parsed);
+      setBulk(contents); setSourceName(file.name);
+      if (suggestion.subject) setOverrideSubject(suggestion.subject);
+      setOverrideTerm(suggestion.category === 'mixed' ? 'keep' : suggestion.category);
+    }
     catch (_) { setError('Could not read the JSON file. Try copying its contents into the text area.'); }
   };
   const importMany = async (event) => {
     event.preventDefault();
     if (working.current) return;
     setError(''); setSuccess(''); setDestination(null);
-    if (!inspection.items) { setError(inspection.issue || 'Select a JSON file or paste an array of questions.'); return; }
+    if (!inspection.items?.length) { setError(inspection.issue || 'Select a JSON file or paste an array of questions.'); return; }
     if (sourceChecked && verificationSource.trim().length < 12) {
       setError('Enter a specific course handout or trusted answer-key reference (at least 12 characters) for the batch you have independently verified.'); return;
     }
@@ -83,24 +90,32 @@ export default function McqBulkImporter({ user, onView }) {
         }
         return { ...normalized, createdAt: serverTimestamp() };
       });
-      const batch = writeBatch(db);
-      items.forEach((item) => batch.set(doc(MCQS), item));
-      await batch.commit();
+      let published = 0;
+      for (let start = 0; start < items.length; start += 100) {
+        const batch = writeBatch(db);
+        items.slice(start, start + 100).forEach(item => batch.set(doc(MCQS), item));
+        try { await batch.commit(); } catch (cause) {
+          throw new Error(published + ' questions were published before this batch failed. Check for duplicates before retrying. ' + errorMessage(cause));
+        }
+        published += Math.min(100, items.length - start);
+        setProgress(published + ' / ' + items.length + ' published');
+      }
       const first = inspection.items[0];
       const onlyOneCategory = Object.values(inspection.summary.totals).filter(Boolean).length === 1;
       setDestination({ subject: inspection.summary.subjects.length === 1 ? inspection.summary.subjects[0] : '',
         category: onlyOneCategory ? categoryOf(first) : '' });
-      setSuccess(items.length + ' questions published successfully. Original order and subject/category are preserved. ' + (sourceChecked ? 'Administrator-reviewed answer references are saved for verified scoring.' : 'Answer indexes stay provisional for scoring until independently verified by an administrator.'));
-      setBulk(''); setSourceName(''); setVerified(false); setSourceChecked(false);
+      setSuccess(items.length + ' questions published successfully. ' + (inspection.rejected?.length ? inspection.rejected.length + ' invalid questions skipped for review. ' : '') + ' Original order and subject/category are preserved. ' + (sourceChecked ? 'Administrator-reviewed answer references are saved for verified scoring.' : 'Answer indexes stay provisional for scoring until independently verified by an administrator.'));
+      if (!inspection.rejected?.length) { setBulk(''); setSourceName(''); }
+      setVerified(false); setSourceChecked(false);
       if (chooser.current) chooser.current.value = '';
     } catch (cause) {
       setError('Import failed: ' + errorMessage(cause) + ' Your JSON has been kept so you can correct or retry it.');
-    } finally { working.current = false; setBusy(false); }
+    } finally { working.current = false; setBusy(false); setProgress(''); }
   };
 
   return <section className="edx-exam-card edx-exam-form edx-importer" aria-labelledby="edx-import-title">
     <div className="edx-import-head"><div><h3 id="edx-import-title">Bulk import MCQs</h3>
-      <p>Upload one JSON file or paste a JSON array (up to {MAX_IMPORT} questions per batch). Set a subject, Quiz set and exam category for the whole batch, or preserve each question’s existing values. Multiple Quiz sets can be included in one JSON file.</p></div>
+      <p>Upload one JSON file or paste a JSON array. Large imports are saved in batches of 100 questions. Set a subject, Quiz set and exam category for the whole batch, or preserve each question’s existing values. Multiple Quiz sets can be included in one JSON file.</p></div>
       <FileJson2 size={27} aria-hidden="true"/></div>
     <form onSubmit={importMany} noValidate>
       <label className="edx-import-file">Choose a JSON file
@@ -115,6 +130,8 @@ export default function McqBulkImporter({ user, onView }) {
       <textarea id="edx-mcq-import-paste" aria-label="MCQ JSON import" rows={7} spellCheck={false}
         value={bulk} disabled={busy} onChange={(event) => { setBulk(event.target.value); setSourceName(''); setError(''); setSuccess(''); setVerified(false); setDestination(null); }}
         placeholder={sample}/>
+      {sourceName && <p className="edx-import-note">Filename suggestion: {suggestImportMetadata(sourceName, inspection.items || []).subject || 'subject not found'} · {suggestImportMetadata(sourceName, inspection.items || []).category}. You can change the fields above.</p>}
+      {inspection.rejected?.length > 0 && <div className="edx-exam-alert" role="alert"><strong>{inspection.rejected.length} questions need review and will not be uploaded.</strong><details><summary>Show question IDs and validation issues</summary><ol>{inspection.rejected.map((issue,i) => <li key={i}>Question {issue.number}{issue.id != null ? ' (ID '+issue.id+')' : ''}: {issue.reason}</li>)}</ol></details></div>}
       {inspection.issue && <div className="edx-exam-alert" role="alert">{inspection.issue}</div>}
       {inspection.summary && <div className="edx-import-summary" role="status">
         <strong>{inspection.summary.count} questions ready for validation</strong>
@@ -126,15 +143,16 @@ export default function McqBulkImporter({ user, onView }) {
       <label className="edx-import-confirm"><input type="checkbox" checked={sourceChecked} disabled={busy} onChange={e=>setSourceChecked(e.target.checked)}/><span>I personally checked EVERY answer in this batch against the named reference; mark the answer keys source-verified for scoring.</span></label>
       {sourceChecked && <label className="edx-exam-field">Verified source for ALL answers<input required maxLength={200} minLength={12} value={verificationSource} onChange={e=>setVerificationSource(e.target.value)} placeholder="e.g. CS620 official solved Quiz 1, questions 1–20"/></label>}
       {sourceChecked && mustVerify && <label className="edx-import-confirm"><input type="checkbox" checked={verified} disabled={busy} onChange={e=>setVerified(e.target.checked)}/><span>I resolved the provisional/conflicting source answers individually. Otherwise import them without verified scoring.</span></label>}
+      {progress && <p role="status" className="edx-import-note">{progress}</p>}
       {error && <div className="edx-exam-alert edx-import-result" role="alert">{error}</div>}
       {success && <div className="edx-exam-success edx-import-result" role="status"><CheckCircle2 size={18}/>{success}
         {destination?.subject && destination?.category && <a className="edx-exam-secondary" href={'/?page=exam-prep&subject=' + encodeURIComponent(destination.subject) + '&term=' + encodeURIComponent(destination.category)} target="_blank" rel="noopener noreferrer">Open public {destination.subject} {destination.category}</a>}
         {destination?.subject && destination?.category && <button type="button" className="edx-exam-secondary"
           onClick={() => onView?.(destination.subject, destination.category)}>View {destination.subject} {destination.category === 'quiz' ? 'Quiz' : destination.category === 'midterm' ? 'Midterm' : 'Finalterm'}</button>}</div>}
-      <button type="submit" className="edx-exam-primary edx-import-submit" disabled={busy || !inspection.items || (sourceChecked && verificationSource.trim().length < 12) || (sourceChecked && mustVerify && !verified)}>
+      <button type="submit" className="edx-exam-primary edx-import-submit" disabled={busy || !inspection.items?.length || (sourceChecked && verificationSource.trim().length < 12) || (sourceChecked && mustVerify && !verified)}>
         <UploadCloud size={17}/>{busy ? 'Publishing questions…' : inspection.summary ? 'Import ' + inspection.summary.count + ' questions' : 'Import questions'}
       </button>
-      <p className="edx-import-note">The existing Firestore collection is retained. Files with missing/null answer indexes cannot be imported. No original files or existing MCQs are deleted.</p>
+      <p className="edx-import-note">The existing Firestore collection is retained. Questions with missing options, missing answer keys or mismatched correct answers are listed for review and skipped. No original files or existing MCQs are deleted.</p>
     </form>
   </section>;
 }
