@@ -66,41 +66,27 @@ if (!rules.includes("request.auth.token.email_verified == true")) {
   failures.push('Firestore rules must require verified admin email for privileged writes.');
 }
 
-// Cheap fail-fast guard: Vercel does not deploy Firebase rules, but it must
-// not build from a known-corrupted storage.rules file. The separate Firebase
-// Storage emulator workflow performs the authoritative compilation and
-// permission checks; these structural checks are not a rules compiler.
+// Fail fast on the specific corruption found in Firebase Storage rules.
+// The Storage emulator workflow performs actual compilation and access tests.
 const storageRules = fs.readFileSync('storage.rules', 'utf8');
-const examRuleStart = storageRules.indexOf('match /exam-papers/{userId}/{uploadId}/{fileName} {');
-const legacyRuleStart = storageRules.indexOf('match /{allPaths=**} {', examRuleStart);
-const examRule = examRuleStart >= 0 && legacyRuleStart > examRuleStart
-  ? storageRules.slice(examRuleStart, legacyRuleStart) : '';
+const examStart = storageRules.indexOf('match /exam-papers/{userId}/{uploadId}/{fileName} {');
+const catchAllStart = storageRules.indexOf('match /{allPaths=**} {', examStart);
+const examRules = examStart >= 0 && catchAllStart > examStart
+  ? storageRules.slice(examStart, catchAllStart) : '';
 if ((storageRules.match(/match \/\{allPaths=\*\*\} \{/g) || []).length !== 1
-  || !examRule.includes("uploadId.matches('^[a-z0-9_]{8,32}
-  for (const failure of failures) console.error(`- ${failure}`);
-  process.exit(1);
-}
-
-console.log('EduNexus production preflight passed: dependency, security, legal/contact and required-file checks are aligned.');
-)")
-  || !examRule.includes("fileName.matches('^[A-Za-z0-9._-]{1,95}
-  for (const failure of failures) console.error(`- ${failure}`);
-  process.exit(1);
-}
-
-console.log('EduNexus production preflight passed: dependency, security, legal/contact and required-file checks are aligned.');
-)")
-  || !examRule.includes('request.auth.uid == userId')
-  || !examRule.includes('request.resource.size <= 5 * 1024 * 1024')
-  || !examRule.includes("request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png']")
-  || !examRule.includes('allow update: if false;')) {
-  failures.push('Firebase Storage exam-paper rules are malformed or missing the required student upload restrictions.');
+  || !examRules.includes("uploadId.matches('^[a-z0-9_]{8,32}$')")
+  || !examRules.includes("fileName.matches('^[A-Za-z0-9._-]{1,95}$')")
+  || !examRules.includes('request.auth.uid == userId')
+  || !examRules.includes('request.resource.size <= 5 * 1024 * 1024')
+  || !examRules.includes("request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png']")
+  || !examRules.includes('allow update: if false;')) {
+  failures.push('Firebase Storage exam-paper upload restrictions are malformed.');
 }
 if (!storageRules.includes('match /tutorials/{fileName} {')
   || !storageRules.includes('match /academic-hub/{userId}/{uploadId}/{fileName} {')
   || !storageRules.includes('allow create, update: if admin()')
   || !storageRules.includes('allow read: if true;')) {
-  failures.push('Firebase Storage existing tutorial, academic, admin, or public-read rules were unexpectedly changed.');
+  failures.push('Existing Firebase Storage admin/public paths were unexpectedly changed.');
 }
 
 if (failures.length) {
