@@ -1330,6 +1330,26 @@ const Portfolio = ({ user, isAdmin, theme }) => {
   const [techStack, setTechStack] = useState("");
   const [ideas, setIdeas] = useState("");
   const [loadingIdeas, setLoadingIdeas] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [skills, setSkills] = useState([]);
+  const [experience, setExperience] = useState([]);
+  const [portfolioSaving, setPortfolioSaving] = useState(false);
+  const [portfolioNotice, setPortfolioNotice] = useState('');
+  const [portfolioEdit, setPortfolioEdit] = useState(false);
+  const profileRef = doc(db, "artifacts", appId, "public", "data", "profile", "main");
+  const validPublicUrl = (url) => { try { const u = new URL(url); return ['https:', 'http:'].includes(u.protocol) ? u.href : ''; } catch (_) { return ''; } };
+  const savePortfolio = async () => {
+    if (!isAdmin || !user) return;
+    setPortfolioSaving(true); setPortfolioNotice('');
+    try {
+      const cleanItems = (items) => items.map(item => ({ id: String(item.id || ''), title: String(item.title || '').trim().slice(0,120), description: String(item.description || '').trim().slice(0,2000), url: validPublicUrl(item.url || '') })).filter(item => item.title);
+      await setDoc(profileRef, { fullName: fullName.trim().slice(0,120), title: title.trim().slice(0,180), about: about.trim().slice(0,5000), picUrl: validPublicUrl(picUrl), contactEmail: contactEmail.trim().slice(0,180), contactPhone: contactPhone.trim().slice(0,50), projects: cleanItems(projects), skills: cleanItems(skills), experience: cleanItems(experience), updatedAt: serverTimestamp() }, { merge: true });
+      setPortfolioNotice('Portfolio saved successfully.'); setPortfolioEdit(false);
+    } catch (error) { console.error('Portfolio save error', error); setPortfolioNotice('Could not save portfolio. Check admin access and Firestore rules.'); }
+    finally { setPortfolioSaving(false); }
+  };
+  const addPortfolioItem = (setter) => setter(items => [...items, { id: String(Date.now()) + '-' + String(items.length), title: '', description: '', url: '' }]);
+  const updatePortfolioItem = (setter, id, key, value) => setter(items => items.map(item => item.id === id ? { ...item, [key]: value } : item));
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -1345,6 +1365,9 @@ const Portfolio = ({ user, isAdmin, theme }) => {
           if (data.about) setAbout(data.about);
           if (data.contactEmail) setContactEmail(data.contactEmail);
           if (data.contactPhone) setContactPhone(data.contactPhone);
+          if (Array.isArray(data.projects)) setProjects(data.projects);
+          if (Array.isArray(data.skills)) setSkills(data.skills);
+          if (Array.isArray(data.experience)) setExperience(data.experience);
         }
       } catch (e) {
         console.error("Profile fetch error", e);
@@ -1381,12 +1404,12 @@ Return the answer in bullet list.
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10 animate-fade-in">
+    <div className="edx-portfolio max-w-6xl mx-auto space-y-10 animate-fade-in">
       {/* Top Profile Card */}
       <div className={`${theme.card} p-6 md:p-8 rounded-2xl border ${theme.border} grid md:grid-cols-[auto,1fr] gap-6 items-center`}>
         <div className="relative">
-  {/* Skeleton loader – jab tak image load nahi hoti */}
-  {!imageLoaded && (
+  {/* Only show a loader when a real image is configured. */}
+  {picUrl && !imageLoaded && (
     <div className="w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-indigo-500 shadow-xl bg-slate-700 animate-pulse" />
   )}
 
@@ -1440,6 +1463,17 @@ Return the answer in bullet list.
         </div>
       </div>
 
+      {isAdmin && <section className={`${theme.card} ${theme.border} rounded-2xl border p-5`} aria-label="Portfolio administration">
+        <button type="button" onClick={() => setPortfolioEdit(value => !value)} className="rounded-xl bg-indigo-600 px-4 py-2 font-semibold text-white">{portfolioEdit ? 'Close portfolio editor' : 'Edit portfolio content'}</button>
+        {portfolioEdit && <div className="mt-5 space-y-5">
+          {[['Full name',fullName,setFullName],['Professional headline',title,setTitle],['About',about,setAbout],['Profile image URL',picUrl,setPicUrl],['Public contact email',contactEmail,setContactEmail],['Public contact phone',contactPhone,setContactPhone]].map(([label,value,setter])=><label key={label} className={`block text-sm font-semibold ${theme.text}`}>{label}<textarea rows={label==='About'?4:1} value={value} onChange={event=>setter(event.target.value)} className={`mt-1 block w-full rounded-xl border p-3 ${theme.input}`} /></label>)}
+          {[['Projects',projects,setProjects],['Skills',skills,setSkills],['Experience',experience,setExperience]].map(([label,items,setter])=><fieldset key={label} className={`rounded-xl border p-4 ${theme.border}`}><legend className={`px-2 font-bold ${theme.text}`}>{label}</legend>{items.map(item=><div key={item.id} className="mb-4 grid gap-2 sm:grid-cols-2"><input aria-label={label+' title'} placeholder="Title" value={item.title} onChange={event=>updatePortfolioItem(setter,item.id,'title',event.target.value)} className={`rounded-lg border p-2 ${theme.input}`}/><input aria-label={label+' link'} placeholder="https:// (optional)" value={item.url||''} onChange={event=>updatePortfolioItem(setter,item.id,'url',event.target.value)} className={`rounded-lg border p-2 ${theme.input}`}/><textarea aria-label={label+' description'} placeholder="Description" value={item.description||''} onChange={event=>updatePortfolioItem(setter,item.id,'description',event.target.value)} className={`rounded-lg border p-2 sm:col-span-2 ${theme.input}`}/><button type="button" onClick={()=>setter(current=>current.filter(entry=>entry.id!==item.id))} className="rounded-lg border border-rose-400 px-3 py-2 text-rose-600 dark:text-rose-300">Remove item</button></div>)}<button type="button" onClick={()=>addPortfolioItem(setter)} className="rounded-lg bg-indigo-600 px-3 py-2 font-semibold text-white">Add {label.toLowerCase()} item</button></fieldset>)}
+          <button type="button" disabled={portfolioSaving} onClick={savePortfolio} className="rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white disabled:opacity-50">{portfolioSaving?'Saving…':'Save portfolio'}</button>
+        </div>}{portfolioNotice && <p role="status" className={`mt-3 text-sm ${theme.text}`}>{portfolioNotice}</p>}
+      </section>}
+      {projects.length>0 && <section aria-labelledby="portfolio-projects"><h2 id="portfolio-projects" className={`mb-5 text-2xl font-extrabold ${theme.text}`}>Featured projects</h2><div className="grid gap-5 sm:grid-cols-2">{projects.map(item=><article key={item.id} className={`rounded-2xl border p-6 shadow-md transition-shadow hover:shadow-xl ${theme.card} ${theme.border}`}><h3 className={`text-lg font-bold ${theme.text}`}>{item.title}</h3><p className={`mt-2 whitespace-pre-wrap text-sm ${theme.textMuted}`}>{item.description}</p>{validPublicUrl(item.url)&&<a href={validPublicUrl(item.url)} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex text-sm font-semibold text-indigo-600 underline dark:text-indigo-300">View project <ExternalLink size={15}/></a>}</article>)}</div></section>}
+      {skills.length>0 && <section aria-labelledby="portfolio-skills"><h2 id="portfolio-skills" className={`mb-5 text-2xl font-extrabold ${theme.text}`}>Skills and expertise</h2><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{skills.map(item=><article key={item.id} className={`rounded-2xl border p-5 ${theme.card} ${theme.border}`}><h3 className={`font-bold ${theme.text}`}>{item.title}</h3><p className={`mt-2 text-sm ${theme.textMuted}`}>{item.description}</p></article>)}</div></section>}
+      {experience.length>0 && <section aria-labelledby="portfolio-experience"><h2 id="portfolio-experience" className={`mb-5 text-2xl font-extrabold ${theme.text}`}>Professional experience</h2><div className="grid gap-4 sm:grid-cols-2">{experience.map(item=><article key={item.id} className={`rounded-2xl border p-5 ${theme.card} ${theme.border}`}><h3 className={`font-bold ${theme.text}`}>{item.title}</h3><p className={`mt-2 whitespace-pre-wrap text-sm ${theme.textMuted}`}>{item.description}</p>{validPublicUrl(item.url)&&<a href={validPublicUrl(item.url)} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm text-indigo-600 underline dark:text-indigo-300">More details</a>}</article>)}</div></section>}
       {/* Skills & Experience */}
       <div className="grid md:grid-cols-3 gap-6">
         <div className={`${theme.card} p-5 rounded-2xl border ${theme.border}`}>
