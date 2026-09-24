@@ -4,7 +4,7 @@ import { assemblePublicKnowledge, EDUNEXUS_GROUP, fetchRelevantPublicKnowledge, 
 import { cleanEduBotText, plainSpeechText, renderableLinks } from './edubotPresentation';
 import './edubot-assistant.css';
 
-const HELLO = { role: 'ai', text: 'Welcome, dear! EduNexus is a learning platform where you can explore study resources, practice quizzes, tutorials and exam preparation materials. How can I help you today?' };
+const HELLO = { role: 'ai', text: 'Welcome, dear! Explore EduNexus study resources, quizzes and tutorials. How can I help?' };
 const MAX_MESSAGES = 24;
 const speechApi = () => typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
 const pageName = () => {
@@ -89,8 +89,9 @@ export default function EduBotAssistant() {
       const voice = pickVoice(detectedLanguage);
       if (voice) utterance.voice = voice;
       utterance.lang = voice?.lang || detectedLanguage;
-      utterance.rate = 0.94;
-      utterance.pitch = 1.02;
+      utterance.rate = 0.97;
+      utterance.pitch = 1.0;
+      utterance.volume = 1;
       utterance.onstart = () => { if (speechTokenRef.current === token) setSpeakingId(messageId); };
       utterance.onend = playNext;
       utterance.onerror = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
@@ -245,7 +246,7 @@ export default function EduBotAssistant() {
     </div>
     {open && <section ref={panelRef} id="edx-bot-chat" className={'edx-bot-panel' + (expanded ? ' edx-bot-expanded' : '')} role="dialog" aria-label="EduBot study assistant" style={!expanded && panelBox ? { left: panelBox.left, top: panelBox.top, width: panelBox.width, height: panelBox.height, right: 'auto', bottom: 'auto' } : undefined}>
       <header className="edx-bot-heading" onPointerDown={e => startPointer(e, 'drag')} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer} title="Drag to move EduBot">
-        <div><strong><Bot size={19}/> EduBot AI <Move size={14} aria-hidden="true"/></strong><span>EduNexus guide · drag this header to move</span></div>
+        <div><strong><Bot size={19}/> EduBot AI <Move size={14} aria-hidden="true"/></strong></div>
         <div className="edx-bot-heading-actions">
           <button type="button" onClick={() => { gestureRef.current = null; setExpanded(v => !v); }} aria-label={expanded ? "Restore chat size" : "Expand chat"} title={expanded ? "Restore" : "Expand"}>{expanded ? <Minimize2 size={19}/> : <Maximize2 size={19}/>}</button>
           <button type="button" onClick={() => { stopListening(); stopSpeech(); setOpen(false); }} aria-label="Close chat"><X size={20}/></button>
@@ -281,13 +282,12 @@ export default function EduBotAssistant() {
           disabled={!canListen || busy} className={'edx-bot-mic ' + (listening ? 'active' : '')} onClick={toggleListening}>
           {listening ? <MicOff size={19}/> : <Mic size={19}/>}
         </button>
-        <textarea aria-label="Message EduBot" placeholder="Ask in English, Urdu or Roman Urdu…" rows={2}
+        <textarea aria-label="Message EduBot" placeholder="Ask EduBot anything…" rows={2}
           value={input} maxLength={1800} disabled={busy}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); } }}/>
         <button type="submit" className="edx-bot-send" disabled={!input.trim() || busy} aria-label="Send message"><Send size={18}/></button>
       </form>
-      <p className="edx-bot-disclaimer">Verified public resources only. Group messages are private. Browser voice needs permission and support.</p>
       {!expanded && <div className="edx-bot-resize" role="separator" aria-label="Drag to resize EduBot" title="Drag to resize EduBot" onPointerDown={e => startPointer(e, 'resize')} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer} />}
     </section>}
   </div>;
