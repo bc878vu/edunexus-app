@@ -1330,12 +1330,18 @@ const Portfolio = ({ user, isAdmin, theme }) => {
   const [techStack, setTechStack] = useState("");
   const [ideas, setIdeas] = useState("");
   const [loadingIdeas, setLoadingIdeas] = useState(false);
+  const starterProjects = [
+    { id: 'edunexus', title: 'EduNexus — Student Learning Platform', description: 'A learning platform for students with subject-wise quizzes, exam paper reviews, study files and study tools. Built with React and Firebase.', url: 'https://edunexus-app.vercel.app/' },
+    { id: 'powerpanel', title: 'PowerPanel Manager — Electrical Infrastructure Planning', description: 'A project for organizing electrical panels, cable routes, breaker capacities and departmental loads. The project scope includes role-based access and future load planning.', url: '' }
+  ];
   const [projects, setProjects] = useState([]);
   const [skills, setSkills] = useState([]);
   const [experience, setExperience] = useState([]);
   const [portfolioSaving, setPortfolioSaving] = useState(false);
   const [portfolioNotice, setPortfolioNotice] = useState('');
   const [portfolioEdit, setPortfolioEdit] = useState(false);
+  const [portfolioLoaded, setPortfolioLoaded] = useState(false);
+  const [portfolioShowStarter, setPortfolioShowStarter] = useState(true);
   const [customSections, setCustomSections] = useState([]);
   const profileRef = doc(db, "artifacts", appId, "public", "data", "profile", "main");
   const validPublicUrl = (url) => { try { const u = new URL(url); return ['https:', 'http:'].includes(u.protocol) ? u.href : ''; } catch (_) { return ''; } };
@@ -1366,18 +1372,23 @@ const Portfolio = ({ user, isAdmin, theme }) => {
           if (data.about) setAbout(data.about);
           if (data.contactEmail) setContactEmail(data.contactEmail);
           if (data.contactPhone) setContactPhone(data.contactPhone);
-          if (Array.isArray(data.projects)) setProjects(data.projects);
+          if (Array.isArray(data.projects)) { setProjects(data.projects); setPortfolioShowStarter(false); }
           if (Array.isArray(data.skills)) setSkills(data.skills);
           if (Array.isArray(data.experience)) setExperience(data.experience);
           if (Array.isArray(data.customSections)) setCustomSections(data.customSections);
         }
       } catch (e) {
         console.error("Profile fetch error", e);
-      }
+      } finally { setPortfolioLoaded(true); }
     };
     fetchProfile();
   }, []);
 
+  const visibleProjects = portfolioShowStarter ? starterProjects : projects;
+  const beginPortfolioEdit = () => {
+    if (!portfolioEdit && portfolioShowStarter) { setProjects(starterProjects); setPortfolioShowStarter(false); }
+    setPortfolioEdit(value => !value);
+  };
   const handleGenerateIdeas = async () => {
     if (!techStack.trim()) return;
     setLoadingIdeas(true);
@@ -1466,18 +1477,19 @@ Return the answer in bullet list.
         </div>
       </div>
 
-      {isAdmin && <section className={`${theme.card} ${theme.border} rounded-2xl border p-5`} aria-label="Portfolio administration">
-        <button type="button" onClick={() => setPortfolioEdit(value => !value)} className="rounded-xl bg-indigo-600 px-4 py-2 font-semibold text-white">{portfolioEdit ? 'Close portfolio editor' : 'Edit portfolio content'}</button>
+      {isAdmin && <section className={`${theme.card} ${theme.border} rounded-2xl border p-5 shadow-sm`} aria-label="Portfolio administration"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 className={`text-xl font-extrabold ${theme.text}`}>Portfolio Studio</h2><p className={`mt-1 text-sm ${theme.textMuted}`}>Manage projects, experience, skills and custom content. Changes become public after saving.</p></div><a href="/?page=admin" className="rounded-xl border border-indigo-400 px-4 py-2 text-sm font-bold text-indigo-700 dark:text-indigo-200">Open admin dashboard</a></div>
+        <button type="button" onClick={beginPortfolioEdit} className="rounded-xl bg-indigo-600 px-4 py-2 font-semibold text-white">{portfolioEdit ? 'Close portfolio editor' : 'Edit portfolio content'}</button>
         {portfolioEdit && <div className="mt-5 space-y-5">
           {[['Full name',fullName,setFullName],['Professional headline',title,setTitle],['About',about,setAbout],['Profile image URL',picUrl,setPicUrl],['Public contact email',contactEmail,setContactEmail],['Public contact phone',contactPhone,setContactPhone]].map(([label,value,setter])=><label key={label} className={`block text-sm font-semibold ${theme.text}`}>{label}<textarea rows={label==='About'?4:1} value={value} onChange={event=>setter(event.target.value)} className={`mt-1 block w-full rounded-xl border p-3 ${theme.input}`} /></label>)}
           {[['Projects',projects,setProjects],['Skills',skills,setSkills],['Experience',experience,setExperience],['Custom sections',customSections,setCustomSections]].map(([label,items,setter])=><fieldset key={label} className={`rounded-xl border p-4 ${theme.border}`}><legend className={`px-2 font-bold ${theme.text}`}>{label}</legend>{items.map(item=><div key={item.id} className="mb-4 grid gap-2 sm:grid-cols-2"><input aria-label={label+' title'} placeholder="Title" value={item.title} onChange={event=>updatePortfolioItem(setter,item.id,'title',event.target.value)} className={`rounded-lg border p-2 ${theme.input}`}/><input aria-label={label+' link'} placeholder="https:// (optional)" value={item.url||''} onChange={event=>updatePortfolioItem(setter,item.id,'url',event.target.value)} className={`rounded-lg border p-2 ${theme.input}`}/><textarea aria-label={label+' description'} placeholder="Description" value={item.description||''} onChange={event=>updatePortfolioItem(setter,item.id,'description',event.target.value)} className={`rounded-lg border p-2 sm:col-span-2 ${theme.input}`}/><button type="button" onClick={()=>setter(current=>current.filter(entry=>entry.id!==item.id))} className="rounded-lg border border-rose-400 px-3 py-2 text-rose-600 dark:text-rose-300">Remove item</button></div>)}<button type="button" onClick={()=>addPortfolioItem(setter)} className="rounded-lg bg-indigo-600 px-3 py-2 font-semibold text-white">Add {label.toLowerCase()} item</button></fieldset>)}
           <button type="button" disabled={portfolioSaving} onClick={savePortfolio} className="rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white disabled:opacity-50">{portfolioSaving?'Saving…':'Save portfolio'}</button>
         </div>}{portfolioNotice && <p role="status" className={`mt-3 text-sm ${theme.text}`}>{portfolioNotice}</p>}
       </section>}
-      {projects.length>0 && <section aria-labelledby="portfolio-projects"><h2 id="portfolio-projects" className={`mb-5 text-2xl font-extrabold ${theme.text}`}>Featured projects</h2><div className="grid gap-5 sm:grid-cols-2">{projects.map(item=><article key={item.id} className={`rounded-2xl border p-6 shadow-md transition-shadow hover:shadow-xl ${theme.card} ${theme.border}`}><h3 className={`text-lg font-bold ${theme.text}`}>{item.title}</h3><p className={`mt-2 whitespace-pre-wrap text-sm ${theme.textMuted}`}>{item.description}</p>{validPublicUrl(item.url)&&<a href={validPublicUrl(item.url)} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex text-sm font-semibold text-indigo-600 underline dark:text-indigo-300">View project <ExternalLink size={15}/></a>}</article>)}</div></section>}
+      {portfolioLoaded && visibleProjects.length>0 && <section aria-labelledby="portfolio-projects"><h2 id="portfolio-projects" className={`mb-5 text-2xl font-extrabold ${theme.text}`}>Featured projects</h2><div className="grid gap-5 sm:grid-cols-2">{visibleProjects.map(item=><article key={item.id} className={`rounded-2xl border p-6 shadow-md transition-shadow hover:shadow-xl ${theme.card} ${theme.border}`}><h3 className={`text-lg font-bold ${theme.text}`}>{item.title}</h3><p className={`mt-2 whitespace-pre-wrap text-sm ${theme.textMuted}`}>{item.description}</p>{validPublicUrl(item.url)&&<a href={validPublicUrl(item.url)} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex text-sm font-semibold text-indigo-600 underline dark:text-indigo-300">View project <ExternalLink size={15}/></a>}</article>)}</div></section>}
       {skills.length>0 && <section aria-labelledby="portfolio-skills"><h2 id="portfolio-skills" className={`mb-5 text-2xl font-extrabold ${theme.text}`}>Skills and expertise</h2><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{skills.map(item=><article key={item.id} className={`rounded-2xl border p-5 ${theme.card} ${theme.border}`}><h3 className={`font-bold ${theme.text}`}>{item.title}</h3><p className={`mt-2 text-sm ${theme.textMuted}`}>{item.description}</p></article>)}</div></section>}
       {experience.length>0 && <section aria-labelledby="portfolio-experience"><h2 id="portfolio-experience" className={`mb-5 text-2xl font-extrabold ${theme.text}`}>Professional experience</h2><div className="grid gap-4 sm:grid-cols-2">{experience.map(item=><article key={item.id} className={`rounded-2xl border p-5 ${theme.card} ${theme.border}`}><h3 className={`font-bold ${theme.text}`}>{item.title}</h3><p className={`mt-2 whitespace-pre-wrap text-sm ${theme.textMuted}`}>{item.description}</p>{validPublicUrl(item.url)&&<a href={validPublicUrl(item.url)} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm text-indigo-600 underline dark:text-indigo-300">More details</a>}</article>)}</div></section>}
       {customSections.length > 0 && <section aria-labelledby="portfolio-custom-sections" className="space-y-5"><h2 id="portfolio-custom-sections" className={`text-2xl font-extrabold ${theme.text}`}>More about my work</h2><div className="grid gap-5 md:grid-cols-2">{customSections.map(section => <article key={section.id} className={`min-w-0 rounded-2xl border p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl motion-reduce:transform-none ${theme.card} ${theme.border}`}><h3 className={`text-xl font-bold ${theme.text}`}>{section.title}</h3><p className={`mt-3 whitespace-pre-wrap break-words leading-relaxed ${theme.textMuted}`}>{section.description}</p>{validPublicUrl(section.url) && <a className="mt-4 inline-flex items-center gap-2 font-semibold text-indigo-600 underline dark:text-indigo-300" href={validPublicUrl(section.url)} target="_blank" rel="noopener noreferrer">Explore details <ExternalLink size={16}/></a>}</article>)}</div></section>}
+      <section className={`rounded-2xl border p-6 md:p-8 ${theme.card} ${theme.border}`} aria-labelledby="portfolio-approach"><p className="text-sm font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-300">How I work</p><h2 id="portfolio-approach" className={`mt-2 text-2xl font-extrabold ${theme.text}`}>From practical problems to useful tools</h2><p className={`mt-3 max-w-3xl leading-relaxed ${theme.textMuted}`}>My work brings together software development, student learning resources and electrical systems. I focus on clear interfaces, organized information and tools that help people complete everyday tasks.</p><div className="mt-6 grid gap-4 sm:grid-cols-3">{[['Understand the need','Identify the users, their tasks and the information they need.'],['Build and improve','Develop practical features, test their behavior and refine the experience.'],['Keep it usable','Prioritize clear navigation, accessible content and responsive layouts.']].map(([heading,detail])=><article key={heading} className="min-w-0 rounded-xl border border-indigo-200/60 bg-indigo-50/70 p-5 dark:border-indigo-400/30 dark:bg-indigo-400/10"><h3 className={`font-bold ${theme.text}`}>{heading}</h3><p className={`mt-2 text-sm leading-relaxed ${theme.textMuted}`}>{detail}</p></article>)}</div></section>
       {/* Skills & Experience */}
       <div className="grid md:grid-cols-3 gap-6">
         <div className={`${theme.card} p-5 rounded-2xl border ${theme.border}`}>
