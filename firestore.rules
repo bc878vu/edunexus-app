@@ -148,7 +148,7 @@ service cloud.firestore {
         && request.resource.data.topics.size() <= 400
         && request.resource.data.summary is string
         && request.resource.data.summary.size() >= 20
-        && request.resource.data.summary.size() <= 10000
+        && request.resource.data.summary.size() <= 300000
         && request.resource.data.status == 'pending'
         && request.resource.data.createdAt == request.time;
       allow get: if admin() ||
@@ -200,7 +200,7 @@ service cloud.firestore {
         && request.resource.data.topics.size() <= 400
         && request.resource.data.summary is string
         && request.resource.data.summary.size() >= 20
-        && request.resource.data.summary.size() <= 10000
+        && request.resource.data.summary.size() <= 300000
         && request.resource.data.createdAt == request.time
         && (
           !request.resource.data.keys().hasAny(['paperName', 'paperPath', 'paperUrl'])
@@ -243,7 +243,7 @@ service cloud.firestore {
         && request.resource.data.topics.size() <= 400
         && request.resource.data.summary is string
         && request.resource.data.summary.size() >= 20
-        && request.resource.data.summary.size() <= 10000
+        && request.resource.data.summary.size() <= 300000
         && (
           !request.resource.data.keys().hasAny(['paperName', 'paperPath', 'paperUrl'])
           || (
