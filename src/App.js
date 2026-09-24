@@ -78,6 +78,7 @@ import {
 
 
 import { MAIN_ITEMS, MOBILE_ITEMS } from './site-navigation.mjs';
+import { APP_PAGES, CONTENT_PAGE_IDS, routeFromLocation, pathForPage, navActivePage } from './app-routes.mjs';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { 
   getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, 
@@ -103,6 +104,8 @@ const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 const AdminAcademicReviews = React.lazy(() => import('./AdminAcademicReviews'));
 const EduBotAssistant = React.lazy(() => import('./EduBotAssistant'));
+const ContentHub = React.lazy(() => import('./ContentHub'));
+const TutorialHub = React.lazy(() => import('./TutorialHub'));
 
 // --- Configuration (YOUR KEYS) ---
 const firebaseConfig = {
@@ -303,14 +306,7 @@ const Navbar = ({
     if (isMenuOpen) toggleMenu();
   };
 
-  const isActive = (id) => {
-    const route = window.location.pathname.replace(/\/$/, '') || '/';
-    const specialPage = route === '/live-projects' ? 'portfolio' :
-      ['/study-guides', '/vu-notes-guide', '/past-papers-guide', '/exam-preparation',
-       '/cgpa-guide', '/ai-study-tools', '/student-resources', '/tutorials'].includes(route)
-        ? 'academic' : null;
-    return (specialPage || page) === id;
-  };
+  const isActive = (id) => navActivePage(page) === id;
 
   return (
     <>
@@ -4528,7 +4524,7 @@ const dashboardStudyCardStyles = "\n/* Dashboard entry cards: independent of the
 
 // Main App
 const App = () => {
-  const [page, setPage] = useState('home');
+  const [page, setPage] = useState(() => routeFromLocation(window.location));
   const [user, setUser] = useState(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -4541,23 +4537,7 @@ const App = () => {
   const adminAuthorized = isAdminMode && page === 'admin' && adminPanelAccess(user);
 
   /// ✅ saare pages ki list (routing + URL ke liye)
-const PAGES = [
-  'home',
-  'academic',
-  'exam-prep',
-  'articles',
-  'aiquiz',
-  'flashcards',
-  'planner',
-  'cgpa',
-  'forum',
-  'portfolio',
-  'about',
-  'contact',
-   "privacy",   // ✅ NEW
-  "terms",  
-  'admin',
-];
+const PAGES = APP_PAGES;
 
 // Navbar items agar kahin aur chahiye hon to isi list ko reuse karein
 const NAV_ITEMS = PAGES;
@@ -4637,7 +4617,7 @@ useEffect(() => {
 
     // Switching via the global navbar must leave a friendly-route overlay
     // instead of appending ?page=home to its previous /study-guides URL.
-    const newUrl = targetPage === 'home' ? '/' : `/?page=${targetPage}`;
+    const newUrl = pathForPage(targetPage);
 
     // browser history me page push karo → back button work karega
     window.history.pushState(
@@ -4648,35 +4628,13 @@ useEffect(() => {
     window.dispatchEvent(new Event('edunexus:navigation'));
   };
 
-  // ✅ back button & direct link (clean URL: /?page=cgpa) handle
-// eslint-disable-next-line react-hooks/exhaustive-deps
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const fromQuery = params.get('page') || '';
-
-  const initialPage = PAGES.includes(fromQuery) ? fromQuery : 'home';
-  setPage(initialPage);
-
-  const basePath = window.location.pathname || '/';
-  const initialUrl =
-    initialPage === 'home'
-      ? basePath
-      : initialPage === 'academic' && params.get('file')
-        ? `${basePath}?page=academic&file=${encodeURIComponent(params.get('file'))}${params.get('panel') === 'reviews' ? '&panel=reviews' : ''}`
-        : initialPage === 'academic' && params.get('subject')
-          ? `${basePath}?page=academic&subject=${encodeURIComponent(params.get('subject'))}`
-          : `${basePath}?page=${initialPage}`;
-
-  window.history.replaceState(
-    { page: initialPage },
-    '',
-    initialUrl
-  );
+  // Direct friendly routes and ?page links resolve without rewriting the visitor's URL.
+  useEffect(() => {
+    setPage(routeFromLocation(window.location));
 
   // Keep the main page in sync when the browser returns from a subject link.
   const syncFromHistory = () => {
-    const requested = new URLSearchParams(window.location.search).get('page') || 'home';
-    const nextPage = PAGES.includes(requested) ? requested : 'home';
+    const nextPage = routeFromLocation(window.location);
     if (nextPage !== 'admin' && (adminTabIsActive(auth.currentUser) || verifiedAdmin(auth.currentUser))) void handleLogoutAdmin({ redirect: false });
     setPage(nextPage);
     setIsMenuOpen(false);
@@ -4800,6 +4758,16 @@ useEffect(() => {
           <>
             <HomePage setPage={navigate} theme={theme} showToast={showToast} user={user} />
           </>
+        )}
+        {CONTENT_PAGE_IDS.includes(page) && (
+          <React.Suspense fallback={<div role="status" className="py-8 text-sm text-slate-500">Loading study content…</div>}>
+            <ContentHub />
+          </React.Suspense>
+        )}
+        {page === 'tutorials' && (
+          <React.Suspense fallback={<div role="status" className="py-8 text-sm text-slate-500">Loading tutorials…</div>}>
+            <TutorialHub />
+          </React.Suspense>
         )}
         {page === 'academic' && (
           <React.Suspense fallback={<div role="status" className="py-8 text-sm text-slate-500">Loading Academic Hub…</div>}>
