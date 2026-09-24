@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import RichContent from './RichContent';
 // Initialize shared Firebase/Firestore before legacy modules request the instance.
 import './firebase-client';
 import './admin-academic-upload.css';
@@ -726,7 +727,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
               <p
                 className={`${theme.text} leading-relaxed whitespace-pre-wrap mb-6`}
               >
-                {String(art.content)}
+                <RichContent value={art.content}/>
               </p>
 
               {/* ACTIONS */}
@@ -1621,8 +1622,8 @@ const FlashcardGenerator = ({ theme, showToast }) => {
           <div className="flex flex-col items-center">
             <div className="w-full h-64 relative perspective-1000 cursor-pointer group" onClick={() => setIsFlipped(!isFlipped)}>
               <div className={`w-full h-full relative transform-style-3d transition-transform duration-500 ${isFlipped ? 'rotate-y-180' : ''}`}>
-                <div className={`absolute w-full h-full ${theme.card} border ${theme.border} rounded-2xl p-8 flex items-center justify-center text-center backface-hidden shadow-xl`}><div><h3 className={`text-sm uppercase tracking-wider text-pink-500 font-bold mb-4`}>Question</h3><p className={`text-2xl font-bold ${theme.text}`}>{String(cards[currentCardIndex].front)}</p><p className={`text-xs ${theme.textMuted} mt-8`}>Tap to reveal</p></div></div>
-                <div className={`absolute w-full h-full bg-indigo-600 text-white rounded-2xl p-8 flex items-center justify-center text-center backface-hidden rotate-y-180 shadow-xl`}><div><h3 className={`text-sm uppercase tracking-wider text-indigo-200 font-bold mb-4`}>Answer</h3><p className={`text-xl font-medium leading-relaxed`}>{String(cards[currentCardIndex].back)}</p></div></div>
+                <div className={`absolute w-full h-full ${theme.card} border ${theme.border} rounded-2xl p-8 flex items-center justify-center text-center backface-hidden shadow-xl`}><div><h3 className={`text-sm uppercase tracking-wider text-pink-500 font-bold mb-4`}>Question</h3><p className={`text-2xl font-bold ${theme.text}`}><RichContent value={cards[currentCardIndex].front}/></p><p className={`text-xs ${theme.textMuted} mt-8`}>Tap to reveal</p></div></div>
+                <div className={`absolute w-full h-full bg-indigo-600 text-white rounded-2xl p-8 flex items-center justify-center text-center backface-hidden rotate-y-180 shadow-xl`}><div><h3 className={`text-sm uppercase tracking-wider text-indigo-200 font-bold mb-4`}>Answer</h3><p className={`text-xl font-medium leading-relaxed`}><RichContent value={cards[currentCardIndex].back}/></p></div></div>
               </div>
             </div>
             <div className="flex items-center gap-6 mt-8">
@@ -1748,7 +1749,7 @@ const QuizGenerator = ({ theme, user, showToast }) => {
             <span>Q {currentQ + 1} / {quizData.length}</span>
             <span className={`flex items-center gap-1 font-mono ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-indigo-500'}`}><Clock size={16}/> 00:{timeLeft.toString().padStart(2, '0')}</span>
           </div>
-          <h3 className={`text-xl font-bold ${theme.text} mb-6`}>{String(quizData[currentQ].q)}</h3>
+          <h3 className={`text-xl font-bold ${theme.text} mb-6`}><RichContent value={quizData[currentQ].q}/></h3>
           <div className="space-y-3 mb-6">
             {quizData[currentQ].options.map((opt, idx) => {
               const isSelected = quizData[currentQ].selected === idx;
@@ -1764,7 +1765,7 @@ const QuizGenerator = ({ theme, user, showToast }) => {
               }
               return (
                 <button key={idx} onClick={() => handleAnswer(idx)} disabled={showStatus || timeLeft <= 0} className={`w-full text-left p-4 rounded-xl border transition-all ${btnClass}`}>
-                  {String(opt)}
+                  <RichContent value={opt}/>
                 </button>
               );
             })}
@@ -1772,7 +1773,7 @@ const QuizGenerator = ({ theme, user, showToast }) => {
           {quizData[currentQ].selected !== null && (
             <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-xl mb-6 text-sm text-indigo-600 dark:text-indigo-300 animate-fade-in flex gap-2">
               <Sparkles size={16} className="shrink-0 mt-0.5"/>
-              <div><strong>Explanation:</strong> {String(quizData[currentQ].explanation)}</div>
+              <div><strong>Explanation:</strong> <RichContent value={quizData[currentQ].explanation}/></div>
             </div>
           )}
           <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">

@@ -6,6 +6,7 @@ import { adminPanelAccess } from './adminSession';
 import { categoryOf, orderOf, quizSetOf, stripQuizMarker, validateMcq } from './examMcqImport';
 import { explanationForStudent } from './examAnswerFeedback';
 import { isVerifiedAnswer } from './examPractice';
+import RichContent from './RichContent';
 
 const PATH = ['artifacts','edunexus-live','public','data','examMcqs'];
 const COURSE = /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/;
@@ -165,7 +166,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     {error && <p className="edx-exam-alert" role="alert">{error}</p>}
     <div className="edx-admin-mcq-list">{filtered.map(q=><div className="edx-admin-mcq-row" key={q.id}>
       <div><span className="edx-exam-pill">{q.subject} · {categoryOf(q)} {categoryOf(q)==='quiz'?'· '+quizSetOf(q):''}</span>
-        <strong>{q.question}</strong><small>{isVerifiedAnswer(q)?'Source-verified answer':'Answer needs source verification'} · {q.options?.length||0} choices</small></div>
+        <strong><RichContent value={q.question}/></strong><small>{isVerifiedAnswer(q)?'Source-verified answer':'Answer needs source verification'} · {q.options?.length||0} choices</small></div>
       <div className="edx-admin-mcq-row-actions"><button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>openEdit(q)}><Pencil size={15}/> Edit</button>
       <button type="button" className="edx-exam-secondary edx-admin-danger" disabled={busy} onClick={()=>remove(q)}><Trash2 size={15}/> Delete</button></div>
     </div>)}</div>
@@ -183,7 +184,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       <label className="edx-exam-field">Question<textarea required rows={3} maxLength={1000} value={draft.question}
         onChange={e=>setDraft(v=>({...v,question:e.target.value}))}/></label>
       {draft.options.map((option,i)=><label key={i} className="edx-exam-field">Option {String.fromCharCode(65+i)}
-        <input required maxLength={350} value={option} onChange={e=>setDraft(v=>({...v,options:v.options.map((o,j)=>j===i?e.target.value:o)}))}/></label>)}
+        <textarea required rows={2} maxLength={350} value={option} onChange={e=>setDraft(v=>({...v,options:v.options.map((o,j)=>j===i?e.target.value:o)}))}/></label>)}
       <label className="edx-exam-field">Correct answer<select value={draft.answer}
         onChange={e=>setDraft(v=>({...v,answer:Number(e.target.value)}))}>
         {draft.options.map((v,i)=><option key={i} value={i}>{String.fromCharCode(65+i)} — {v.slice(0,85)}</option>)}
