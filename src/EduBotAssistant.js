@@ -205,15 +205,22 @@ export default function EduBotAssistant() {
     setInput(''); setInterim(''); setBusy(true);
     const controller = new AbortController();
     requestRef.current = controller;
-    const timeout = setTimeout(() => controller.abort(), 26000);
+    const timeout = setTimeout(() => controller.abort(), 21000);
+    let records = [];
+    let suggestions = [];
+    let allowed = [];
+    const course = question.toUpperCase().match(/\b[A-Z]{2,5}[0-9]{3}[A-Z]?\b/)?.[0];
     try {
-      // Deliberately fetch ONLY explicitly public Firestore collections.
-      // WhatsApp group messages, private student data and admin records are
-      // not available to this assistant.
-      const records = await fetchRelevantPublicKnowledge(question);
+      // Keep slow Firestore reads from blocking the AI request indefinitely.
+      // Only explicitly public collections are queried by this helper.
+      records = await Promise.race([
+        fetchRelevantPublicKnowledge(question),
+        new Promise(resolve => setTimeout(() => resolve([]), 3500))
+      ]);
+      if (controller.signal.aborted) return;
       const knowledge = assemblePublicKnowledge(records, question, pageName());
-      const allowed = verifiedResourceUrls(records);
-      const suggestions = resourceSuggestions(records, question);
+      allowed = verifiedResourceUrls(records);
+      suggestions = resourceSuggestions(records, question);
       const response = await fetch('/api/gemini', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: makeEduBotPrompt(question, next, knowledge) }),
@@ -227,9 +234,15 @@ export default function EduBotAssistant() {
         setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), { role: 'ai', text: reply, approvedUrls: allowed, suggestions }]);
       }
     } catch (error) {
-      if (!controller.signal.aborted || error?.name === 'AbortError') {
-        setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), { role: 'ai', text: humanError(error) }]);
-      }
+      // A provider outage must not be presented as an answer from the AI.
+      // Offer a truthful, useful route to the site's public resources instead.
+      const fallback = course
+        ? `I couldn't get an AI response right now. You can browse ${course} study files in Academic Hub or try Exam Prep for practice questions. I can't confirm a specific file without checking the library.`
+        : 'The AI service is temporarily unavailable. You can still browse Academic Hub, Exam Prep and Articles, or try your question again shortly.';
+      setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), {
+        role: 'ai', text: fallback, approvedUrls: verifiedResourceUrls([]),
+        suggestions: suggestions.length ? suggestions : []
+      }]);
     } finally {
       clearTimeout(timeout);
       if (requestRef.current === controller) requestRef.current = null;
