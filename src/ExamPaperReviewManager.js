@@ -5,6 +5,9 @@ import { db, storage } from './firebase-client';
 import { deleteObject, ref as storageRef } from 'firebase/storage';
 import { adminPanelAccess } from './adminSession';
 
+const REVIEW_WORD_LIMIT = 10000;
+const REVIEW_CHAR_LIMIT = 300000;
+const countReviewWords = (value) => String(value || '').trim().match(/\S+/gu)?.length || 0;
 const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
 const COLLECTIONS = ['examCommunityReviews', 'examReviews'];
 const col = (name) => collection(db, ...ROOT, name);
@@ -33,8 +36,10 @@ export function validateReviewDraft(draft, original = null) {
     subject:courseCode(draft.subject), term:draft.term, semester:trim(draft.semester,20),
     examDate:trim(draft.examDate,10), examTime:trim(draft.examTime,5),
     sharedBy:trim(draft.sharedBy,60), difficulty:draft.difficulty,
-    topics:trim(draft.topics,400), summary:trim(draft.summary,10000)
+    topics:trim(draft.topics,400), summary:String(draft.summary || '').trim()
   };
+  if (values.summary.length > REVIEW_CHAR_LIMIT || countReviewWords(values.summary) > REVIEW_WORD_LIMIT)
+    throw new Error('Review must contain no more than 10,000 words and 300,000 characters.');
   if (!validCode(values.subject) || !['midterm','finalterm'].includes(values.term) ||
     !['easy','moderate','challenging'].includes(values.difficulty) ||
     values.summary.length < 20 || !/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(values.examDate) ||
@@ -155,7 +160,7 @@ export default function ExamPaperReviewManager({ user }) {
         <label className="edx-exam-field">Display name<input value={draft.sharedBy} maxLength={60} onChange={e=>change('sharedBy',e.target.value)}/></label>
         <label className="edx-exam-field">Difficulty<select value={draft.difficulty} onChange={e=>change('difficulty',e.target.value)}><option value="easy">Easy</option><option value="moderate">Moderate</option><option value="challenging">Challenging</option></select></label>
         <label className="edx-exam-field">Topics<input value={draft.topics} maxLength={400} onChange={e=>change('topics',e.target.value)}/></label>
-        <label className="edx-exam-field edx-review-manager-wide">Review<textarea required minLength={20} maxLength={10000} rows={10} value={draft.summary} onChange={e=>change('summary',e.target.value)}/></label>
+        <label className="edx-exam-field edx-review-manager-wide">Review<textarea required minLength={20} maxLength={REVIEW_CHAR_LIMIT} rows={10} value={draft.summary} onChange={e=>change('summary',e.target.value)}/></label>
       </div>
       <button className="edx-exam-primary" disabled={busy}>{busy ? 'Saving…' : selected ? 'Save changes' : 'Publish review'}</button>
     </form>
