@@ -4464,6 +4464,8 @@ const TermsPage = ({ theme }) => {
 };
 
 
+const dashboardStudyCardStyles = "\n/* Dashboard entry cards: independent of the existing homepage and exam pages. */\n.edx-dashboard-study{margin:0 0 2rem;content-visibility:auto;contain-intrinsic-size:auto 330px}.edx-dashboard-study-heading{margin-bottom:1.15rem}.edx-dashboard-study-heading>span{font-size:.72rem;letter-spacing:.17em;font-weight:800;color:#6366f1}.edx-dashboard-study-heading h2{font-size:clamp(1.45rem,3vw,2.1rem);line-height:1.2;font-weight:800;margin:.35rem 0}.edx-dashboard-study-heading p{opacity:.76;font-size:.95rem}.edx-dashboard-study-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.edx-dashboard-study-card{display:flex;flex-direction:column;min-width:0;padding:1.35rem;border:1px solid rgba(99,102,241,.2);border-radius:1.2rem;background:linear-gradient(145deg,rgba(99,102,241,.1),rgba(14,165,233,.045));color:inherit;text-decoration:none;box-shadow:0 6px 25px rgba(15,23,42,.055);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}.edx-dashboard-study-card:hover,.edx-dashboard-study-card:focus-visible{transform:translateY(-4px);border-color:#818cf8;box-shadow:0 13px 30px rgba(99,102,241,.14)}.edx-dashboard-study-card:focus-visible{outline:3px solid #818cf8;outline-offset:3px}.edx-dashboard-study-icon{display:grid;place-items:center;width:2.9rem;height:2.9rem;border-radius:.85rem;background:rgba(99,102,241,.14);color:#6366f1;font-size:1.65rem;margin-bottom:1rem}.edx-dashboard-study-title{font-size:1.17rem;font-weight:800}.edx-dashboard-study-description{font-size:.88rem;line-height:1.55;opacity:.78;margin:.5rem 0 1.2rem;flex:1}.edx-dashboard-study-action{display:inline-flex;align-items:center;gap:.4rem;font-size:.87rem;font-weight:750;color:#6366f1}@media(max-width:720px){.edx-dashboard-study-grid{grid-template-columns:1fr}.edx-dashboard-study-card{padding:1.1rem}.edx-dashboard-study-heading p{font-size:.88rem}}@media(min-width:721px) and (max-width:960px){.edx-dashboard-study-grid{gap:.65rem}.edx-dashboard-study-card{padding:1rem}}@media(prefers-reduced-motion:reduce){.edx-dashboard-study-card{transition:none}.edx-dashboard-study-card:hover{transform:none}}\n";
+
 // Main App
 const App = () => {
   const [page, setPage] = useState('home');
@@ -4697,6 +4699,7 @@ useEffect(() => {
   return (
     <div className={`min-h-screen ${theme.bg} transition-colors duration-300 font-sans flex flex-col`}>
       <style>{customStyles}</style>
+      <style>{dashboardStudyCardStyles}</style>
 
       {toast && (
         <Toast
@@ -4724,12 +4727,21 @@ useEffect(() => {
   <main className="max-w-7xl mx-auto px-4 py-8 pb-24 w-full flex-grow">
 
         {page === 'home' && (
-          <HomePage
-            setPage={navigate}
-            theme={theme}
-            showToast={showToast}
-            user={user}
-          />
+          <>
+            <section className="edx-dashboard-study" aria-labelledby="edx-dashboard-study-title">
+              <div className="edx-dashboard-study-heading"><span>STUDY TOOLS</span><h2 id="edx-dashboard-study-title">Your exam preparation, one click away</h2><p>Choose a study tool to open its existing page. Your saved content and features stay in place.</p></div>
+              <div className="edx-dashboard-study-grid">
+                {[
+                  { section: 'mcqs', icon: '✦', title: 'MCQ Bank', description: 'Practise subject-wise questions and track your preparation.', action: 'Practise MCQs' },
+                  { section: 'reviews', icon: '▤', title: 'Paper Reviews', description: 'Explore student exam experiences and share your own.', action: 'Explore reviews' },
+                  { section: 'files', icon: '▧', title: 'Study Files', description: 'Find study material, notes and exam preparation files.', action: 'Browse study files' }
+                ].map(tool => <a key={tool.section} className="edx-dashboard-study-card" href={`/?page=exam-prep&section=${tool.section}`} onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate('exam-prep'); window.history.replaceState({ page: 'exam-prep' }, '', `/?page=exam-prep&section=${tool.section}`); window.dispatchEvent(new Event('edunexus:navigation')); }}>
+                  <span className="edx-dashboard-study-icon" aria-hidden="true">{tool.icon}</span><span className="edx-dashboard-study-title">{tool.title}</span><span className="edx-dashboard-study-description">{tool.description}</span><span className="edx-dashboard-study-action">{tool.action} <ArrowRight size={17} aria-hidden="true" /></span>
+                </a>)}
+              </div>
+            </section>
+            <HomePage setPage={navigate} theme={theme} showToast={showToast} user={user} />
+          </>
         )}
         {page === 'academic' && (
           <React.Suspense fallback={<div role="status" className="py-8 text-sm text-slate-500">Loading Academic Hub…</div>}>
