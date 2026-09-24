@@ -28,7 +28,8 @@ export default function EduBotAssistant() {
   const [voiceError, setVoiceError] = useState('');
   const [language, setLanguage] = useState('ur-PK');
   const [autoSpeak, setAutoSpeak] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
+  const [speakingId, setSpeakingId] = useState(null);
+  const speechTokenRef = useRef(0);
   const [expanded, setExpanded] = useState(false);
   const [panelBox, setPanelBox] = useState(null);
   const gestureRef = useRef(null);
@@ -42,8 +43,9 @@ export default function EduBotAssistant() {
   const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
   const stopSpeech = () => {
+    speechTokenRef.current += 1;
     if (canSpeak) window.speechSynthesis.cancel();
-    setSpeaking(false);
+    setSpeakingId(null);
   };
   const stopListening = () => {
     if (speechRef.current) {
@@ -53,16 +55,20 @@ export default function EduBotAssistant() {
     setListening(false);
     setInterim('');
   };
-  const speak = (text) => {
+  const speak = (text, messageId) => {
     if (!canSpeak) { setVoiceError('Speech output is not supported by this browser.'); return; }
-    window.speechSynthesis.cancel();
-    const utterance = new window.SpeechSynthesisUtterance(plainSpeechText(text));
+    stopSpeech();
+    const token = speechTokenRef.current;
+    const speechText = plainSpeechText(text).trim();
+    if (!speechText) return;
+    const utterance = new window.SpeechSynthesisUtterance(speechText);
     utterance.lang = language;
     utterance.rate = 0.95;
-    utterance.onstart = () => setSpeaking(true);
-    utterance.onend = utterance.onerror = () => setSpeaking(false);
+    utterance.onstart = () => { if (speechTokenRef.current === token) setSpeakingId(messageId); };
+    utterance.onend = utterance.onerror = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
+    setSpeakingId(messageId);
     try { window.speechSynthesis.speak(utterance); }
-    catch (_) { setVoiceError('Speech output is unavailable on this device.'); }
+    catch (_) { if (speechTokenRef.current === token) setSpeakingId(null); setVoiceError('Speech output is unavailable on this device.'); }
   };
 
   useEffect(() => {
@@ -72,6 +78,8 @@ export default function EduBotAssistant() {
     if (!open) {
       if (speechRef.current) { try { speechRef.current.abort(); } catch (_) {} speechRef.current = null; }
       if (canSpeak) window.speechSynthesis.cancel();
+      speechTokenRef.current += 1;
+      setSpeakingId(null);
     }
   }, [open, canSpeak]);
   useEffect(() => () => {
@@ -186,7 +194,7 @@ export default function EduBotAssistant() {
       const reply = cleanEduBotText(body.text.slice(0, 4500));
       if (!controller.signal.aborted) {
         setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), { role: 'ai', text: reply, approvedUrls: allowed, suggestions }]);
-        if (autoSpeak && openRef.current) speak(reply);
+        if (autoSpeak && openRef.current) speak(reply, next.length);
       }
     } catch (error) {
       if (!controller.signal.aborted || error?.name === 'AbortError') {
@@ -224,9 +232,9 @@ export default function EduBotAssistant() {
           <p>{renderableLinks(message.text, message.approvedUrls || []).map((chunk, part) => chunk.url ? <a key={part} href={chunk.url} target="_blank" rel="noopener noreferrer">{chunk.text}<ExternalLink size={12} aria-hidden="true"/></a> : <React.Fragment key={part}>{chunk.text}</React.Fragment>)}</p>
           {message.suggestions?.length > 0 && <div className="edx-bot-resources" aria-label="Verified public study resources"><strong>Available public resources</strong>{message.suggestions.map((file, i) => <a key={file.url + i} href={file.url} target="_blank" rel="noopener noreferrer"><BookOpen size={14}/>{file.title || file.subject || 'Study resource'} <ExternalLink size={13}/></a>)}</div>}
           {message.role === 'ai' && canSpeak && <button type="button" className="edx-bot-speak"
-            onClick={() => speaking ? stopSpeech() : speak(message.text)}
-            title={speaking ? 'Stop speaking' : 'Read aloud'} aria-label={speaking ? 'Stop speaking' : 'Read response aloud'}>
-            {speaking ? <VolumeX size={15}/> : <Volume2 size={15}/>} {speaking ? 'Stop' : 'Listen'}
+            onClick={() => speakingId === index ? stopSpeech() : speak(message.text, index)}
+            title={speakingId === index ? 'Stop this response' : 'Read this response aloud'} aria-label={speakingId === index ? 'Stop this response' : 'Read this response aloud'} aria-pressed={speakingId === index}>
+            {speakingId === index ? <VolumeX size={15}/> : <Volume2 size={15}/>} {speakingId === index ? 'Stop' : 'Listen'}
           </button>}
         </div>)}
         {messages.length === 1 && !busy && <div className="edx-bot-example" aria-label="Suggested questions">
