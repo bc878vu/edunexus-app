@@ -256,6 +256,9 @@ const useTheme = () => {
   // 💾 User choice remember rakho
   useEffect(() => {
     localStorage.setItem("theme", isDark ? "dark" : "light");
+    // Tailwind dark: variants and standalone modules must share one theme source.
+    document.documentElement.classList.toggle("dark", isDark);
+    document.documentElement.style.colorScheme = isDark ? "dark" : "light";
   }, [isDark]);
 
   const themeClass = {
@@ -3883,7 +3886,7 @@ const CGPACalculator = ({ theme, isDark }) => {
     : "bg-white border-slate-300 text-slate-900";
 
   return (
-    <section className="space-y-8">
+    <section className={"edx-cgpa space-y-8" + (isDark ? " edx-cgpa-dark" : "")}>
       {/* 🔹 SCREEN ONLY – full CGPA UI */}
       <div className="space-y-8 print:hidden">
         {/* 🔹 Top result message */}
