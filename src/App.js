@@ -4591,6 +4591,16 @@ useEffect(() => {
     );
   }
 
+  const portfolioPage = page === 'portfolio';
+  const canonical = document.querySelector('link[rel="canonical"]') || document.createElement('link');
+  canonical.rel = 'canonical';
+  canonical.href = portfolioPage ? 'https://edunexus-app.vercel.app/?page=portfolio' : 'https://edunexus-app.vercel.app/' + (page === 'home' ? '' : '?page=' + encodeURIComponent(page));
+  if (!canonical.isConnected) document.head.appendChild(canonical);
+  let profileSchema = document.getElementById('edx-portfolio-schema');
+  if (portfolioPage) {
+    if (!profileSchema) { profileSchema = document.createElement('script'); profileSchema.id = 'edx-portfolio-schema'; profileSchema.type = 'application/ld+json'; document.head.appendChild(profileSchema); }
+    profileSchema.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'ProfilePage', url: 'https://edunexus-app.vercel.app/?page=portfolio', mainEntity: { '@type': 'Person', name: 'Asad Amanat Ali', url: 'https://edunexus-app.vercel.app/?page=portfolio', description: 'Creator of EduNexus, a student study and exam preparation platform.' } });
+  } else if (profileSchema) profileSchema.remove();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }, [page]);
 
