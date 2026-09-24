@@ -77,9 +77,9 @@ export function validateMcq(item, index = 0, { forImport = false } = {}) {
   const category = categoryOf(item);
   if (!validCourse(subject)) fail('invalid subject code; use e.g. CS620.');
   if (!['quiz', 'midterm', 'finalterm'].includes(category)) fail('exam type must be quiz, midterm or finalterm.');
-  if (typeof item.question !== 'string' || !item.question.trim() || item.question.trim().length > 1000) fail('question must contain 1–1000 characters.');
+  if (typeof item.question !== 'string' || !item.question.trim() || item.question.length > 1000) fail('question must contain 1–1000 characters.');
   if (!Array.isArray(item.options) || item.options.length !== 4 ||
-      item.options.some((value) => typeof value !== 'string' || !value.trim() || value.trim().length > 350)) {
+      item.options.some((value) => typeof value !== 'string' || !value.trim() || value.length > 350)) {
     fail('provide exactly four nonempty string options of at most 350 characters each.');
   }
   // Number(null) === 0, so avoid silently publishing unanswered questions as A.
@@ -87,7 +87,8 @@ export function validateMcq(item, index = 0, { forImport = false } = {}) {
     fail('a verified numeric answer index (0–3) is required. Blank/null answers cannot be published.');
   }
   if (item.explanation != null && typeof item.explanation !== 'string') fail('explanation must be a string.');
-  let explanation = String(item.explanation || '').trim();
+  // Never strip intentional leading whitespace or code indentation from user text.
+  let explanation = String(item.explanation || '');
   // Explicit non-Quiz markers must remain in Firestore: older notes may
   // mention Quiz 1 even when the administrator reclassified this question.
   if (category === 'quiz') {
@@ -101,7 +102,7 @@ export function validateMcq(item, index = 0, { forImport = false } = {}) {
   if (explanation.length > 1000) fail('explanation exceeds the 1000-character Firestore limit.');
   return {
     subject, term: category === 'quiz' ? 'midterm' : category,
-    question: item.question.trim(), options: item.options.map((v) => v.trim()),
+    question: item.question, options: [...item.options],
     answer: item.answer, explanation
   };
 }
