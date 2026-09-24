@@ -21,8 +21,6 @@ import { routeFromLocation } from './app-routes.mjs';
 
 const AdminResourceManagerV2 = React.lazy(() => import('./AdminResourceManagerV2'));
 
-const initialPage = routeFromLocation(window.location);
-
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
@@ -51,7 +49,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 // replays being carried into the deployed runtime.
 root.render(
   <>
-    <SEOManager page={initialPage} />
+    <SEOManager />
     <DashboardEnhancerSafe />
     <OptionalPages />
     <App />
