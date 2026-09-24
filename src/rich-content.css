@@ -1,0 +1,15 @@
+/* A content boundary for every theme; imported text must never resize the app shell. */
+.edx-rich-content{display:inline-block;vertical-align:middle;max-width:100%;min-width:0;overflow-wrap:anywhere;word-break:normal;white-space:pre-wrap;text-align:start;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;color:inherit}
+.edx-rich-prose{white-space:pre-wrap;overflow-wrap:anywhere;unicode-bidi:plaintext}
+.edx-rich-code-block{display:block;box-sizing:border-box;max-width:100%;min-width:0;overflow-x:auto;overflow-y:auto;white-space:pre;overflow-wrap:normal;word-break:normal;tab-size:4;padding:12px 14px;margin:8px 0;border-radius:10px;border:1px solid rgba(100,116,139,.35);background:rgba(100,116,139,.085);color:inherit;text-align:left;-webkit-overflow-scrolling:touch}
+.edx-rich-code-block code{display:block;width:max-content;min-width:100%;white-space:pre;overflow-wrap:normal;word-break:normal;font:400 .9em/1.6 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;unicode-bidi:plaintext}
+.edx-rich-code-language{display:block;font:600 .7rem/1.4 ui-sans-serif,system-ui,sans-serif;opacity:.65;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px}
+.edx-rich-inline-code{display:inline;font:400 .92em/1.6 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;background:rgba(100,116,139,.13);padding:.08em .25em;border-radius:4px;white-space:pre-wrap;overflow-wrap:anywhere;unicode-bidi:plaintext}
+.edx-rich-math{display:inline-block;vertical-align:middle;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;white-space:normal;font-family:"KaTeX_Math","Cambria Math","STIX Two Math",serif}
+.edx-rich-math.is-display{display:block;max-width:100%;text-align:center;margin:.45em 0}
+.edx-rich-math .katex-display{max-width:100%;overflow-x:auto;overflow-y:hidden;margin:.25em 0;padding:.12em 0}
+.edx-rich-math .katex{font-size:1em}
+.edx-rich-content :is(.edx-rich-code-block,.edx-rich-math){max-width:100%}
+.edx-exam .edx-exam-option .edx-rich-content{flex:1;min-width:0}
+.edx-exam .edx-exam-option .edx-rich-code-block{max-width:100%}
+@media(max-width:600px){.edx-rich-code-block{padding:10px;font-size:.88em}.edx-rich-math.is-display{font-size:.95em}}
