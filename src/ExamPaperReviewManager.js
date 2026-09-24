@@ -11,7 +11,7 @@ const col = (name) => collection(db, ...ROOT, name);
 const trim = (value, max) => String(value || '').trim().slice(0, max);
 const courseCode = (value) => trim(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, '');
 const validCode = (code) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(code);
-const initial = () => ({ subject:'CS620', term:'midterm', semester:'Spring ' + new Date().getFullYear(),
+const initial = () => ({ subject:'', term:'midterm', semester:'Spring ' + new Date().getFullYear(),
   examDate:'', examTime:'', sharedBy:'', difficulty:'moderate', topics:'', summary:'' });
 const editable = (record) => ({
   subject: record.subject || 'CS620',
@@ -64,6 +64,14 @@ export default function ExamPaperReviewManager({ user }) {
   const [selected, setSelected] = useState(null);
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [reports, setReports] = useState([]);
+  const [reportError, setReportError] = useState('');
+  useEffect(() => {
+    if (!allowed) return;
+    return onSnapshot(query(col('feedback'), where('category','==','exam-review-report')),
+      snapshot => { setReports(snapshot.docs.map(d=>({id:d.id,...d.data()}))); setReportError(''); },
+      () => setReportError('Could not load review reports. Check admin permissions.'));
+  }, [allowed]);
   useEffect(() => {
     if (!allowed || !validCode(subject)) { setCommunity([]); setLegacy([]); return; }
     setError('');
@@ -123,6 +131,7 @@ export default function ExamPaperReviewManager({ user }) {
   };
   return <section className="edx-exam-card edx-review-manager" aria-label="Manage paper reviews">
     <div className="edx-exam-between"><div><h3>Manage paper reviews</h3><p>Publish, edit or remove completed-paper reviews without changing student accounts.</p></div><MessageCircle size={24}/></div>
+    <section className="edx-review-manager-reports" aria-label="Student review reports"><h4>Student review reports ({reports.length})</h4>{reportError && <p role="alert">{reportError}</p>}{!reports.length && !reportError && <p>No reports received.</p>}{reports.sort((a,b)=>timestamp(b.createdAt)-timestamp(a.createdAt)).map(report=><article key={report.id}><strong>{trim(report.reviewId,140)}</strong><p>{trim(report.reason,500)}</p><small>{report.reviewCollection === 'examReviews' ? 'Earlier review' : 'Student review'} · {report.createdAt?.toDate?.()?.toLocaleString?.() || 'Date pending'}</small><div><button type="button" className="edx-exam-secondary" onClick={()=>{setSubject(courseCode(String(report.reviewId||'').split('_').slice(-3)[0]));setSearch('');}}>Find reported review</button></div></article>)}</section>
     <div className="edx-review-manager-controls">
       <label className="edx-exam-field">Course code<input value={subject} maxLength={12} onChange={e=>setSubject(courseCode(e.target.value))} placeholder="e.g. CS620"/></label>
       <label className="edx-exam-field">Find a review <span className="edx-study-search"><Search size={17}/><input type="search" value={search} placeholder="Search name, date or content" onChange={e=>setSearch(e.target.value)}/></span></label>
