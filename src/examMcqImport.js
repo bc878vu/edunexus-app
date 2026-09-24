@@ -20,8 +20,8 @@ export const orderOf = (item) => {
 };
 const normalizeCode = (v) => String(v || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 const validCourse = (v) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(v);
-export const MAX_IMPORT = 200;
-export const MAX_JSON_BYTES = 2 * 1024 * 1024;
+export const MAX_IMPORT = Number.MAX_SAFE_INTEGER;
+export const MAX_JSON_BYTES = 32 * 1024 * 1024;
 export const quizSetName = value => String(value || '').trim().toUpperCase().replace(/[^A-Z0-9_-]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
 export const quizSetOf = item => {
   if (categoryOf(item) !== 'quiz') return '';
@@ -32,16 +32,43 @@ export const quizSetOf = item => {
 };
 export const stripQuizMarker = value => String(value || '').replace(/^\[EduNexus Quiz(?:\|set:[A-Z0-9_-]{1,40})?(?:\|order:[0-9]{4})?\]\s*/, '');
 const outdatedTag = /Quiz-practice item listed under Midterm because the site has no Quiz category\./gi;
+
+// Accept the exact four-option source schema without rewriting mathematical text.
+// Missing options are reported for review rather than fabricated.
+export function normalizeImportedMcq(item) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
+  const options = item.options && !Array.isArray(item.options) && typeof item.options === 'object'
+    ? ['A','B','C','D'].map(key => item.options[key])
+    : item.options;
+  const key = typeof item.correct_option === 'string' ? item.correct_option.trim().toUpperCase() : '';
+  const answer = Number.isInteger(item.answer) ? item.answer
+    : /^[A-D]$/.test(key) ? key.charCodeAt(0) - 65 : null;
+  const actual = Array.isArray(options) && answer !== null ? options[answer] : null;
+  const sourceAnswer = item.correct_answer;
+  const answerMismatch = typeof sourceAnswer === 'string' && typeof actual === 'string'
+    && sourceAnswer.trim() !== actual.trim();
+  return { ...item, options, answer, answerMismatch };
+}
+export function suggestImportMetadata(filename, items = []) {
+  const name = String(filename || '').toLowerCase();
+  const subject = name.match(/(?:^|[^a-z0-9])([a-z]{2,5}[0-9]{3}[a-z]?)(?=[^a-z0-9]|$)/i)?.[1]?.toUpperCase() || '';
+  const categories = [...new Set(items.map(item => categoryOf(item)).filter(v => ['quiz','midterm','finalterm'].includes(v)))];
+  const filenameCategory = /(?:final[ _-]?term|finals?)/i.test(name) ? 'finalterm'
+    : /(?:mid[ _-]?term|mids?)/i.test(name) ? 'midterm'
+    : /(?:quiz|quizzes)/i.test(name) ? 'quiz' : '';
+  return { subject, category: categories.length > 1 ? 'mixed' : filenameCategory || categories[0] || 'mixed' };
+}
+
 export function parseMcqJson(text) {
   if (typeof text !== 'string' || !text.trim()) throw new Error('Paste JSON or choose a .json file to import.');
-  if (text.length > MAX_JSON_BYTES) throw new Error('JSON is too large; use a batch of up to 200 questions.');
+  if (new Blob([text]).size > MAX_JSON_BYTES) throw new Error('JSON exceeds the 32 MiB browser safety limit. Split this file into smaller JSON files.');
   let parsed;
   try { parsed = JSON.parse(text); }
   catch (error) { throw new Error('Invalid JSON: ' + error.message); }
-  if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > MAX_IMPORT) {
-    throw new Error('Provide a JSON array containing 1–200 questions.');
+  if (!Array.isArray(parsed) || parsed.length < 1) {
+    throw new Error('Provide a nonempty JSON array of questions.');
   }
-  return parsed;
+  return parsed.map(normalizeImportedMcq);
 }
 export function validateMcq(item, index = 0, { forImport = false } = {}) {
   const fail = (reason) => { throw new Error('Question ' + (index + 1) + ': ' + reason); };
