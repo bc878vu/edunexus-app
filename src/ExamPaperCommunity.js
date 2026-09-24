@@ -109,7 +109,7 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
       orphanUpload = null;
       setNotice('Your review is now published. Students can read and share it below.');
       if (onPublished) onPublished(code, form.term);
-      setForm((prev) => ({ ...defaultForm(prev.subject, prev.term), semesterYear: prev.semesterYear }));
+      setForm((prev) => ({ ...defaultForm('', prev.term), semesterYear: prev.semesterYear }));
       setAgreed(false); setPaper(null);
       if (fileInput.current) fileInput.current.value = '';
     } catch (err) {
@@ -149,22 +149,23 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
   </section>;
 }
 
-// React escapes review text. Only http(s) URLs become links; no user HTML is injected.
+// Render user text as React text nodes, preserving whitespace and linking only safe URLs.
 const reviewUrlPattern = /https?:\/\/[^\s<>"']+/gi;
 function renderReviewContent(value) {
-  return String(value || '').split('\n').map((line, index) => <React.Fragment key={index}>{index > 0 && <br />}{line.split(reviewUrlPattern).reduce((parts, segment, i, segments) => {
-    parts.push(segment);
-    if (i < segments.length - 1) {
-      const match = line.match(reviewUrlPattern) || [];
-      const raw = match[i];
-      if (raw) {
-        const url = raw.replace(/[.,;!?)]*$/, '');
-        parts.push(<a key={i} href={url} target="_blank" rel="noopener noreferrer nofollow ugc">{url}</a>);
-        parts.push(raw.slice(url.length));
-      }
+  return String(value || '').split('\n').map((line, lineIndex) => {
+    const parts = [];
+    let offset = 0;
+    for (const match of line.matchAll(reviewUrlPattern)) {
+      parts.push(line.slice(offset, match.index));
+      const raw = match[0];
+      const url = raw.replace(/[.,;!?)]*$/, '');
+      parts.push(<a key={match.index} href={url} target="_blank" rel="noopener noreferrer nofollow ugc">{url}</a>);
+      parts.push(raw.slice(url.length));
+      offset = match.index + raw.length;
     }
-    return parts;
-  }, [])}</React.Fragment>);
+    parts.push(line.slice(offset));
+    return <React.Fragment key={lineIndex}>{lineIndex > 0 && <br />}{parts}</React.Fragment>;
+  });
 }
 
 function ReviewCard({ review, user }) {
@@ -243,6 +244,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
+  const [showForm, setShowForm] = useState(false);
   const [browseSubject, setBrowseSubject] = useState('');
   const [allSubjects, setAllSubjects] = useState(true);
   const [browseTerm, setBrowseTerm] = useState('all');
@@ -291,11 +293,12 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
     setBrowseSubject(courseCode(item.subject));
     setAllSubjects(false);
     setBrowseTerm(String(item.term||'').toLowerCase()==='finalterm'?'finalterm':'midterm');
+    setShowForm(true);
     setReuseDraft({ ...item, reuseId: item.id + '-' + Date.now() });
     document.getElementById('edx-paper-share-title')?.scrollIntoView?.({ behavior:'smooth', block:'start' });
   };
   const onSuccessfullyPublished = (code, examTerm) => {
-    setBrowseSubject(code);
+    setBrowseSubject('');
     setAllSubjects(true);
     setBrowseTerm('all');
     onPublished?.(code,examTerm);
@@ -305,17 +308,18 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
       <span className="edx-paper-kicker"><MessageCircle size={16}/> Paper reviews</span>
       <h1 id="edx-paper-title">Learn from students who have taken the exam.</h1>
       <p>Read recent paper experiences, share yours and pick up useful preparation tips.</p>
-      <div className="edx-paper-hero-actions"><a href="#edx-paper-feed">Browse reviews <ExternalLink size={15}/></a><a href="#edx-paper-share-title">Write a review <Send size={15}/></a></div>
+      <div className="edx-paper-hero-actions"><a href="#edx-paper-feed">Browse reviews <ExternalLink size={15}/></a><a href="#edx-paper-share-title" onClick={()=>setShowForm(true)}>Write a review <Send size={15}/></a></div>
     </section>
     <div className="edx-paper-browser" role="group" aria-label="Find paper reviews">
       <label>Course code<input value={browseSubject} list="edx-paper-subjects" maxLength={12} placeholder="e.g. CS620" onChange={e=>{setBrowseSubject(courseCode(e.target.value));setAllSubjects(false);}}/><datalist id="edx-paper-subjects">{[...new Set([...SUBJECTS,subject,...community.map(r=>courseCode(r.subject)),...legacy.map(r=>courseCode(r.subject))])].filter(Boolean).map(code=><option key={code} value={code}/>)}</datalist></label>
       <label>Exam type<select value={browseTerm} onChange={e=>setBrowseTerm(e.target.value)}><option value="all">All exam types</option><option value="midterm">Midterm</option><option value="finalterm">Finalterm</option></select></label>
       <label className="edx-paper-all-subjects"><input type="checkbox" checked={allSubjects} onChange={e=>setAllSubjects(e.target.checked)}/> Show reviews for all subjects</label>
     </div>
-    <ReviewSubmission user={user} subject={browseSubject} term={submitTerm} reuseDraft={reuseDraft} onPublished={onSuccessfullyPublished} />
+    {showForm && <ReviewSubmission user={user} subject={browseSubject} term={submitTerm} reuseDraft={reuseDraft} onPublished={onSuccessfullyPublished} />}
     <EarlierSubmissions user={user} onReuse={reuse}/>
     <section className="edx-paper-feed" id="edx-paper-feed" aria-labelledby="edx-paper-feed-title">
       <div className="edx-paper-feed-head"><div><span className="edx-paper-kicker"><MessageCircle size={16} /> Shared by students</span><h2 id="edx-paper-feed-title">{allSubjects ? 'Latest paper experiences' : 'Paper experiences for '+browseSubject}</h2><p>Browse shared completed-exam experiences or search for a specific subject.</p></div><span className="edx-paper-feed-count">{reviews.length} {reviews.length===1?'review':'reviews'}</span></div>
+      {!showForm && <button type="button" className="edx-exam-secondary" onClick={()=>setShowForm(true)}>Write a review</button>}
       <div className="edx-paper-feed-controls">
         <label><Search size={17}/><input type="search" value={reviewSearch} onChange={e=>setReviewSearch(e.target.value)} placeholder="Find a subject, topic or keyword…" aria-label="Search paper reviews"/></label>
         <select value={sortBy} onChange={e=>setSortBy(e.target.value)} aria-label="Sort paper reviews"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
