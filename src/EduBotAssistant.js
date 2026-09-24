@@ -27,6 +27,8 @@ export default function EduBotAssistant() {
   const [listening, setListening] = useState(false);
   const [voiceError, setVoiceError] = useState('');
   const [language, setLanguage] = useState('ur-PK');
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState('');
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [speakingId, setSpeakingId] = useState(null);
   const speechTokenRef = useRef(0);
@@ -41,6 +43,15 @@ export default function EduBotAssistant() {
   openRef.current = open;
   const canListen = Boolean(speechApi());
   const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
+  useEffect(() => {
+    if (!canSpeak) return undefined;
+    const refreshVoices = () => setAvailableVoices(window.speechSynthesis.getVoices());
+    refreshVoices();
+    window.speechSynthesis.addEventListener?.('voiceschanged', refreshVoices);
+    return () => window.speechSynthesis.removeEventListener?.('voiceschanged', refreshVoices);
+  }, [canSpeak]);
+  const languageVoices = availableVoices.filter(voice => voice.lang.toLowerCase().split('-')[0] === language.toLowerCase().split('-')[0]);
+  const preferredVoice = languageVoices.find(voice => /female|zira|samantha|jenny|aria|sara|heera|ayesha|neerja|susan|hazel|natasha/i.test(voice.name)) || languageVoices.find(voice => voice.default) || languageVoices[0];
 
   const stopSpeech = () => {
     speechTokenRef.current += 1;
@@ -62,8 +73,11 @@ export default function EduBotAssistant() {
     const speechText = plainSpeechText(text).trim();
     if (!speechText) return;
     const utterance = new window.SpeechSynthesisUtterance(speechText);
-    utterance.lang = language;
-    utterance.rate = 0.95;
+    const voice = availableVoices.find(item => item.voiceURI === selectedVoice && item.lang.toLowerCase().split('-')[0] === language.toLowerCase().split('-')[0]) || preferredVoice;
+    if (voice) utterance.voice = voice;
+    utterance.lang = voice?.lang || language;
+    utterance.rate = 0.92;
+    utterance.pitch = 1.05;
     utterance.onstart = () => { if (speechTokenRef.current === token) setSpeakingId(messageId); };
     utterance.onend = utterance.onerror = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
     setSpeakingId(messageId);
@@ -249,6 +263,7 @@ export default function EduBotAssistant() {
         <label>Voice language <select value={language} onChange={(e) => { stopListening(); stopSpeech(); setLanguage(e.target.value); }}>
           <option value="ur-PK">Urdu (Pakistan)</option><option value="en-US">English</option><option value="hi-IN">Hindi</option>
         </select></label>
+        {canSpeak && <label>Voice <select aria-label="Choose speech voice" value={languageVoices.some(voice => voice.voiceURI === selectedVoice) ? selectedVoice : (preferredVoice?.voiceURI || '')} onChange={event => { stopSpeech(); setSelectedVoice(event.target.value); }}><option value="" disabled>{languageVoices.length ? 'Choose a voice' : 'Device default voice'}</option>{languageVoices.map(voice => <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name}</option>)}</select></label>}
         <label className="edx-bot-autospeak"><input type="checkbox" checked={autoSpeak} onChange={e => { setAutoSpeak(e.target.checked); if (!e.target.checked) stopSpeech(); }} disabled={!canSpeak}/> Read replies aloud</label>
       </div>
       {(interim || voiceError) && <p className={'edx-bot-voice-hint' + (voiceError ? ' error' : '')} role="status">{voiceError || ('Listening: ' + interim)}</p>}
