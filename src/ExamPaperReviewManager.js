@@ -33,7 +33,7 @@ export function validateReviewDraft(draft, original = null) {
     subject:courseCode(draft.subject), term:draft.term, semester:trim(draft.semester,20),
     examDate:trim(draft.examDate,10), examTime:trim(draft.examTime,5),
     sharedBy:trim(draft.sharedBy,60), difficulty:draft.difficulty,
-    topics:trim(draft.topics,400), summary:trim(draft.summary,1500)
+    topics:trim(draft.topics,400), summary:trim(draft.summary,10000)
   };
   if (!validCode(values.subject) || !['midterm','finalterm'].includes(values.term) ||
     !['easy','moderate','challenging'].includes(values.difficulty) ||
@@ -146,7 +146,7 @@ export default function ExamPaperReviewManager({ user }) {
         <label className="edx-exam-field">Display name<input value={draft.sharedBy} maxLength={60} onChange={e=>change('sharedBy',e.target.value)}/></label>
         <label className="edx-exam-field">Difficulty<select value={draft.difficulty} onChange={e=>change('difficulty',e.target.value)}><option value="easy">Easy</option><option value="moderate">Moderate</option><option value="challenging">Challenging</option></select></label>
         <label className="edx-exam-field">Topics<input value={draft.topics} maxLength={400} onChange={e=>change('topics',e.target.value)}/></label>
-        <label className="edx-exam-field edx-review-manager-wide">Review<textarea required minLength={20} maxLength={1500} rows={5} value={draft.summary} onChange={e=>change('summary',e.target.value)}/></label>
+        <label className="edx-exam-field edx-review-manager-wide">Review<textarea required minLength={20} maxLength={10000} rows={10} value={draft.summary} onChange={e=>change('summary',e.target.value)}/></label>
       </div>
       <button className="edx-exam-primary" disabled={busy}>{busy ? 'Saving…' : selected ? 'Save changes' : 'Publish review'}</button>
     </form>
