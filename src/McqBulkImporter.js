@@ -15,6 +15,32 @@ const errorMessage = (error) => {
   return error?.message || 'Could not import the questions. Please retry.';
 };
 
+
+// Locate top-level JSON array objects without changing their original text or formulas.
+const jsonQuestionLocations = (source) => {
+  const locations = [];
+  let quoted = false, escaped = false, depth = 0, start = -1;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') quoted = false;
+      continue;
+    }
+    if (ch === '"') { quoted = true; continue; }
+    if (ch === '{') { if (depth === 0) start = i; depth++; }
+    else if (ch === '}' && depth > 0) {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        locations.push({ start, end: i + 1, line: source.slice(0, start).split('\n').length });
+        start = -1;
+      }
+    }
+  }
+  return locations;
+};
+
 export default function McqBulkImporter({ user, onView }) {
   const [bulk, setBulk] = useState('');
   const [sourceName, setSourceName] = useState('');
@@ -31,6 +57,17 @@ export default function McqBulkImporter({ user, onView }) {
   const [progress, setProgress] = useState('');
   const working = useRef(false);
   const chooser = useRef(null);
+  const jsonEditor = useRef(null);
+  const locations = useMemo(() => jsonQuestionLocations(bulk), [bulk]);
+  const goToQuestion = number => {
+    const location = locations[number - 1];
+    const editor = jsonEditor.current;
+    if (!location || !editor) return;
+    editor.focus();
+    editor.setSelectionRange(location.start, location.end);
+    const lineHeight = parseFloat(window.getComputedStyle(editor).lineHeight) || 20;
+    editor.scrollTop = Math.max(0, (location.line - 3) * lineHeight);
+  };
 
   const inspection = useMemo(() => {
     if (!bulk.trim()) return { summary: null, items: null, issue: '' };
@@ -128,10 +165,10 @@ export default function McqBulkImporter({ user, onView }) {
       {(overrideTerm === 'quiz' || (overrideTerm === 'keep' && inspection.summary?.totals.quiz > 0)) && <label className="edx-exam-field">Quiz set name (optional; applies to all Quiz questions)<input maxLength={40} placeholder="e.g. QUIZ-1, QUIZ-2 · blank keeps each question’s set" value={quizSet} onChange={e=>setQuizSet(e.target.value)}/></label>}
       <label className="edx-exam-field" htmlFor="edx-mcq-import-paste">Or paste JSON content</label>
       <textarea id="edx-mcq-import-paste" aria-label="MCQ JSON import" rows={7} spellCheck={false}
-        value={bulk} disabled={busy} onChange={(event) => { setBulk(event.target.value); setSourceName(''); setError(''); setSuccess(''); setVerified(false); setDestination(null); }}
+        ref={jsonEditor} value={bulk} disabled={busy} onChange={(event) => { setBulk(event.target.value); setSourceName(''); setError(''); setSuccess(''); setVerified(false); setDestination(null); }}
         placeholder={sample}/>
       {sourceName && <p className="edx-import-note">Filename suggestion: {suggestImportMetadata(sourceName, inspection.items || []).subject || 'subject not found'} · {suggestImportMetadata(sourceName, inspection.items || []).category}. You can change the fields above.</p>}
-      {inspection.rejected?.length > 0 && <div className="edx-exam-alert" role="alert"><strong>{inspection.rejected.length} questions need review and will not be uploaded.</strong><details><summary>Show question IDs and validation issues</summary><ol>{inspection.rejected.map((issue,i) => <li key={i}>Question {issue.number}{issue.id != null ? ' (ID '+issue.id+')' : ''}: {issue.reason}</li>)}</ol></details></div>}
+      {inspection.rejected?.length > 0 && <div className="edx-exam-alert" role="alert"><strong>{inspection.rejected.length} questions need review and will not be uploaded.</strong><details open><summary>Show question numbers, JSON lines and errors</summary><ol>{inspection.rejected.map((issue,i) => <li key={i} style={{marginTop:8}}>Question {issue.number}{issue.id != null ? ' (ID '+issue.id+')' : ''}{locations[issue.number - 1] ? ', line '+locations[issue.number - 1].line : ''}: {issue.reason} {locations[issue.number - 1] && <button type="button" className="edx-exam-secondary" onClick={() => goToQuestion(issue.number)} aria-label={'Find question '+issue.number+' in JSON'}>Find in JSON</button>}</li>)}</ol></details><p>Correct the highlighted question in the JSON text or original file, then reselect the updated file. Invalid questions are skipped; original options and answer keys are never invented.</p></div>}
       {inspection.issue && <div className="edx-exam-alert" role="alert">{inspection.issue}</div>}
       {inspection.summary && <div className="edx-import-summary" role="status">
         <strong>{inspection.summary.count} questions ready for validation</strong>
