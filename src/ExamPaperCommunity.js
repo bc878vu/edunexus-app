@@ -6,6 +6,9 @@ import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'fi
 import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import './exam-paper-community.css';
 
+const REVIEW_WORD_LIMIT = 10000;
+const REVIEW_CHAR_LIMIT = 300000;
+const countReviewWords = (value) => String(value || '').trim().match(/\S+/gu)?.length || 0;
 const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
 const col = (name) => collection(db, ...ROOT, name);
 const REVIEW_COLLECTION = 'examCommunityReviews';
@@ -60,14 +63,17 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
     if (!user?.uid) { setError('Please sign in to share a review.'); return; }
     const code = courseCode(form.subject);
     const name = safe(form.sharedBy, 60);
-    const summary = safe(form.summary, 10000);
+    const summary = String(form.summary || '').trim();
+    if (summary.length > REVIEW_CHAR_LIMIT || countReviewWords(summary) > REVIEW_WORD_LIMIT) {
+      setError('Review must contain no more than 10,000 words and 300,000 characters. Attach a PDF for longer papers.'); return;
+    }
     if (paper && (paper.size > 5 * 1024 * 1024 || paper.size === 0 || !['application/pdf','image/jpeg','image/png'].includes(paper.type))) {
       setError('Choose a PDF, JPG or PNG file no larger than 5 MB.'); return;
     }
     const examMoment = new Date(form.examDate + 'T' + form.examTime + ':00');
     const futureExam = !Number.isFinite(examMoment.getTime()) || examMoment.getTime() > Date.now();
     if (!validCourse(code) || !form.examDate || !/^([01]\d|2[0-3]):[0-5]\d$/.test(form.examTime)
-      || futureExam || name.length < 2 || summary.length < 20 || summary.length > 10000
+      || futureExam || name.length < 2 || summary.length < 20 || summary.length > REVIEW_CHAR_LIMIT || countReviewWords(summary) > REVIEW_WORD_LIMIT
       || !['Spring', 'Fall', 'Summer'].includes(form.semesterSeason)
       || !Number.isInteger(Number(form.semesterYear)) || Number(form.semesterYear) < 2020
       || Number(form.semesterYear) > new Date().getFullYear() + 1 || !agreed) {
@@ -137,7 +143,7 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
         <label>Shared by (display name) <input required minLength={2} maxLength={60} autoComplete="nickname" placeholder="Your name or preferred display name" value={form.sharedBy} onChange={(e) => update('sharedBy', e.target.value)} /></label>
         <label>Exam difficulty <select value={form.difficulty} onChange={(e) => update('difficulty', e.target.value)}><option value="easy">Easy</option><option value="moderate">Moderate</option><option value="challenging">Challenging</option></select></label>
         <label className="edx-paper-full">Main topics (optional) <input maxLength={400} placeholder="e.g. important definitions, lecture topics or general preparation tips" value={form.topics} onChange={(e) => update('topics', e.target.value)} /></label>
-        <label className="edx-paper-full">Your paper experience and study tips <textarea required minLength={20} maxLength={10000} rows={10} placeholder="What topics came up? What would you suggest other students revise?" value={form.summary} onChange={(e) => update('summary', e.target.value)} /><span className="edx-paper-count">{form.summary.length} / 10000</span></label>
+        <label className="edx-paper-full">Your paper experience and study tips <textarea required minLength={20} maxLength={REVIEW_CHAR_LIMIT} rows={10} placeholder="What topics came up? What would you suggest other students revise?" value={form.summary} onChange={(e) => update('summary', e.target.value)} /><span className="edx-paper-count">{countReviewWords(form.summary).toLocaleString()} / 10,000 words</span></label>
       </div>
       <label className="edx-paper-attachment">Attach your completed paper (optional) <input ref={fileInput} type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" disabled={busy} onChange={e=>{const file=e.target.files?.[0] || null; if(file && (file.size>5*1024*1024 || file.size===0 || !["application/pdf","image/jpeg","image/png"].includes(file.type))){setPaper(null);setError("Choose a PDF, JPG or PNG file no larger than 5 MB.");e.target.value="";return;}setError("");setPaper(file);}}/><small>{paper ? paper.name : "PDF, JPG or PNG · Up to 5 MB · Only upload material you are allowed to share."}</small></label>
       <label className="edx-paper-consent"><input type="checkbox" required checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /><span>I have completed this exam, and my review does not disclose confidential or active examination material. I understand that my display name and review will be publicly visible.</span></label>
@@ -231,7 +237,7 @@ function EarlierSubmissions({ user, onReuse }) {
     {items.map(item => <article key={item.id} className="edx-paper-earlier-row">
       <div><strong>{safe(item.subject,12)} · {String(item.term||'').toLowerCase()==='finalterm' ? 'Finalterm' : 'Midterm'} · {safe(item.examDate,12)}</strong>
         <span>{item.status === 'approved' ? 'Previously approved' : item.status === 'rejected' ? 'Not published' : 'Awaiting publication'}</span>
-        <p>{safe(item.summary,10000)}</p></div>
+        <p>{String(item.summary || '')}</p></div>
       <button type="button" className="edx-exam-secondary" onClick={()=>onReuse(item)}>Use this text in a new review</button>
     </article>)}
     {items.length >= 100 && <small>Showing the first 100 submissions for this account.</small>}
