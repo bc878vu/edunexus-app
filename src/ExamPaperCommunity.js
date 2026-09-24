@@ -4,6 +4,7 @@ import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileTe
 import { db, storage } from './firebase-client';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
+import RichContent from './RichContent';
 import './exam-paper-community.css';
 
 const REVIEW_WORD_LIMIT = 10000;
@@ -63,7 +64,7 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
     if (!user?.uid) { setError('Please sign in to share a review.'); return; }
     const code = courseCode(form.subject);
     const name = safe(form.sharedBy, 60);
-    const summary = String(form.summary || '').trim();
+    const summary = String(form.summary || '');
     if (summary.length > REVIEW_CHAR_LIMIT || countReviewWords(summary) > REVIEW_WORD_LIMIT) {
       setError('Review must contain no more than 10,000 words and 300,000 characters. Attach a PDF for longer papers.'); return;
     }
@@ -158,18 +159,20 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
 // Render user text as React text nodes, preserving whitespace and linking only safe URLs.
 const reviewUrlPattern = /https?:\/\/[^\s<>"']+/gi;
 function renderReviewContent(value) {
+  // Multiline code needs one continuous block to preserve its original indentation.
+  if (String(value || '').includes(String.fromCharCode(96).repeat(3))) return <RichContent value={value}/>;
   return String(value || '').split('\n').map((line, lineIndex) => {
     const parts = [];
     let offset = 0;
     for (const match of line.matchAll(reviewUrlPattern)) {
-      parts.push(line.slice(offset, match.index));
+      parts.push(<RichContent key={'text-'+offset} value={line.slice(offset, match.index)}/>);
       const raw = match[0];
       const url = raw.replace(/[.,;!?)]*$/, '');
       parts.push(<a key={match.index} href={url} target="_blank" rel="noopener noreferrer nofollow ugc">{url}</a>);
       parts.push(raw.slice(url.length));
       offset = match.index + raw.length;
     }
-    parts.push(line.slice(offset));
+    parts.push(<RichContent key={'tail-'+offset} value={line.slice(offset)}/>);
     return <React.Fragment key={lineIndex}>{lineIndex > 0 && <br />}{parts}</React.Fragment>;
   });
 }
