@@ -1623,7 +1623,7 @@ const FlashcardGenerator = ({ theme, showToast }) => {
             <div className="w-full h-64 relative perspective-1000 cursor-pointer group" onClick={() => setIsFlipped(!isFlipped)}>
               <div className={`w-full h-full relative transform-style-3d transition-transform duration-500 ${isFlipped ? 'rotate-y-180' : ''}`}>
                 <div className={`absolute w-full h-full ${theme.card} border ${theme.border} rounded-2xl p-8 flex items-center justify-center text-center backface-hidden shadow-xl`}><div><h3 className={`text-sm uppercase tracking-wider text-pink-500 font-bold mb-4`}>Question</h3><p className={`text-2xl font-bold ${theme.text}`}><RichContent value={cards[currentCardIndex].front}/></p><p className={`text-xs ${theme.textMuted} mt-8`}>Tap to reveal</p></div></div>
-                <div className={`absolute w-full h-full bg-indigo-600 text-white rounded-2xl p-8 flex items-center justify-center text-center backface-hidden rotate-y-180 shadow-xl`}><div><h3 className={`text-sm uppercase tracking-wider text-indigo-200 font-bold mb-4`}>Answer</h3><p className={`text-xl font-medium leading-relaxed`}>{String(cards[currentCardIndex].back)}</p></div></div>
+                <div className={`absolute w-full h-full bg-indigo-600 text-white rounded-2xl p-8 flex items-center justify-center text-center backface-hidden rotate-y-180 shadow-xl`}><div><h3 className={`text-sm uppercase tracking-wider text-indigo-200 font-bold mb-4`}>Answer</h3><p className={`text-xl font-medium leading-relaxed`}><RichContent value={cards[currentCardIndex].back}/></p></div></div>
               </div>
             </div>
             <div className="flex items-center gap-6 mt-8">
