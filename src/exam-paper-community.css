@@ -132,3 +132,6 @@
  .edx-exam .edx-paper-earlier-row button{width:100%}
  .edx-exam .edx-paper-browser .edx-paper-all-subjects{grid-column:1}
 }
+
+/* Theme contrast safeguards for the complete paper review experience. */
+.edx-paper{color:var(--ep-ink)}.edx-paper :is(h1,h2,h3,h4,h5,h6,label,strong){color:var(--ep-ink)}.edx-paper :is(p,small,time,.edx-paper-muted){color:var(--ep-muted)}.edx-paper :is(input,textarea,select){background:var(--ep-surface);color:var(--ep-ink);border-color:var(--ep-border)}.edx-paper :is(input,textarea)::placeholder{color:var(--ep-muted);opacity:1}.edx-paper :is(input,textarea,select,button,a):focus-visible{outline:3px solid #a5b4fc;outline-offset:3px}.dark .edx-paper{--ep-ink:#f1f5ff;--ep-muted:#cbd5e1;--ep-surface:#172238;--ep-soft:#23334f;--ep-border:#53647f;--ep-accent:#c4b5fd}.dark .edx-paper :is(.edx-paper-kicker,.edx-paper-feed-kicker){color:#c4b5fd}.dark .edx-paper a:not(.edx-paper-publish){color:#c4b5fd}.dark .edx-paper :is(input,textarea,select){color-scheme:dark}.edx-paper :is(.edx-paper-card,.edx-paper-submit){overflow-wrap:anywhere}.edx-paper :is(.edx-paper-card,.edx-paper-submit) a{overflow-wrap:anywhere}@media(prefers-reduced-motion:reduce){.edx-paper *, .edx-paper *::before,.edx-paper *::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
