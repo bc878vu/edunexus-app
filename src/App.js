@@ -4543,69 +4543,10 @@ const PAGES = APP_PAGES;
 const NAV_ITEMS = PAGES;
 
 
-  // ✅ NEW: page-wise SEO titles
-  const PAGE_TITLES = {
-    home: 'EduNexus – Study Material, Mock Tests & AI Tools',
-    articles: "EduNexus Articles & Guides – Virtual University Study Tips",
-    academic: "VU Notes, Handouts & Past Papers – EduNexus Academic Hub",
-    'exam-prep': 'VU Exam MCQ Bank & Paper Reviews | EduNexus',
-    planner: "Study Planner – Create AI Study Plan | EduNexus",
-    flashcards: "AI Flashcards – Learn VU Subjects Fast | EduNexus",
-    forum: "Discussion Forum – Ask Virtual University Questions | EduNexus",
-    aiquiz: "AI Quiz Generator – Virtual University MCQs Practice | EduNexus",
-    cgpa: "CGPA & GPA Calculator – Virtual University | EduNexus",
-    portfolio: "Asad Amanat Ali – Software Engineer Portfolio | EduNexus",
-    about: "About EduNexus – Independent Virtual University Study Hub",
-    contact: "Contact EduNexus – Support for VU Students",
-    privacy: "Privacy Policy - EduNexus",
-  terms: "Terms of Service - EduNexus",
-    admin: "EduNexus Admin Panel"
-  };
-
-  // ✅ NEW: page-wise meta descriptions
-  const PAGE_DESCRIPTIONS = {
-    home: "EduNexus is a smart study hub for Virtual University (VU) students. Access VU notes, handouts, past papers, quizzes, mock tests, CGPA calculator and AI study tools in one place.",
-    articles: "Read official EduNexus articles: exam tips, VU updates, technical guides and student success stories for Virtual University students.",
-    academic: "Download Virtual University notes, handouts, files and past papers for CS101, MTH101, ENG101, PHY101 and many more VU subjects.",
-    'exam-prep': "Practice subject-wise VU MCQs, explore approved completed-paper reviews and access EduNexus study resources.",
-    planner: "Generate a personalized study plan with AI based on your Virtual University subjects, uploaded files and available study hours.",
-    flashcards: "Create interactive AI flashcards for any topic and revise Virtual University subjects quickly and effectively with EduNexus.",
-    forum: "Ask questions, discuss assignments and get admin replies in the EduNexus discussion forum designed for Virtual University students.",
-    aiquiz: "Generate MCQ quizzes with AI from your text or files and practice like real Virtual University exams with instant feedback.",
-    cgpa: "Calculate your CGPA and GPA using VU-style grading. Track your academic performance with the EduNexus CGPA calculator.",
-    portfolio: "View the developer portfolio of Asad Amanat Ali, creator of EduNexus and AI powered learning tools for Virtual University students.",
-    about: "Learn what EduNexus is, how it helps Virtual University students and why it is an independent, student-focused study hub.",
-    contact: "Need help with notes, quizzes, AI tools or portal issues? Contact the EduNexus support team using this page.",
-    privacy: "Read how EduNexus handles your data, cookies and Google AdSense usage.",
-  terms: "Read the terms and conditions for using EduNexus study tools.",
-    admin: "Admin area of EduNexus to manage highlights, files, announcements, articles and other study resources."
-  };
-  // ✅ Update <title> + <meta description> on page change
-// eslint-disable-next-line react-hooks/exhaustive-deps
-useEffect(() => {
-  const title = PAGE_TITLES[page] || PAGE_TITLES.home;
-  document.title = title;
-
-  const metaDesc = document.querySelector("meta[name='description']");
-  if (metaDesc) {
-    metaDesc.setAttribute(
-      "content",
-      PAGE_DESCRIPTIONS[page] || PAGE_DESCRIPTIONS.home
-    );
-  }
-
-  const portfolioPage = page === 'portfolio';
-  const canonical = document.querySelector('link[rel="canonical"]') || document.createElement('link');
-  canonical.rel = 'canonical';
-  canonical.href = portfolioPage ? 'https://edunexus-app.vercel.app/?page=portfolio' : 'https://edunexus-app.vercel.app/' + (page === 'home' ? '' : '?page=' + encodeURIComponent(page));
-  if (!canonical.isConnected) document.head.appendChild(canonical);
-  let profileSchema = document.getElementById('edx-portfolio-schema');
-  if (portfolioPage) {
-    if (!profileSchema) { profileSchema = document.createElement('script'); profileSchema.id = 'edx-portfolio-schema'; profileSchema.type = 'application/ld+json'; document.head.appendChild(profileSchema); }
-    profileSchema.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'ProfilePage', url: 'https://edunexus-app.vercel.app/?page=portfolio', mainEntity: { '@type': 'Person', name: 'Asad Amanat Ali', url: 'https://edunexus-app.vercel.app/?page=portfolio', description: 'Creator of EduNexus, a student study and exam preparation platform.' } });
-  } else if (profileSchema) profileSchema.remove();
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}, [page]);
+  // SEOManager owns all page metadata and schema; navigation keeps scroll UX.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [page]);
 
     // ✅ central navigation function (har jagah isi ko use karna hai)
   const navigate = (targetPage) => {
