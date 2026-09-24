@@ -3219,7 +3219,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
         about,
       };
 
-      await setDoc(profileRef, payload);
+      await setDoc(profileRef, payload, { merge: true });
       showToast("Profile updated", "success");
     } catch (e) {
       console.error(e);
@@ -3229,8 +3229,10 @@ const ProfileTab = ({ theme, user, showToast }) => {
 
   const handleSavePictureFromUrl = async () => {
     if (!newUrl) return;
-    setCurrUrl(newUrl);
+    try { const parsed = new URL(newUrl); if (!['https:', 'http:'].includes(parsed.protocol)) throw new Error('Invalid protocol'); }
+    catch (_) { showToast('Enter a valid http(s) image URL', 'error'); return; }
     await saveProfile({ picUrl: newUrl });
+    setCurrUrl(newUrl);
     setNewUrl("");
   };
 
@@ -3258,6 +3260,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
   const handleReset = async () => {
     try {
       // basically delete / reset profile
+      if (!window.confirm("Reset profile details? Existing projects, skills and experience will be preserved.")) return;
       await setDoc(profileRef, {
         picUrl: defaultUrl,
         fullName: "",
@@ -3266,7 +3269,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
         contactEmail: user?.email || "",
         contactPhone: "",
         about: "",
-      });
+      }, { merge: true });
       setCurrUrl("");
       setFullName("");
       setTitle("");
