@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { trustedPreviewUrl, previewSandbox } from '../src/academic-preview.mjs';
 import { inspectAcademicHeader, validateAcademicFileHeader } from '../src/academic-upload-validation.mjs';
+import { youtubeId, safeYouTubeId } from '../src/youtube-video.mjs';
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const bytes = (...values) => new Uint8Array(values);
@@ -86,4 +87,24 @@ test('app CSP protects embedding, form target and active code with existing inte
   assert.ok(v.rewrites.some(x=>x.source==='/tutorials'&&x.destination==='/index.html'));
   assert.ok(h.find(x=>x.key==='Strict-Transport-Security'));
   assert.ok(h.find(x=>x.key==='X-Content-Type-Options'));
+});
+
+test('YouTube tutorials permit only exact HTTPS hosts and 11-character video IDs', () => {
+  const id = 'pFOw-5vzVtU';
+  assert.equal(youtubeId('https://www.youtube.com/watch?v=' + id), id);
+  assert.equal(youtubeId('https://youtu.be/' + id), id);
+  assert.equal(youtubeId('https://www.youtube.com/embed/' + id), id);
+  assert.equal(safeYouTubeId(id), id);
+  for (const url of [
+    'https://youtube.com.attacker.test/watch?v=' + id,
+    'http://www.youtube.com/watch?v=' + id,
+    'https://evil-youtu.be/' + id,
+    'https://www.youtube.com/watch?v=../../private',
+    'https://youtu.be/' + id + '/unexpected',
+    'javascript:alert(1)'
+  ]) assert.equal(youtubeId(url),'',url);
+  assert.equal(safeYouTubeId('javascript:alert(1)'),'');
+  const component = read('src/TutorialHub.js');
+  assert.match(component,/safeYouTubeId\(video\.videoId\)/);
+  assert.match(component,/sandbox='allow-scripts allow-same-origin allow-presentation allow-popups'/);
 });
