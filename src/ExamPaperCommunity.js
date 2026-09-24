@@ -74,7 +74,7 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
     const examMoment = new Date(form.examDate + 'T' + form.examTime + ':00');
     const futureExam = !Number.isFinite(examMoment.getTime()) || examMoment.getTime() > Date.now();
     if (!validCourse(code) || !form.examDate || !/^([01]\d|2[0-3]):[0-5]\d$/.test(form.examTime)
-      || futureExam || name.length < 2 || summary.length < 20 || summary.length > REVIEW_CHAR_LIMIT || countReviewWords(summary) > REVIEW_WORD_LIMIT
+      || futureExam || name.length < 2 || summary.trim().length < 20 || summary.length > REVIEW_CHAR_LIMIT || countReviewWords(summary) > REVIEW_WORD_LIMIT
       || !['Spring', 'Fall', 'Summer'].includes(form.semesterSeason)
       || !Number.isInteger(Number(form.semesterYear)) || Number(form.semesterYear) < 2020
       || Number(form.semesterYear) > new Date().getFullYear() + 1 || !agreed) {
