@@ -4,7 +4,7 @@ import { assemblePublicKnowledge, EDUNEXUS_GROUP, fetchRelevantPublicKnowledge, 
 import { cleanEduBotText, plainSpeechText, renderableLinks } from './edubotPresentation';
 import './edubot-assistant.css';
 
-const HELLO = { role: 'ai', text: 'Assalam-o-Alaikum! CS101 ki files, quiz, exam prep ya EduNexus ke kisi feature ke baare mein pooch sakte hain. Roman Urdu, Urdu aur English samajhta hoon. Microphone se bol kar bhi question bhej sakte hain.' };
+const HELLO = { role: 'ai', text: 'Welcome, dear! EduNexus is a learning platform where you can explore study resources, practice quizzes, tutorials and exam preparation materials. How can I help you today?' };
 const MAX_MESSAGES = 24;
 const speechApi = () => typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
 const pageName = () => {
@@ -77,18 +77,28 @@ export default function EduBotAssistant() {
     const token = speechTokenRef.current;
     const speechText = plainSpeechText(text).trim();
     if (!speechText) return;
-    const utterance = new window.SpeechSynthesisUtterance(speechText);
-    const detectedLanguage = detectSpeechLanguage(speechText);
-    const voice = pickVoice(detectedLanguage);
-    if (voice) utterance.voice = voice;
-    utterance.lang = voice?.lang || detectedLanguage;
-    utterance.rate = 0.92;
-    utterance.pitch = 1.05;
-    utterance.onstart = () => { if (speechTokenRef.current === token) setSpeakingId(messageId); };
-    utterance.onend = utterance.onerror = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
+    // Split only at natural sentence boundaries; preserve the actual answer.
+    const segments = speechText.match(/[^.!?۔؟\n]+[.!?۔؟]?/g)?.map(part => part.trim()).filter(Boolean) || [speechText];
+    let position = 0;
+    const playNext = () => {
+      if (speechTokenRef.current !== token) return;
+      if (position >= segments.length) { setSpeakingId(null); return; }
+      const segment = segments[position++];
+      const utterance = new window.SpeechSynthesisUtterance(segment);
+      const detectedLanguage = detectSpeechLanguage(segment);
+      const voice = pickVoice(detectedLanguage);
+      if (voice) utterance.voice = voice;
+      utterance.lang = voice?.lang || detectedLanguage;
+      utterance.rate = 0.94;
+      utterance.pitch = 1.02;
+      utterance.onstart = () => { if (speechTokenRef.current === token) setSpeakingId(messageId); };
+      utterance.onend = playNext;
+      utterance.onerror = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
+      try { window.speechSynthesis.speak(utterance); }
+      catch (_) { if (speechTokenRef.current === token) setSpeakingId(null); setVoiceError('Speech output is unavailable on this device.'); }
+    };
     setSpeakingId(messageId);
-    try { window.speechSynthesis.speak(utterance); }
-    catch (_) { if (speechTokenRef.current === token) setSpeakingId(null); setVoiceError('Speech output is unavailable on this device.'); }
+    playNext();
   };
 
   useEffect(() => {
