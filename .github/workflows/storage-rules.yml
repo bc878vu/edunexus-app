@@ -34,6 +34,6 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Install isolated Firebase rules test tooling
-        run: npm install --no-save --no-package-lock --no-audit --no-fund firebase-tools@14.22.0 @firebase/rules-unit-testing@4.0.1
+        run: npm install --no-save --no-package-lock --no-audit --no-fund firebase-tools@14.22.0 @firebase/rules-unit-testing@5.0.2
       - name: Compile rules and verify student, public, and admin permissions in the emulator
         run: ./node_modules/.bin/firebase emulators:exec --project demo-edunexus-storage --only storage --config firebase.json "node --test tests/storage-rules.emulator.test.mjs"
