@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import RichContent from './RichContent';
+import DashboardFAQ from './DashboardFAQ';
 // Initialize shared Firebase/Firestore before legacy modules request the instance.
 import './firebase-client';
 import './admin-academic-upload.css';
@@ -2263,6 +2264,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
 
 
       <Feedback theme={theme} showToast={showToast} />
+      <DashboardFAQ />
     </div>
   );
 };
