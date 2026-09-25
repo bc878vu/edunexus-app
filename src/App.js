@@ -2263,8 +2263,6 @@ const HomePage = ({setPage, theme, showToast, user}) => {
 
 
 
-      <Feedback theme={theme} showToast={showToast} />
-      <DashboardFAQ />
     </div>
   );
 };
@@ -4794,6 +4792,12 @@ useEffect(() => {
               className="rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white hover:bg-indigo-700">
               <Lock size={16} className="mr-2 inline" /> Admin Login
             </button>
+          </section>
+        )}
+        {page === 'home' && (
+          <section id="home-support" className="mt-12 sm:mt-16" aria-label="EduNexus questions and support">
+            <Feedback theme={theme} showToast={showToast} />
+            <DashboardFAQ />
           </section>
         )}
       </main>
