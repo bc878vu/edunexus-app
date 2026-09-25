@@ -30,5 +30,7 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Render the FAQ in the React test environment
         run: CI=true npm test -- --watchAll=false --runInBand DashboardFAQ.test.js
+      - name: Verify exactly one visible dashboard query form
+        run: CI=true npm test -- --watchAll=false --runInBand dashboard-query-singleton.test.js
       - name: Verify the complete production build
         run: CI=false npm run build
