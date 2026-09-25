@@ -44,7 +44,7 @@ const QUESTIONS = [
 
 export default function DashboardFAQ() {
   return (
-    <section className="edx-dashboard-faq" aria-labelledby="edx-dashboard-faq-title">
+    <section id="home-faq" className="edx-dashboard-faq" aria-labelledby="edx-dashboard-faq-title">
       <header className="edx-dashboard-faq-head">
         <div>
           <span className="edx-dashboard-faq-eyebrow">HELP & SUPPORT</span>
@@ -54,8 +54,8 @@ export default function DashboardFAQ() {
         <span className="edx-dashboard-faq-count">{QUESTIONS.length} quick answers</span>
       </header>
       <div className="edx-dashboard-faq-items">
-        {QUESTIONS.map(({ question, answer, href, link }) => (
-          <details className="edx-dashboard-faq-item" key={question}>
+        {QUESTIONS.map(({ question, answer, href, link }, index) => (
+          <details className="edx-dashboard-faq-item" key={question} open={index === 0}>
             <summary>
               <span>{question}</span>
               <span className="edx-dashboard-faq-toggle" aria-hidden="true">+</span>
