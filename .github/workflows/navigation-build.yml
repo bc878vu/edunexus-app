@@ -24,6 +24,8 @@ jobs:
         run: node --test tests/richContent.test.mjs
       - name: Verify Academic Hub upload, preview and security headers
         run: node --test tests/academicSecurityHardening.test.mjs
+      - name: Verify dashboard FAQ placement and accessibility
+        run: node --test scripts/dashboard-faq.test.mjs
       - name: Install dependencies using the project's existing Vercel install command
         run: npm install --no-audit --no-fund
       - name: Verify the complete production build
