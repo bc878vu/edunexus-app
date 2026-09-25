@@ -28,5 +28,7 @@ jobs:
         run: node --test scripts/dashboard-faq.test.mjs
       - name: Install dependencies using the project's existing Vercel install command
         run: npm install --no-audit --no-fund
+      - name: Render the FAQ in the React test environment
+        run: CI=true npm test -- --watchAll=false --runInBand DashboardFAQ.test.js
       - name: Verify the complete production build
         run: CI=false npm run build
