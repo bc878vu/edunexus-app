@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import RichContent from './RichContent';
 import DashboardFAQ from './DashboardFAQ';
+import { enforceSingleDashboardQueryForm, restoreDashboardQueryCards } from './dashboard-query-singleton.mjs';
 // Initialize shared Firebase/Firestore before legacy modules request the instance.
 import './firebase-client';
 import './admin-academic-upload.css';
@@ -2034,7 +2035,7 @@ const Feedback = ({ theme, showToast }) => {
 
   return (
     <div className="max-w-2xl mx-auto text-center space-y-6">
-      <div className={`${theme.card} p-8 rounded-2xl border ${theme.border} shadow-lg`}>
+      <div data-edx-query-card="primary" className={`${theme.card} p-8 rounded-2xl border ${theme.border} shadow-lg`}>
         <h2 className={`text-2xl font-bold ${theme.text} mb-4`}>Submit Your Query</h2>
         <div className="flex flex-col gap-4">
           <input value={name} onChange={e=>setName(e.target.value)} placeholder="Your Name" className={`w-full ${theme.input} p-3 rounded-xl outline-none ${theme.text}`} />
@@ -4543,6 +4544,25 @@ const PAGES = APP_PAGES;
 // Navbar items agar kahin aur chahiye hon to isi list ko reuse karein
 const NAV_ITEMS = PAGES;
 
+
+  // Only the current dashboard form remains interactive. Older cached
+  // dashboard UI can sometimes leave another copy in the rendered page.
+  // Conceal only a second, fully matching query card; keep React ownership,
+  // form submission and the FAQ unchanged.
+  useEffect(() => {
+    if (page !== 'home') return undefined;
+    const main = document.querySelector('main');
+    if (!main) return undefined;
+    const hiddenCards = new Map();
+    const reconcile = () => enforceSingleDashboardQueryForm(main, hiddenCards);
+    reconcile();
+    const observer = new MutationObserver(reconcile);
+    observer.observe(main, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      restoreDashboardQueryCards(hiddenCards);
+    };
+  }, [page]);
 
   // SEOManager owns all page metadata and schema; navigation keeps scroll UX.
   useEffect(() => {
