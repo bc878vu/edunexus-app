@@ -4899,7 +4899,7 @@ useEffect(() => {
         )}
       </main>
 
-      <React.Suspense fallback={null}><EduBotAssistant onNavigate={navigate} /></React.Suspense>
+      <React.Suspense fallback={null}><EduBotAssistant /></React.Suspense>
 
            <footer
   className={`mt-auto border-t ${theme.border} ${

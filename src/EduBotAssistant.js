@@ -18,7 +18,7 @@ const humanError = (error) => error?.name === 'AbortError'
   : /Failed to fetch|NetworkError/i.test(error?.message || '') ? 'Cannot connect to the EduNexus AI service. Check your connection.'
     : String(error?.message || 'AI is temporarily unavailable.').slice(0, 240);
 
-export default function EduBotAssistant({ onNavigate }) {
+export default function EduBotAssistant() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [interim, setInterim] = useState('');
@@ -266,8 +266,8 @@ export default function EduBotAssistant({ onNavigate }) {
         </div>
       </header>
       <nav className="edx-bot-shortcuts" aria-label="EduNexus quick links">
-        <button type="button" onClick={() => { if (onNavigate) onNavigate('academic'); else window.location.href = '/?page=academic'; }}><BookOpen size={14}/> Academic Hub</button>
-        <button type="button" onClick={() => { if (onNavigate) onNavigate('exam-prep'); else window.location.href = '/?page=exam-prep'; }}>Exam Prep</button>
+        <a href="/?page=academic"><BookOpen size={14}/> Academic Hub</a>
+        <a href="/?page=exam-prep">Exam Prep</a>
         <a href={EDUNEXUS_GROUP} target="_blank" rel="noopener noreferrer">WhatsApp <ExternalLink size={13}/></a>
       </nav>
       <div className="edx-bot-conversation" role="log" aria-live="polite" aria-relevant="additions text">
