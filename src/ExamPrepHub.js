@@ -169,9 +169,22 @@ function AdminTools({ user, onView }) {
       <label className="edx-exam-field">Answer verification source (required)<input type="text" required minLength={12} maxLength={220} value={draft.verificationSource} placeholder="e.g. CS101 handout, lecture 04, page 11" onChange={(e) => setDraft(v => ({ ...v, verificationSource:e.target.value }))}/><small>Use a specific handout or trusted answer key. AI guesses alone cannot verify an answer.</small></label>
       <button className="edx-exam-primary" disabled={busy}>Publish MCQ</button>
     </form>
-    <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading JSON importer…</section>}><McqBulkImporter user={user} onView={onView}/></React.Suspense>
-    <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading question manager…</section>}><ExamMcqAdminManager user={user} initialSubject={draft.subject}/></React.Suspense>
-    <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper review manager…</section>}><ExamPaperReviewManager user={user}/></React.Suspense>
+    <div className="edx-admin-subtabs" style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+      {[
+        {id:'import',label:'📥 Import JSON'},
+        {id:'manage',label:'📝 Manage MCQs'},
+        {id:'reviews',label:'📄 Paper Reviews'},
+      ].map(t => (
+        <button key={t.id} type="button" onClick={()=>setAdminSubTab(t.id)}
+          className={adminSubTab===t.id ? 'edx-exam-primary' : 'edx-exam-secondary'}
+          style={{padding:'10px 18px',borderRadius:10,fontWeight:700}}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+    {adminSubTab==='import' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading JSON importer…</section>}><McqBulkImporter user={user} onView={onView}/></React.Suspense>}
+    {adminSubTab==='manage' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading question manager…</section>}><ExamMcqAdminManager user={user} initialSubject={draft.subject}/></React.Suspense>}
+    {adminSubTab==='reviews' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper review manager…</section>}><ExamPaperReviewManager user={user}/></React.Suspense>}
     <section className="edx-exam-card edx-exam-form"><div className="edx-exam-between"><h3>Legacy pending paper reviews ({pending.filter((r) => r.status === "pending").length})</h3><button className="edx-exam-secondary" onClick={reload} disabled={busy}>Refresh</button></div>
       {pending.filter((r) => r.status === "pending").map((r) => <div className="edx-exam-pending" key={r.id}><p><strong>{safe(r.subject, 12)} · {safe(r.term, 10)} · {safe(r.examDate, 10)}</strong></p><p>{safe(r.topics, 400)}</p><p>{safe(r.summary, 1500)}</p><div className="edx-exam-actions"><button className="edx-exam-primary" disabled={busy} onClick={() => moderate(r, true)}>Approve</button><button className="edx-exam-secondary" disabled={busy} onClick={() => moderate(r, false)}>Reject</button></div></div>)}
       {!pending.some((r) => r.status === "pending") && <p>No pending reviews in the latest 100 submissions.</p>}
@@ -221,6 +234,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   // Admin tools are never part of the public Exam Prep module. Even an old
   // persisted Firebase admin identity cannot reveal them on ?page=exam-prep.
   const showAdmin = adminWorkspace === true && isAdmin(user);
+  const [adminSubTab, setAdminSubTab] = useState('import');
   const [tab, setTab] = useState(() => {
     if (adminWorkspace) return initialTab === "admin" ? "admin" : "mcqs";
     const requested = new URLSearchParams(window.location.search).get('section');

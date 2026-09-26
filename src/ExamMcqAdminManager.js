@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, updateDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { CheckCircle2, Pencil, Search, ShieldCheck, Trash2, X } from 'lucide-react';
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
@@ -180,6 +180,47 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       setMessage('Question deleted. All other published questions and resources remain unchanged.');
     } catch(e){setError(errorText(e));}finally{setBusy(false);}
   };
+  const toggleActive = async q => {
+    if (busy || !adminPanelAccess(user)) return;
+    const next = q.isActive === false ? true : false;
+    const action = next ? 'activate' : 'disable';
+    if (!window.confirm(action === 'disable'
+      ? 'Disable this question? It will be hidden from students but can be re-enabled anytime.'
+      : 'Activate this question? It will be visible to students again.')) return;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      await updateDoc(doc(db,...PATH,q.id), { isActive: next, updatedAt: serverTimestamp() });
+      try { await refreshExamCatalogCounts([q.subject]); }
+      catch (_) {}
+      setMessage(next ? 'Question activated.' : 'Question disabled. It is now hidden from students.');
+    } catch(e){setError(errorText(e));}finally{setBusy(false);}
+  };
+  const toggleBatchActive = async upload => {
+    if (busy || loading || !adminPanelAccess(user) || !upload?.id) return;
+    const batchRecords = records.filter(q => q.importBatchId === upload.id);
+    if (!batchRecords.length) return;
+    const disabledCount = batchRecords.filter(q => q.isActive === false).length;
+    const next = disabledCount > batchRecords.length / 2 ? true : false;
+    const action = next ? 'activate' : 'disable';
+    if (!window.confirm(action === 'disable'
+      ? 'Disable ALL ' + batchRecords.length + ' questions from "' + upload.name + '"? They will be hidden from students but can be re-enabled anytime.'
+      : 'Activate ALL ' + batchRecords.length + ' questions from "' + upload.name + '"? They will be visible to students again.')) return;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const fresh = await getDocs(query(collection(db,...PATH),where('importBatchId','==',upload.id),limit(1000)));
+      let updated = 0;
+      const docs = fresh.docs;
+      for (let start=0; start<docs.length; start+=450) {
+        const batch = writeBatch(db);
+        docs.slice(start,start+450).forEach(item => batch.update(item.ref, { isActive: next, updatedAt: serverTimestamp() }));
+        await batch.commit();
+        updated += Math.min(450, docs.length-start);
+      }
+      try { await refreshExamCatalogCounts([subject]); }
+      catch (_) {}
+      setMessage(updated + ' questions from "' + upload.name + '" ' + (next ? 'activated.' : 'disabled.'));
+    } catch(e){setError(errorText(e));}finally{setBusy(false);}
+  };
   return <section className="edx-exam-card edx-exam-form edx-admin-mcqs" aria-label="Manage published MCQs">
     <div className="edx-exam-between"><div><h3>Manage published questions</h3>
       <p>Edit the question, choices, answer, subject, Quiz set or exam category; delete one question or a complete tracked JSON upload after confirmation.</p></div><ShieldCheck size={24}/></div>
@@ -193,10 +234,17 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     {!loading && uploadBatches.length > 0 && <div className="edx-admin-subject-move" aria-label="Delete complete JSON uploads">
       <h4>Uploaded JSON files</h4>
       <p>Delete a complete imported JSON batch in one action. Individual question Edit/Delete buttons below stay available.</p>
-      {uploadBatches.map(upload => <div className="edx-exam-between" key={upload.id} style={{gap:12,marginTop:10}}>
-        <span><strong>{upload.name}</strong><br/><small>{upload.count} questions · {upload.categories.join(', ')}</small></span>
-        <button type="button" className="edx-exam-secondary edx-admin-danger" disabled={busy} onClick={()=>removeUploadBatch(upload)}><Trash2 size={15}/> {deletingBatch===upload.id?'Deleting upload…':'Delete complete file'}</button>
-      </div>)}
+      {uploadBatches.map(upload => {
+        const batchQs = records.filter(q => q.importBatchId === upload.id);
+        const disCount = batchQs.filter(q => q.isActive === false).length;
+        const allDisabled = disCount === batchQs.length && batchQs.length > 0;
+        return <div className="edx-exam-between" key={upload.id} style={{gap:12,marginTop:10}}>
+        <span><strong>{upload.name}</strong><br/><small>{upload.count} questions · {upload.categories.join(', ')}{allDisabled ? ' · Disabled' : disCount > 0 ? ' · ' + disCount + ' disabled' : ''}</small></span>
+        <div style={{display:'flex',gap:8}}>
+          <button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>toggleBatchActive(upload)}>{allDisabled ? 'Activate all' : 'Disable all'}</button>
+          <button type="button" className="edx-exam-secondary edx-admin-danger" disabled={busy} onClick={()=>removeUploadBatch(upload)}><Trash2 size={15}/> {deletingBatch===upload.id?'Deleting upload…':'Delete complete file'}</button>
+        </div>
+      </div>})}}
     </div>}
     {!loading && records.length > 0 && uploadBatches.length === 0 && <p className="edx-import-note">Older MCQs were imported before upload tracking was added, so they keep the existing individual Delete option. New JSON imports will appear above as complete deletable files.</p>}
     <label className="edx-exam-field">Find a published question
@@ -220,9 +268,10 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     {message && <p className="edx-exam-success" role="status"><CheckCircle2 size={16}/>{message}</p>}
     {error && <p className="edx-exam-alert" role="alert">{error}</p>}
     <div className="edx-admin-mcq-list">{filtered.map(q=><div className="edx-admin-mcq-row" key={q.id}>
-      <div><span className="edx-exam-pill">{q.subject} · {categoryOf(q)} {categoryOf(q)==='quiz'?'· '+quizSetOf(q):''}</span>
+      <div><span className="edx-exam-pill">{q.subject} · {categoryOf(q)} {categoryOf(q)==='quiz'?'· '+quizSetOf(q):''}</span>{q.isActive === false && <span className="edx-exam-pill" style={{background:'#fee2e2',color:'#991b1b',marginLeft:6}}>Disabled</span>}
         <strong><RichContent value={q.question}/></strong><small>{isVerifiedAnswer(q)?'Source-verified answer':'Answer needs source verification'} · {q.options?.length||0} choices</small></div>
       <div className="edx-admin-mcq-row-actions"><button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>openEdit(q)}><Pencil size={15}/> Edit</button>
+      <button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>toggleActive(q)}>{q.isActive === false ? 'Activate' : 'Disable'}</button>
       <button type="button" className="edx-exam-secondary edx-admin-danger" disabled={busy} onClick={()=>remove(q)}><Trash2 size={15}/> Delete</button></div>
     </div>)}</div>
     {!loading&&!filtered.length&&<p>No questions match. Select another subject or exam category.</p>}

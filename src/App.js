@@ -2975,22 +2975,32 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             return;
         }
 
-        const data = {
-            title: hTitle,
-            desc: hDesc,
-            link: hLink,
-            iconName: hIcon,
-            color: hColor,
-            imageUrl: hImage,
-            videoUrl: hVideo,
-            isActive: true,
-            createdAt: serverTimestamp()
-        };
-
         if (editHId) {
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', editHId), data);
+            // Edit: preserve existing isActive and original createdAt
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', editHId), {
+                title: hTitle,
+                desc: hDesc,
+                link: hLink,
+                iconName: hIcon,
+                color: hColor,
+                imageUrl: hImage,
+                videoUrl: hVideo,
+                updatedAt: serverTimestamp()
+            });
             showToast("Highlight Updated", "success");
         } else {
+            // New highlight: active by default
+            const data = {
+                title: hTitle,
+                desc: hDesc,
+                link: hLink,
+                iconName: hIcon,
+                color: hColor,
+                imageUrl: hImage,
+                videoUrl: hVideo,
+                isActive: true,
+                createdAt: serverTimestamp()
+            };
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), data);
             showToast("Highlight Added", "success");
         }
@@ -3177,7 +3187,14 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [imageUrl, setImageUrl] = useState('');
+    const [keywords, setKeywords] = useState('');
+    const [hiddenLinks, setHiddenLinks] = useState('');
+    const [isActive, setIsActive] = useState(true);
     const [originalConfirmed, setOriginalConfirmed] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+    const [fontFamily, setFontFamily] = useState('inherit');
+    const [fontSize, setFontSize] = useState('16');
+    const editorRef = React.useRef(null);
 
     useEffect(() => {
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), orderBy('createdAt', 'desc'));
@@ -3185,25 +3202,114 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       return () => unsub();
     }, []);
 
+    // Sync editor content when editing
+    useEffect(() => {
+      if (editorRef.current && editId) {
+        editorRef.current.innerHTML = content;
+      }
+    }, [editId]);
+
+    const execCmd = (cmd, val = null) => {
+      editorRef.current?.focus();
+      document.execCommand(cmd, false, val);
+      setContent(editorRef.current?.innerHTML || '');
+    };
+
+    const handleEditorInput = () => {
+      setContent(editorRef.current?.innerHTML || '');
+    };
+
+    const applyFontFamily = (family) => {
+      setFontFamily(family);
+      execCmd('fontName', family);
+    };
+
+    const applyFontSize = (size) => {
+      setFontSize(size);
+      editorRef.current?.focus();
+      // Map px to execCommand sizes (1-7) approximately
+      const sizeMap = {'12':'1','14':'2','16':'3','18':'4','20':'5','24':'6','32':'7'};
+      document.execCommand('fontSize', false, sizeMap[size] || '3');
+      // Then apply exact px via style on font tags
+      const fonts = editorRef.current?.querySelectorAll('font[size]');
+      fonts?.forEach(f => { f.removeAttribute('size'); f.style.fontSize = size + 'px'; });
+      setContent(editorRef.current?.innerHTML || '');
+    };
+
+    const insertLink = () => {
+      const url = prompt('Enter URL:');
+      if (url) execCmd('createLink', url);
+    };
+
     const handleSubmit = async () => {
-      if(!title.trim() || !content.trim()) return;
-      if (!editId && (content.trim().length < 450 || !originalConfirmed)) {
+      const textContent = editorRef.current?.innerText?.trim() || content.replace(/<[^>]*>/g, '').trim();
+      if(!title.trim() || !textContent) return;
+      if (!editId && (textContent.length < 450 || !originalConfirmed)) {
         showToast('New articles need meaningful original content (at least 450 characters) and an authorship/permission declaration.', 'error');
         return;
       }
+      const htmlContent = editorRef.current?.innerHTML || content;
+      const articleData = {
+        title: title.trim(),
+        content: htmlContent,
+        imageUrl,
+        keywords: keywords.trim(),
+        hiddenLinks: hiddenLinks.trim(),
+        isActive,
+        updatedAt: serverTimestamp()
+      };
       if(editId) {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', editId), { title, content, imageUrl });
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', editId), articleData);
         showToast("Article Updated", "success");
       } else {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), { 
-          title, content, imageUrl, author: 'Admin', rightsConfirmed: true, originalContentConfirmed: true, likes: 0, likedBy: [], createdAt: serverTimestamp() 
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), {
+          ...articleData,
+          author: 'Admin', rightsConfirmed: true, originalContentConfirmed: true,
+          likes: 0, likedBy: [], createdAt: serverTimestamp()
         });
         showToast("Article Published", "success");
       }
-      setEditId(null); setTitle(''); setContent(''); setImageUrl(''); setOriginalConfirmed(false);
+      resetForm();
     };
 
-    const handleEdit = (art) => { setEditId(art.id); setTitle(art.title); setContent(art.content); setImageUrl(art.imageUrl || ''); };
+    const resetForm = () => {
+      setEditId(null); setTitle(''); setContent(''); setImageUrl('');
+      setKeywords(''); setHiddenLinks(''); setIsActive(true);
+      setOriginalConfirmed(false); setFontFamily('inherit'); setFontSize('16');
+      if (editorRef.current) editorRef.current.innerHTML = '';
+    };
+
+    const handleEdit = (art) => {
+      setEditId(art.id);
+      setTitle(art.title || '');
+      setContent(art.content || '');
+      setImageUrl(art.imageUrl || '');
+      setKeywords(art.keywords || '');
+      setHiddenLinks(art.hiddenLinks || '');
+      setIsActive(art.isActive !== false);
+      if (editorRef.current) editorRef.current.innerHTML = art.content || '';
+      window.scrollTo({top: 0, behavior: 'smooth'});
+    };
+
+    const handleDelete = (art) => {
+      setShowDeleteConfirm(art);
+    };
+
+    const confirmDelete = async () => {
+      if (!showDeleteConfirm) return;
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', showDeleteConfirm.id));
+      showToast("Article deleted", "success");
+      setShowDeleteConfirm(null);
+      if (editId === showDeleteConfirm.id) resetForm();
+    };
+
+    const toggleActive = async (art) => {
+      const next = art.isActive === false ? true : false;
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', art.id), {
+        isActive: next, updatedAt: serverTimestamp()
+      });
+      showToast(next ? "Article activated" : "Article disabled", "success");
+    };
 
     const handleImageUpload = (e) => {
       const file = e.target.files[0];
@@ -3215,44 +3321,131 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       }
     };
 
+    const toolbarBtn = "p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm min-w-[32px] text-center";
+
     return (
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-6">
         <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-          <h3 className={`font-bold ${theme.text} mb-4`}>{editId ? 'Edit Article' : 'New Article'}</h3>
-          <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Title" className={`w-full ${theme.input} p-2 rounded mb-2`} />
-          
-          <div className="mb-2">
-             <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Cover Image</label>
-             <div className="flex gap-2 mb-2">
-              <input value={imageUrl} onChange={e=>setImageUrl(e.target.value)} placeholder="Image URL (or upload below)" className={`flex-1 ${theme.input} p-2 rounded`} />
+          <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>{editId ? 'Edit Article' : 'New Article'}</h3>
+
+          <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Title</label>
+          <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Article title" className={`w-full ${theme.input} p-2.5 rounded-lg mb-3`} />
+
+          <div className="mb-3">
+            <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Cover Image</label>
+            <div className="flex gap-2 mb-2">
+              <input value={imageUrl} onChange={e=>setImageUrl(e.target.value)} placeholder="Image URL (or upload below)" className={`flex-1 ${theme.input} p-2 rounded-lg`} />
             </div>
-             <div className="relative group cursor-pointer bg-slate-100 dark:bg-slate-800 border border-dashed border-slate-300 rounded p-2 text-center hover:bg-slate-200">
+            <div className="relative group cursor-pointer bg-slate-100 dark:bg-slate-800 border border-dashed border-slate-300 rounded-lg p-2 text-center hover:bg-slate-200">
               <input type="file" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
               <span className={`text-xs ${theme.textMuted} flex items-center justify-center gap-1`}><Upload size={12}/> Upload Image File (Max 1MB)</span>
             </div>
-             {imageUrl && <div className="mt-2 h-20 w-full overflow-hidden rounded bg-slate-100"><img src={imageUrl} alt="Preview" className="h-full w-full object-cover opacity-80" /></div>}
+            {imageUrl && <div className="mt-2 h-20 w-full overflow-hidden rounded-lg bg-slate-100"><img src={imageUrl} alt="Preview" className="h-full w-full object-cover opacity-80" /></div>}
           </div>
 
-          <textarea value={content} onChange={e=>setContent(e.target.value)} placeholder="Content" className={`w-full ${theme.input} p-2 rounded h-48 mb-2`} />
-          {!editId && <label className={`flex items-start gap-2 text-sm ${theme.textMuted} mb-2`}>
+          <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Content <span className="font-normal">(rich text editor)</span></label>
+          <div className={`border rounded-lg mb-3 overflow-hidden ${theme.border}`}>
+            <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+              <select value={fontFamily} onChange={e=>applyFontFamily(e.target.value)} className="text-xs p-1 rounded border bg-white dark:bg-slate-700" title="Font family">
+                <option value="inherit">Default</option>
+                <option value="Arial">Arial</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Verdana">Verdana</option>
+              </select>
+              <select value={fontSize} onChange={e=>applyFontSize(e.target.value)} className="text-xs p-1 rounded border bg-white dark:bg-slate-700" title="Font size">
+                <option value="12">12px</option>
+                <option value="14">14px</option>
+                <option value="16">16px</option>
+                <option value="18">18px</option>
+                <option value="20">20px</option>
+                <option value="24">24px</option>
+                <option value="32">32px</option>
+              </select>
+              <span className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-1"></span>
+              <button type="button" onClick={()=>execCmd('bold')} className={toolbarBtn} title="Bold"><b>B</b></button>
+              <button type="button" onClick={()=>execCmd('italic')} className={toolbarBtn} title="Italic"><i>I</i></button>
+              <button type="button" onClick={()=>execCmd('underline')} className={toolbarBtn} title="Underline"><u>U</u></button>
+              <button type="button" onClick={()=>execCmd('strikeThrough')} className={toolbarBtn} title="Strikethrough"><s>S</s></button>
+              <span className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-1"></span>
+              <button type="button" onClick={()=>execCmd('justifyLeft')} className={toolbarBtn} title="Align left">≡</button>
+              <button type="button" onClick={()=>execCmd('justifyCenter')} className={toolbarBtn} title="Center">≣</button>
+              <button type="button" onClick={()=>execCmd('justifyRight')} className={toolbarBtn} title="Align right">≡</button>
+              <span className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-1"></span>
+              <button type="button" onClick={()=>execCmd('insertUnorderedList')} className={toolbarBtn} title="Bullet list">•</button>
+              <button type="button" onClick={()=>execCmd('insertOrderedList')} className={toolbarBtn} title="Numbered list">1.</button>
+              <button type="button" onClick={insertLink} className={toolbarBtn} title="Insert link">🔗</button>
+              <button type="button" onClick={()=>execCmd('removeFormat')} className={toolbarBtn} title="Clear formatting">✕</button>
+            </div>
+            <div
+              ref={editorRef}
+              contentEditable
+              onInput={handleEditorInput}
+              className={`min-h-[180px] p-3 outline-none ${theme.text} bg-white dark:bg-slate-900`}
+              style={{fontSize: '15px', lineHeight: '1.6'}}
+              data-placeholder="Write article content here..."
+            />
+          </div>
+
+          <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Hidden SEO Keywords <span className="font-normal">(comma separated, not shown on page)</span></label>
+          <input value={keywords} onChange={e=>setKeywords(e.target.value)} placeholder="vu notes, cs101 past papers, study guide..." className={`w-full ${theme.input} p-2.5 rounded-lg mb-3`} />
+
+          <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Hidden Links <span className="font-normal">(one per line, not shown on page)</span></label>
+          <textarea value={hiddenLinks} onChange={e=>setHiddenLinks(e.target.value)} placeholder={"https://example.com/resource1\nhttps://example.com/resource2"} rows={2} className={`w-full ${theme.input} p-2.5 rounded-lg mb-3`} />
+
+          <label className={`flex items-center gap-2 text-sm ${theme.text} mb-3 cursor-pointer`}>
+            <input type="checkbox" checked={isActive} onChange={e=>setIsActive(e.target.checked)} className="w-4 h-4" />
+            <span className="font-semibold">Active (visible to students)</span>
+          </label>
+
+          {!editId && <label className={`flex items-start gap-2 text-sm ${theme.textMuted} mb-3`}>
             <input type="checkbox" checked={originalConfirmed} onChange={e=>setOriginalConfirmed(e.target.checked)} />
             <span>I have personally checked that this article adds original learning value and that I hold the rights or permission to publish the text and images. This is my declaration, not an independent certification.</span>
           </label>}
           <p className={`text-xs ${theme.textMuted} mb-3`}>New articles require original paragraphs and examples (at least 450 characters). Existing articles can still be edited.</p>
           <div className="flex gap-2">
-            <button onClick={handleSubmit} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold flex-1">{editId ? 'Update' : 'Publish'}</button>
-            {editId && <button onClick={()=>{setEditId(null);setTitle('');setContent('');setImageUrl('')}} className="bg-slate-500 text-white px-4 py-2 rounded font-bold">Cancel</button>}
+            <button onClick={handleSubmit} className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-bold flex-1 hover:bg-indigo-700">{editId ? 'Update Article' : 'Publish Article'}</button>
+            {editId && <button onClick={resetForm} className="bg-slate-500 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-slate-600">Cancel</button>}
           </div>
         </div>
-        <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} h-96 overflow-y-auto`}>
-          <h3 className={`font-bold ${theme.text} mb-4`}>Existing Articles</h3>
-          <div className="space-y-3">{arts.map(a => (<div key={a.id} className="p-3 border rounded relative group"><p className={`font-bold ${theme.text}`}>{String(a.title)}</p><p className={`text-xs ${theme.textMuted}`}>{formatDate(a.createdAt)}</p><div className="flex gap-2 mt-2"><button onClick={()=>handleEdit(a)} className="text-indigo-500 text-xs font-bold flex items-center gap-1"><Edit size={12}/> Edit</button><button onClick={()=>deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', a.id))} className="text-red-500 text-xs font-bold flex items-center gap-1"><Trash2 size={12}/> Delete</button></div></div>))}</div>
+
+        <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+          <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>Existing Articles ({arts.length})</h3>
+          <div className="space-y-3 max-h-[700px] overflow-y-auto pr-1">
+            {arts.map(a => (
+              <div key={a.id} className={`p-3 border rounded-xl ${a.isActive === false ? 'opacity-60 bg-slate-50 dark:bg-slate-800/50' : ''}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <p className={`font-bold ${theme.text} flex-1`}>{String(a.title)}</p>
+                  {a.isActive === false && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Disabled</span>}
+                </div>
+                <p className={`text-xs ${theme.textMuted}`}>{formatDate(a.createdAt)}{a.keywords ? ' · Has keywords' : ''}</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <button onClick={()=>handleEdit(a)} className="text-indigo-500 text-xs font-bold flex items-center gap-1 hover:underline"><Edit size={12}/> Edit</button>
+                  <button onClick={()=>toggleActive(a)} className="text-amber-600 text-xs font-bold flex items-center gap-1 hover:underline">{a.isActive === false ? 'Activate' : 'Disable'}</button>
+                  <button onClick={()=>handleDelete(a)} className="text-red-500 text-xs font-bold flex items-center gap-1 hover:underline"><Trash2 size={12}/> Delete</button>
+                </div>
+              </div>
+            ))}
+            {!arts.length && <p className={theme.textMuted}>No articles yet.</p>}
+          </div>
         </div>
       </div>
-    );
-  };
 
-  // ADMIN PANEL – DISCUSSION MODERATION WITH REPLY ADD / EDIT / DELETE
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={()=>setShowDeleteConfirm(null)}>
+          <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} max-w-sm w-full`} onClick={e=>e.stopPropagation()}>
+            <h3 className={`font-bold ${theme.text} mb-2`}>Delete Article?</h3>
+            <p className={`text-sm ${theme.textMuted} mb-4`}>Permanently delete "{String(showDeleteConfirm.title)}"? This cannot be undone.</p>
+            <div className="flex gap-2">
+              <button onClick={()=>setShowDeleteConfirm(null)} className="flex-1 px-4 py-2 rounded-lg border font-bold">Cancel</button>
+              <button onClick={confirmDelete} className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+    );
+  };  // ADMIN PANEL – DISCUSSION MODERATION WITH REPLY ADD / EDIT / DELETE
 const ForumTab = ({ theme, showToast }) => {
   const [posts, setPosts] = useState([]);
   const [editId, setEditId] = useState(null);     // jis post ka reply edit ho raha hai

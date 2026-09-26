@@ -187,7 +187,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       if (sessionRef.current !== session) return;
       // Populate cache for future visits
       questionCache.set(subject, { docs: snapshot.docs, fetchedAt: Date.now() });
-      const all = orderedQuestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })), term);
+      const all = orderedQuestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })).filter(q => q.isActive !== false), term);
       if (term === 'quiz') setQuizSets([...new Set(all.map(quizSetOf))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})));
       else setQuizSets([]);
       const ordered = term === 'quiz' && quizSet !== 'all' ? all.filter(q => quizSetOf(q) === quizSet) : all;
