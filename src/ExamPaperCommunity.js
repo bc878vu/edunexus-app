@@ -274,7 +274,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
     const observe = (name, setItems, key) => onSnapshot(query(col(name), limit(200)),
       snapshot => {
         if (!active) return;
-        setItems(snapshot.docs.map(d => ({ id:d.id,collectionName:name,...d.data() })));
+        setItems(snapshot.docs.map(d => ({ id:d.id,collectionName:name,...d.data() })).filter(r => r.isActive !== false));
         setErrors(prev => prev.filter(entry=>entry.key!==key));
         done(key);
       }, err => {

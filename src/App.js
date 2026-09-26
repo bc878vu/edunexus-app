@@ -103,7 +103,7 @@ import {
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
   serverTimestamp, doc,  increment, deleteDoc, where, updateDoc,
-  getDoc, getDocs, getCountFromServer, setDoc, arrayUnion
+  getDoc, getDocs, getCountFromServer, setDoc, arrayUnion, writeBatch
 } from 'firebase/firestore';
 import {
   getStorage,
@@ -118,6 +118,7 @@ const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 const AdminAcademicReviews = React.lazy(() => import('./AdminAcademicReviews'));
+const AdminContentManager = React.lazy(() => import('./AdminContentManager'));
 const EduBotAssistant = React.lazy(() => import('./EduBotAssistant'));
 const ContentHub = React.lazy(() => import('./ContentHub'));
 const TutorialHub = React.lazy(() => import('./TutorialHub'));
@@ -569,7 +570,7 @@ const Forum = ({ user, theme, showToast }) => {
     );
 
     const unsub = onSnapshot(q, (s) =>
-      setPosts(s.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setPosts(s.docs.map((d) => ({ id: d.id, ...d.data() })).filter(p => p.isActive !== false).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)))
     );
 
     return () => unsub();
@@ -2228,6 +2229,21 @@ const AcademicTab = ({ theme, user, showToast }) => {
       showToast('Could not update this resource.', 'error');
     }
   };
+  const toggleFileActive = async (file) => {
+    const next = file.isActive === false ? true : false;
+    const action = next ? 'activate' : 'disable';
+    if (!window.confirm(next
+      ? 'Activate "' + String(file.name || 'resource') + '"? It will be visible to students again.'
+      : 'Disable "' + String(file.name || 'resource') + '"? It will be hidden from students but can be re-enabled anytime.')) return;
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id), {
+        isActive: next, updatedAt: serverTimestamp()
+      });
+      showToast(next ? 'Resource activated.' : 'Resource disabled. Hidden from students.', 'success');
+    } catch (_) {
+      showToast('Could not ' + action + ' this resource.', 'error');
+    }
+  };
   const removeFileRecord = async (file) => {
     if (!window.confirm('Remove "' + String(file.name || 'resource') + '" from the Academic Hub? The original file on its external host will not be deleted.')) return;
     try {
@@ -2275,6 +2291,8 @@ const AcademicTab = ({ theme, user, showToast }) => {
       showToast("Default folders ko delete nahi kar sakte", "error");
       return;
     }
+    const filesInFolder = files.filter(f => f.subject === name).length;
+    if (!window.confirm('Delete folder "' + name + '"' + (filesInFolder > 0 ? ' containing ' + filesInFolder + ' file(s)' : '') + '? The files inside will become orphaned (hidden from folders but still in database). This cannot be undone.')) return;
     const updated = subjects.filter((s) => s !== name);
     setSubjects(updated);
     await saveFoldersToDb(updated);
@@ -2444,11 +2462,13 @@ const AcademicTab = ({ theme, user, showToast }) => {
                 <span className="edx-admin-file-badge"><FileText size={16}/> {String(file.ext || 'FILE').toUpperCase().slice(0, 12)}</span>
                 <div className="edx-admin-file-label">
                   <strong className={theme.text}>{String(file.name || 'Untitled resource')}</strong>
+                  {file.isActive === false && <span style={{marginLeft:8,fontSize:11,background:'#fef2f2',color:'#dc2626',padding:'2px 8px',borderRadius:10,fontWeight:700}}>Disabled</span>}
                   <span className={theme.textMuted}>{String(file.subject || 'General')} · {file.sourceType === 'firebase-storage' ? 'Direct upload' : file.isLinkOnly ? 'External link' : 'Legacy file'}</span>
                 </div>
                 <div className="edx-admin-file-actions">
                   {safeLink && <a href={safeLink} target="_blank" rel="noopener noreferrer" title="Open or download resource"><Download size={16}/> Open / Download</a>}
                   <button type="button" onClick={() => editing ? setEditingFileId('') : startFileEdit(file)}><Edit3 size={16}/> {editing ? 'Cancel edit' : 'Edit details'}</button>
+                  <button type="button" onClick={() => toggleFileActive(file)} title={file.isActive === false ? 'Activate' : 'Disable'}>{file.isActive === false ? <><Eye size={16}/> Activate</> : <><EyeOff size={16}/> Disable</>}</button>
                   <button type="button" className="edx-admin-file-remove" onClick={() => removeFileRecord(file)}><Trash2 size={16}/> Remove</button>
                 </div>
               </div>
@@ -2482,7 +2502,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
   useEffect(() => {
     if (!user) return;
-    const qF = query(collection(db, 'artifacts', appId, 'public', 'data', 'feedback'), orderBy('createdAt', 'desc'));
+    const qF = query(collection(db, 'artifacts', appId, 'public', 'data', 'feedback'), orderBy('createdAt', 'desc'), limit(50));
     const unsubF = onSnapshot(qF, s => setFeedbacks(s.docs.map(d => ({id: d.id, ...d.data()}))));
     const qA = query(collection(db, 'artifacts', appId, 'public', 'data', 'files'), orderBy('createdAt', 'desc'), limit(3));
     const unsubA = onSnapshot(qA, s => {
@@ -2497,36 +2517,62 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     return () => { unsubF(); unsubA(); };
   }, [user]);
 
-  const DashboardTab = () => (
+  const DashboardTab = () => {
+    const [inboxVisible, setInboxVisible] = useState(20);
+    const unreadCount = feedbacks.filter(m => !m.read).length;
+    const markAsRead = async (msg) => {
+      if (msg.read) return;
+      try {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id), { read: true, readAt: serverTimestamp() });
+      } catch (_) {}
+    };
+    const markAllRead = async () => {
+      const unread = feedbacks.filter(m => !m.read);
+      if (!unread.length) return;
+      try {
+        const batch = writeBatch(db);
+        unread.forEach(m => batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', m.id), { read: true, readAt: serverTimestamp() }));
+        await batch.commit();
+        showToast(unread.length + ' messages marked as read.', 'success');
+      } catch (_) { showToast('Could not mark messages as read.', 'error'); }
+    };
+    return (
     <div className="grid md:grid-cols-2 gap-6">
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
         <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Activity className="text-indigo-500"/> Recent Activity</h3>
         <div className="space-y-4">{recentActivity.length > 0 ? recentActivity.map((act, i) => (<div key={i} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 text-sm`}><p className={`${theme.text}`}>{String(act.msg)}</p><p className={`text-xs ${theme.textMuted}`}>{formatDate(act.createdAt)}</p></div>)) : <p className={theme.textMuted}>No recent system activity.</p>}</div>
       </div>
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-        <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Inbox className="text-green-500"/> Inbox ({feedbacks.length})</h3>
-        <div className="h-64 overflow-y-auto space-y-2">{feedbacks.map(msg => {
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={`text-xl font-bold ${theme.text} flex items-center gap-2`}><Inbox className="text-green-500"/> Inbox ({feedbacks.length}){unreadCount > 0 && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full font-bold">{unreadCount} new</span>}</h3>
+          {unreadCount > 0 && <button onClick={markAllRead} className="text-xs text-indigo-500 hover:underline font-bold">Mark all read</button>}
+        </div>
+        <div className="h-64 overflow-y-auto space-y-2">{feedbacks.slice(0, inboxVisible).map(msg => {
           const mName = msg.name || msg.displayName || 'Anonymous';
           const mEmail = msg.email || msg.mail || '';
           const mMsg = msg.msg || msg.message || msg.query || '';
           const mDate = msg.createdAt ? formatDate(msg.createdAt) : '';
           const replySubject = encodeURIComponent(`Re: Your query on EduNexus`);
           const replyBody = encodeURIComponent(`Hi ${mName},\n\nThank you for reaching out to EduNexus.\n\nRegarding your message:\n"${String(mMsg).slice(0, 200)}"\n\n`);
+          const isUnread = !msg.read;
           return (
-            <div key={msg.id} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 relative group`}>
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div key={msg.id} onClick={() => markAsRead(msg)} className={`p-3 rounded-lg border ${theme.border} ${isUnread ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200' : 'bg-slate-50 dark:bg-slate-900'} relative group cursor-pointer`}>
+              {isUnread && <span className="absolute top-3 left-3 w-2 h-2 rounded-full bg-indigo-500" title="Unread"/>}
+              <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 {mEmail && <a href={`mailto:${mEmail}?subject=${replySubject}&body=${replyBody}`} title="Reply via email" className="p-1.5 bg-green-100 text-green-600 rounded hover:bg-green-200"><Reply size={14}/></a>}
-                <button onClick={()=>{ if(window.confirm('Delete this message?')) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id)); }} title="Delete" className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
+                <button onClick={(e)=>{ e.stopPropagation(); if(window.confirm('Delete this message?')) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id)); }} title="Delete" className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
               </div>
-              <p className={`text-xs font-bold ${theme.text} pr-16`}>{String(mName)} {mEmail && <a href={`mailto:${mEmail}`} className="text-indigo-500 hover:underline">&lt;{String(mEmail)}&gt;</a>}</p>
-              {mDate && <p className={`text-[10px] ${theme.textMuted}`}>{mDate}</p>}
-              <p className={`text-sm ${theme.textMuted} mt-1`}>{String(mMsg) || <span className="italic">No message content</span>}</p>
+              <p className={`text-xs font-bold ${theme.text} pr-16 ${isUnread ? 'pl-4' : ''}`}>{String(mName)} {mEmail && <a href={`mailto:${mEmail}`} className="text-indigo-500 hover:underline">&lt;{String(mEmail)}&gt;</a>}</p>
+              {mDate && <p className={`text-[10px] ${theme.textMuted} ${isUnread ? 'pl-4' : ''}`}>{mDate}</p>}
+              <p className={`text-sm ${theme.textMuted} mt-1 ${isUnread ? 'pl-4' : ''}`}>{String(mMsg) || <span className="italic">No message content</span>}</p>
             </div>
           );
         })}{feedbacks.length === 0 && <p className={theme.textMuted}>No messages.</p>}</div>
+        {feedbacks.length > inboxVisible && <button onClick={() => setInboxVisible(v => v + 20)} className="mt-3 text-sm text-indigo-500 hover:underline font-bold">Load more ({feedbacks.length - inboxVisible} remaining)</button>}
       </div>
     </div>
-  );
+    );
+  };
 
   const HighlightsTab = () => {
     const [highlights, setHighlights] = useState([]);
@@ -2756,7 +2802,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => handleToggleActive(h)} title={isActive ? 'Disable' : 'Activate'} className={`p-1.5 rounded ${isActive ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}`}>{isActive ? <Eye size={14}/> : <EyeOff size={14}/>}</button>
                                         <button onClick={() => handleEditStart(h)} className="p-1.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"><Edit3 size={14}/></button>
                                         <button onClick={() => handleDeleteHighlight(h.id)} className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
@@ -3083,6 +3129,37 @@ const ForumTab = ({ theme, showToast }) => {
     }
   };
 
+  // Post hide/show toggle
+  const handleToggleHidePost = async (post) => {
+    const next = post.isActive === false ? true : false;
+    if (!window.confirm(next ? "Show this post to everyone again?" : "Hide this post from everyone? It can be shown again anytime.")) return;
+    try {
+      await updateDoc(
+        doc(db, "artifacts", appId, "public", "data", "discussions", post.id),
+        { isActive: next, updatedAt: serverTimestamp() }
+      );
+      showToast(next ? "Post is now visible" : "Post hidden", "success");
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to update post", "error");
+    }
+  };
+
+  // Post pin/unpin toggle
+  const handleTogglePinPost = async (post) => {
+    const next = !post.pinned;
+    try {
+      await updateDoc(
+        doc(db, "artifacts", appId, "public", "data", "discussions", post.id),
+        { pinned: next, updatedAt: serverTimestamp() }
+      );
+      showToast(next ? "Post pinned to top" : "Post unpinned", "success");
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to pin post", "error");
+    }
+  };
+
   // Reply edit start
   const startEdit = (post) => {
     setEditId(post.id);
@@ -3179,12 +3256,28 @@ const ForumTab = ({ theme, showToast }) => {
 
               <button type="button" className="text-xs text-indigo-500 hover:underline" onClick={()=>inspectForumReports(p)}>Check reports</button>
               {forumReports[p.id] && <p className="text-xs" role="status">{forumReports[p.id].length ? forumReports[p.id].length + " report(s): " + forumReports[p.id].join(", ") : "No reports for this post."}</p>}
-              <button
-                onClick={() => handleDeletePost(p.id)}
-                className="text-red-500 text-xs font-bold hover:underline"
-              >
-                Delete
-              </button>
+              <div className="flex gap-3 items-center">
+                {p.pinned && <span className="text-xs font-bold text-amber-500">📌 Pinned</span>}
+                {p.isActive === false && <span className="text-xs font-bold text-red-500">Hidden</span>}
+                <button
+                  onClick={() => handleTogglePinPost(p)}
+                  className="text-amber-500 text-xs font-bold hover:underline"
+                >
+                  {p.pinned ? "Unpin" : "Pin"}
+                </button>
+                <button
+                  onClick={() => handleToggleHidePost(p)}
+                  className="text-orange-500 text-xs font-bold hover:underline"
+                >
+                  {p.isActive === false ? "Show" : "Hide"}
+                </button>
+                <button
+                  onClick={() => handleDeletePost(p.id)}
+                  className="text-red-500 text-xs font-bold hover:underline"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
 
             {/* Admin reply (user side pe bhi yahi field use hoti hai) */}
@@ -3603,6 +3696,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
     { id: 'academic', label: 'Academic', icon: Folder },
     { id: 'exam', label: 'Exam Prep', icon: GraduationCap },
     { id: 'blog', label: 'Blog', icon: FileText },
+    { id: 'tutorials', label: 'Tutorials', icon: Play },
     { id: 'forum', label: 'Forum', icon: MessageSquare },
     { id: 'profile', label: 'Profile', icon: ImageIcon },
   ];
@@ -3625,6 +3719,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
         {activeTab === 'academic' && <><AcademicTab theme={theme} user={user} showToast={showToast} /><React.Suspense fallback={<p>Loading file review management…</p>}><AdminAcademicReviews user={user} /></React.Suspense></>}
         {activeTab === 'exam' && <React.Suspense fallback={<p>Loading Exam Prep management…</p>}><ExamPrepHub user={user} initialTab="admin" adminWorkspace isDark={isDark} /></React.Suspense>}
         {activeTab === 'blog' && <BlogTab />}
+        {activeTab === 'tutorials' && <React.Suspense fallback={<p>Loading tutorial management…</p>}><AdminContentManager /></React.Suspense>}
        {activeTab === 'forum' && (
   <ForumTab theme={theme} showToast={showToast} />
 )}

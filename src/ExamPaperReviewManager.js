@@ -155,6 +155,17 @@ export default function ExamPaperReviewManager({ user }) {
     if (!adminPanelAccess(user)) { setError('Your admin session for this tab has expired. Reload the admin page (?page=admin) and sign in again.'); return; }
     setPendingConfirm({ kind: 'delete', record, message: 'Delete this published review? This cannot be undone.' });
   };
+  const toggleReviewActive = async (record) => {
+    if (busy || pendingConfirm) return;
+    if (!adminPanelAccess(user)) { setError('Your admin session for this tab has expired. Reload the admin page (?page=admin) and sign in again.'); return; }
+    const next = record.isActive === false ? true : false;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      await updateDoc(doc(col(record.collectionName), record.id), { isActive: next, updatedAt: serverTimestamp() });
+      setNotice(next ? 'Review is now visible to students.' : 'Review hidden from students. It can be shown again anytime.');
+    } catch (_) { setError('Could not update review visibility. Please check your access.'); }
+    finally { setBusy(false); }
+  };
   const confirmRemove = async () => {
     const record = pendingConfirm && pendingConfirm.kind === 'delete' ? pendingConfirm.record : null;
     setPendingConfirm(null);
@@ -186,8 +197,9 @@ export default function ExamPaperReviewManager({ user }) {
     {notice && <p role="status" className="edx-exam-success">{notice}</p>}
     {error && <p role="alert" className="edx-exam-alert">{error}</p>}
     <div className="edx-review-manager-list">{records.map(r=><article key={r.collectionName + ':' + r.id}>
-      <div><strong>{r.subject} · {r.term === 'midterm' ? 'Midterm' : 'Finalterm'} · {r.sharedBy || 'Student'}</strong><small>{r.examDate || 'No date'} · {r.collectionName === COLLECTIONS[0] ? 'Student review' : 'Earlier review'}</small><p>{trim(r.summary,240)}</p></div>
+      <div><strong>{r.subject} · {r.term === 'midterm' ? 'Midterm' : 'Finalterm'} · {r.sharedBy || 'Student'}</strong>{r.isActive === false && <span style={{marginLeft:8,fontSize:11,background:'#fef2f2',color:'#dc2626',padding:'2px 8px',borderRadius:10,fontWeight:700}}>Hidden</span>}<small>{r.examDate || 'No date'} · {r.collectionName === COLLECTIONS[0] ? 'Student review' : 'Earlier review'}</small><p>{trim(r.summary,240)}</p></div>
       <div className="edx-review-manager-actions"><button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>open(r)}><Edit3 size={15}/> Edit</button>
+      <button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>toggleReviewActive(r)}>{r.isActive === false ? 'Show' : 'Hide'}</button>
       <button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>requestRemove(r)}><Trash2 size={15}/> Delete</button></div>
     </article>)}</div>
     <form className="edx-review-manager-form" onSubmit={requestSave}>

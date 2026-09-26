@@ -94,6 +94,16 @@ export default function AdminAcademicReviews({ user }) {
     try { await deleteDoc(doc(FILES, selectedId, 'reviews', review.id)); setNotice('Review deleted.'); }
     catch (_) { setNotice('Could not delete review.'); } finally { setBusy(false); }
   };
+  const toggleHidden = async (review) => {
+    if (!permitted || busy) return;
+    const next = review.isActive === false ? true : false;
+    if (!window.confirm(next ? 'Show this review to students again?' : 'Hide this review from students? It can be shown again anytime.')) return;
+    setBusy(true); setNotice('');
+    try {
+      await updateDoc(doc(FILES, selectedId, 'reviews', review.id), { isActive: next, moderatedAt: serverTimestamp() });
+      setNotice(next ? 'Review is now visible to students.' : 'Review hidden from students.');
+    } catch (_) { setNotice('Could not update review visibility.'); } finally { setBusy(false); }
+  };
   const publishLegacy = async (review) => {
     if (!permitted || busy) return;
     setBusy(true); setNotice('');
@@ -143,7 +153,7 @@ export default function AdminAcademicReviews({ user }) {
     {selectedId && (reviews.length ? <div className="edx-review-grid">{reviews.map((r) => <article key={r.id} className="edx-review-entry">
       <strong>{r.rating} / 5 · {r.status === 'approved' ? 'Published' : r.status || 'Earlier review'} {r.editedAt ? '· edited by admin' : ''}</strong>
       <p>{String(r.comment || '')}</p>
-      <div className="edx-review-actions"><button type="button" disabled={busy} onClick={() => begin(r)}>Edit</button><button type="button" disabled={busy} onClick={() => remove(r)}>Delete</button>{r.status === 'pending' && <button type="button" disabled={busy} onClick={() => publishLegacy(r)}>Publish earlier review</button>}</div>
+      <div className="edx-review-actions"><button type="button" disabled={busy} onClick={() => begin(r)}>Edit</button><button type="button" disabled={busy} onClick={() => toggleHidden(r)}>{r.isActive === false ? 'Show' : 'Hide'}</button><button type="button" disabled={busy} onClick={() => remove(r)}>Delete</button>{r.status === 'pending' && <button type="button" disabled={busy} onClick={() => publishLegacy(r)}>Publish earlier review</button>}</div>
       {editingId === r.id && <div className="edx-review-editor"><label>Rating <select value={editRating} onChange={(e) => setEditRating(Number(e.target.value))}>{[1,2,3,4,5].map((n) => <option value={n} key={n}>{n} / 5</option>)}</select></label><label>Edit published text <textarea rows={7} maxLength={50000} value={editText} onChange={(e) => setEditText(e.target.value)} /></label><div className="edx-review-actions"><button type="button" disabled={busy || editText.trim().length < 20} onClick={() => save(r)}>Save review</button><button type="button" onClick={() => setEditingId('')}>Cancel</button></div></div>}
     </article>)}</div> : <p>No reviews found for this file.</p>)}
     {selectedId && hasMoreReviews && <button type="button" disabled={busy} onClick={moreReviews}>Load more reviews</button>}

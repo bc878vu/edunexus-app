@@ -48,9 +48,10 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
   const uploadBatches = useMemo(() => {
     const map = new Map();
     records.forEach(q => {
-      if (!q.importBatchId) return;
-      const key = String(q.importBatchId);
-      const current = map.get(key) || { id:key, name:q.sourceFileName || 'JSON upload', count:0, categories:new Set() };
+      // Primary: tracked batch ID. Fallback: group old imports by sourceFileName
+      const key = q.importBatchId ? 'id:' + String(q.importBatchId) : (q.sourceFileName ? 'file:' + String(q.sourceFileName) : null);
+      if (!key) return;
+      const current = map.get(key) || { id:key, batchId:q.importBatchId||null, fileName:q.sourceFileName||null, name:q.sourceFileName || 'JSON upload', count:0, categories:new Set(), tracked:!!q.importBatchId };
       current.count += 1; current.categories.add(categoryOf(q)); map.set(key,current);
     });
     return [...map.values()].map(item => ({...item,categories:[...item.categories]}));
@@ -146,17 +147,24 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     } catch(err) {setError(errorText(err));}
     finally {setBusy(false);}
   };
+  const batchRecordsOf = upload => records.filter(q =>
+    upload.tracked ? q.importBatchId === upload.batchId : (q.sourceFileName === upload.fileName && !q.importBatchId)
+  );
   const removeUploadBatch = async upload => {
     if (busy || loading || !adminPanelAccess(user) || !upload?.id) return;
-    const batchRecords = records.filter(q => q.importBatchId === upload.id);
+    const batchRecords = batchRecordsOf(upload);
     if (!batchRecords.length) return;
     if (!window.confirm('Permanently delete the complete uploaded JSON file "' + upload.name + '" (' + batchRecords.length + ' questions) from ' + subject + '? Individual-question delete will remain available. Other uploads, study files and existing content will not be changed. This cannot be undone.')) return;
     setBusy(true); setDeletingBatch(upload.id); setError(''); setMessage('');
     try {
-      const fresh = await getDocs(query(collection(db,...PATH),where('importBatchId','==',upload.id),limit(1000)));
-      if (fresh.size !== batchRecords.length || fresh.size > 900) throw new Error('This upload changed while it was open. Reload the subject and try again so no partial delete can occur.');
+      const batchQuery = upload.tracked
+        ? query(collection(db,...PATH),where('importBatchId','==',upload.batchId),limit(1000))
+        : query(collection(db,...PATH),where('subject','==',subject),where('sourceFileName','==',upload.fileName),limit(1000));
+      const fresh = await getDocs(batchQuery);
+      // For untracked batches, only delete docs that truly lack importBatchId (safety)
+      const docs = upload.tracked ? fresh.docs : fresh.docs.filter(d => !d.data().importBatchId);
+      if (docs.length !== batchRecords.length || docs.length > 900) throw new Error('This upload changed while it was open. Reload the subject and try again so no partial delete can occur.');
       let deleted = 0;
-      const docs = fresh.docs;
       for (let start=0; start<docs.length; start+=450) {
         const batch = writeBatch(db);
         docs.slice(start,start+450).forEach(item => batch.delete(item.ref));
@@ -197,7 +205,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
   };
   const toggleBatchActive = async upload => {
     if (busy || loading || !adminPanelAccess(user) || !upload?.id) return;
-    const batchRecords = records.filter(q => q.importBatchId === upload.id);
+    const batchRecords = batchRecordsOf(upload);
     if (!batchRecords.length) return;
     const disabledCount = batchRecords.filter(q => q.isActive === false).length;
     const next = disabledCount > batchRecords.length / 2 ? true : false;
@@ -207,9 +215,12 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       : 'Activate ALL ' + batchRecords.length + ' questions from "' + upload.name + '"? They will be visible to students again.')) return;
     setBusy(true); setError(''); setMessage('');
     try {
-      const fresh = await getDocs(query(collection(db,...PATH),where('importBatchId','==',upload.id),limit(1000)));
+      const batchQuery = upload.tracked
+        ? query(collection(db,...PATH),where('importBatchId','==',upload.batchId),limit(1000))
+        : query(collection(db,...PATH),where('subject','==',subject),where('sourceFileName','==',upload.fileName),limit(1000));
+      const fresh = await getDocs(batchQuery);
+      const docs = upload.tracked ? fresh.docs : fresh.docs.filter(d => !d.data().importBatchId);
       let updated = 0;
-      const docs = fresh.docs;
       for (let start=0; start<docs.length; start+=450) {
         const batch = writeBatch(db);
         docs.slice(start,start+450).forEach(item => batch.update(item.ref, { isActive: next, updatedAt: serverTimestamp() }));
@@ -231,22 +242,22 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         <option value="all">All categories</option><option value="quiz">Quiz</option><option value="midterm">Midterm</option><option value="finalterm">Finalterm</option>
       </select></label>
     </div>
-    {!loading && uploadBatches.length > 0 && <div className="edx-admin-subject-move" aria-label="Delete complete JSON uploads">
-      <h4>Uploaded JSON files</h4>
-      <p>Delete a complete imported JSON batch in one action. Individual question Edit/Delete buttons below stay available.</p>
+    {!loading && uploadBatches.length > 0 && <div className="edx-admin-subject-move" aria-label="Delete complete JSON uploads" style={{border:'2px solid #ef4444', borderRadius:12, padding:16, background:'#fef2f2'}}>
+      <h4 style={{display:'flex',alignItems:'center',gap:8,margin:'0 0 4px'}}><Trash2 size={18} style={{color:'#dc2626'}}/> Uploaded JSON files — delete complete file</h4>
+      <p style={{margin:'0 0 8px'}}>Delete a complete imported JSON batch in one action. Individual question Edit/Delete buttons below stay available.</p>
       {uploadBatches.map(upload => {
-        const batchQs = records.filter(q => q.importBatchId === upload.id);
+        const batchQs = batchRecordsOf(upload);
         const disCount = batchQs.filter(q => q.isActive === false).length;
         const allDisabled = disCount === batchQs.length && batchQs.length > 0;
-        return <div className="edx-exam-between" key={upload.id} style={{gap:12,marginTop:10}}>
-        <span><strong>{upload.name}</strong><br/><small>{upload.count} questions · {upload.categories.join(', ')}{allDisabled ? ' · Disabled' : disCount > 0 ? ' · ' + disCount + ' disabled' : ''}</small></span>
-        <div style={{display:'flex',gap:8}}>
+        return <div className="edx-exam-between" key={upload.id} style={{gap:12,marginTop:10,padding:10,background:'#fff',borderRadius:8,border:'1px solid #fecaca'}}>
+        <span><strong>{upload.name}</strong>{!upload.tracked && <span style={{marginLeft:8,fontSize:11,background:'#fef3c7',color:'#92400e',padding:'2px 8px',borderRadius:10,fontWeight:700}}>Old upload</span>}<br/><small>{upload.count} questions · {upload.categories.join(', ')}{allDisabled ? ' · Disabled' : disCount > 0 ? ' · ' + disCount + ' disabled' : ''}</small></span>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>toggleBatchActive(upload)}>{allDisabled ? 'Activate all' : 'Disable all'}</button>
           <button type="button" className="edx-exam-secondary edx-admin-danger" disabled={busy} onClick={()=>removeUploadBatch(upload)}><Trash2 size={15}/> {deletingBatch===upload.id?'Deleting upload…':'Delete complete file'}</button>
         </div>
       </div>})}}
     </div>}
-    {!loading && records.length > 0 && uploadBatches.length === 0 && <p className="edx-import-note">Older MCQs were imported before upload tracking was added, so they keep the existing individual Delete option. New JSON imports will appear above as complete deletable files.</p>}
+    {!loading && records.length > 0 && uploadBatches.length === 0 && <p className="edx-import-note">No grouped uploads found for this subject. Questions can still be deleted individually below, or use "Disable all" per question.</p>}
     <label className="edx-exam-field">Find a published question
       <span className="edx-practice-search"><Search size={17}/><input type="search" value={search}
       onChange={e=>setSearch(e.target.value)} placeholder="Search question, option or quiz set"/></span>

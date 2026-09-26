@@ -241,7 +241,7 @@ function FileReviews({ file, user, isAdmin }) {
     setItems([]); setMine(null); setStatus(''); setLoading(true); setPending([]); setEditing(null);
     const approved = query(REVIEWS(file.id), where('status', '==', 'approved'), limit(100));
     const unsub = onSnapshot(approved, (snap) => {
-      if (alive) { setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))); setLoading(false); }
+      if (alive) { setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter(r => r.isActive !== false).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))); setLoading(false); }
     }, (error) => { if (alive) { setLoading(false); setStatus(error.code === 'permission-denied' ? 'Review access is denied. The updated Firestore rules must be published.' : 'Reviews could not load. Please check your connection.'); } });
     let ownUnsub = () => {};
     if (user?.uid) ownUnsub = onSnapshot(reviewDoc(file.id, user.uid), (snap) => {
@@ -520,7 +520,8 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const subjects = useMemo(() => [...new Set([...DEFAULT_SUBJECTS, ...folders, ...Object.keys(counts)].filter(Boolean))].sort((a, b) => a.localeCompare(b)), [folders, counts]);
   const normalized = deferredSearch.trim().toLowerCase();
   const matches = useMemo(() => {
-    const result = files.filter((f) => (!subject || f.subject === subject)
+    const result = files.filter((f) => f.isActive !== false
+      && (!subject || f.subject === subject)
       && (format === 'all' || (format === 'documents' ? ['PDF','DOC','DOCX','PPT','PPTX','XLS','XLSX','TXT','CSV'].includes(extOf(f)) : format === 'images' ? ['PNG','JPG','JPEG','WEBP'].includes(extOf(f)) : extOf(f) === 'LINK'))
       && (!normalized || [f.name, f.title, f.subject, f.description, f.ext].some((value) => String(value || '').toLowerCase().includes(normalized))));
     if (sortBy === 'name') result.sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
