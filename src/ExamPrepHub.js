@@ -3,7 +3,8 @@ import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimes
 import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, BookOpen, MessageCircle, ArrowDownUp } from "lucide-react";
 import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
-import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, firstAvailableExam, publishedExamCatalog } from "./examCatalog";
+import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, firstAvailableExam, publishedExamCatalog } from "./examCatalog";
+import { routeParamsFromPath } from "./app-routes.mjs";
 import { adminPanelAccess } from './adminSession';
 
 import "./exam-prep-hub.css";
@@ -204,8 +205,11 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     try {
       const params = new URLSearchParams(window.location.search);
       const stored = JSON.parse(window.localStorage.getItem('edunexus:exam:last-selection:v1') || 'null');
-      const code = courseCode(params.get('subject') || stored?.subject || '');
-      const category = params.get('term') || stored?.term || '';
+      // Subject/term can arrive as query params (?page=exam-prep&subject=CS609)
+      // or as pretty path params (/exam-prep/CS609/Finalterm); query wins.
+      const pathParams = routeParamsFromPath(window.location.pathname);
+      const code = courseCode(params.get('subject') || pathParams.subject || stored?.subject || '');
+      const category = (params.get('term') || pathParams.term || stored?.term || '').toLowerCase();
       return { subject: validCourse(code) ? code : 'CS101',
         term: EXAM_CATEGORIES.includes(category) ? category : 'finalterm' };
     } catch (_) { return { subject:'CS101', term:'finalterm' }; }
@@ -216,16 +220,18 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   const [catalog, setCatalog] = useState({ subjects: [], bySubject: {}, total:0 });
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
+  // True while the catalogue comes from the denormalized meta/examCatalog
+  // document (exact totals); false while the legacy document scan is in use.
+  const [catalogExact, setCatalogExact] = useState(false);
   const userPickedFilter = useRef(false);
   const subjectRef = useRef(subject);
   const termRef = useRef(term);
   subjectRef.current = subject; termRef.current = term;
   useEffect(() => {
     if (adminWorkspace && tab === 'admin') { setCatalogLoading(false); return; }
-    const source = query(col('examMcqs'), limit(EXAM_SUBJECT_LIMIT));
-    const unsubscribe = onSnapshot(source, snapshot => {
-      const next = publishedExamCatalog(snapshot.docs);
-      setCatalog(next); setCatalogLoading(false); setCatalogError('');
+    let legacyUnsub = null;
+    const applyCatalog = (next, exact) => {
+      setCatalog(next); setCatalogLoading(false); setCatalogError(''); setCatalogExact(exact);
       // On first visit, choose a combination that actually contains published
       // questions; never silently override a user's later manual choice.
       if (!userPickedFilter.current && next.total) {
@@ -236,13 +242,34 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
         }
         userPickedFilter.current = true;
       }
-    }, error => {
-      setCatalogLoading(false);
-      setCatalogError(error?.code === 'permission-denied'
-        ? 'Published question catalogue is blocked by Firestore read rules.'
-        : 'Could not load the published course catalogue. Refresh to try again.');
-    });
-    return () => unsubscribe();
+    };
+    // Legacy fallback: scan the first EXAM_SUBJECT_LIMIT documents. Kept for
+    // deployments where the denormalized counts document has never been
+    // written (or cannot be read); nothing about its behaviour changed.
+    const startLegacyCatalog = () => {
+      if (legacyUnsub) return;
+      const source = query(col('examMcqs'), limit(EXAM_SUBJECT_LIMIT));
+      legacyUnsub = onSnapshot(source, snapshot => {
+        applyCatalog(publishedExamCatalog(snapshot.docs), false);
+      }, error => {
+        setCatalogLoading(false);
+        setCatalogError(error?.code === 'permission-denied'
+          ? 'Published question catalogue is blocked by Firestore read rules.'
+          : 'Could not load the published course catalogue. Refresh to try again.');
+      });
+    };
+    const stopLegacyCatalog = () => { if (legacyUnsub) { legacyUnsub(); legacyUnsub = null; } };
+    // Fast path: the admin import/manage tools maintain exact per-subject
+    // counts in one document (see src/examCatalogCounts.js).
+    const unsubscribe = onSnapshot(doc(db, ...ROOT, 'meta', 'examCatalog'), snapshot => {
+      // Defensive: a non-document snapshot (or a snapshot without exists())
+      // means the counts doc is unavailable — use the legacy scan.
+      const hasCounts = !!snapshot && typeof snapshot.exists === 'function' && snapshot.exists();
+      if (!hasCounts) { startLegacyCatalog(); return; }
+      stopLegacyCatalog();
+      applyCatalog(catalogFromCounts(snapshot.data()), true);
+    }, () => { startLegacyCatalog(); });
+    return () => { stopLegacyCatalog(); unsubscribe(); };
   }, [adminWorkspace, tab]);
   const selectSubject = value => { userPickedFilter.current = true; setSubject(courseCode(value)); };
   const selectTerm = value => { userPickedFilter.current = true; setTerm(value); };
@@ -263,7 +290,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     {tab === "mcqs" && <><section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><GraduationCap size={14} /> MCQ Bank</span><h1>Practice smarter. Prepare with confidence.</h1><p>Choose a subject, set your question count and practise at your own pace.</p><div className="edx-exam-hero-links"><button onClick={() => document.querySelector('.edx-practice-toolbar')?.scrollIntoView({behavior:'smooth',block:'start'})}>Start practising <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
     <div className="edx-exam-controls"><CourseSelector value={subject} onChange={selectSubject} subjects={catalogSubjects} /><TermSelector value={term} onChange={selectTerm} includeQuiz /></div></>}
     {tab === "mcqs" && !adminWorkspace && <section className="edx-exam-catalog" aria-label="Published quiz and exam categories">
-      <div className="edx-exam-catalog-head"><strong>Published practice</strong><span>{catalogLoading ? 'Checking published questions…' : catalog.total ? catalog.total + '+ questions across ' + catalog.subjects.length + ' subject(s)' : 'No published questions detected in the first ' + EXAM_SUBJECT_LIMIT + ' records'}</span></div>
+      <div className="edx-exam-catalog-head"><strong>Published practice</strong><span>{catalogLoading ? 'Checking published questions…' : catalog.total ? catalog.total + (catalogExact ? '' : '+') + ' questions across ' + catalog.subjects.length + ' subject(s)' : (catalogExact ? 'No published questions yet' : 'No published questions detected in the first ' + EXAM_SUBJECT_LIMIT + ' records')}</span></div>
       {!!catalog.subjects.length && <div className="edx-exam-catalog-subjects" role="group" aria-label="Available subject categories">
         {catalog.subjects.map(code => <button type="button" key={code} onClick={() => { userPickedFilter.current = true; setSubject(code); const best = firstAvailableExam(catalog, code, term); if (best) setTerm(best.term); }} className={subject === code ? 'active' : ''}>{code}</button>)}
       </div>}
@@ -271,7 +298,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
         {EXAM_CATEGORIES.map(category => <button type="button" key={category} className={term === category ? 'active' : ''} onClick={() => selectTerm(category)}>{category === 'quiz' ? 'Quiz' : category === 'midterm' ? 'Midterm' : 'Finalterm'} <span>{availableCounts[category] || 0}</span></button>)}
       </div>
       {catalogError && <p className="edx-exam-alert" role="alert">{catalogError} You can still type a subject code and retry the practice view.</p>}
-      {catalog.total >= EXAM_SUBJECT_LIMIT && <p className="edx-exam-catalog-note">The subject catalogue shows the first {EXAM_SUBJECT_LIMIT} published records. Enter another subject code manually if it is not listed.</p>}
+      {!catalogExact && catalog.total >= EXAM_SUBJECT_LIMIT && <p className="edx-exam-catalog-note">The subject catalogue shows the first {EXAM_SUBJECT_LIMIT} published records. Enter another subject code manually if it is not listed.</p>}
     </section>}
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
       {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(showAdmin ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)}>{label}</button>)}

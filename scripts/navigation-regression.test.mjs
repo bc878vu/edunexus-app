@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { MAIN_ITEMS, MOBILE_ITEMS } from '../src/site-navigation.mjs';
 import { renderNavbar, navStyles } from '../api/site-shell.mjs';
-import { APP_PAGES, CONTENT_PAGE_IDS, routeFromLocation, pathForPage, navActivePage } from '../src/app-routes.mjs';
+import { APP_PAGES, CONTENT_PAGE_IDS, routeFromLocation, pathForPage, navActivePage, routeParamsFromPath } from '../src/app-routes.mjs';
+import { SITE, canonicalPath } from '../src/site-seo.mjs';
 
 test('all nine principal destinations are shared by desktop and mobile nav', () => {
   assert.equal(MAIN_ITEMS.length, 9);
@@ -54,6 +55,54 @@ test('direct and legacy page URLs resolve to one application route', () => {
   assert.equal(navActivePage('projects'), 'portfolio');
 });
 
+test('pretty parameterized routes resolve and ?page= keeps precedence', () => {
+  const loc = (pathname, search = '') => ({ pathname, search });
+  // /academic/<subject>
+  assert.deepEqual(routeParamsFromPath('/academic/CS609_System_Programming'),
+    { page: 'academic', subject: 'CS609_System_Programming', term: '' });
+  assert.equal(routeFromLocation(loc('/academic/CS609_System_Programming')), 'academic');
+  // /exam-prep/<subject>/<term>
+  assert.deepEqual(routeParamsFromPath('/exam-prep/CS609/Finalterm'),
+    { page: 'exam-prep', subject: 'CS609', term: 'Finalterm' });
+  assert.equal(routeFromLocation(loc('/exam-prep/CS609/Finalterm')), 'exam-prep');
+  assert.equal(routeFromLocation(loc('/exam-prep/CS101/Midterm')), 'exam-prep');
+  // ?page= takes precedence over the pretty path, exactly as before
+  assert.equal(routeFromLocation(loc('/exam-prep/CS609/Finalterm', '?page=academic')), 'academic');
+  assert.equal(routeFromLocation(loc('/academic/CS609', '?page=exam-prep')), 'exam-prep');
+  assert.equal(routeFromLocation(loc('/exam-prep/CS609/Finalterm', '?page=unknown')), 'exam-prep');
+  // non-parameterized pretty paths are untouched
+  assert.deepEqual(routeParamsFromPath('/quizzes'), { page: '', subject: '', term: '' });
+  assert.deepEqual(routeParamsFromPath('/exam-prep'), { page: '', subject: '', term: '' });
+  assert.equal(routeFromLocation(loc('/exam-prep')), 'exam-prep');
+  assert.equal(routeFromLocation(loc('/quizzes')), 'aiquiz');
+  assert.equal(routeFromLocation(loc('/no-such-page')), 'home');
+  assert.equal(routeFromLocation(loc('/exam-prep/CS609')), 'home');
+});
+
+test('canonical URLs use the pretty path forms', () => {
+  assert.equal(SITE, 'https://edunexus-app.vercel.app');
+  assert.equal(canonicalPath('exam-prep', '?subject=CS609&term=Finalterm'), '/exam-prep/CS609/Finalterm');
+  assert.equal(canonicalPath('exam-prep', '?subject=cs101&term=midterm'), '/exam-prep/CS101/Midterm');
+  assert.equal(canonicalPath('exam-prep', ''), '/exam-prep');
+  assert.equal(canonicalPath('exam-prep', '', { subject: 'CS609', term: 'Finalterm' }), '/exam-prep/CS609/Finalterm');
+  assert.equal(canonicalPath('academic', '?subject=CS609_System_Programming'), '/academic/CS609_System_Programming');
+  assert.equal(canonicalPath('academic', '', { subject: 'CS609_System_Programming' }), '/academic/CS609_System_Programming');
+  assert.equal(canonicalPath('academic', ''), '/vu-notes');
+  // legacy query behavior for non-parameterized pages is unchanged
+  assert.equal(canonicalPath('admin', ''), '/?page=admin');
+  assert.equal(canonicalPath('contact', ''), '/contact');
+  assert.equal(canonicalPath('home', ''), '/');
+  assert.equal(canonicalPath('nope', ''), '/');
+});
+
+test('sitemap advertises the pretty canonical URLs', () => {
+  const sitemap = readFileSync('public/sitemap.xml', 'utf8');
+  assert.match(sitemap, /<loc>https:\/\/edunexus-app\.vercel\.app\/exam-prep\/CS609\/Finalterm<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/edunexus-app\.vercel\.app\/exam-prep<\/loc>/);
+  assert.doesNotMatch(sitemap, /\?page=exam-prep/);
+  assert.doesNotMatch(sitemap, /edunexus\.dpdns\.org/);
+});
+
 test('guides and tutorials render inside the shared App main and footer', () => {
   const entry = readFileSync('src/index.js', 'utf8');
   const app = readFileSync('src/App.js', 'utf8');
@@ -80,4 +129,61 @@ test('only content-hashed assets are eligible for service worker cache-first str
   assert.match(worker, /IMMUTABLE_BUILD/);
   assert.match(worker, /if \(request\.mode === 'navigate'\)/);
   assert.match(worker, /response\.ok/);
+});
+
+test('prerender writes per-route static HTML from the sitemap without touching the repo build', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { prerender } = await import('./prerender.mjs');
+  const stub = mkdtempSync(join(tmpdir(), 'edunexus-prerender-'));
+  mkdirSync(join(stub, 'build'), { recursive: true });
+  mkdirSync(join(stub, 'public'), { recursive: true });
+  const template = '<!doctype html><html lang="en"><head><meta charset="utf-8"/>'
+    + '<title>Old Title</title><meta name="description" content="Old desc"/>'
+    + '<meta name="keywords" content="old"/>'
+    + '<meta name="robots" content="index, follow"/>'
+    + '<link rel="canonical" href="https://old.example/"/>'
+    + '<meta property="og:title" content="Old Title"/><meta property="og:description" content="Old desc"/>'
+    + '<meta property="og:url" content="https://old.example/"/><meta property="og:image" content="https://old.example/logo512.png"/>'
+    + '<meta name="twitter:title" content="Old Title"/><meta name="twitter:description" content="Old desc"/>'
+    + '<meta name="twitter:image" content="https://old.example/logo512.png"/>'
+    + '<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite"}</script>'
+    + '</head><body><div id="root"></div><script src="/static/js/main.js"></script></body></html>';
+  writeFileSync(join(stub, 'build', 'index.html'), template, 'utf8');
+  writeFileSync(join(stub, 'public', 'sitemap.xml'),
+    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    + '<url><loc>https://edunexus-app.vercel.app/</loc></url>'
+    + '<url><loc>https://edunexus-app.vercel.app/exam-prep/CS609/Finalterm</loc></url>'
+    + '<url><loc>https://edunexus-app.vercel.app/academic/CS609_System_Programming</loc></url>'
+    + '<url><loc>https://edunexus-app.vercel.app/learning/cs101/some-slug</loc></url>'
+    + '</urlset>', 'utf8');
+
+  const { written, routes } = await prerender(stub);
+  assert.ok(written > 0);
+  assert.ok(routes.includes('/exam-prep/CS609/Finalterm'));
+  assert.ok(routes.includes('/academic/CS609_System_Programming'));
+  assert.ok(!routes.includes('/learning/cs101/some-slug'));
+
+  const bankHtml = readFileSync(join(stub, 'build', 'exam-prep', 'CS609', 'Finalterm', 'index.html'), 'utf8');
+  assert.match(bankHtml, /<title>CS609 Final Term Solved MCQs \| EduNexus<\/title>/);
+  assert.match(bankHtml, /<link rel="canonical" href="https:\/\/edunexus-app\.vercel\.app\/exam-prep\/CS609\/Finalterm"\/>/);
+  assert.match(bankHtml, /<div id="root"><main class="edx-prerender-static"/);
+  assert.match(bankHtml, /<h1[^>]*>CS609 Final Term Solved MCQs<\/h1>/);
+  assert.equal((bankHtml.match(/<script type="application\/ld\+json">/g) || []).length, 1);
+  assert.match(bankHtml, /"@type":"WebApplication"/);
+
+  const academicHtml = readFileSync(join(stub, 'build', 'academic', 'CS609_System_Programming', 'index.html'), 'utf8');
+  assert.match(academicHtml, /<title>CS609 SYSTEM PROGRAMMING Notes, Handouts &amp; Past Papers \| EduNexus<\/title>/);
+  assert.match(academicHtml, /<link rel="canonical" href="https:\/\/edunexus-app\.vercel\.app\/academic\/CS609_System_Programming"\/>/);
+
+  const homeHtml = readFileSync(join(stub, 'build', 'index.html'), 'utf8');
+  assert.match(homeHtml, /<link rel="canonical" href="https:\/\/edunexus-app\.vercel\.app\/"\/>/);
+  assert.doesNotMatch(homeHtml, /old\.example/);
+  assert.ok(existsSync(join(stub, 'build', 'exam-prep', 'index.html')));
+
+  // Missing build dir: must not throw and must report zero writes.
+  const empty = mkdtempSync(join(tmpdir(), 'edunexus-prerender-empty-'));
+  const skipped = await prerender(empty);
+  assert.equal(skipped.written, 0);
 });

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { SITE, canonicalUrl, seoPageFromLocation } from "./site-seo.mjs";
+import { SITE, canonicalUrl, displaySubjectName, seoPageFromLocation } from "./site-seo.mjs";
+import { routeParamsFromPath } from "./app-routes.mjs";
 
 const DATA = {
   home: ["EduNexus | VU Notes, Handouts, Past Papers & AI Study Tools", "EduNexus is a student study hub for Virtual University learners with notes, handouts, past papers, quizzes, CGPA calculator, study planner, flashcards and practical AI study tools.", "EduNexus, VU notes, VU handouts, VU past papers, Virtual University notes, VULMS, VU study material, CGPA calculator, GPA calculator, AI study tools, exam preparation Pakistan", "WebSite"],
@@ -28,6 +29,10 @@ const DATA = {
   admin: ["Admin Panel | EduNexus", "Protected EduNexus administration area.", "EduNexus admin", "WebPage"]
 };
 
+// Exported for the build-time prerender script (scripts/prerender.mjs), which
+// reuses the same per-page titles/descriptions without touching the DOM.
+export const SEO_PAGE_DATA = DATA;
+
 // All SEO head changes are owned here; App handles rendering/navigation only.
 const setMeta = (name, value) => {
   let element = document.head.querySelector('meta[name="' + name + '"]');
@@ -52,10 +57,15 @@ const setProp = (name, value) => {
 function updateSeo() {
   const page = seoPageFromLocation(window.location);
   const data = DATA[page] || DATA.home;
-  const canonical = canonicalUrl(page, window.location.search);
+  // Subject/term can arrive as query params (?page=exam-prep&subject=CS609)
+  // or as pretty path params (/exam-prep/CS609/Finalterm); query wins.
+  const pathParams = routeParamsFromPath(window.location.pathname);
+  const params = new URLSearchParams(window.location.search || '');
+  if (!params.get('subject') && pathParams.subject) params.set('subject', pathParams.subject);
+  if (!params.get('term') && pathParams.term) params.set('term', pathParams.term);
+  const canonical = canonicalUrl(page, params.toString() ? '?' + params.toString() : '');
   // Subject/term-specific titles + descriptions so each MCQ bank and subject
   // library view gets its own indexable identity instead of one generic page.
-  const params = new URLSearchParams(window.location.search || '');
   let title = data[0];
   let description = data[1];
   if (page === 'exam-prep') {
@@ -67,7 +77,7 @@ function updateSeo() {
       description = 'Practice ' + subject + ' ' + termLabel + ' solved MCQs with answers, explore paper reviews and prepare for your Virtual University ' + subject + ' exam on EduNexus.';
     }
   } else if (page === 'academic') {
-    const subject = (params.get('subject') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const subject = displaySubjectName(params.get('subject'));
     if (subject) {
       title = subject + ' Notes, Handouts & Past Papers | EduNexus';
       description = 'Download ' + subject + ' notes, handouts and past papers for Virtual University students on EduNexus.';

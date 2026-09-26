@@ -84,13 +84,17 @@ test('article sitemap excludes thin entries and includes existing substantial or
   }finally{global.fetch=fetchBefore;}
 });
 
-test('custom domain is canonical while the old hostname remains an allowed fallback', () => {
-  assert.equal(SITE, 'https://edunexus.dpdns.org');
-  for (const path of ['public/index.html', 'public/sitemap.xml', 'public/robots.txt', 'src/SEO.js']) {
+test('vercel.app is canonical (custom domain DNS does not point at the app yet)', () => {
+  assert.equal(SITE, 'https://edunexus-app.vercel.app');
+  for (const path of ['public/index.html', 'public/sitemap.xml', 'public/robots.txt']) {
     const content = readFileSync(new URL('../' + path, import.meta.url), 'utf8');
-    assert.ok(content.includes('https://edunexus.dpdns.org'), path + ' must reference new domain');
-    assert.ok(!content.includes('https://edunexus-app.vercel.app'), path + ' must not declare old canonical domain');
+    assert.ok(content.includes('https://edunexus-app.vercel.app'), path + ' must reference canonical domain');
+    assert.ok(!content.includes('https://edunexus.dpdns.org'), path + ' must not declare the unreachable custom domain as canonical');
   }
+  // src/SEO.js takes the canonical host from the single SITE constant.
+  const seo = readFileSync(new URL('../src/SEO.js', import.meta.url), 'utf8');
+  assert.match(seo, /from ["']\.\/site-seo\.mjs["']/);
+  assert.ok(!seo.includes('https://edunexus.dpdns.org'), 'src/SEO.js must not hardcode the unreachable custom domain');
   const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
   assert.equal(config.git.deploymentEnabled.main, true);
   assert.equal(config.git.deploymentEnabled['**'], false);

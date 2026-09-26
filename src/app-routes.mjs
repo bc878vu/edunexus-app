@@ -8,7 +8,7 @@ export const FRIENDLY_ROUTES = Object.freeze({
   '/past-papers-guide': 'past-papers', '/exam-preparation': 'exam-preparation',
   '/cgpa-guide': 'cgpa-guide', '/ai-study-tools': 'ai-study-tools',
   '/student-resources': 'resources', '/live-projects': 'projects',
-  '/tutorials': 'tutorials'
+  '/tutorials': 'tutorials', '/exam-prep': 'exam-prep'
 });
 
 export const CONTENT_PAGE_IDS = Object.freeze([
@@ -34,10 +34,27 @@ const CONTENT_PATHS = Object.freeze({
   tutorials: '/tutorials'
 });
 
+export function routeParamsFromPath(pathname) {
+  const clean = String(pathname || '/').replace(/\/$/, '') || '/';
+  const decode = (s) => { try { return decodeURIComponent(s); } catch (_) { return s; } };
+  const parts = clean.split('/').filter(Boolean).map(decode);
+  // /academic/<subject> e.g. /academic/CS609_System_Programming
+  if (parts[0] === 'academic' && parts[1]) {
+    return { page: 'academic', subject: parts[1].slice(0, 80), term: '' };
+  }
+  // /exam-prep/<subject>/<term> e.g. /exam-prep/CS609/Finalterm
+  if (parts[0] === 'exam-prep' && parts[1] && parts[2]) {
+    return { page: 'exam-prep', subject: parts[1].slice(0, 24), term: parts[2].slice(0, 24) };
+  }
+  return { page: '', subject: '', term: '' };
+}
+
 export function routeFromLocation(location) {
   const requested = new URLSearchParams(location.search || '').get('page');
   if (requested && APP_PAGES.includes(requested)) return requested;
   const pathname = String(location.pathname || '/').replace(/\/$/, '') || '/';
+  const params = routeParamsFromPath(pathname);
+  if (params.page) return params.page;
   return FRIENDLY_ROUTES[pathname] || 'home';
 }
 

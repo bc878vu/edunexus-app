@@ -4,6 +4,7 @@ import { CheckCircle2, Pencil, Search, ShieldCheck, Trash2, X } from 'lucide-rea
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { categoryOf, orderOf, quizSetOf, stripQuizMarker, validateMcq } from './examMcqImport';
+import { refreshExamCatalogCounts } from './examCatalogCounts';
 import { explanationForStudent } from './examAnswerFeedback';
 import { isVerifiedAnswer } from './examPractice';
 import RichContent from './RichContent';
@@ -91,6 +92,10 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       }
       // Never carry an old verification forward if a key changed without a new source.
       await updateDoc(doc(db,...PATH,selected.id), normalized);
+      // An edit can change the subject and/or exam category, so recompute the
+      // denormalized catalogue for both the old and the new subject.
+      try { await refreshExamCatalogCounts([selected.subject, draft.subject]); }
+      catch (_) {}
       setSelected(null); setDraft(null);
       setMessage('Question updated. Public Quiz, Midterm and Finalterm lists refresh automatically.');
     } catch (err) { setError(errorText(err)); }
@@ -128,6 +133,10 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       const batch = writeBatch(db);
       fresh.docs.forEach(item => batch.update(item.ref, { subject: target }));
       await batch.commit();
+      // Recompute the denormalized catalogue for the emptied source subject
+      // and the destination subject.
+      try { await refreshExamCatalogCounts([subject, target]); }
+      catch (_) {}
       setSelected(null); setDraft(null);
       setSearch(''); setCategory('all');
       setBulkTarget(''); setBulkCountConfirmation('');
@@ -155,6 +164,8 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         deleted += Math.min(450, docs.length-start);
       }
       if (selected && batchRecords.some(q => q.id === selected.id)) { setSelected(null); setDraft(null); }
+      try { await refreshExamCatalogCounts([subject]); }
+      catch (_) {}
       setMessage(deleted + ' questions from "' + upload.name + '" deleted together. No other upload or site content was changed.');
     } catch(e) { setError(errorText(e)); }
     finally { setBusy(false); setDeletingBatch(''); }
@@ -164,6 +175,8 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     if (!window.confirm('Permanently delete this question from '+q.subject+' '+categoryOf(q)+'? Students’ past answer for this question will no longer appear. This cannot be undone.')) return;
     setBusy(true);setError('');setMessage('');
     try { await deleteDoc(doc(db,...PATH,q.id)); if(selected?.id===q.id){setSelected(null);setDraft(null);}
+      try { await refreshExamCatalogCounts([q.subject]); }
+      catch (_) {}
       setMessage('Question deleted. All other published questions and resources remain unchanged.');
     } catch(e){setError(errorText(e));}finally{setBusy(false);}
   };

@@ -160,6 +160,18 @@
     {
       "source": "/terms",
       "destination": "/index.html"
+    },
+    {
+      "source": "/academic/:subject",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/exam-prep/:subject/:term",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/exam-prep",
+      "destination": "/index.html"
     }
   ],
   "buildCommand": "npm run build",

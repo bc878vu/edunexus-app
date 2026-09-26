@@ -4,6 +4,7 @@ import { CheckCircle2, FileJson2, UploadCloud, AlertTriangle } from 'lucide-reac
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { categoryOf, MAX_IMPORT, MAX_JSON_BYTES, parseMcqJson, summarizeImport, suggestImportMetadata, validateMcq } from './examMcqImport';
+import { refreshExamCatalogCounts } from './examCatalogCounts';
 import './exam-mcq-import.css';
 
 const MCQS = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'examMcqs');
@@ -142,6 +143,12 @@ export default function McqBulkImporter({ user, onView }) {
         published += Math.min(100, items.length - start);
         setProgress(published + ' / ' + items.length + ' published');
       }
+      // Refresh the denormalized exam catalogue for every subject this import
+      // touched. Best-effort: if it fails, the counts document stays stale and
+      // ExamPrepHub falls back to its legacy scan, so the import itself is
+      // never blocked by a catalogue refresh.
+      try { await refreshExamCatalogCounts(items.map((item) => item.subject)); }
+      catch (_) {}
       const first = inspection.items[0];
       const onlyOneCategory = Object.values(inspection.summary.totals).filter(Boolean).length === 1;
       setDestination({ subject: inspection.summary.subjects.length === 1 ? inspection.summary.subjects[0] : '',

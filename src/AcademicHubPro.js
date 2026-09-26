@@ -7,6 +7,7 @@ import './academic-hub-pro.css';
 import './academic-hub-v2.css';
 import { reviewQualityMessage } from './reviewQuality';
 import { trustedPreviewUrl, previewSandbox } from './academic-preview.mjs';
+import { routeParamsFromPath } from './app-routes.mjs';
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 
 const BASE = ['artifacts', 'edunexus-live', 'public', 'data'];
@@ -104,6 +105,39 @@ const REVIEWS = (id) => collection(db, ...BASE, 'files', id, 'reviews');
 const reviewDoc = (id, uid) => doc(db, ...BASE, 'files', id, 'reviews', uid);
 const reviewIsAdmin = (user, isAdmin) => Boolean(isAdmin && user && user.email === 'veducator4@gmail.com' && user.emailVerified);
 
+// Denormalized rating summary stored as fields on the file document itself.
+// The public catalogue query already loads every file document, so reading
+// ratingAverage/ratingCount costs zero extra reads (previously one
+// getAggregateFromServer query ran per visible card). FileCardRating reads
+// these fields first and keeps the live aggregation as the fallback while
+// they are absent. The summary is refreshed best-effort after every review
+// write below; permission-denied is tolerated silently because the current
+// Firestore rules only let the verified admin update file documents.
+const fileRatingDoc = (id) => doc(db, ...BASE, 'files', id);
+const readRatingSummary = (data) => {
+  const value = Number(data?.ratingAverage);
+  const total = Number(data?.ratingCount);
+  return Number.isFinite(value) && Number.isInteger(total) && total > 0 ? value : null;
+};
+const refreshFileRatingSummary = async (fileId) => {
+  try {
+    const result = await getAggregateFromServer(
+      query(REVIEWS(fileId), where('status', '==', 'approved')),
+      { reviewCount: count(), ratingAverage: average('rating') });
+    const data = result.data();
+    const total = Number(data.reviewCount) || 0;
+    const value = Number(data.ratingAverage);
+    await setDoc(fileRatingDoc(fileId), {
+      ratingAverage: total > 0 && Number.isFinite(value) ? value : null,
+      ratingCount: total,
+      ratingSummaryUpdatedAt: serverTimestamp(),
+    }, { merge: true });
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
 function ResourcePreview({ file, links, onClose }) {
   const ext = extOf(file);
   const isImage = links.kind === 'image' || (links.kind === 'firebase' && ['JPG','JPEG','PNG','WEBP'].includes(ext));
@@ -183,7 +217,8 @@ function FileReviews({ file, user, isAdmin }) {
         userId: user.uid, rating: Number(rating), comment: value, originalComment: value,
         status: 'approved', createdAt: serverTimestamp()
       });
-      setComment(''); setStatus(''); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id } }));
+      const summaryOk = await refreshFileRatingSummary(file.id);
+      setComment(''); setStatus(''); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } }));
     } catch (error) {
       // Avoid regressing existing submission behavior if Firebase rules deploy
       // after the Vercel frontend: the old policy accepts only <=800-char drafts.
@@ -193,7 +228,9 @@ function FileReviews({ file, user, isAdmin }) {
             userId: user.uid, rating: Number(rating), comment: value,
             status: 'pending', createdAt: serverTimestamp()
           });
+          const pendingSummaryOk = await refreshFileRatingSummary(file.id);
           setComment('');
+          window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: pendingSummaryOk } }));
           setStatus('Your review was saved under the existing approval policy. The administrator must deploy the updated Firebase rules to enable instant publication.');
         } catch (_) { setStatus('Review could not be saved. The updated Firebase rules may still need to be published.'); }
       } else {
@@ -206,7 +243,7 @@ function FileReviews({ file, user, isAdmin }) {
   };
   const moderate = async (item) => {
     setBusy(true); setStatus('');
-    try { await updateDoc(reviewDoc(file.id, item.id), { status: 'approved', moderatedAt: serverTimestamp() }); setStatus('Earlier pending review published.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id } })); }
+    try { await updateDoc(reviewDoc(file.id, item.id), { status: 'approved', moderatedAt: serverTimestamp() }); const summaryOk = await refreshFileRatingSummary(file.id); setStatus('Earlier pending review published.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } })); }
     catch (_) { setStatus('Could not publish this earlier review. Check administrator permissions.'); }
     finally { setBusy(false); }
   };
@@ -216,14 +253,15 @@ function FileReviews({ file, user, isAdmin }) {
     setBusy(true); setStatus('');
     try {
       await updateDoc(reviewDoc(file.id, item.id), { comment: editText.trim(), rating: Number(editRating), editedAt: serverTimestamp() });
-      setEditing(null); setStatus('Review updated by administrator.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id } }));
+      const summaryOk = await refreshFileRatingSummary(file.id);
+      setEditing(null); setStatus('Review updated by administrator.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } }));
     } catch (_) { setStatus('Could not edit the review. Check administrator permissions.'); }
     finally { setBusy(false); }
   };
   const remove = async (item) => {
     if (!admin || !window.confirm('Permanently delete this resource review?')) return;
     setBusy(true); setStatus('');
-    try { await deleteDoc(reviewDoc(file.id, item.id)); setStatus('Review deleted.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id } })); }
+    try { await deleteDoc(reviewDoc(file.id, item.id)); const summaryOk = await refreshFileRatingSummary(file.id); setStatus('Review deleted.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } })); }
     catch (_) { setStatus('Review deletion failed.'); }
     finally { setBusy(false); }
   };
@@ -271,13 +309,16 @@ function FileReviews({ file, user, isAdmin }) {
   </section>;
 }
 
-function FileCardRating({ fileId }) {
+function FileCardRating({ fileId, ratingAverage, ratingCount }) {
   const [score, setScore] = useState(null);
   useEffect(() => {
     let active = true;
     let revision = 0;
-    const refresh = async () => {
-      const current = ++revision;
+    // True while the file document carries a fresh denormalized summary, so
+    // refreshes can use one cheap document read instead of an aggregation.
+    let denormalized = readRatingSummary({ ratingAverage, ratingCount }) !== null;
+    if (active) setScore(readRatingSummary({ ratingAverage, ratingCount }));
+    const aggregate = async (current) => {
       try {
         // Server-side aggregation includes ALL approved reviews without a 100-item cap.
         const result = await getAggregateFromServer(
@@ -291,13 +332,40 @@ function FileCardRating({ fileId }) {
         }
       } catch (_) { if (active && current === revision) setScore(null); }
     };
-    void refresh();
-    const onReviewChange = (event) => { if (!event.detail?.fileId || event.detail.fileId === fileId) void refresh(); };
-    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    const refresh = async (mode) => {
+      const current = ++revision;
+      // 'aggregate' skips the summary entirely: a review just changed without
+      // a confirmed metadata rewrite, so the summary may be stale. 'summary'
+      // is only requested right after such a rewrite, so the document read is
+      // trusted. 'auto' uses the summary only while it is believed fresh.
+      if (mode === 'aggregate') denormalized = false;
+      if (mode !== 'aggregate' && (mode === 'summary' || denormalized)) {
+        try {
+          const snapshot = await getDoc(fileRatingDoc(fileId));
+          const summary = snapshot.exists() ? readRatingSummary(snapshot.data()) : null;
+          if (summary !== null) {
+            denormalized = true;
+            if (active && current === revision) setScore(summary);
+            return;
+          }
+        } catch (_) { /* fall through to the aggregation fallback */ }
+        denormalized = false;
+      }
+      await aggregate(current);
+    };
+    void refresh('auto');
+    const onReviewChange = (event) => {
+      if (!event.detail?.fileId || event.detail.fileId === fileId) {
+        // A confirmed metadata rewrite means the summary is fresh; any other
+        // review change means it is stale, so aggregate instead.
+        void refresh(event.detail?.ratingSummaryUpdated === true ? 'summary' : 'aggregate');
+      }
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh('auto'); };
     window.addEventListener('edunexus:file-review-changed', onReviewChange);
     document.addEventListener('visibilitychange', onVisible);
     return () => { active = false; window.removeEventListener('edunexus:file-review-changed', onReviewChange); document.removeEventListener('visibilitychange', onVisible); };
-  }, [fileId]);
+  }, [fileId, ratingAverage, ratingCount]);
   if (score === null) return null;
   return <span className="ah-card-rating" aria-label={'Average student rating ' + score.toFixed(1) + ' out of 5'}>
     <Star size={15} fill="currentColor" aria-hidden="true" /><span>{score.toFixed(1)}</span>
@@ -310,7 +378,7 @@ function ResourceCard({ file, isAdmin, onDelete, onPreview, onReviews, onDownloa
   return <article className="ah-resource">
     <div className="ah-file-icon"><FileText size={22} /></div>
     <div className="ah-resource-content"><div className="ah-between ah-file-top"><h3>{title}</h3><span className="ah-chip">{extOf(file)}</span></div>
-      <div className="ah-meta-rating-row"><p className="ah-meta">{cut(file.subject, 50) || 'General'}{dateOf(file) ? ' · Added ' + dateOf(file) : ''}</p><FileCardRating fileId={file.id} /></div>
+      <div className="ah-meta-rating-row"><p className="ah-meta">{cut(file.subject, 50) || 'General'}{dateOf(file) ? ' · Added ' + dateOf(file) : ''}</p><FileCardRating fileId={file.id} ratingAverage={file.ratingAverage} ratingCount={file.ratingCount} /></div>
       {file.description && <p className="ah-description">{cut(file.description, 320)}</p>}
       <div className="ah-actions">
         <button type="button" className="ah-secondary" disabled={!links.source} onClick={() => onPreview(file)}><BookOpen size={16} /> Preview</button>
@@ -350,7 +418,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const [format, setFormat] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [subjectsExpanded, setSubjectsExpanded] = useState(true);
-  const [subject, setSubject] = useState(() => new URLSearchParams(window.location.search).get('subject') || '');
+  const [subject, setSubject] = useState(() => new URLSearchParams(window.location.search).get('subject') || routeParamsFromPath(window.location.pathname).subject || '');
   const [selectedId, setSelectedId] = useState(() => new URLSearchParams(window.location.search).get('file') || '');
   const [panel, setPanel] = useState(() => new URLSearchParams(window.location.search).get('panel') === 'reviews' ? 'reviews' : 'preview');
   const [downloadStatus, setDownloadStatus] = useState({});
@@ -360,7 +428,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const olderPagesLoaded = useRef(false);
 
   useEffect(() => {
-    const onPop = () => { const params = new URLSearchParams(window.location.search); setSubject(params.get('subject') || ''); setSelectedId(params.get('file') || ''); setPanel(params.get('panel') === 'reviews' ? 'reviews' : 'preview'); };
+    const onPop = () => { const params = new URLSearchParams(window.location.search); setSubject(params.get('subject') || routeParamsFromPath(window.location.pathname).subject || ''); setSelectedId(params.get('file') || ''); setPanel(params.get('panel') === 'reviews' ? 'reviews' : 'preview'); };
     window.addEventListener('popstate', onPop);
     const unsubFiles = onSnapshot(query(FILES, orderBy('createdAt', 'desc'), limit(PAGE_SIZE)), (snap) => {
       setLatest(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
