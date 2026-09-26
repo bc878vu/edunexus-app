@@ -325,8 +325,9 @@ const Navbar = ({
       >
         <div className="max-w-[1450px] mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
           {/* Brand */}
-          <button
-            onClick={() => handleNavClick("home")}
+          <a
+            href="/"
+            onClick={(e) => { e.preventDefault(); handleNavClick("home"); }}
             className="flex items-center gap-3 group shrink-0"
           >
             <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-lg">
@@ -347,14 +348,15 @@ const Navbar = ({
                 Study Material • Mock Tests • AI Tools
               </span>
             </div>
-          </button>
+          </a>
 
           {/* Desktop links (PC HEADER) */}
           <nav className="hidden xl:flex items-center justify-center gap-0 min-w-0">
             {MAIN_ITEMS.map((item) => (
-              <button
+              <a
                 key={item.id}
-                onClick={() => handleNavClick(item.id)}
+                href={item.href}
+                onClick={(e) => { e.preventDefault(); handleNavClick(item.id); }}
                 className={`
                   px-3 py-2.5 rounded-full whitespace-nowrap
                   text-[15px] font-semibold tracking-wide
@@ -367,7 +369,7 @@ const Navbar = ({
                 `}
               >
                 {item.label}
-              </button>
+              </a>
             ))}
           </nav>
 
@@ -461,9 +463,10 @@ const Navbar = ({
           {/* Drawer links */}
           <nav className="flex-1 overflow-y-auto mt-2 pb-2">
             {ALL_ITEMS.map((item) => (
-              <button
+              <a
                 key={item.id}
-                onClick={() => handleNavClick(item.id)}
+                href={item.href}
+                onClick={(e) => { e.preventDefault(); handleNavClick(item.id); }}
                 className={`
                   w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left
                   ${
@@ -487,7 +490,7 @@ const Navbar = ({
                   {item.label.charAt(0)}
                 </span>
                 <span>{item.label}</span>
-              </button>
+              </a>
             ))}
           </nav>
 
@@ -2661,7 +2664,12 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const qA = query(collection(db, 'artifacts', appId, 'public', 'data', 'files'), orderBy('createdAt', 'desc'), limit(3));
     const unsubA = onSnapshot(qA, s => {
       const files = s.docs.map(d => ({type: 'file', msg: `Uploaded file: ${d.data().name}`, ...d.data()}));
-      setRecentActivity(prev => [...files, ...prev].slice(0, 10));
+      // Dedupe: every files-collection write re-delivers the same 3 latest
+      // docs, which previously got prepended again as duplicates.
+      setRecentActivity(prev => {
+        const seen = new Set(prev.map(a => a.msg));
+        return [...files.filter(f => !seen.has(f.msg)), ...prev].slice(0, 10);
+      });
     });
     return () => { unsubF(); unsubA(); };
   }, [user]);
@@ -4908,36 +4916,40 @@ useEffect(() => {
         <h3 className="text-sm font-semibold tracking-wide">Quick Links</h3>
         <ul className="space-y-2 text-sm">
           <li>
-            <button
-              onClick={() => navigate("home")}
+            <a
+              href={pathForPage("home")}
+              onClick={(e) => { e.preventDefault(); navigate("home"); }}
               className="hover:text-indigo-500 transition-colors"
             >
               Home
-            </button>
+            </a>
           </li>
           <li>
-            <button
-              onClick={() => navigate("academic")}
+            <a
+              href={pathForPage("academic")}
+              onClick={(e) => { e.preventDefault(); navigate("academic"); }}
               className="hover:text-indigo-500 transition-colors"
             >
               Academic Hub
-            </button>
+            </a>
           </li>
           <li>
-            <button
-              onClick={() => navigate("articles")}
+            <a
+              href={pathForPage("articles")}
+              onClick={(e) => { e.preventDefault(); navigate("articles"); }}
               className="hover:text-indigo-500 transition-colors"
             >
               Articles
-            </button>
+            </a>
           </li>
             <li>
-          <button
-            onClick={() => navigate("cgpa")}
+          <a
+            href={pathForPage("cgpa")}
+            onClick={(e) => { e.preventDefault(); navigate("cgpa"); }}
             className="hover:text-indigo-500 transition-colors"
           >
             CGPA Calculator
-          </button>
+          </a>
         </li>
 
         </ul>
@@ -4948,30 +4960,33 @@ useEffect(() => {
         <h3 className="text-sm font-semibold tracking-wide">Study Tools</h3>
         <ul className="space-y-2 text-sm">
           <li>
-            <button
-              onClick={() => navigate("flashcards")}
+            <a
+              href={pathForPage("flashcards")}
+              onClick={(e) => { e.preventDefault(); navigate("flashcards"); }}
               className="hover:text-indigo-500 transition-colors"
             >
               AI Flashcards
-            </button>
+            </a>
           </li>
           <li>
-            <button
-              onClick={() => navigate("planner")}
+            <a
+              href={pathForPage("planner")}
+              onClick={(e) => { e.preventDefault(); navigate("planner"); }}
               className="hover:text-indigo-500 transition-colors"
             >
               Study Planner
-            </button>
+            </a>
           </li>
           <li>
-            <button
-              onClick={() => navigate("aiquiz")}
+            <a
+              href={pathForPage("aiquiz")}
+              onClick={(e) => { e.preventDefault(); navigate("aiquiz"); }}
               className="hover:text-indigo-500 transition-colors"
             >
               AI Quiz Generator
-            </button>
+            </a>
           </li>
-          <li><button onClick={() => navigate("exam-prep")} className="hover:text-indigo-500 transition-colors">MCQ Bank & Paper Reviews</button></li>
+          <li><a href={pathForPage("exam-prep")} onClick={(e) => { e.preventDefault(); navigate("exam-prep"); }} className="hover:text-indigo-500 transition-colors">MCQ Bank & Paper Reviews</a></li>
         </ul>
       </div>
 
@@ -5029,21 +5044,21 @@ useEffect(() => {
         )}
 
         {/* ✅ Footer links now navigate to pages */}
-        <button
-          type="button"
-          onClick={() => navigate('privacy')}
+        <a
+          href={pathForPage("privacy")}
+          onClick={(e) => { e.preventDefault(); navigate('privacy'); }}
           className={`${theme.textMuted} hover:text-indigo-500`}
         >
           Privacy Policy
-        </button>
+        </a>
 
-        <button
-          type="button"
-          onClick={() => navigate('terms')}
+        <a
+          href={pathForPage("terms")}
+          onClick={(e) => { e.preventDefault(); navigate('terms'); }}
           className={`${theme.textMuted} hover:text-indigo-500`}
         >
           Terms of Service
-        </button>
+        </a>
 
         <span className={`${theme.textMuted}`}>
           Made for students · Light & Dark mode supported

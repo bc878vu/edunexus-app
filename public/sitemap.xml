@@ -16,6 +16,13 @@
   <url><loc>https://edunexus.dpdns.org/ai-study-tools</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://edunexus.dpdns.org/student-resources</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
   <url><loc>https://edunexus.dpdns.org/tutorials</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://edunexus.dpdns.org/?page=exam-prep</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://edunexus.dpdns.org/?page=exam-prep&amp;subject=CS101&amp;term=Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://edunexus.dpdns.org/?page=exam-prep&amp;subject=CS201&amp;term=Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://edunexus.dpdns.org/?page=exam-prep&amp;subject=CS504&amp;term=Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://edunexus.dpdns.org/?page=exam-prep&amp;subject=CS511&amp;term=Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://edunexus.dpdns.org/?page=exam-prep&amp;subject=CS609&amp;term=Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://edunexus.dpdns.org/?page=exam-prep&amp;subject=CS620&amp;term=Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://edunexus.dpdns.org/forum</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
   <url><loc>https://edunexus.dpdns.org/portfolio</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://edunexus.dpdns.org/live-projects</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>

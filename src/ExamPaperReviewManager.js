@@ -59,7 +59,23 @@ export function validateReviewDraft(draft, original = null) {
 }
 
 export default function ExamPaperReviewManager({ user }) {
-  const allowed = adminPanelAccess(user);
+  // Re-evaluate the admin gate on navigation/session events. The gate reads
+  // live window.location (?page=admin) plus the per-tab session marker, so a
+  // value computed once per render can go stale while the buttons stay on
+  // screen — every Save/Delete click then silently returns with no feedback.
+  const [allowed, setAllowed] = useState(() => adminPanelAccess(user));
+  useEffect(() => {
+    const sync = () => setAllowed(adminPanelAccess(user));
+    sync();
+    window.addEventListener('popstate', sync);
+    window.addEventListener('edunexus:navigation', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener('edunexus:navigation', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, [user]);
   const [subject, setSubject] = useState('CS620');
   const [community, setCommunity] = useState([]);
   const [legacy, setLegacy] = useState([]);
@@ -96,7 +112,10 @@ export default function ExamPaperReviewManager({ user }) {
   const open = record => { setSelected(record); setDraft(editable(record)); setNotice(''); setError(''); };
   const save = async event => {
     event.preventDefault();
-    if (busy || !adminPanelAccess(user)) return;
+    if (busy) return;
+    // Never fail silently: a stale admin gate must explain itself instead of
+    // making the Save button look dead.
+    if (!adminPanelAccess(user)) { setError('Your admin session for this tab has expired. Reload the admin page (?page=admin) and sign in again.'); return; }
     setNotice(''); setError('');
     try {
       const { values, examAt } = validateReviewDraft(draft, selected);
@@ -118,7 +137,9 @@ export default function ExamPaperReviewManager({ user }) {
     finally { setBusy(false); }
   };
   const remove = async record => {
-    if (busy || !adminPanelAccess(user) || !window.confirm('Delete this published review? This cannot be undone.')) return;
+    if (busy) return;
+    if (!adminPanelAccess(user)) { setError('Your admin session for this tab has expired. Reload the admin page (?page=admin) and sign in again.'); return; }
+    if (!window.confirm('Delete this published review? This cannot be undone.')) return;
     setBusy(true); setError(''); setNotice('');
     try {
       await deleteDoc(doc(col(record.collectionName),record.id));

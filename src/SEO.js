@@ -52,9 +52,29 @@ const setProp = (name, value) => {
 function updateSeo() {
   const page = seoPageFromLocation(window.location);
   const data = DATA[page] || DATA.home;
-  const canonical = canonicalUrl(page);
-  document.title = data[0];
-  setMeta('description', data[1]);
+  const canonical = canonicalUrl(page, window.location.search);
+  // Subject/term-specific titles + descriptions so each MCQ bank and subject
+  // library view gets its own indexable identity instead of one generic page.
+  const params = new URLSearchParams(window.location.search || '');
+  let title = data[0];
+  let description = data[1];
+  if (page === 'exam-prep') {
+    const subject = (params.get('subject') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const term = (params.get('term') || '').toLowerCase();
+    const termLabel = term === 'midterm' ? 'Midterm' : term === 'finalterm' ? 'Final Term' : '';
+    if (subject && termLabel) {
+      title = subject + ' ' + termLabel + ' Solved MCQs | EduNexus';
+      description = 'Practice ' + subject + ' ' + termLabel + ' solved MCQs with answers, explore paper reviews and prepare for your Virtual University ' + subject + ' exam on EduNexus.';
+    }
+  } else if (page === 'academic') {
+    const subject = (params.get('subject') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (subject) {
+      title = subject + ' Notes, Handouts & Past Papers | EduNexus';
+      description = 'Download ' + subject + ' notes, handouts and past papers for Virtual University students on EduNexus.';
+    }
+  }
+  document.title = title;
+  setMeta('description', description);
   setMeta('keywords', data[2]);
   setMeta('robots', page === 'admin'
     ? 'noindex, nofollow'
@@ -64,13 +84,13 @@ function updateSeo() {
   setProp('og:type', data[3] === 'WebSite' || data[3] === 'CollectionPage'
     ? 'website' : data[3] === 'ProfilePage' ? 'profile' : 'article');
   setProp('og:site_name', 'EduNexus');
-  setProp('og:title', data[0]);
-  setProp('og:description', data[1]);
+  setProp('og:title', title);
+  setProp('og:description', description);
   setProp('og:url', canonical);
   setProp('og:locale', 'en_PK');
   setProp('og:image', SITE + '/logo512.png');
-  setMeta('twitter:title', data[0]);
-  setMeta('twitter:description', data[1]);
+  setMeta('twitter:title', title);
+  setMeta('twitter:description', description);
   setMeta('twitter:image', SITE + '/logo512.png');
 
   let link = document.head.querySelector('link[rel="canonical"]');
@@ -81,6 +101,15 @@ function updateSeo() {
   }
   link.href = canonical;
 
+  // Drop a duplicate static JSON-LD block of the same @type (e.g. the
+  // hard-coded WebSite block in index.html) before writing ours, so Google
+  // never sees two competing blocks for the same entity.
+  document.head.querySelectorAll('script[type="application/ld+json"]').forEach((el) => {
+    try {
+      if (JSON.parse(el.textContent || '{}')['@type'] === data[3] && !el.dataset.edunexusSeo && el.id !== 'edx-portfolio-schema') el.remove();
+    } catch (_) { /* ignore non-JSON blocks */ }
+  });
+
   let schema = document.head.querySelector('script[data-edunexus-seo]');
   if (!schema) {
     schema = document.createElement('script');
@@ -90,7 +119,7 @@ function updateSeo() {
   }
   schema.textContent = JSON.stringify({
     '@context': 'https://schema.org', '@type': data[3],
-    name: data[0].split('|')[0].trim(), url: canonical, description: data[1],
+    name: title.split('|')[0].trim(), url: canonical, description: description,
     isPartOf: { '@type': 'WebSite', name: 'EduNexus', url: SITE }
   }).replace(/</g, '\\u003c');
 

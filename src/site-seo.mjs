@@ -13,14 +13,33 @@ const INDEXABLE_FRIENDLY_PATHS = Object.freeze({
   forum: '/forum', portfolio: '/portfolio', privacy: '/privacy', terms: '/terms'
 });
 
-export function canonicalPath(page) {
+const cleanSubject = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const cleanTerm = (value) => String(value || '').toLowerCase().replace(/[^a-z]/g, '');
+
+export function canonicalPath(page, search) {
   if (!APP_PAGES.includes(page)) return '/';
   if (page === 'admin') return '/?page=admin';
+  const params = new URLSearchParams(search || '');
+  // Give every subject/term MCQ bank its own canonical identity instead of
+  // collapsing all of them onto the single generic exam-prep URL.
+  if (page === 'exam-prep') {
+    const subject = cleanSubject(params.get('subject'));
+    const term = cleanTerm(params.get('term'));
+    if (subject && (term === 'midterm' || term === 'finalterm'))
+      return '/?page=exam-prep&subject=' + subject + '&term=' + (term === 'midterm' ? 'Midterm' : 'Finalterm');
+    return '/?page=exam-prep';
+  }
+  // Subject library views keep the /vu-notes friendly path with the subject
+  // as a query param (the existing /vu-notes rewrite preserves the query).
+  if (page === 'academic') {
+    const subject = cleanSubject(params.get('subject'));
+    if (subject) return '/vu-notes?subject=' + subject;
+  }
   return INDEXABLE_FRIENDLY_PATHS[page] || pathForPage(page);
 }
 
-export function canonicalUrl(page) {
-  return SITE + canonicalPath(page);
+export function canonicalUrl(page, search) {
+  return SITE + canonicalPath(page, search);
 }
 
 export function seoPageFromLocation(location) {
