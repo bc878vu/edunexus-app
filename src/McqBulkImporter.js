@@ -124,7 +124,7 @@ export default function McqBulkImporter({ user, onView }) {
         ('batch-' + Date.now() + '-' + Math.random().toString(36).slice(2))).slice(0,80);
       const sourceFileName = (sourceName.trim() || 'Pasted JSON').slice(0,120);
       const importBatchId = (window.crypto?.randomUUID?.() || ('batch-' + Date.now() + '-' + Math.random().toString(36).slice(2))).slice(0,80);
-      const importSourceName = (sourceName || 'Pasted JSON').trim().slice(0,180);
+      const sourceFileName = (sourceName || 'Pasted JSON').trim().slice(0,120);
       const items = inspection.items.map((item, index) => {
         const normalized = validateMcq(item, index, { forImport: true });
         if (sourceChecked) {
