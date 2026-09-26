@@ -5186,7 +5186,7 @@ useEffect(() => {
         {/* Socials */}
         <div className="flex items-center gap-3 pt-2">
           <a
-            href="https://github.com/Asad2327"
+            href="https://github.com/bc878vu"
             aria-label="EduNexus developer on GitHub"
             target="_blank"
             rel="noreferrer"
