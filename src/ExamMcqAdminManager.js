@@ -61,7 +61,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     records.forEach(q => {
       if (!q.importBatchId) return;
       const key = String(q.importBatchId);
-      const current = map.get(key) || { id:key, name:q.importSourceName || 'JSON upload', count:0, categories:new Set() };
+      const current = map.get(key) || { id:key, name:q.sourceFileName || 'JSON upload', count:0, categories:new Set() };
       current.count += 1; current.categories.add(categoryOf(q)); map.set(key,current);
     });
     return [...map.values()].map(item => ({...item,categories:[...item.categories]}));
