@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase-client';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc, increment, arrayUnion } from 'firebase/firestore';
-import { Heart, BookOpen, Share2, MessageCircle, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { Heart, BookOpen, Share2, MessageCircle, ChevronDown, ChevronUp, Clock, Maximize2, X } from 'lucide-react';
 import RichContent from './RichContent';
 import ArticleComments, { useCommentCount } from './ArticleComments';
 const appId = 'edunexus-live';
@@ -48,6 +48,7 @@ const getExcerpt = (content, maxLen = 280) => {
 const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
   const [expanded, setExpanded] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const commentCount = useCommentCount(art.id);
   const excerpt = getExcerpt(art.content);
   const isLong = stripHtml(art.content).length > 280;
@@ -92,20 +93,52 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
   };
 
   return (
-    <article className={`${theme.card} rounded-2xl border ${theme.border} overflow-hidden hover:shadow-xl transition-all duration-300 group`}>
-      {/* Cover image */}
+    <article
+      className={`${theme.card} rounded-2xl border ${theme.border} overflow-hidden hover:shadow-2xl transition-all duration-300 group animate-fade-in`}
+      style={{ animationDelay: `${Math.min(idx * 80, 400)}ms` }}
+    >
+      {/* Cover image - full visible, click for fullscreen */}
       {art.imageUrl && (
-        <div className="relative overflow-hidden bg-slate-100 dark:bg-slate-800">
-          <a href={articlePublicPath(art)} aria-label={`Read: ${art.title}`}>
-            <img
-              src={optimizeImageUrl(art.imageUrl)}
-              alt={art.title}
-              loading={idx === 0 ? "eager" : "lazy"}
-              fetchpriority={idx === 0 ? "high" : "low"}
-              decoding="async"
-              className="w-full max-h-[320px] object-cover group-hover:scale-[1.02] transition-transform duration-500"
-            />
-          </a>
+        <div className="relative bg-slate-100 dark:bg-slate-800">
+          <img
+            src={optimizeImageUrl(art.imageUrl)}
+            alt={art.title}
+            loading={idx === 0 ? "eager" : "lazy"}
+            fetchpriority={idx === 0 ? "high" : "low"}
+            decoding="async"
+            onClick={() => setLightboxOpen(true)}
+            className="w-full h-auto cursor-zoom-in hover:opacity-95 transition-opacity"
+            style={{ display: 'block' }}
+          />
+          <button
+            onClick={() => setLightboxOpen(true)}
+            className="absolute bottom-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors backdrop-blur-sm"
+            aria-label="View full image"
+          >
+            <Maximize2 size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Fullscreen lightbox */}
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            className="absolute top-4 right-4 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            onClick={() => setLightboxOpen(false)}
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={art.imageUrl}
+            alt={art.title}
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 
@@ -255,20 +288,38 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
   const hasMore = visibleCount < articles.length;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 px-4">
-      {/* Heading */}
-      <div className="text-center mb-8 pt-4">
-        <h1 className={`text-3xl md:text-4xl font-extrabold ${theme.text} mb-2`}>
-          Knowledge Base
-        </h1>
-        <p className={`${theme.textMuted} text-sm md:text-base`}>
-          Official articles, news, and updates from EduNexus.
-        </p>
-        {!loading && articles.length > 0 && (
-          <p className={`text-xs ${theme.textMuted} mt-2`}>
-            {articles.length} article{articles.length !== 1 ? 's' : ''} published
+    <div className="max-w-4xl mx-auto space-y-6 px-4 pb-12">
+      {/* Modern hero heading */}
+      <div className="relative overflow-hidden rounded-3xl mb-8 mt-2">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 opacity-95" />
+        <div className="absolute inset-0 opacity-20" style={{
+          backgroundImage: 'radial-gradient(circle at 20% 30%, white 1px, transparent 1px), radial-gradient(circle at 80% 70%, white 1px, transparent 1px)',
+          backgroundSize: '40px 40px'
+        }} />
+        <div className="relative px-6 py-10 md:py-14 text-center">
+          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-1.5 mb-4">
+            <BookOpen size={14} className="text-white" />
+            <span className="text-white text-xs font-bold tracking-wide uppercase">EduNexus Official</span>
+          </div>
+          <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-3 tracking-tight">
+            Knowledge Base
+          </h1>
+          <p className="text-white/85 text-sm md:text-lg max-w-xl mx-auto">
+            Official articles, news, and updates from EduNexus.
           </p>
-        )}
+          {!loading && articles.length > 0 && (
+            <div className="mt-4 inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5">
+              <span className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
+              <span className="text-white text-xs font-semibold">
+                {articles.length} article{articles.length !== 1 ? 's' : ''} published
+              </span>
+            </div>
+          )}
+        </div>
+        {/* Decorative wave */}
+        <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1440 40" preserveAspectRatio="none" style={{height: '24px'}}>
+          <path fill="currentColor" className="text-white dark:text-slate-900" d="M0,20 C360,40 1080,0 1440,20 L1440,40 L0,40 Z" opacity="0.15" />
+        </svg>
       </div>
 
       {/* Skeletons */}
