@@ -5195,8 +5195,8 @@ useEffect(() => {
             <Github size={16} />
           </a>
           <a
-            href="https://www.linkedin.com"
-            aria-label="LinkedIn"
+            href="https://pk.linkedin.com/in/asad-amanat-ali-860797416"
+            aria-label="Asad Amanat Ali on LinkedIn"
             target="_blank"
             rel="noreferrer"
             className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
