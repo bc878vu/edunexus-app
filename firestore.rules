@@ -30,7 +30,22 @@ service cloud.firestore {
 
     match /artifacts/edunexus-live/public/data/files/{docId} {
       allow read: if true;
-      allow create, update, delete: if admin();
+      allow create, delete: if admin();
+      allow update: if admin();
+      // Denormalized rating summary: any signed-in user may refresh ONLY these
+      // three fields after a review write. Nothing else on the file document
+      // can change through this path.
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'ratingAverage', 'ratingCount', 'ratingSummaryUpdatedAt'
+        ])
+        && (request.resource.data.ratingAverage == null
+          || (request.resource.data.ratingAverage is number
+            && request.resource.data.ratingAverage >= 1
+            && request.resource.data.ratingAverage <= 5))
+        && request.resource.data.ratingCount is int
+        && request.resource.data.ratingCount >= 0
+        && request.resource.data.ratingSummaryUpdatedAt == request.time;
     }
 
     match /artifacts/edunexus-live/public/data/tutorials/{docId} {
