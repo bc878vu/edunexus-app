@@ -120,11 +120,9 @@ export default function McqBulkImporter({ user, onView }) {
       await user.getIdToken(true);
       // Every import gets one immutable batch ID so the Admin Panel can later
       // remove exactly this uploaded JSON file without touching other MCQs.
-      const importBatchId = (globalThis.crypto?.randomUUID?.() ||
+      const importBatchId = (window.crypto?.randomUUID?.() ||
         ('batch-' + Date.now() + '-' + Math.random().toString(36).slice(2))).slice(0,80);
       const sourceFileName = (sourceName.trim() || 'Pasted JSON').slice(0,120);
-      const importBatchId = (window.crypto?.randomUUID?.() || ('batch-' + Date.now() + '-' + Math.random().toString(36).slice(2))).slice(0,80);
-      const sourceFileName = (sourceName || 'Pasted JSON').trim().slice(0,120);
       const items = inspection.items.map((item, index) => {
         const normalized = validateMcq(item, index, { forImport: true });
         if (sourceChecked) {

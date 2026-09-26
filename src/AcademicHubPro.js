@@ -338,6 +338,7 @@ const guidance = [
 export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const [latest, setLatest] = useState([]);
   const [older, setOlder] = useState([]);
+  const [subjectFiles, setSubjectFiles] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -373,11 +374,24 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     return () => { unsubFiles(); unsubFolders(); window.removeEventListener('popstate', onPop); };
   }, []);
 
+  // Fast subject view: when a subject folder is opened (e.g.
+  // ?page=academic&subject=CS609_System_Programming), load ALL of that
+  // subject's files immediately with a single where-query instead of paging
+  // through the global newest-first feed. No orderBy here, so no composite
+  // index is required; client-side sort happens in the `files` memo below.
+  useEffect(() => {
+    if (!subject) { setSubjectFiles([]); return; }
+    const unsub = onSnapshot(query(FILES, where('subject', '==', subject)),
+      (snap) => setSubjectFiles(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      () => {});
+    return () => unsub();
+  }, [subject]);
+
   const files = useMemo(() => {
     const map = new Map();
-    [...older, ...latest].forEach((f) => map.set(f.id, f));
+    [...older, ...latest, ...subjectFiles].forEach((f) => map.set(f.id, f));
     return [...map.values()].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-  }, [latest, older]);
+  }, [latest, older, subjectFiles]);
   useEffect(() => {
     if (!selectedId || files.some((f) => f.id === selectedId)) return;
     let alive = true;
@@ -397,7 +411,9 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     else if (sortBy === 'oldest') result.reverse();
     return result;
   }, [files, subject, format, normalized, sortBy]);
-  const displayed = matches.slice(0, visible);
+  // A selected subject shows its files immediately and completely — no
+  // manual "load more" needed. The unfiltered view keeps client-side paging.
+  const displayed = subject ? matches : matches.slice(0, visible);
   const selected = files.find((f) => f.id === selectedId);
   useEffect(() => { if (selectedId && scroller.current) scroller.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [selectedId]);
   const openSubject = (value) => {
