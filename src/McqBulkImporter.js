@@ -123,6 +123,8 @@ export default function McqBulkImporter({ user, onView }) {
       const importBatchId = (globalThis.crypto?.randomUUID?.() ||
         ('batch-' + Date.now() + '-' + Math.random().toString(36).slice(2))).slice(0,80);
       const sourceFileName = (sourceName.trim() || 'Pasted JSON').slice(0,120);
+      const importBatchId = (window.crypto?.randomUUID?.() || ('batch-' + Date.now() + '-' + Math.random().toString(36).slice(2))).slice(0,80);
+      const importSourceName = (sourceName || 'Pasted JSON').trim().slice(0,180);
       const items = inspection.items.map((item, index) => {
         const normalized = validateMcq(item, index, { forImport: true });
         if (sourceChecked) {
@@ -146,7 +148,7 @@ export default function McqBulkImporter({ user, onView }) {
       const onlyOneCategory = Object.values(inspection.summary.totals).filter(Boolean).length === 1;
       setDestination({ subject: inspection.summary.subjects.length === 1 ? inspection.summary.subjects[0] : '',
         category: onlyOneCategory ? categoryOf(first) : '' });
-      setSuccess(items.length + ' questions published successfully. ' + (inspection.rejected?.length ? inspection.rejected.length + ' invalid questions skipped for review. ' : '') + ' Original order and subject/category are preserved. ' + (sourceChecked ? 'Administrator-reviewed answer references are saved for verified scoring.' : 'Answer indexes stay provisional for scoring until independently verified by an administrator.'));
+      setSuccess(items.length + ' questions published successfully as one managed upload batch. You can delete this complete JSON upload later from Manage published questions. ' + (inspection.rejected?.length ? inspection.rejected.length + ' invalid questions skipped for review. ' : '') + ' Original order and subject/category are preserved. ' + (sourceChecked ? 'Administrator-reviewed answer references are saved for verified scoring.' : 'Answer indexes stay provisional for scoring until independently verified by an administrator.'));
       if (!inspection.rejected?.length) { setBulk(''); setSourceName(''); }
       setVerified(false); setSourceChecked(false);
       if (chooser.current) chooser.current.value = '';
