@@ -23,6 +23,24 @@ service cloud.firestore {
       allow create, update, delete: if admin();
     }
 
+    // Facebook-style comments on articles. Anyone can read; signed-in users
+    // may post as themselves, edit/delete their own, admins moderate all.
+    match /artifacts/edunexus-live/public/data/articles/{articleId}/comments/{commentId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['userId','userName','text','createdAt'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 1000;
+      allow update: if admin()
+        || (signedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId);
+      allow delete: if admin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
     match /artifacts/edunexus-live/public/data/highlights/{docId} {
       allow read: if true;
       allow create, update, delete: if admin();
