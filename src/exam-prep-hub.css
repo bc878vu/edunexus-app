@@ -165,3 +165,109 @@
   opacity: .7;
 }
 .edx-exam-tabs button.active small { opacity: .9; }
+
+/* ============ SOFT MODERN POLISH (additive, nothing removed) ============ */
+.edx-exam {
+  --ex-soft-shadow: 0 8px 30px -12px rgba(99,102,241,.18);
+  --ex-soft-radius: 22px;
+  gap: 24px;
+}
+/* Softer hero with gentler gradient */
+.edx-exam-hero {
+  border-radius: 28px;
+  background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 55%, #6366f1 100%);
+  box-shadow: var(--ex-soft-shadow);
+  padding: clamp(28px, 5vw, 48px);
+}
+.edx-exam-hero h1 {
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
+.edx-exam-hero p { color: #e0e7ff; }
+/* Softer pill tabs — modern segmented control */
+.edx-exam-tabs {
+  gap: 6px;
+  padding: 6px;
+  background: rgba(148,163,184,.12);
+  border-radius: 20px;
+  border: 1px solid var(--ex-line);
+}
+.edx-exam-tabs button {
+  border: none;
+  background: transparent;
+  border-radius: 14px;
+  padding: 12px 20px;
+  flex: 1;
+  min-width: 0;
+}
+.edx-exam-tabs button.active {
+  background: #fff;
+  color: #4338ca;
+  box-shadow: 0 4px 14px -4px rgba(67,56,202,.3);
+  border: none;
+}
+.dark .edx-exam-tabs button.active,
+.edx-exam-dark .edx-exam-tabs button.active {
+  background: #312e81;
+  color: #e0e7ff;
+}
+.edx-exam-tabs button:not(.active):hover {
+  background: rgba(255,255,255,.5);
+  color: var(--ex-ink);
+}
+/* Softer cards */
+.edx-exam-card {
+  border-radius: var(--ex-soft-radius);
+  box-shadow: var(--ex-soft-shadow);
+  border-color: rgba(148,163,184,.16);
+}
+/* Softer catalog */
+.edx-exam .edx-exam-catalog {
+  border-radius: var(--ex-soft-radius);
+  box-shadow: var(--ex-soft-shadow);
+}
+.edx-exam .edx-exam-catalog-subjects button,
+.edx-exam .edx-exam-catalog-categories button {
+  border-radius: 16px;
+  transition: all .2s ease;
+}
+/* Softer ShareBar — matches new aesthetic */
+.edx-share-bar {
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%);
+  border: 1px solid rgba(165,180,252,.4);
+  box-shadow: var(--ex-soft-shadow);
+  padding: 14px 18px;
+}
+.edx-exam-dark .edx-share-bar {
+  background: linear-gradient(135deg, #1e1b4b 0%, #2a2565 100%);
+  border-color: rgba(99,102,241,.35);
+}
+.edx-share-bar-btn {
+  border-radius: 12px;
+  padding: 9px 16px;
+  box-shadow: 0 2px 8px -2px rgba(67,56,202,.15);
+}
+/* Softer option buttons in practice */
+.edx-exam-option {
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+/* Softer primary buttons */
+.edx-exam-primary {
+  border-radius: 14px;
+  padding: 12px 20px;
+  box-shadow: 0 4px 14px -4px rgba(79,70,229,.4);
+}
+.edx-exam-secondary { border-radius: 14px; }
+/* Clean focus states */
+.edx-exam-tabs button:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+}
+/* Mobile: tabs stack nicely */
+@media (max-width: 560px) {
+  .edx-exam-tabs { padding: 4px; }
+  .edx-exam-tabs button { padding: 10px 8px; font-size: .85rem; }
+  .edx-exam-tabs button small { display: none; }
+}

@@ -135,3 +135,39 @@
 
 /* Theme contrast safeguards for the complete paper review experience. */
 .edx-paper{color:var(--ep-ink)}.edx-paper :is(h1,h2,h3,h4,h5,h6,label,strong){color:var(--ep-ink)}.edx-paper :is(p,small,time,.edx-paper-muted){color:var(--ep-muted)}.edx-paper :is(input,textarea,select){background:var(--ep-surface);color:var(--ep-ink);border-color:var(--ep-border)}.edx-paper :is(input,textarea)::placeholder{color:var(--ep-muted);opacity:1}.edx-paper :is(input,textarea,select,button,a):focus-visible{outline:3px solid #a5b4fc;outline-offset:3px}.dark .edx-paper{--ep-ink:#f1f5ff;--ep-muted:#cbd5e1;--ep-surface:#172238;--ep-soft:#23334f;--ep-border:#53647f;--ep-accent:#c4b5fd}.dark .edx-paper :is(.edx-paper-kicker,.edx-paper-feed-kicker){color:#c4b5fd}.dark .edx-paper a:not(.edx-paper-publish){color:#c4b5fd}.dark .edx-paper :is(input,textarea,select){color-scheme:dark}.edx-paper :is(.edx-paper-card,.edx-paper-submit){overflow-wrap:anywhere}.edx-paper :is(.edx-paper-card,.edx-paper-submit) a{overflow-wrap:anywhere}@media(prefers-reduced-motion:reduce){.edx-paper *, .edx-paper *::before,.edx-paper *::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* ============ SOFT MODERN POLISH for Paper Reviews (additive) ============ */
+.edx-paper-card {
+  border-radius: 22px !important;
+  box-shadow: 0 8px 30px -12px rgba(99,102,241,.14) !important;
+  border: 1px solid rgba(148,163,184,.16) !important;
+  overflow: hidden;
+}
+.edx-paper-submit {
+  border-radius: 24px !important;
+  box-shadow: 0 8px 30px -12px rgba(99,102,241,.16) !important;
+}
+.edx-paper-submit input,
+.edx-paper-submit textarea,
+.edx-paper-submit select {
+  border-radius: 14px !important;
+}
+.edx-paper-publish {
+  border-radius: 14px !important;
+  padding: 13px 24px !important;
+  box-shadow: 0 4px 14px -4px rgba(79,70,229,.4) !important;
+  transition: transform .18s ease, box-shadow .18s ease !important;
+}
+.edx-paper-publish:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 20px -6px rgba(79,70,229,.5) !important;
+}
+.edx-paper-copy,
+.edx-paper-whatsapp {
+  border-radius: 12px !important;
+  padding: 9px 16px !important;
+  font-weight: 700 !important;
+}
+.edx-paper-card-actions {
+  gap: 10px !important;
+}
