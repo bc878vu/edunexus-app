@@ -271,7 +271,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
     // Fetch public reviews regardless of the MCQ Bank's selected subject or
     // category. Historical reviews used different subjects/terms and were
     // previously hidden by an exact-match filter.
-    const observe = (name, setItems, key) => onSnapshot(query(col(name)),
+    const observe = (name, setItems, key) => onSnapshot(query(col(name), limit(200)),
       snapshot => {
         if (!active) return;
         setItems(snapshot.docs.map(d => ({ id:d.id,collectionName:name,...d.data() })));

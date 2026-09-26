@@ -493,7 +493,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   // index is required; client-side sort happens in the `files` memo below.
   useEffect(() => {
     if (!subject) { setSubjectFiles([]); return; }
-    const unsub = onSnapshot(query(FILES, where('subject', '==', subject)),
+    const unsub = onSnapshot(query(FILES, where('subject', '==', subject), limit(200)),
       (snap) => setSubjectFiles(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
       () => {});
     return () => unsub();
