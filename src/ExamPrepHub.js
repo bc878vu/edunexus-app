@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
-import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, BookOpen, MessageCircle, ArrowDownUp } from "lucide-react";
+import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, BookOpen, MessageCircle, ArrowDownUp, Share2, Link2, Check } from "lucide-react";
 import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
 import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, firstAvailableExam, publishedExamCatalog } from "./examCatalog";
@@ -179,6 +179,44 @@ function AdminTools({ user, onView }) {
   </div>;
 }
 
+
+// ShareBar: lets users share the current tab (MCQ Bank / Paper Reviews)
+// with the selected subject & term via copy-link or WhatsApp.
+function ShareBar({ tab, subject, term }) {
+  const [copied, setCopied] = React.useState(false);
+  const tabLabel = tab === "mcqs" ? "MCQ Bank" : tab === "reviews" ? "Paper Reviews" : "Study Files";
+  const termLabel = term === "quiz" ? "Quiz" : term === "midterm" ? "Midterm" : "Finalterm";
+  const shareUrl = "https://edunexus.dpdns.org/?page=exam-prep&section=" + tab + "&subject=" + encodeURIComponent(subject) + "&term=" + encodeURIComponent(term);
+  const shareText = subject + " " + termLabel + " " + tabLabel + " on EduNexus";
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (_) {
+      const ta = document.createElement("textarea");
+      ta.value = shareUrl;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch (_) {}
+      document.body.removeChild(ta);
+    }
+  };
+  const whatsAppUrl = "https://wa.me/?text=" + encodeURIComponent(shareText + "\n" + shareUrl);
+  return (
+    <div className="edx-share-bar" role="group" aria-label={"Share this " + tabLabel}>
+      <span className="edx-share-bar-label"><Share2 size={15} /> Share this {tabLabel}</span>
+      <span className="edx-share-bar-subject">{subject} · {termLabel}</span>
+      <button type="button" onClick={copyLink} className="edx-share-bar-btn" aria-label="Copy share link">
+        {copied ? <Check size={16} /> : <Link2 size={16} />} {copied ? "Copied!" : "Copy link"}
+      </button>
+      <a href={whatsAppUrl} target="_blank" rel="noopener noreferrer" className="edx-share-bar-btn edx-share-bar-wa" aria-label="Share on WhatsApp">
+        <MessageCircle size={16} /> WhatsApp
+      </a>
+    </div>
+  );
+}
+
 export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace = false, isDark = false }) {
   // Admin tools are never part of the public Exam Prep module. Even an old
   // persisted Firebase admin identity cannot reveal them on ?page=exam-prep.
@@ -301,8 +339,9 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
       {!catalogExact && catalog.total >= EXAM_SUBJECT_LIMIT && <p className="edx-exam-catalog-note">The subject catalogue shows the first {EXAM_SUBJECT_LIMIT} published records. Enter another subject code manually if it is not listed.</p>}
     </section>}
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
-      {[["mcqs", "MCQ Bank"], ["reviews", "Paper Reviews"], ["files", "Study Files"], ...(showAdmin ? [["admin", "Admin tools"]] : [])].map(([id, label]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)}>{label}</button>)}
+      {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
     </nav>
+    {(tab === "mcqs" || tab === "reviews") && <ShareBar tab={tab} subject={subject} term={term} />}
     {tab === "mcqs" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={catalogSubjects} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm}/></React.Suspense>}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} onSubjectChange={selectSubject} subjects={catalogSubjects} />}
