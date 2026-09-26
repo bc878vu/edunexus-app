@@ -3,7 +3,7 @@
 // domains can serve the same content, and the URL should remain stable.
 import { APP_PAGES, pathForPage, routeFromLocation } from './app-routes.mjs';
 
-export const SITE = 'https://edunexus-app.vercel.app';
+export const SITE = 'https://edunexus.dpdns.org';
 
 // Only use paths that are actually recognized on a fresh App page load.
 // pathForPage supplies a working ?page= URL for other SPA pages.
