@@ -3719,7 +3719,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
         {activeTab === 'academic' && <><AcademicTab theme={theme} user={user} showToast={showToast} /><React.Suspense fallback={<p>Loading file review management…</p>}><AdminAcademicReviews user={user} /></React.Suspense></>}
         {activeTab === 'exam' && <React.Suspense fallback={<p>Loading Exam Prep management…</p>}><ExamPrepHub user={user} initialTab="admin" adminWorkspace isDark={isDark} /></React.Suspense>}
         {activeTab === 'blog' && <BlogTab />}
-        {activeTab === 'tutorials' && <React.Suspense fallback={<p>Loading tutorial management…</p>}><AdminContentManager /></React.Suspense>}
+        {activeTab === 'tutorials' && <React.Suspense fallback={<p>Loading tutorial management…</p>}><div className="edx-tutorials-embedded"><AdminContentManager /></div></React.Suspense>}
        {activeTab === 'forum' && (
   <ForumTab theme={theme} showToast={showToast} />
 )}

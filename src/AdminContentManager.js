@@ -33,7 +33,8 @@ const DEFAULT_BUTTONS = [
 ];
 
 export default function AdminContentManager() {
-  const [route, setRoute] = useState(() => window.location.pathname.replace(/\/$/, "") || "/");
+  // Embedded as the "Tutorials" tab inside the Admin Panel (?page=admin), which
+  // already gates admin access — no pathname-based route gating here.
   const [user, setUser] = useState(null);
   const [buttons, setButtons] = useState(DEFAULT_BUTTONS);
   const [pinned, setPinned] = useState(true);
@@ -44,26 +45,18 @@ export default function AdminContentManager() {
   const [notice, setNotice] = useState("");
   const [form, setForm] = useState({ title: "", category: "VU Tutorials", url: "", description: "", type: "link", file: null });
 
-  useEffect(() => {
-    const sync = () => setRoute(window.location.pathname.replace(/\/$/, "") || "/");
-    window.addEventListener("popstate", sync);
-    window.addEventListener("edunexus:navigation", sync);
-    return () => { window.removeEventListener("popstate", sync); window.removeEventListener("edunexus:navigation", sync); };
-  }, []);
   useEffect(() => onAuthStateChanged(auth, setUser), []);
   useEffect(() => {
-    if (route !== "/admin") return undefined;
     return onSnapshot(SETTINGS, (snap) => {
       const data = snap.data() || {};
       if (Array.isArray(data.buttons) && data.buttons.length) setButtons(data.buttons.map((b) => ({ label: b.label || "Resource", href: b.href || "/", enabled: b.enabled !== false })));
       setPinned(data.dashboardPinned !== false);
     }, () => {});
-  }, [route]);
+  }, []);
   useEffect(() => {
-    if (route !== "/admin") return undefined;
     const q = query(TUTORIALS, orderBy("createdAt", "desc"));
     return onSnapshot(q, (snap) => setTutorials(snap.docs.map((item) => ({ id: item.id, ...item.data() }))), () => setTutorials([]));
-  }, [route]);
+  }, []);
 
   const isAdmin = adminPanelAccess(user);
   const saveSettings = async () => {
@@ -123,7 +116,6 @@ export default function AdminContentManager() {
   const goHome = () => { window.history.pushState({}, "", "/"); window.dispatchEvent(new Event("edunexus:navigation")); };
   const openTutorials = () => { window.history.pushState({}, "", "/tutorials"); window.dispatchEvent(new Event("edunexus:navigation")); };
 
-  if (route !== "/admin") return null;
   if (!isAdmin) return <div className="edx-admin-gate"><Settings size={34}/><h2>Admin access required</h2><p>Sign in with the verified EduNexus administrator account to manage resources and tutorials.</p><button onClick={goHome}>Back to EduNexus</button></div>;
 
   return <div className="edx-admin-overlay">

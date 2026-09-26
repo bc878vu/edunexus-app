@@ -165,7 +165,7 @@ export default function McqBulkImporter({ user, onView }) {
   return <section className="edx-exam-card edx-exam-form edx-importer" aria-labelledby="edx-import-title">
     <div className="edx-import-head"><div><h3 id="edx-import-title">Bulk import MCQs</h3>
       <p>Upload one JSON file or paste a JSON array. Large imports are saved in batches of 100 questions. Set a subject, Quiz set and exam category for the whole batch, or preserve each question’s existing values. Multiple Quiz sets can be included in one JSON file.</p>
-      <p style={{marginTop:8,padding:"8px 12px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,fontSize:13}}><strong>Need to delete a complete uploaded file?</strong> Go to the <strong>Manage MCQs</strong> tab above → select the subject → use the red <strong>"Delete complete file"</strong> button under "Uploaded JSON files".</p></div>
+      <p style={{marginTop:8,padding:"8px 12px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,fontSize:13}}><strong>Need to delete a complete uploaded file?</strong> Go to the <strong>Manage MCQs</strong> tab above → select the subject → use the red <strong>"Delete complete file — all listed questions"</strong> section (works even for older imports with no grouped upload).</p></div>
       <FileJson2 size={27} aria-hidden="true"/></div>
     <form onSubmit={importMany} noValidate>
       <label className="edx-import-file">Choose a JSON file

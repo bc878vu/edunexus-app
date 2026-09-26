@@ -32,6 +32,8 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
   const [bulkTarget, setBulkTarget] = useState('');
   const [bulkCountConfirmation, setBulkCountConfirmation] = useState('');
   const [deletingBatch, setDeletingBatch] = useState('');
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState('');
+  const [deletingAll, setDeletingAll] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -178,6 +180,38 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     } catch(e) { setError(errorText(e)); }
     finally { setBusy(false); setDeletingBatch(''); }
   };
+  // Delete ALL questions currently listed (subject + exam category as shown).
+  // This is the escape hatch for older imports that carry no importBatchId or
+  // sourceFileName, so no grouped upload appears above. Deletes exactly the
+  // documents listed, in 450-doc chunks; deleting a missing doc is a no-op.
+  const removeAllListed = async event => {
+    event.preventDefault();
+    if (busy || loading || !adminPanelAccess(user)) return;
+    setError(''); setMessage('');
+    const targets = filtered;
+    if (!targets.length || deleteAllConfirm.trim() !== String(targets.length)) {
+      setError('Type the exact number of listed questions (' + targets.length + ') to confirm this full delete.');
+      return;
+    }
+    const scopeLabel = subject + (category !== 'all' ? ' · ' + category : '');
+    if (!window.confirm('Permanently delete ALL ' + targets.length + ' listed questions (' + scopeLabel + ')? This is the complete-file delete and cannot be undone. Other subjects and site content will not change.')) return;
+    setBusy(true); setDeletingAll(true);
+    try {
+      let deleted = 0;
+      for (let start = 0; start < targets.length; start += 450) {
+        const batch = writeBatch(db);
+        targets.slice(start, start + 450).forEach(q => batch.delete(doc(db, ...PATH, q.id)));
+        await batch.commit();
+        deleted += Math.min(450, targets.length - start);
+      }
+      if (selected && targets.some(q => q.id === selected.id)) { setSelected(null); setDraft(null); }
+      setDeleteAllConfirm(''); setSearch('');
+      try { await refreshExamCatalogCounts([subject]); }
+      catch (_) {}
+      setMessage(deleted + ' questions (' + scopeLabel + ') deleted together. No other subject or site content was changed.');
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusy(false); setDeletingAll(false); }
+  };
   const remove = async q => {
     if (busy || !adminPanelAccess(user)) return;
     if (!window.confirm('Permanently delete this question from '+q.subject+' '+categoryOf(q)+'? Students’ past answer for this question will no longer appear. This cannot be undone.')) return;
@@ -257,7 +291,16 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         </div>
       </div>})}}
     </div>}
-    {!loading && records.length > 0 && uploadBatches.length === 0 && <p className="edx-import-note">No grouped uploads found for this subject. Questions can still be deleted individually below, or use "Disable all" per question.</p>}
+    {!loading && filtered.length > 0 && <form className="edx-admin-subject-move" onSubmit={removeAllListed} aria-label="Delete all listed questions" style={{border:'2px solid #ef4444', borderRadius:12, padding:16, background:'#fef2f2'}}>
+      <h4 style={{display:'flex',alignItems:'center',gap:8,margin:'0 0 4px'}}><Trash2 size={18} style={{color:'#dc2626'}}/> Delete complete file — all listed questions</h4>
+      <p style={{margin:'0 0 8px'}}>Delete all <strong>{filtered.length}</strong> questions currently listed below ({subject}{category !== 'all' ? ' · ' + category : ''}) in one action. Use this when the "Uploaded JSON files" section above shows no grouped upload (older imports). Individual Edit/Delete buttons below stay available.{records.length >= 1000 ? ' Only the first 1000 loaded questions will be deleted.' : ''}</p>
+      <div className="edx-exam-form-grid">
+        <label className="edx-exam-field">Type {filtered.length} to confirm<input aria-label="Confirm number of questions to delete" type="text" inputMode="numeric" value={deleteAllConfirm} disabled={busy} onChange={e=>setDeleteAllConfirm(e.target.value.replace(/[^0-9]/g,'').slice(0,4))} placeholder={String(filtered.length)}/></label>
+      </div>
+      <button type="submit" className="edx-exam-secondary edx-admin-danger" disabled={busy || loading || !filtered.length || deleteAllConfirm.trim() !== String(filtered.length)}>
+        {deletingAll ? 'Deleting questions…' : 'Delete all ' + filtered.length + ' questions'}
+      </button>
+    </form>}
     <label className="edx-exam-field">Find a published question
       <span className="edx-practice-search"><Search size={17}/><input type="search" value={search}
       onChange={e=>setSearch(e.target.value)} placeholder="Search question, option or quiz set"/></span>
