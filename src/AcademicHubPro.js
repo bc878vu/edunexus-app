@@ -24,6 +24,10 @@ const EDITORIAL_GUIDES = [
 ];
 const PAGE_SIZE = 60;
 const cut = (v, n = 300) => String(v == null ? '' : v).trim().slice(0, n);
+// Display-only: zero-width space after each underscore gives the browser clean
+// wrap points, so folder names break at word boundaries (never mid-word).
+// The raw code value is untouched — keys, navigation and queries are unaffected.
+const displayFolderName = (code) => String(code || '').replace(/_/g, '_\u200b');
 const safeHttp = (raw) => {
   if (typeof raw !== 'string' || !raw.trim()) return null;
   try {
@@ -591,7 +595,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     {selected && <div className="ah-panel-wrap" ref={scroller}><div className="ah-panel-tabs" role="group" aria-label="Selected file tools"><button type="button" className={panel === 'preview' ? 'active' : ''} onClick={() => setPanel('preview')}><BookOpen size={16} /> Preview</button><button type="button" className={panel === 'reviews' ? 'active' : ''} onClick={() => setPanel('reviews')}><Star size={16} /> Reviews</button><button type="button" onClick={() => setSelectedId('')}><X size={16} /> Close</button></div>{panel === 'preview' ? <ResourcePreview file={selected} links={fileLinks(selected)} onClose={() => setSelectedId('')} /> : <FileReviews file={selected} user={user} isAdmin={isAdmin} />}</div>}
       {error && <p className="ah-message" role="alert">{error}</p>}
       {loading ? <div className="ah-loading" role="status"><div /><div /><div /><p>Loading academic resources…</p></div> :
-        <>{subjectsExpanded && <div className="ah-subject-grid" aria-label="Subject folders">{subjects.map((code) => <button key={code} type="button" className={'ah-subject' + (subject === code ? ' active' : '')} aria-pressed={subject === code} onClick={() => openSubject(code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{code}</strong><small>{counts[code] || 0} loaded {counts[code] === 1 ? 'file' : 'files'}</small></span><ArrowRight size={16} /></button>)}</div>}
+        <>{subjectsExpanded && <div className="ah-subject-grid" aria-label="Subject folders">{subjects.map((code) => <button key={code} type="button" className={'ah-subject' + (subject === code ? ' active' : '')} aria-pressed={subject === code} onClick={() => openSubject(code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{displayFolderName(code)}</strong><small>{counts[code] || 0} loaded {counts[code] === 1 ? 'file' : 'files'}</small></span><ArrowRight size={16} /></button>)}</div>}
           <div className="ah-results-head"><div><span className="ah-eyebrow">{subject ? 'Selected subject' : 'Resource collection'}</span><h3>{subject || 'All available subjects'}</h3><p>{normalized ? 'Search results from currently loaded files' : 'Showing ' + displayed.length + ' of ' + matches.length + ' matching loaded resources'}</p></div>{subject && <button className="ah-secondary" type="button" onClick={() => openSubject('')}><ArrowLeft size={16} /> Back to subjects</button>}</div>
           {displayed.length ? <div className="ah-resource-grid">{displayed.map((file) => <ResourceCard key={file.id} file={file} isAdmin={isAdmin} onDelete={del} onPreview={(f) => openPanel(f, 'preview')} onReviews={(f) => openPanel(f, 'reviews')} onDownload={download} downloadStatus={downloadStatus[file.id]} />)}</div> : <div className="ah-empty"><FileArchive size={30} /><h3>No matching files in this loaded batch</h3><p>Try another subject or load more resources. You can also check the existing Academic Hub administrator tools for new uploads.</p></div>}
           {matches.length > displayed.length && <button className="ah-secondary ah-load" type="button" onClick={() => setVisible((n) => n + 18)}>Show more matching files <ArrowRight size={16} /></button>}
