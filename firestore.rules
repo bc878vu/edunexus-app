@@ -106,8 +106,15 @@ service cloud.firestore {
       allow read: if true;
       allow create: if admin()
         && request.resource.data.keys().hasOnly([
-          'subject', 'term', 'question', 'options', 'answer', 'explanation', 'createdAt'
+          'subject', 'term', 'question', 'options', 'answer', 'explanation', 'importBatchId', 'sourceFileName', 'createdAt'
         ])
+        && request.resource.data.keys().hasAll(['importBatchId', 'sourceFileName'])
+        && request.resource.data.importBatchId is string
+        && request.resource.data.importBatchId.size() > 0
+        && request.resource.data.importBatchId.size() <= 80
+        && request.resource.data.sourceFileName is string
+        && request.resource.data.sourceFileName.size() > 0
+        && request.resource.data.sourceFileName.size() <= 120
         && validCourse(request.resource.data.subject)
         && validExamTerm(request.resource.data.term)
         && request.resource.data.question is string
