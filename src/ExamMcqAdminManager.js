@@ -30,6 +30,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
   const [busy, setBusy] = useState(false);
   const [bulkTarget, setBulkTarget] = useState('');
   const [bulkCountConfirmation, setBulkCountConfirmation] = useState('');
+  const [deletingBatch, setDeletingBatch] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -55,6 +56,16 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     });
     return [...grouped.values()];
   },[records]);
+  const uploadBatches = useMemo(() => {
+    const map = new Map();
+    records.forEach(q => {
+      if (!q.importBatchId) return;
+      const key = String(q.importBatchId);
+      const current = map.get(key) || { id:key, name:q.importSourceName || 'JSON upload', count:0, categories:new Set() };
+      current.count += 1; current.categories.add(categoryOf(q)); map.set(key,current);
+    });
+    return [...map.values()].map(item => ({...item,categories:[...item.categories]}));
+  }, [records]);
   const filtered = useMemo(() => records.filter(q =>
     (category === 'all' || categoryOf(q) === category) &&
     [q.question, ...(q.options || []),quizSetOf(q)].join(' ').toLowerCase().includes(search.toLowerCase().trim())
@@ -160,6 +171,28 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     } catch(e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
+  const removeUploadBatch = async upload => {
+    if (busy || loading || !adminPanelAccess(user) || !upload?.id) return;
+    const batchRecords = records.filter(q => q.importBatchId === upload.id);
+    if (!batchRecords.length) return;
+    if (!window.confirm('Permanently delete the complete uploaded JSON file "' + upload.name + '" (' + batchRecords.length + ' questions) from ' + subject + '? Individual-question delete will remain available. Other uploads, study files and existing content will not be changed. This cannot be undone.')) return;
+    setBusy(true); setDeletingBatch(upload.id); setError(''); setMessage('');
+    try {
+      const fresh = await getDocs(query(collection(db,...PATH),where('importBatchId','==',upload.id),limit(1000)));
+      if (fresh.size !== batchRecords.length || fresh.size > 900) throw new Error('This upload changed while it was open. Reload the subject and try again so no partial delete can occur.');
+      let deleted = 0;
+      const docs = fresh.docs;
+      for (let start=0; start<docs.length; start+=450) {
+        const batch = writeBatch(db);
+        docs.slice(start,start+450).forEach(item => batch.delete(item.ref));
+        await batch.commit();
+        deleted += Math.min(450, docs.length-start);
+      }
+      if (selected && batchRecords.some(q => q.id === selected.id)) { setSelected(null); setDraft(null); }
+      setMessage(deleted + ' questions from "' + upload.name + '" deleted together. No other upload or site content was changed.');
+    } catch(e) { setError(errorText(e)); }
+    finally { setBusy(false); setDeletingBatch(''); }
+  };
   const remove = async q => {
     if (busy || !adminPanelAccess(user)) return;
     if (!window.confirm('Permanently delete this question from '+q.subject+' '+categoryOf(q)+'? Students’ past answer for this question will no longer appear. This cannot be undone.')) return;
@@ -170,7 +203,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
   };
   return <section className="edx-exam-card edx-exam-form edx-admin-mcqs" aria-label="Manage published MCQs">
     <div className="edx-exam-between"><div><h3>Manage published questions</h3>
-      <p>Edit the question, choices, answer, subject, Quiz set or exam category; delete one question after confirmation.</p></div><ShieldCheck size={24}/></div>
+      <p>Edit the question, choices, answer, subject, Quiz set or exam category; delete one question or a complete tracked JSON upload after confirmation.</p></div><ShieldCheck size={24}/></div>
     <div className="edx-exam-form-grid">
       <label className="edx-exam-field">Subject code<input value={subject} maxLength={12} disabled={busy}
         onChange={e=>setSubject(clean(e.target.value))} placeholder="CS620"/></label>
@@ -178,6 +211,15 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         <option value="all">All categories</option><option value="quiz">Quiz</option><option value="midterm">Midterm</option><option value="finalterm">Finalterm</option>
       </select></label>
     </div>
+    {!loading && uploadBatches.length > 0 && <div className="edx-admin-subject-move" aria-label="Delete complete JSON uploads">
+      <h4>Uploaded JSON files</h4>
+      <p>Delete a complete imported JSON batch in one action. Individual question Edit/Delete buttons below stay available.</p>
+      {uploadBatches.map(upload => <div className="edx-exam-between" key={upload.id} style={{gap:12,marginTop:10}}>
+        <span><strong>{upload.name}</strong><br/><small>{upload.count} questions · {upload.categories.join(', ')}</small></span>
+        <button type="button" className="edx-exam-secondary edx-admin-danger" disabled={busy} onClick={()=>removeUploadBatch(upload)}><Trash2 size={15}/> {deletingBatch===upload.id?'Deleting upload…':'Delete complete file'}</button>
+      </div>)}
+    </div>}
+    {!loading && records.length > 0 && uploadBatches.length === 0 && <p className="edx-import-note">Older MCQs were imported before upload tracking was added, so they keep the existing individual Delete option. New JSON imports will appear above as complete deletable files.</p>}
     <label className="edx-exam-field">Find a published question
       <span className="edx-practice-search"><Search size={17}/><input type="search" value={search}
       onChange={e=>setSearch(e.target.value)} placeholder="Search question, option or quiz set"/></span>
