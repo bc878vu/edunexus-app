@@ -2061,19 +2061,71 @@ const AboutUs = ({ theme }) => (
       <div className={`${theme.card} p-8 rounded-2xl border ${theme.border}`}><h2 className={`text-2xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Target className="text-indigo-500"/> Our Mission</h2><p className={`${theme.text} leading-relaxed`}>To provide a centralized, intelligent, and collaborative platform where students can access high-quality resources, prepare for exams efficiently with AI, and connect with peers seamlessly.</p></div>
       <div className={`${theme.card} p-8 rounded-2xl border ${theme.border}`}><h2 className={`text-2xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Zap className="text-yellow-500"/> Our Vision</h2><p className={`${theme.text} leading-relaxed`}>To become the #1 Academic Portal for VU students, integrating cutting-edge AI technology like Gemini to make learning personalized and accessible for everyone.</p></div>
     </div>
+    <div className={`${theme.card} p-8 rounded-2xl border ${theme.border}`}>
+      <h2 className={`text-2xl font-bold ${theme.text} mb-4`}>Who We Are</h2>
+      <p className={`${theme.text} leading-relaxed`}>EduNexus was founded by <span className="font-semibold">Asad Amanat Ali</span>, a Virtual University student who experienced firsthand the challenge of finding organized, reliable study material. What started as a personal collection of notes and past papers has grown into a community-driven platform serving thousands of VU students across Pakistan.</p>
+      <p className={`${theme.text} leading-relaxed mt-4`}>We believe every student deserves free access to quality study resources. Our platform combines carefully organized academic materials with AI-powered tools — mock quizzes, flashcards, and study planners — to make exam preparation smarter, not harder.</p>
+    </div>
+    <div className={`${theme.card} p-8 rounded-2xl border ${theme.border}`}>
+      <h2 className={`text-2xl font-bold ${theme.text} mb-4`}>What We Offer</h2>
+      <ul className={`${theme.text} leading-relaxed space-y-2 list-disc pl-5`}>
+        <li>Subject-wise study materials, handouts, and past papers</li>
+        <li>AI-generated practice quizzes and flashcards</li>
+        <li>Student paper reviews and exam experiences</li>
+        <li>CGPA calculator and study planner tools</li>
+        <li>Original study guides written by our team</li>
+      </ul>
+    </div>
   </div>
 );
 
 // 12. Contact Us
-const ContactUs = ({ theme }) => (
+const ContactUs = ({ theme }) => {
+  const [form, setForm] = React.useState({ name: '', email: '', message: '' });
+  const [sent, setSent] = React.useState(false);
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const subject = encodeURIComponent(`EduNexus Contact: ${form.name}`);
+    const body = encodeURIComponent(`Name: ${form.name}\nEmail: ${form.email}\n\n${form.message}`);
+    window.location.href = `mailto:a.m.a63425@gmail.com?subject=${subject}&body=${body}`;
+    setSent(true);
+  };
+  return (
   <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
     <div className="text-center"><h1 className={`text-4xl font-extrabold ${theme.text} mb-4`}>Contact Us</h1><p className={theme.textMuted}>Have questions or suggestions? We'd love to hear from you.</p></div>
     <div className="grid md:grid-cols-2 gap-6">
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} flex items-center gap-4`}><div className="bg-indigo-100 p-3 rounded-full text-indigo-600"><Mail size={24}/></div><div><h3 className={`font-bold ${theme.text}`}>Email Us</h3><p className={theme.textMuted}>a.m.a63425@gmail.com</p></div></div>
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} flex items-center gap-4`}><div className="bg-green-100 p-3 rounded-full text-green-600"><Phone size={24}/></div><div><h3 className={`font-bold ${theme.text}`}>Call Us</h3><p className={theme.textMuted}>0309-8851445</p></div></div>
     </div>
+    <div className={`${theme.card} p-6 sm:p-8 rounded-2xl border ${theme.border}`}>
+      <h2 className={`text-2xl font-bold ${theme.text} mb-2`}>Send a Message</h2>
+      <p className={`${theme.textMuted} text-sm mb-6`}>Fill out the form below and we'll get back to you within 24-48 hours.</p>
+      {sent ? (
+        <div className="rounded-xl bg-green-500/10 border border-green-500/30 p-5 text-center">
+          <p className={`font-bold ${theme.text}`}>Thank you, {form.name || 'friend'}!</p>
+          <p className={`${theme.textMuted} text-sm mt-1`}>Your email client should have opened. If not, email us directly at a.m.a63425@gmail.com</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className={`block text-sm font-bold ${theme.text} mb-1.5`}>Your Name</label>
+            <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Asad Ali" className={`w-full ${theme.input} px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500`} />
+          </div>
+          <div>
+            <label className={`block text-sm font-bold ${theme.text} mb-1.5`}>Email Address</label>
+            <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@example.com" className={`w-full ${theme.input} px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500`} />
+          </div>
+          <div>
+            <label className={`block text-sm font-bold ${theme.text} mb-1.5`}>Message</label>
+            <textarea required rows={5} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="How can we help you?" className={`w-full ${theme.input} px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 resize-y`} />
+          </div>
+          <button type="submit" className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 hover:-translate-y-0.5 transition-all">Send Message</button>
+        </form>
+      )}
+    </div>
   </div>
-);
+  );
+};
 
 // 13. Home Page
 const HomePage = ({setPage, theme, showToast, user}) => {
@@ -4482,8 +4534,22 @@ const PrivacyPage = ({ theme }) => {
       <p className={theme.text}>
         We only collect basic usage data to keep the website secure, improve features and
         fix bugs. Some pages may show Google AdSense ads to support free study resources.
-        Google may use cookies and similar technologies to show relevant adverts. You can
-        manage ad personalisation in your Google account settings.
+      </p>
+      <h2 className={`text-xl font-bold mt-6 ${theme.text}`}>Advertising & Cookies</h2>
+      <p className={theme.text}>
+        Third-party vendors, including Google, use cookies to serve ads based on your prior
+        visits to this website and other websites. Google's use of advertising cookies
+        enables it and its partners to serve ads based on your visit to our site and/or
+        other sites on the Internet.
+      </p>
+      <p className={theme.text}>
+        Google uses the DART cookie to serve interest-based ads. You may opt out of
+        personalised advertising by visiting{" "}
+        <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">Google Ads Settings</a>
+        {" "}or{" "}
+        <a href="https://www.aboutads.info/choices/" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">aboutads.info</a>.
+        You can also manage how Google uses cookies in your{" "}
+        <a href="https://myaccount.google.com/data-and-privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">Google Account privacy settings</a>.
       </p>
       <p className={theme.text}>
         If you upload files or write posts, they are stored securely in our database and
