@@ -79,6 +79,12 @@ import {
   Clock,
   Minus,
   ArrowUpRight,
+  ChevronDown,
+  ChevronUp,
+  Play,
+  Pause,
+  Video,
+  Reply,
 } from "lucide-react";
 
 
@@ -2222,7 +2228,177 @@ const HomePage = ({setPage, theme, showToast, user}) => {
     };
   }, []);
 
-  const renderHighlightDesc = (desc) => {
+  
+// Modern Highlight Card: media support, share, show-more, video preview
+const HighlightCard = ({ post, index, theme, renderDesc }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const videoRef = useRef(null);
+  const previewTimer = useRef(null);
+
+  const IconComponent = ICON_MAP[post.iconName] || Calendar;
+  const safeLink = typeof post.link === 'string' && /^https?:\/\/[^\s]+$/i.test(post.link) ? post.link : '';
+  const hasImage = typeof post.imageUrl === 'string' && post.imageUrl.trim().length > 0;
+  const hasVideo = typeof post.videoUrl === 'string' && post.videoUrl.trim().length > 0;
+  const hasMedia = hasImage || hasVideo;
+
+  const descText = typeof post.desc === 'string' ? post.desc : String(post.desc || '');
+  const needsShowMore = descText.length > 180;
+  const displayDesc = expanded || !needsShowMore ? descText : descText.slice(0, 180).trim() + '...';
+
+  // Video: play 8-second preview on click, then auto-pause
+  const handleVideoToggle = (e) => {
+    e.stopPropagation();
+    const v = videoRef.current;
+    if (!v) return;
+    if (videoPlaying) {
+      v.pause();
+      setVideoPlaying(false);
+      if (previewTimer.current) clearTimeout(previewTimer.current);
+    } else {
+      v.play().catch(() => {});
+      setVideoPlaying(true);
+      if (previewTimer.current) clearTimeout(previewTimer.current);
+      previewTimer.current = setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.pause();
+          setVideoPlaying(false);
+        }
+      }, 8000);
+    }
+  };
+
+  useEffect(() => {
+    return () => { if (previewTimer.current) clearTimeout(previewTimer.current); };
+  }, []);
+
+  // Share: copy link + WhatsApp
+  const shareUrl = safeLink || (typeof window !== 'undefined' ? window.location.href.split('?')[0] + '?page=home#highlights' : '');
+  const shareText = `${post.title} - EduNexus Highlights`;
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    const text = safeLink ? `${shareText}\n${safeLink}` : shareText;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => setShareOpen(false)).catch(() => {});
+    }
+    setShareOpen(false);
+  };
+  const handleWhatsAppShare = (e) => {
+    e.stopPropagation();
+    const text = encodeURIComponent(safeLink ? `${shareText}\n${safeLink}` : shareText);
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener');
+    setShareOpen(false);
+  };
+
+  const cardClasses = `group relative rounded-3xl border ${theme.border} ${theme.card} overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col`;
+
+  const cardInner = (
+    <>
+      {/* Media: image or video (only if present - no empty space) */}
+      {hasMedia && (
+        <div className="relative w-full aspect-video bg-slate-100 dark:bg-slate-800 overflow-hidden shrink-0">
+          {hasVideo ? (
+            <div className="relative w-full h-full cursor-pointer" onClick={handleVideoToggle}>
+              <video
+                ref={videoRef}
+                src={post.videoUrl}
+                className="w-full h-full object-cover"
+                playsInline
+                preload="metadata"
+                onEnded={() => setVideoPlaying(false)}
+              />
+              {!videoPlaying && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                  <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                    <Play size={24} className="text-indigo-600 ml-1" />
+                  </div>
+                </div>
+              )}
+              <span className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-black/60 text-white text-[10px] font-bold">
+                {videoPlaying ? 'Playing preview...' : 'Tap to preview'}
+              </span>
+            </div>
+          ) : (
+            <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" loading="lazy" />
+          )}
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="flex flex-col flex-1 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 bg-gradient-to-br from-indigo-500/15 to-violet-500/15 ${post.color || 'text-indigo-700'}`}>
+              <IconComponent size={21} />
+            </div>
+            <span className={`text-[10px] font-black uppercase tracking-wider ${theme.textMuted}`}>
+              {String(index + 1).padStart(2, '0')}
+            </span>
+          </div>
+          {/* Share button */}
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setShareOpen(!shareOpen); }}
+              className={`p-2 rounded-full ${theme.textMuted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
+              aria-label="Share highlight"
+            >
+              <Share2 size={16} />
+            </button>
+            {shareOpen && (
+              <div className={`absolute right-0 top-10 z-20 rounded-xl border ${theme.border} ${theme.card} shadow-xl p-2 min-w-[160px]`}>
+                <button onClick={handleCopy} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold ${theme.text} hover:bg-slate-100 dark:hover:bg-slate-800`}>
+                  <Copy size={14} /> Copy link
+                </button>
+                <button onClick={handleWhatsAppShare} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold ${theme.text} hover:bg-slate-100 dark:hover:bg-slate-800`}>
+                  <MessageCircle size={14} /> WhatsApp
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <h3 className={`mt-4 font-black text-base md:text-lg leading-snug ${theme.text}`}>{post.title}</h3>
+
+        <div className={`mt-2 flex-1 text-sm leading-6 ${theme.textMuted}`}>
+          {renderDesc(displayDesc)}
+        </div>
+
+        {/* Show more/less */}
+        {needsShowMore && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+          >
+            {expanded ? <>Show less <ChevronUp size={14} /></> : <>Show more <ChevronDown size={14} /></>}
+          </button>
+        )}
+
+        {/* Link (preserved) */}
+        {safeLink && (
+          <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-indigo-600 dark:text-indigo-400">
+            Visit update <ExternalLink size={13} />
+          </span>
+        )}
+      </div>
+    </>
+  );
+
+  if (safeLink) {
+    return (
+      <a href={safeLink} target="_blank" rel="noopener noreferrer nofollow ugc" role="listitem" className={cardClasses}>
+        {cardInner}
+      </a>
+    );
+  }
+  return (
+    <div role="listitem" className={cardClasses}>
+      {cardInner}
+    </div>
+  );
+};
+
+const renderHighlightDesc = (desc) => {
     if (!desc) return null;
     const lines = desc.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (lines.length <= 1) {
@@ -2305,7 +2481,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
       <section className="mt-10"><div className="mb-5"><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Workspace</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Everything stays connected</h2></div><div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">{workspaceCards.map((card)=>{const Icon=card.icon;return <button key={card.id} onClick={()=>setPage(card.id)} className={`group rounded-3xl border ${theme.border} ${theme.card} p-5 text-left shadow-sm hover:shadow-xl hover:-translate-y-1`}><div className="flex items-center justify-between"><span className="h-11 w-11 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center"><Icon size={21}/></span><ArrowUpRight size={18} className={`${theme.textMuted} transition-transform group-hover:translate-x-1 group-hover:-translate-y-1`}/></div><h3 className={`mt-5 font-black ${theme.text}`}>{card.title}</h3><p className={`mt-2 text-sm leading-6 ${theme.textMuted}`}>{card.text}</p><span className="mt-4 inline-flex rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{card.meta}</span></button>})}</div></section>
 
       {showSection && (
-        <section className="mt-10 edx-highlights"><div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5"><div><p className="text-xs font-black uppercase tracking-[.2em] text-rose-500">Live feed</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Campus highlights</h2></div><button onClick={()=>refreshDashboard()} className={`inline-flex items-center gap-2 text-sm font-bold ${theme.accent}`}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''}/> Refresh</button></div>{highlights.length===0?<div className={`rounded-3xl border ${theme.border} ${theme.card} p-8 text-center`}><Megaphone className={`mx-auto ${theme.textMuted}`} size={32}/><p className={`mt-3 font-bold ${theme.text}`}>{highlightsLoading ? 'Loading campus highlights…' : highlightsError ? 'Campus highlights are temporarily unavailable.' : 'No new highlights yet.'}</p><p className={`mt-1 text-sm ${theme.textMuted}`}>{highlightsLoading ? 'Fetching the latest updates.' : highlightsError ? 'Please try again shortly.' : 'Your latest campus updates will appear here automatically.'}</p></div>:<div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 items-stretch" role="list">{highlights.map((post,index)=>{const IconComponent=ICON_MAP[post.iconName]||Calendar;const CardInner=<div className="flex flex-col flex-1"><div className="flex items-start justify-between gap-3"><div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${post.color || 'bg-indigo-100 text-indigo-700'}`}><IconComponent size={21}/></div><span className={`text-[10px] font-black uppercase tracking-wider ${theme.textMuted}`}>0{index+1}</span></div><h3 className={`mt-5 font-black text-base md:text-lg ${theme.text}`}>{post.title}</h3><div className="mt-2 flex-1">{renderHighlightDesc(post.desc)}</div>{post.link&&<span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-indigo-500">Visit update <ExternalLink size={13}/></span>}</div>;const classes=`group rounded-3xl border ${theme.border} ${theme.card} p-5 shadow-sm hover:shadow-xl hover:-translate-y-1 h-full flex flex-col`;const safeLink=typeof post.link==='string' && /^https?:\/\/[^\s]+$/i.test(post.link) ? post.link : '';return safeLink?<a key={post.id} href={safeLink} target="_blank" rel="noopener noreferrer nofollow ugc" role="listitem" className={classes}>{CardInner}</a>:<div key={post.id} role="listitem" className={classes}>{CardInner}</div>})}</div>}</section>
+        <section className="mt-10 edx-highlights"><div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5"><div><p className="text-xs font-black uppercase tracking-[.2em] text-rose-500">Live feed</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Campus highlights</h2></div><button onClick={()=>refreshDashboard()} className={`inline-flex items-center gap-2 text-sm font-bold ${theme.accent}`}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''}/> Refresh</button></div>{highlights.length===0?<div className={`rounded-3xl border ${theme.border} ${theme.card} p-8 text-center`}><Megaphone className={`mx-auto ${theme.textMuted}`} size={32}/><p className={`mt-3 font-bold ${theme.text}`}>{highlightsLoading ? 'Loading campus highlights…' : highlightsError ? 'Campus highlights are temporarily unavailable.' : 'No new highlights yet.'}</p><p className={`mt-1 text-sm ${theme.textMuted}`}>{highlightsLoading ? 'Fetching the latest updates.' : highlightsError ? 'Please try again shortly.' : 'Your latest campus updates will appear here automatically.'}</p></div>:<div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 items-stretch" role="list">{highlights.filter(post => post.isActive !== false).map((post,index)=><HighlightCard key={post.id} post={post} index={index} theme={theme} renderDesc={renderHighlightDesc} />)}</div>}</section>
       )}
 
       <AdSlot format="horizontal" />
@@ -2737,7 +2913,25 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       </div>
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
         <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Inbox className="text-green-500"/> Inbox ({feedbacks.length})</h3>
-        <div className="h-64 overflow-y-auto space-y-2">{feedbacks.map(msg => (<div key={msg.id} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 relative group`}><button onClick={()=>deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id))} className="absolute top-2 right-2 text-slate-400 hover:text-red-500"><Trash2 size={16}/></button><p className={`text-xs font-bold ${theme.text}`}>{String(msg.name)} <span className="text-indigo-500">&lt;{String(msg.email)}&gt;</span></p><p className={`text-sm ${theme.textMuted} mt-1`}>{String(msg.msg)}</p></div>))}{feedbacks.length === 0 && <p className={theme.textMuted}>No messages.</p>}</div>
+        <div className="h-64 overflow-y-auto space-y-2">{feedbacks.map(msg => {
+          const mName = msg.name || msg.displayName || 'Anonymous';
+          const mEmail = msg.email || msg.mail || '';
+          const mMsg = msg.msg || msg.message || msg.query || '';
+          const mDate = msg.createdAt ? formatDate(msg.createdAt) : '';
+          const replySubject = encodeURIComponent(`Re: Your query on EduNexus`);
+          const replyBody = encodeURIComponent(`Hi ${mName},\n\nThank you for reaching out to EduNexus.\n\nRegarding your message:\n"${String(mMsg).slice(0, 200)}"\n\n`);
+          return (
+            <div key={msg.id} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 relative group`}>
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {mEmail && <a href={`mailto:${mEmail}?subject=${replySubject}&body=${replyBody}`} title="Reply via email" className="p-1.5 bg-green-100 text-green-600 rounded hover:bg-green-200"><Reply size={14}/></a>}
+                <button onClick={()=>{ if(window.confirm('Delete this message?')) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id)); }} title="Delete" className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
+              </div>
+              <p className={`text-xs font-bold ${theme.text} pr-16`}>{String(mName)} {mEmail && <a href={`mailto:${mEmail}`} className="text-indigo-500 hover:underline">&lt;{String(mEmail)}&gt;</a>}</p>
+              {mDate && <p className={`text-[10px] ${theme.textMuted}`}>{mDate}</p>}
+              <p className={`text-sm ${theme.textMuted} mt-1`}>{String(mMsg) || <span className="italic">No message content</span>}</p>
+            </div>
+          );
+        })}{feedbacks.length === 0 && <p className={theme.textMuted}>No messages.</p>}</div>
       </div>
     </div>
   );
@@ -2750,6 +2944,8 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const [hLink, setHLink] = useState('');
     const [hIcon, setHIcon] = useState('Calendar');
     const [hColor, setHColor] = useState(COLOR_OPTIONS[0].value);
+    const [hImage, setHImage] = useState('');
+    const [hVideo, setHVideo] = useState('');
     const [editHId, setEditHId] = useState(null);
 
     useEffect(() => {
@@ -2785,6 +2981,9 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             link: hLink,
             iconName: hIcon,
             color: hColor,
+            imageUrl: hImage,
+            videoUrl: hVideo,
+            isActive: true,
             createdAt: serverTimestamp()
         };
 
@@ -2796,7 +2995,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             showToast("Highlight Added", "success");
         }
 
-        setHTitle(''); setHDesc(''); setHLink(''); setEditHId(null);
+        setHTitle(''); setHDesc(''); setHLink(''); setHImage(''); setHVideo(''); setEditHId(null);
     };
 
     const handleLoadDefaults = async () => {
@@ -2855,7 +3054,15 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
         setHLink(item.link || '');
         setHIcon(item.iconName || 'Calendar');
         setHColor(item.color || COLOR_OPTIONS[0].value);
+        setHImage(item.imageUrl || '');
+        setHVideo(item.videoUrl || '');
         setEditHId(item.id);
+    };
+
+    const handleToggleActive = async (item) => {
+        const newActive = item.isActive === false ? true : false;
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', item.id), { isActive: newActive });
+        showToast(newActive ? "Highlight Activated" : "Highlight Disabled", "success");
     };
 
     const handleDeleteHighlight = async (id) => {
@@ -2890,6 +3097,16 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                         <input value={hTitle} onChange={e=>setHTitle(e.target.value)} placeholder="Title (e.g. Mid-Terms)" className={`w-full ${theme.input} p-3 rounded-lg`} />
                         <textarea value={hDesc} onChange={e=>setHDesc(e.target.value)} placeholder="Description..." className={`w-full ${theme.input} p-3 rounded-lg h-24`} />
                         <input value={hLink} onChange={e=>setHLink(e.target.value)} placeholder="Link URL (Optional)" className={`w-full ${theme.input} p-3 rounded-lg`} />
+                        <div>
+                            <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Image (Optional)</label>
+                            <input value={hImage} onChange={e=>setHImage(e.target.value)} placeholder="Image URL (https://...)" className={`w-full ${theme.input} p-3 rounded-lg`} />
+                            {hImage && <img src={hImage} alt="Preview" className="mt-2 h-20 w-full object-cover rounded-lg" />}
+                        </div>
+                        <div>
+                            <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Video (Optional)</label>
+                            <input value={hVideo} onChange={e=>setHVideo(e.target.value)} placeholder="Video URL (https://...mp4)" className={`w-full ${theme.input} p-3 rounded-lg`} />
+                            {hVideo && <video src={hVideo} className="mt-2 h-20 w-full object-cover rounded-lg" preload="metadata" />}
+                        </div>
                         
                         <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -2908,7 +3125,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
                         <div className="flex gap-2 mt-4">
                             <button onClick={handleSaveHighlight} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700">{editHId ? 'Update' : 'Add'}</button>
-                            {editHId && <button onClick={() => {setEditHId(null); setHTitle(''); setHDesc(''); setHLink('');}} className="px-4 bg-slate-500 text-white rounded-lg">Cancel</button>}
+                            {editHId && <button onClick={() => {setEditHId(null); setHTitle(''); setHDesc(''); setHLink(''); setHImage(''); setHVideo('');}} className="px-4 bg-slate-500 text-white rounded-lg">Cancel</button>}
                         </div>
                     </div>
                 </div>
@@ -2919,17 +3136,26 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                     <div className="space-y-3">
                         {highlights.map(h => {
                             const IconC = ICON_MAP[h.iconName] || Calendar;
+                            const isActive = h.isActive !== false;
                             return (
-                                <div key={h.id} className="p-4 border rounded-xl relative group bg-slate-50 dark:bg-slate-800/50">
+                                <div key={h.id} className={`p-4 border rounded-xl relative group ${isActive ? 'bg-slate-50 dark:bg-slate-800/50' : 'bg-slate-100 dark:bg-slate-900/50 opacity-60'}`}>
                                     <div className="flex items-start gap-3">
                                         <div className={`p-2 rounded-full ${h.color || "bg-slate-200"}`}><IconC size={16}/></div>
-                                        <div className="flex-1">
-                                            <h4 className={`font-bold text-sm ${theme.text}`}>{h.title}</h4>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className={`font-bold text-sm ${theme.text} truncate`}>{h.title}</h4>
+                                                {!isActive && <span className="px-2 py-0.5 rounded-full bg-slate-300 dark:bg-slate-700 text-[10px] font-bold">Disabled</span>}
+                                            </div>
                                             <p className={`text-xs ${theme.textMuted} line-clamp-2`}>{h.desc}</p>
-                                            {h.link && <p className="text-xs text-indigo-500 mt-1 truncate">{h.link}</p>}
+                                            <div className="flex items-center gap-2 mt-1">
+                                                {h.link && <p className="text-xs text-indigo-500 truncate">{h.link}</p>}
+                                                {h.imageUrl && <span className="inline-flex items-center gap-1 text-[10px] text-green-600"><ImageIcon size={10}/> IMG</span>}
+                                                {h.videoUrl && <span className="inline-flex items-center gap-1 text-[10px] text-purple-600"><Video size={10}/> VID</span>}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => handleToggleActive(h)} title={isActive ? 'Disable' : 'Activate'} className={`p-1.5 rounded ${isActive ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}`}>{isActive ? <Eye size={14}/> : <EyeOff size={14}/>}</button>
                                         <button onClick={() => handleEditStart(h)} className="p-1.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"><Edit3 size={14}/></button>
                                         <button onClick={() => handleDeleteHighlight(h.id)} className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
                                     </div>
