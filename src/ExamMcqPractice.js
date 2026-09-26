@@ -10,6 +10,11 @@ import RichContent from './RichContent';
 import './exam-mcq-practice.css';
 
 const MCQS = ['artifacts', 'edunexus-live', 'public', 'data', 'examMcqs'];
+// In-memory cache for MCQ questions: subject -> { docs, fetchedAt }.
+// Serves repeat visits instantly with ZERO Firestore reads for 5 minutes.
+// Refresh button (setRefresh) bypasses this cache.
+const questionCache = new Map();
+const CACHE_TTL_MS = 5 * 60 * 1000;
 const validSubject = (subject) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(subject);
 const isAdmin = (user) => adminPanelAccess(user);
 const localGet = (key) => {
@@ -156,12 +161,32 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     setLoading(true);
     let initialized = false;
     let unsubscribe = () => {};
+    // Check cache first: if fresh data exists, use it instantly (0 reads, instant render).
+    const cached = questionCache.get(subject);
+    const now = Date.now();
+    if (cached && (now - cached.fetchedAt) < CACHE_TTL_MS && cached.docs) {
+      // Serve from cache - process the cached docs the same way as snapshot docs
+      const all = orderedQuestions(cached.docs.map(d => ({ id: d.id, ...d.data() })), term);
+      if (term === 'quiz') setQuizSets([...new Set(all.map(quizSetOf))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})));
+      else setQuizSets([]);
+      const ordered = term === 'quiz' && quizSet !== 'all' ? all.filter(q => quizSetOf(q) === quizSet) : all;
+      setQuestions(ordered);
+      setLimited(cached.docs.length >= QUESTION_LIMIT);
+      setLoadError('');
+      setLoading(false); setRestoring(false);
+      initialized = true;
+      // Still set up a lightweight listener for real-time updates? No - cache is fresh,
+      // skip the query entirely to save reads. User can hit "Check for new questions" to refresh.
+      return () => {};
+    }
     unsubscribe = onSnapshot(query(
       // The subject-only query avoids a new composite index. The Quiz category
       // is physically stored as midterm with a Quiz marker for old rules.
       collection(db, ...MCQS), where('subject', '==', subject), limit(QUESTION_LIMIT)
     ), async snapshot => {
       if (sessionRef.current !== session) return;
+      // Populate cache for future visits
+      questionCache.set(subject, { docs: snapshot.docs, fetchedAt: Date.now() });
       const all = orderedQuestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })), term);
       if (term === 'quiz') setQuizSets([...new Set(all.map(quizSetOf))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})));
       else setQuizSets([]);
@@ -376,7 +401,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       <CircleHelp size={29}/><h3>No questions found for {subject} · {CATEGORY_NAMES[term]}</h3>
       <p>No published questions were found for this combination. Quiz questions are listed separately from Midterm and Finalterm, even if their legacy Firestore records use the Midterm field.</p>
       <div className="edx-practice-empty-actions">{[["quiz", "Quiz"], ["midterm", "Midterm"], ["finalterm", "Finalterm"]].filter(([kind]) => kind !== term && categoryCounts[kind] > 0).map(([kind, label]) => <button type="button" key={kind} className="edx-exam-primary" onClick={() => onTermChange?.(kind)}>Open {label} · {categoryCounts[kind]} available</button>)}
-      <button type="button" className="edx-exam-secondary" onClick={() => setRefresh(v => v + 1)}>Check for new questions</button></div></div>}
+      <button type="button" className="edx-exam-secondary" onClick={() => (()=>{questionCache.delete(subject); setRefresh(v => v + 1);})()}>Check for new questions</button></div></div>}
     {!loading && !restoring && !loadError && !!actualQuestions.length && !finished && current && <>
       <QuestionReview question={current} number={index+1} total={actualQuestions.length} selected={answers[current.id]}
         onSelect={select} onPrevious={() => goTo(actualQuestions[index-1])} onNext={nextQuestion}
