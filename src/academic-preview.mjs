@@ -31,7 +31,11 @@ export function trustedPreviewUrl(links, originalUrl, localUrl = '') {
 export function previewSandbox(kind) {
   // Drive needs these capabilities to render Google's cross-origin viewer.
   // The parent site is a distinct origin; top navigation is never allowed.
-  return ['drive','document','spreadsheet','presentation'].includes(kind)
-    ? 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox'
-    : 'allow-same-origin allow-downloads';
+  if (['drive','document','spreadsheet','presentation'].includes(kind))
+    return 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox';
+  // Chrome's built-in PDF viewer cannot run inside a sandboxed frame without
+  // script execution (it shows "This page has been blocked by Chrome").
+  // allow-scripts only lets the viewer render; top navigation, forms and
+  // popups stay blocked, and only allowlisted URLs ever reach the frame.
+  return 'allow-same-origin allow-scripts allow-downloads';
 }

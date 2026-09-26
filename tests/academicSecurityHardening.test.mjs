@@ -34,7 +34,9 @@ test('preview sandbox isolates PDF and restricts Google document navigation', ()
   const pdf = previewSandbox('pdf');
   const drive = previewSandbox('drive');
   assert.ok(pdf.includes('allow-downloads'));
-  assert.ok(!pdf.includes('allow-scripts'));
+  // Chrome's built-in PDF viewer needs script execution inside the frame;
+  // without it the PDF is blocked ("This page has been blocked by Chrome").
+  assert.ok(pdf.includes('allow-scripts'));
   assert.ok(drive.includes('allow-scripts'));
   for (const value of [pdf,drive]) {
     assert.ok(!value.includes('allow-top-navigation'));
