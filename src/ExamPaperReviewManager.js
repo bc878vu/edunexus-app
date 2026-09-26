@@ -85,6 +85,10 @@ export default function ExamPaperReviewManager({ user }) {
   const [selected, setSelected] = useState(null);
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
+  // In-page confirmation (replaces native window.confirm so the action also
+  // works in automated browsers, which auto-dismiss native dialogs).
+  // { kind: 'save'|'delete', message, record? }
+  const [pendingConfirm, setPendingConfirm] = useState(null);
   const [reports, setReports] = useState([]);
   const [reportError, setReportError] = useState('');
   useEffect(() => {
@@ -110,16 +114,26 @@ export default function ExamPaperReviewManager({ user }) {
   if (!allowed) return null;
   const change = (key, value) => setDraft(prev=>({...prev,[key]:value}));
   const open = record => { setSelected(record); setDraft(editable(record)); setNotice(''); setError(''); };
-  const save = async event => {
+  const requestSave = event => {
     event.preventDefault();
-    if (busy) return;
+    if (busy || pendingConfirm) return;
     // Never fail silently: a stale admin gate must explain itself instead of
     // making the Save button look dead.
     if (!adminPanelAccess(user)) { setError('Your admin session for this tab has expired. Reload the admin page (?page=admin) and sign in again.'); return; }
     setNotice(''); setError('');
     try {
+      validateReviewDraft(draft, selected);
+    } catch(e) { setError(e?.message || 'Could not save this review.'); return; }
+    setPendingConfirm({ kind: 'save',
+      message: selected ? 'Save changes to this published paper review?' : 'Publish this completed-paper review?' });
+  };
+  const confirmSave = async () => {
+    if (busy) return;
+    setPendingConfirm(null);
+    if (!adminPanelAccess(user)) { setError('Your admin session for this tab has expired. Reload the admin page (?page=admin) and sign in again.'); return; }
+    setNotice(''); setError('');
+    try {
       const { values, examAt } = validateReviewDraft(draft, selected);
-      if (!window.confirm(selected ? 'Save changes to this published paper review?' : 'Publish this completed-paper review?')) return;
       setBusy(true);
       if (selected) {
         // Legacy records contain fewer fields, so do not add irrelevant fields.
@@ -136,10 +150,16 @@ export default function ExamPaperReviewManager({ user }) {
     } catch(e) { setError(e?.message || 'Could not save this review.'); }
     finally { setBusy(false); }
   };
-  const remove = async record => {
-    if (busy) return;
+  const requestRemove = record => {
+    if (busy || pendingConfirm) return;
     if (!adminPanelAccess(user)) { setError('Your admin session for this tab has expired. Reload the admin page (?page=admin) and sign in again.'); return; }
-    if (!window.confirm('Delete this published review? This cannot be undone.')) return;
+    setPendingConfirm({ kind: 'delete', record, message: 'Delete this published review? This cannot be undone.' });
+  };
+  const confirmRemove = async () => {
+    const record = pendingConfirm && pendingConfirm.kind === 'delete' ? pendingConfirm.record : null;
+    setPendingConfirm(null);
+    if (!record || busy) return;
+    if (!adminPanelAccess(user)) { setError('Your admin session for this tab has expired. Reload the admin page (?page=admin) and sign in again.'); return; }
     setBusy(true); setError(''); setNotice('');
     try {
       await deleteDoc(doc(col(record.collectionName),record.id));
@@ -168,9 +188,9 @@ export default function ExamPaperReviewManager({ user }) {
     <div className="edx-review-manager-list">{records.map(r=><article key={r.collectionName + ':' + r.id}>
       <div><strong>{r.subject} · {r.term === 'midterm' ? 'Midterm' : 'Finalterm'} · {r.sharedBy || 'Student'}</strong><small>{r.examDate || 'No date'} · {r.collectionName === COLLECTIONS[0] ? 'Student review' : 'Earlier review'}</small><p>{trim(r.summary,240)}</p></div>
       <div className="edx-review-manager-actions"><button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>open(r)}><Edit3 size={15}/> Edit</button>
-      <button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>remove(r)}><Trash2 size={15}/> Delete</button></div>
+      <button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>requestRemove(r)}><Trash2 size={15}/> Delete</button></div>
     </article>)}</div>
-    <form className="edx-review-manager-form" onSubmit={save}>
+    <form className="edx-review-manager-form" onSubmit={requestSave}>
       <div className="edx-exam-between"><h4>{selected ? 'Edit published review' : 'Add a paper review'}</h4><button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>{setSelected(null);setDraft(initial());}}><Plus size={15}/> New review</button></div>
       <div className="edx-review-manager-fields">
         <label className="edx-exam-field">Course<input required value={draft.subject} maxLength={12} onChange={e=>change('subject',courseCode(e.target.value))}/></label>
@@ -185,5 +205,12 @@ export default function ExamPaperReviewManager({ user }) {
       </div>
       <button className="edx-exam-primary" disabled={busy}>{busy ? 'Saving…' : selected ? 'Save changes' : 'Publish review'}</button>
     </form>
+    {pendingConfirm && <div className="edx-exam-confirm" role="alertdialog" aria-modal="true" aria-label="Confirm action">
+      <p>{pendingConfirm.message}</p>
+      <div className="edx-review-manager-actions">
+        <button type="button" className="edx-exam-primary" disabled={busy} onClick={()=>{ pendingConfirm.kind === 'delete' ? confirmRemove() : confirmSave(); }}>Confirm</button>
+        <button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>setPendingConfirm(null)}>Cancel</button>
+      </div>
+    </div>}
   </section>;
 }
