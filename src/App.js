@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { AboutUs, ContactUs, PrivacyPage, TermsPage } from './LegalContactPages';
 import RichContent from './RichContent';
 import DashboardFAQ from './DashboardFAQ';
 import AdSlot from './AdSlot';
@@ -2066,7 +2067,7 @@ const Feedback = ({ theme, showToast }) => {
 };
 
 // 11. About Us
-const AboutUs = ({ theme }) => (
+const AboutUsLegacy = ({ theme }) => (
   <div className="max-w-4xl mx-auto space-y-12 animate-fade-in">
     <div className="text-center space-y-4"><h1 className={`text-4xl font-extrabold ${theme.text}`}>About EduNexus</h1><p className={`text-xl ${theme.textMuted}`}>Empowering the next generation of Virtual University students.</p></div>
     <div className="grid md:grid-cols-2 gap-8">
@@ -2092,7 +2093,7 @@ const AboutUs = ({ theme }) => (
 );
 
 // 12. Contact Us
-const ContactUs = ({ theme }) => {
+const ContactUsLegacy = ({ theme }) => {
   const [form, setForm] = React.useState({ name: '', email: '', message: '' });
   const [sent, setSent] = React.useState(false);
   const handleSubmit = (e) => {
@@ -2151,13 +2152,11 @@ const HomePage = ({setPage, theme, showToast, user}) => {
   const [highlightsLoading, setHighlightsLoading] = useState(true);
   const [highlightsError, setHighlightsError] = useState(false);
   const [showSection, setShowSection] = useState(true);
-  const [stats, setStats] = useState(() => {
-    // Cached snapshot renders instantly; live counts refresh when Firestore is reachable.
-    try {
-      const cached = JSON.parse(window.sessionStorage.getItem('edunexus:dashboard-stats:v1') || 'null');
-      if (cached && cached.stats && Date.now() - cached.savedAt < 15 * 60 * 1000) return cached.stats;
-    } catch (_) {}
-    return { files: 0, articles: 0, discussions: 0, highlights: 0 };
+  const [stats, setStats] = useState({
+    files: 0,
+    articles: 0,
+    discussions: 0,
+    highlights: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -2180,10 +2179,8 @@ const HomePage = ({setPage, theme, showToast, user}) => {
         countCollection('discussions'),
         countCollection('highlights'),
       ]);
-      const fresh = { files, articles, discussions, highlights: highlightsCount };
-      setStats(fresh);
+      setStats({ files, articles, discussions, highlights: highlightsCount });
       setLastUpdated(new Date());
-      try { window.sessionStorage.setItem('edunexus:dashboard-stats:v1', JSON.stringify({ savedAt: Date.now(), stats: fresh })); } catch (_) {}
     } catch (error) {
       console.error('Dashboard stats error:', error);
       if (!silent) showToast('Dashboard stats could not be refreshed right now.');
@@ -2228,177 +2225,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
     };
   }, []);
 
-  
-// Modern Highlight Card: media support, share, show-more, video preview
-const HighlightCard = ({ post, index, theme, renderDesc }) => {
-  const [expanded, setExpanded] = useState(false);
-  const [videoPlaying, setVideoPlaying] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const videoRef = useRef(null);
-  const previewTimer = useRef(null);
-
-  const IconComponent = ICON_MAP[post.iconName] || Calendar;
-  const safeLink = typeof post.link === 'string' && /^https?:\/\/[^\s]+$/i.test(post.link) ? post.link : '';
-  const hasImage = typeof post.imageUrl === 'string' && post.imageUrl.trim().length > 0;
-  const hasVideo = typeof post.videoUrl === 'string' && post.videoUrl.trim().length > 0;
-  const hasMedia = hasImage || hasVideo;
-
-  const descText = typeof post.desc === 'string' ? post.desc : String(post.desc || '');
-  const needsShowMore = descText.length > 180;
-  const displayDesc = expanded || !needsShowMore ? descText : descText.slice(0, 180).trim() + '...';
-
-  // Video: play 8-second preview on click, then auto-pause
-  const handleVideoToggle = (e) => {
-    e.stopPropagation();
-    const v = videoRef.current;
-    if (!v) return;
-    if (videoPlaying) {
-      v.pause();
-      setVideoPlaying(false);
-      if (previewTimer.current) clearTimeout(previewTimer.current);
-    } else {
-      v.play().catch(() => {});
-      setVideoPlaying(true);
-      if (previewTimer.current) clearTimeout(previewTimer.current);
-      previewTimer.current = setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.pause();
-          setVideoPlaying(false);
-        }
-      }, 8000);
-    }
-  };
-
-  useEffect(() => {
-    return () => { if (previewTimer.current) clearTimeout(previewTimer.current); };
-  }, []);
-
-  // Share: copy link + WhatsApp
-  const shareUrl = safeLink || (typeof window !== 'undefined' ? window.location.href.split('?')[0] + '?page=home#highlights' : '');
-  const shareText = `${post.title} - EduNexus Highlights`;
-  const handleCopy = (e) => {
-    e.stopPropagation();
-    const text = safeLink ? `${shareText}\n${safeLink}` : shareText;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(() => setShareOpen(false)).catch(() => {});
-    }
-    setShareOpen(false);
-  };
-  const handleWhatsAppShare = (e) => {
-    e.stopPropagation();
-    const text = encodeURIComponent(safeLink ? `${shareText}\n${safeLink}` : shareText);
-    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener');
-    setShareOpen(false);
-  };
-
-  const cardClasses = `group relative rounded-3xl border ${theme.border} ${theme.card} overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col`;
-
-  const cardInner = (
-    <>
-      {/* Media: image or video (only if present - no empty space) */}
-      {hasMedia && (
-        <div className="relative w-full aspect-video bg-slate-100 dark:bg-slate-800 overflow-hidden shrink-0">
-          {hasVideo ? (
-            <div className="relative w-full h-full cursor-pointer" onClick={handleVideoToggle}>
-              <video
-                ref={videoRef}
-                src={post.videoUrl}
-                className="w-full h-full object-cover"
-                playsInline
-                preload="metadata"
-                onEnded={() => setVideoPlaying(false)}
-              />
-              {!videoPlaying && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                  <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                    <Play size={24} className="text-indigo-600 ml-1" />
-                  </div>
-                </div>
-              )}
-              <span className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-black/60 text-white text-[10px] font-bold">
-                {videoPlaying ? 'Playing preview...' : 'Tap to preview'}
-              </span>
-            </div>
-          ) : (
-            <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" loading="lazy" />
-          )}
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="flex flex-col flex-1 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 bg-gradient-to-br from-indigo-500/15 to-violet-500/15 ${post.color || 'text-indigo-700'}`}>
-              <IconComponent size={21} />
-            </div>
-            <span className={`text-[10px] font-black uppercase tracking-wider ${theme.textMuted}`}>
-              {String(index + 1).padStart(2, '0')}
-            </span>
-          </div>
-          {/* Share button */}
-          <div className="relative">
-            <button
-              onClick={(e) => { e.stopPropagation(); setShareOpen(!shareOpen); }}
-              className={`p-2 rounded-full ${theme.textMuted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
-              aria-label="Share highlight"
-            >
-              <Share2 size={16} />
-            </button>
-            {shareOpen && (
-              <div className={`absolute right-0 top-10 z-20 rounded-xl border ${theme.border} ${theme.card} shadow-xl p-2 min-w-[160px]`}>
-                <button onClick={handleCopy} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold ${theme.text} hover:bg-slate-100 dark:hover:bg-slate-800`}>
-                  <Copy size={14} /> Copy link
-                </button>
-                <button onClick={handleWhatsAppShare} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold ${theme.text} hover:bg-slate-100 dark:hover:bg-slate-800`}>
-                  <MessageCircle size={14} /> WhatsApp
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <h3 className={`mt-4 font-black text-base md:text-lg leading-snug ${theme.text}`}>{post.title}</h3>
-
-        <div className={`mt-2 flex-1 text-sm leading-6 ${theme.textMuted}`}>
-          {renderDesc(displayDesc)}
-        </div>
-
-        {/* Show more/less */}
-        {needsShowMore && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-            className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
-          >
-            {expanded ? <>Show less <ChevronUp size={14} /></> : <>Show more <ChevronDown size={14} /></>}
-          </button>
-        )}
-
-        {/* Link (preserved) */}
-        {safeLink && (
-          <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-indigo-600 dark:text-indigo-400">
-            Visit update <ExternalLink size={13} />
-          </span>
-        )}
-      </div>
-    </>
-  );
-
-  if (safeLink) {
-    return (
-      <a href={safeLink} target="_blank" rel="noopener noreferrer nofollow ugc" role="listitem" className={cardClasses}>
-        {cardInner}
-      </a>
-    );
-  }
-  return (
-    <div role="listitem" className={cardClasses}>
-      {cardInner}
-    </div>
-  );
-};
-
-const renderHighlightDesc = (desc) => {
+  const renderHighlightDesc = (desc) => {
     if (!desc) return null;
     const lines = desc.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (lines.length <= 1) {
@@ -2455,13 +2282,9 @@ const renderHighlightDesc = (desc) => {
         </div>
       </section>
 
-      <AdSlot format="horizontal" />
-
       <section className="mt-7 grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">{statCards.map((item) => { const Icon = item.icon; return <div key={item.label} className={`group relative overflow-hidden rounded-2xl border ${theme.border} ${theme.card} p-4 sm:p-5 shadow-sm hover:shadow-xl hover:-translate-y-1`}><div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${item.tone}`} /><div className="flex items-start justify-between gap-3"><div><p className={`text-xs font-bold uppercase tracking-wider ${theme.textMuted}`}>{item.label}</p><p className={`mt-2 text-2xl sm:text-3xl font-black ${theme.text}`}>{statsLoading ? <span className="inline-block h-8 w-12 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" /> : item.value}</p><p className={`mt-1 text-xs ${theme.textMuted}`}>{item.helper}</p></div><div className={`h-11 w-11 shrink-0 rounded-2xl bg-gradient-to-br ${item.tone} text-white flex items-center justify-center shadow-lg group-hover:rotate-3`}><Icon size={21} /></div></div></div>; })}</section>
 
       <section className="mt-10"><div className="flex items-end justify-between gap-4 mb-5"><div><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Quick launch</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Your study toolkit</h2></div><span className={`hidden sm:inline text-sm ${theme.textMuted}`}>Choose a task and jump straight in.</span></div><div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">{quickCards.map((card) => { const Icon = card.icon; return <button key={card.id} onClick={() => setPage(card.id)} className={`group relative overflow-hidden text-left rounded-3xl p-5 min-h-[205px] bg-gradient-to-br ${card.gradient} text-white shadow-lg hover:shadow-2xl hover:-translate-y-2`}><div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-150" /><div className="relative flex h-full flex-col"><div className="flex items-center justify-between"><span className="h-12 w-12 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/10"><Icon size={24} /></span><ArrowRight size={19} className="transition-transform group-hover:translate-x-1" /></div><div className="mt-auto pt-8"><span className="inline-flex rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider">{card.badge}</span><h3 className="mt-2 text-xl font-black">{card.title}</h3><p className="mt-1 text-sm leading-6 text-white/80">{card.description}</p></div></div></button>; })}</div></section>
-
-      <AdSlot format="auto" />
 
             <section className="edx-dashboard-study" aria-labelledby="edx-dashboard-study-title">
               <div className="edx-dashboard-study-heading"><span>STUDY TOOLS</span><h2 id="edx-dashboard-study-title">Your exam preparation, one click away</h2><p>Choose a study tool to open its existing page. Your saved content and features stay in place.</p></div>
@@ -2481,10 +2304,8 @@ const renderHighlightDesc = (desc) => {
       <section className="mt-10"><div className="mb-5"><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Workspace</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Everything stays connected</h2></div><div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">{workspaceCards.map((card)=>{const Icon=card.icon;return <button key={card.id} onClick={()=>setPage(card.id)} className={`group rounded-3xl border ${theme.border} ${theme.card} p-5 text-left shadow-sm hover:shadow-xl hover:-translate-y-1`}><div className="flex items-center justify-between"><span className="h-11 w-11 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center"><Icon size={21}/></span><ArrowUpRight size={18} className={`${theme.textMuted} transition-transform group-hover:translate-x-1 group-hover:-translate-y-1`}/></div><h3 className={`mt-5 font-black ${theme.text}`}>{card.title}</h3><p className={`mt-2 text-sm leading-6 ${theme.textMuted}`}>{card.text}</p><span className="mt-4 inline-flex rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{card.meta}</span></button>})}</div></section>
 
       {showSection && (
-        <section className="mt-10 edx-highlights"><div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5"><div><p className="text-xs font-black uppercase tracking-[.2em] text-rose-500">Live feed</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Campus highlights</h2></div><button onClick={()=>refreshDashboard()} className={`inline-flex items-center gap-2 text-sm font-bold ${theme.accent}`}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''}/> Refresh</button></div>{highlights.length===0?<div className={`rounded-3xl border ${theme.border} ${theme.card} p-8 text-center`}><Megaphone className={`mx-auto ${theme.textMuted}`} size={32}/><p className={`mt-3 font-bold ${theme.text}`}>{highlightsLoading ? 'Loading campus highlights…' : highlightsError ? 'Campus highlights are temporarily unavailable.' : 'No new highlights yet.'}</p><p className={`mt-1 text-sm ${theme.textMuted}`}>{highlightsLoading ? 'Fetching the latest updates.' : highlightsError ? 'Please try again shortly.' : 'Your latest campus updates will appear here automatically.'}</p></div>:<div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 items-stretch" role="list">{highlights.filter(post => post.isActive !== false).map((post,index)=><HighlightCard key={post.id} post={post} index={index} theme={theme} renderDesc={renderHighlightDesc} />)}</div>}</section>
+        <section className="mt-10 edx-highlights"><div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5"><div><p className="text-xs font-black uppercase tracking-[.2em] text-rose-500">Live feed</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Campus highlights</h2></div><button onClick={()=>refreshDashboard()} className={`inline-flex items-center gap-2 text-sm font-bold ${theme.accent}`}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''}/> Refresh</button></div>{highlights.length===0?<div className={`rounded-3xl border ${theme.border} ${theme.card} p-8 text-center`}><Megaphone className={`mx-auto ${theme.textMuted}`} size={32}/><p className={`mt-3 font-bold ${theme.text}`}>{highlightsLoading ? 'Loading campus highlights…' : highlightsError ? 'Campus highlights are temporarily unavailable.' : 'No new highlights yet.'}</p><p className={`mt-1 text-sm ${theme.textMuted}`}>{highlightsLoading ? 'Fetching the latest updates.' : highlightsError ? 'Please try again shortly.' : 'Your latest campus updates will appear here automatically.'}</p></div>:<div className="edx-highlight-masonry" role="list">{highlights.map((post,index)=>{const IconComponent=ICON_MAP[post.iconName]||Calendar;const CardInner=<div className="flex flex-col"><div className="flex items-start justify-between gap-3"><div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${post.color || 'bg-indigo-100 text-indigo-700'}`}><IconComponent size={21}/></div><span className={`text-[10px] font-black uppercase tracking-wider ${theme.textMuted}`}>0{index+1}</span></div><h3 className={`mt-5 font-black text-base md:text-lg ${theme.text}`}>{post.title}</h3><div className="mt-2 flex-1">{renderHighlightDesc(post.desc)}</div>{post.link&&<span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-indigo-500">Visit update <ExternalLink size={13}/></span>}</div>;const classes=`edx-highlight-card group rounded-3xl border ${theme.border} ${theme.card} p-5 shadow-sm hover:shadow-xl hover:-translate-y-1`;const safeLink=typeof post.link==='string' && /^https?:\/\/[^\s]+$/i.test(post.link) ? post.link : '';return safeLink?<a key={post.id} href={safeLink} target="_blank" rel="noopener noreferrer nofollow ugc" role="listitem" className={classes}>{CardInner}</a>:<div key={post.id} role="listitem" className={classes}>{CardInner}</div>})}</div>}</section>
       )}
-
-      <AdSlot format="horizontal" />
 
       <section className="mt-10 overflow-hidden rounded-3xl border border-indigo-200/60 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-600 via-violet-600 to-slate-950 p-6 sm:p-8 lg:p-10 text-white shadow-2xl"><div className="grid lg:grid-cols-[1fr_auto] items-center gap-7"><div><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[.18em]"><Sparkles size={14} className="text-yellow-300"/> Your next step</span><h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">Turn today’s study time into real progress.</h2><p className="mt-3 max-w-2xl text-sm sm:text-base leading-7 text-indigo-100">Pick one resource, one practice task and one revision task. EduNexus keeps the workflow simple so you can spend more time learning.</p></div><div className="flex flex-col sm:flex-row lg:flex-col gap-3"><button onClick={()=>setPage('planner')} className="rounded-2xl bg-white px-5 py-3.5 font-black text-slate-950 hover:-translate-y-1">Plan my session</button><button onClick={()=>setPage('aiquiz')} className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3.5 font-black text-white hover:bg-white/15">Practice with AI</button></div></div></section>
 
@@ -3324,6 +3145,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const toolbarBtn = "p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm min-w-[32px] text-center";
 
     return (
+      <>
       <div className="grid lg:grid-cols-2 gap-6">
         <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
           <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>{editId ? 'Edit Article' : 'New Article'}</h3>
@@ -3444,8 +3266,10 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           </div>
         </div>
       )}
+      </>
     );
-  };  // ADMIN PANEL – DISCUSSION MODERATION WITH REPLY ADD / EDIT / DELETE
+  };
+  // ADMIN PANEL – DISCUSSION MODERATION WITH REPLY ADD / EDIT / DELETE
 const ForumTab = ({ theme, showToast }) => {
   const [posts, setPosts] = useState([]);
   const [editId, setEditId] = useState(null);     // jis post ka reply edit ho raha hai
@@ -4948,7 +4772,7 @@ const Toast = ({ message, type, onClose }) => {
 
 // ===== Static Pages: Privacy & Terms (simple text) =====
 
-const PrivacyPage = ({ theme }) => {
+const PrivacyPageLegacy = ({ theme }) => {
   return (
     <div className="max-w-4xl mx-auto space-y-4 animate-fade-in">
       <h1 className={`text-3xl font-extrabold ${theme.text}`}>Privacy Policy</h1>
@@ -4982,13 +4806,13 @@ const PrivacyPage = ({ theme }) => {
       </p>
       <p className={theme.text}>
         For any privacy questions, you can always contact us at{" "}
-        <span className="font-semibold">support@edunexus.app</span>.
+        <span className="font-semibold">a.m.a63425@gmail.com</span>.
       </p>
     </div>
   );
 };
 
-const TermsPage = ({ theme }) => {
+const TermsPageLegacy = ({ theme }) => {
   return (
     <div className="max-w-4xl mx-auto space-y-4 animate-fade-in">
       <h1 className={`text-3xl font-extrabold ${theme.text}`}>Terms of Service</h1>
@@ -5492,7 +5316,7 @@ useEffect(() => {
           rel="noopener noreferrer"
           className="hover:text-indigo-500 transition-colors"
         >
-          support@edunexus.app
+          a.m.a63425@gmail.com
         </a>
 
           </p>

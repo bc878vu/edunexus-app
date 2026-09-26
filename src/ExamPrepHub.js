@@ -112,6 +112,7 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
 }
 
 function AdminTools({ user, onView }) {
+  const [adminSubTab, setAdminSubTab] = useState('import');
   const [draft, setDraft] = useState(EMPTY_MCQ);
   const [pending, setPending] = useState([]);
   const [message, setMessage] = useState("");
@@ -234,7 +235,6 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   // Admin tools are never part of the public Exam Prep module. Even an old
   // persisted Firebase admin identity cannot reveal them on ?page=exam-prep.
   const showAdmin = adminWorkspace === true && isAdmin(user);
-  const [adminSubTab, setAdminSubTab] = useState('import');
   const [tab, setTab] = useState(() => {
     if (adminWorkspace) return initialTab === "admin" ? "admin" : "mcqs";
     const requested = new URLSearchParams(window.location.search).get('section');
