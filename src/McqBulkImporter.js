@@ -118,6 +118,11 @@ export default function McqBulkImporter({ user, onView }) {
     working.current = true; setBusy(true);
     try {
       await user.getIdToken(true);
+      // Every import gets one immutable batch ID so the Admin Panel can later
+      // remove exactly this uploaded JSON file without touching other MCQs.
+      const importBatchId = (globalThis.crypto?.randomUUID?.() ||
+        ('batch-' + Date.now() + '-' + Math.random().toString(36).slice(2))).slice(0,80);
+      const sourceFileName = (sourceName.trim() || 'Pasted JSON').slice(0,120);
       const items = inspection.items.map((item, index) => {
         const normalized = validateMcq(item, index, { forImport: true });
         if (sourceChecked) {
@@ -125,7 +130,7 @@ export default function McqBulkImporter({ user, onView }) {
           if (normalized.explanation.length + note.length > 1000) throw new Error('Question ' + (index+1) + ': explanation and reference exceed the 1000-character limit.');
           normalized.explanation += note;
         }
-        return { ...normalized, createdAt: serverTimestamp() };
+        return { ...normalized, importBatchId, sourceFileName, createdAt: serverTimestamp() };
       });
       let published = 0;
       for (let start = 0; start < items.length; start += 100) {
