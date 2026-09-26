@@ -18,6 +18,10 @@ test('only known cross-origin document hosts can enter the iframe', () => {
     'https://res.cloudinary.com/demo/raw/upload/v1/book.pdf');
   assert.equal(trustedPreviewUrl({kind:'firebase'},'', 'blob:https://edunexus.dpdns.org/abc'),
     'blob:https://edunexus.dpdns.org/abc');
+  // Direct-URL PDFs are served to the iframe as same-origin blobs (Chrome
+  // blocks its PDF viewer in sandboxed cross-origin frames).
+  assert.equal(trustedPreviewUrl({kind:'pdf'},supa,'blob:https://edunexus-app.vercel.app/abc'),
+    'blob:https://edunexus-app.vercel.app/abc');
   for (const source of [
     'https://drive.google.com.attacker.test/file/d/ABC012_-xyz/preview',
     'https://evil.test/x.pdf',
@@ -34,8 +38,10 @@ test('preview sandbox isolates PDF and restricts Google document navigation', ()
   const pdf = previewSandbox('pdf');
   const drive = previewSandbox('drive');
   assert.ok(pdf.includes('allow-downloads'));
-  // Chrome's built-in PDF viewer needs script execution inside the frame;
-  // without it the PDF is blocked ("This page has been blocked by Chrome").
+  // Chrome's built-in PDF viewer needs script execution inside the frame, and
+  // it stays blocked in sandboxed cross-origin frames even with it — which is
+  // why direct-URL PDFs are framed as same-origin blobs (see the
+  // trustedPreviewUrl blob test above and ResourcePreview).
   assert.ok(pdf.includes('allow-scripts'));
   assert.ok(drive.includes('allow-scripts'));
   for (const value of [pdf,drive]) {

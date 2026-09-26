@@ -143,14 +143,35 @@ function ResourcePreview({ file, links, onClose }) {
   const isImage = links.kind === 'image' || (links.kind === 'firebase' && ['JPG','JPEG','PNG','WEBP'].includes(ext));
   const supportedFirebase = links.kind === 'firebase' && (isImage || ext === 'PDF')
     && (!Number.isFinite(file.size) || file.size <= 20 * 1024 * 1024);
+  // Direct-URL PDFs (Supabase/Cloudinary) are fetched as same-origin blobs:
+  // Chrome's built-in PDF viewer is blocked in sandboxed cross-origin frames,
+  // so we serve the bytes through a blob: URL like the Firebase flow instead
+  // of framing the cross-origin storage URL directly.
+  const directPdfUrl = links.kind === 'pdf' && ext === 'PDF' ? trustedPreviewUrl(links, links.preview, '') : '';
+  const supportedDirectPdf = Boolean(directPdfUrl)
+    && (!Number.isFinite(file.size) || file.size <= 20 * 1024 * 1024);
   const [localUrl, setLocalUrl] = useState('');
   const [state, setState] = useState('idle');
   useEffect(() => {
-    if (!supportedFirebase || !file.storagePath) { setLocalUrl(''); setState('idle'); return; }
+    let loadBlob = null;
+    if (supportedFirebase && file.storagePath) {
+      loadBlob = getBlob(storageRef(storage, file.storagePath), 20 * 1024 * 1024);
+    } else if (supportedDirectPdf && directPdfUrl) {
+      loadBlob = fetch(directPdfUrl, { mode: 'cors' }).then((res) => {
+        if (!res.ok) throw new Error('preview fetch failed: ' + res.status);
+        const len = parseInt(res.headers.get('content-length') || '0', 10);
+        if (len > 20 * 1024 * 1024) throw new Error('preview pdf too large');
+        return res.blob();
+      }).then((blob) => {
+        if (blob.size > 20 * 1024 * 1024) throw new Error('preview pdf too large');
+        return blob;
+      });
+    }
+    if (!loadBlob) { setLocalUrl(''); setState('idle'); return; }
     let alive = true;
     let objectUrl = '';
     setLocalUrl(''); setState('loading');
-    getBlob(storageRef(storage, file.storagePath), 20 * 1024 * 1024).then((blob) => {
+    loadBlob.then((blob) => {
       if (!alive) return;
       objectUrl = URL.createObjectURL(blob);
       setLocalUrl(objectUrl); setState('ready');
@@ -158,10 +179,14 @@ function ResourcePreview({ file, links, onClose }) {
       if (alive) setState('error');
     });
     return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [file.storagePath, supportedFirebase]);
+  }, [file.storagePath, supportedFirebase, supportedDirectPdf, directPdfUrl]);
   const displayUrl = localUrl || links.preview;
   const frameUrl = trustedPreviewUrl(links, links.preview, localUrl);
-  const canEmbed = Boolean(isImage ? displayUrl : frameUrl);
+  // Until a direct PDF's blob is ready — or if it can't be fetched — keep the
+  // blocked cross-origin URL out of the iframe and show the loading/download
+  // message instead.
+  const directPdfBlocked = links.kind === 'pdf' && ext === 'PDF' && !/^blob:/.test(localUrl || '');
+  const canEmbed = Boolean(isImage ? displayUrl : frameUrl) && !directPdfBlocked;
   return <section className="ah-focus" aria-label="Resource preview">
     <div className="ah-between"><div><span className="ah-eyebrow">In-page preview</span><h3>{nameOf(file)}</h3></div><button type="button" className="ah-icon-button" onClick={onClose} aria-label="Close preview"><X size={19} /></button></div>
     {state === 'loading' && <div className="ah-loading" role="status"><div /><p>Preparing a secure in-page preview…</p></div>}
