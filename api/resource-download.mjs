@@ -2,6 +2,27 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { getPublicFile, validId } from './resource-data.mjs';
 
+// In-memory cache for file metadata: id -> { file, fetchedAt }.
+// Download endpoints get hit repeatedly for the same file; caching the
+// Firestore metadata lookup (5 min TTL) cuts Firestore reads dramatically.
+const metaCache = new Map();
+const META_TTL_MS = 5 * 60 * 1000;
+
+async function getCachedFile(id) {
+  const now = Date.now();
+  const cached = metaCache.get(id);
+  if (cached && (now - cached.fetchedAt) < META_TTL_MS) return cached.file;
+  const file = await getPublicFile(id);
+  // Cache both hits and misses (null) to avoid hammering Firestore on bad ids.
+  metaCache.set(id, { file, fetchedAt: now });
+  // Bound cache size to avoid unbounded memory growth.
+  if (metaCache.size > 500) {
+    const oldest = metaCache.keys().next().value;
+    metaCache.delete(oldest);
+  }
+  return file;
+}
+
 // Only administrator-uploaded, intentionally public Supabase objects can be proxied.
 // No user-supplied host or arbitrary URL is ever fetched by this endpoint.
 export const maxDuration = 60;
@@ -10,7 +31,7 @@ export default async function handler(req, res) {
   const id = String(req.query?.id || '');
   if (!validId(id)) return res.status(404).end();
   try {
-    const file = await getPublicFile(id);
+    const file = await getCachedFile(id);
     if (!file || file.sourceType !== 'supabase-storage' || file.storageBucket !== 'edunexus-public-files')
       return res.status(404).end();
     const segments = String(file.storagePath || '').split('/');
@@ -35,8 +56,14 @@ export default async function handler(req, res) {
     if (req.method === 'HEAD' || !response.body) return res.end();
     await pipeline(Readable.fromWeb(response.body), res);
   } catch (error) {
-    console.error('Resource download failed', error?.message || 'unknown');
-    if (!res.headersSent) return res.status(502).end('Download temporarily unavailable');
+    const msg = String(error?.message || 'unknown');
+    console.error('Resource download failed', msg);
+    if (!res.headersSent) {
+      // Firestore quota exceeded -> tell the client to retry later (429, not 502).
+      if (/429|quota|RESOURCE_EXHAUSTED/i.test(msg))
+        return res.status(429).end('Download quota exceeded, please try again later');
+      return res.status(502).end('Download temporarily unavailable');
+    }
     res.destroy();
   }
 }
