@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, updateDoc, where, writeBatch } from 'firebase/firestore';
-import { CheckCircle2, Pencil, Search, ShieldCheck, Trash2, X } from 'lucide-react';
+import { CheckCircle2, FileJson2, Pencil, Search, ShieldCheck, Trash2, X } from 'lucide-react';
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { categoryOf, orderOf, quizSetOf, stripQuizMarker, validateMcq } from './examMcqImport';
@@ -43,6 +43,18 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     }, e => {setLoading(false);setError(errorText(e));});
   }, [subject,user]);
 
+  const importBatches = useMemo(() => {
+    const grouped = new Map();
+    records.forEach(q => {
+      if (!q.importBatchId) return;
+      const current = grouped.get(q.importBatchId) || {
+        id:q.importBatchId, name:q.sourceFileName || 'Imported JSON', count:0
+      };
+      current.count += 1;
+      grouped.set(q.importBatchId,current);
+    });
+    return [...grouped.values()];
+  },[records]);
   const filtered = useMemo(() => records.filter(q =>
     (category === 'all' || categoryOf(q) === category) &&
     [q.question, ...(q.options || []),quizSetOf(q)].join(' ').toLowerCase().includes(search.toLowerCase().trim())
@@ -126,6 +138,28 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     } catch(err) {setError(errorText(err));}
     finally {setBusy(false);}
   };
+  const removeImportBatch = async batchInfo => {
+    if (busy || !adminPanelAccess(user) || !batchInfo?.id) return;
+    if (!window.confirm('Permanently delete the complete uploaded file "' + batchInfo.name +
+      '" and ALL of its MCQs? This removes only questions from that exact import batch. Individual delete remains available. This cannot be undone.')) return;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      await user.getIdToken(true);
+      const fresh = await getDocs(query(collection(db,...PATH),where('importBatchId','==',batchInfo.id)));
+      if (!fresh.size) throw new Error('This upload batch no longer contains any questions.');
+      let deleted = 0;
+      // Keep each Firestore write batch comfortably below the 500-operation limit.
+      for (let start=0; start<fresh.docs.length; start+=400) {
+        const batch = writeBatch(db);
+        fresh.docs.slice(start,start+400).forEach(item => batch.delete(item.ref));
+        await batch.commit();
+        deleted += Math.min(400,fresh.docs.length-start);
+      }
+      if (selected && fresh.docs.some(item=>item.id===selected.id)) { setSelected(null); setDraft(null); }
+      setMessage(deleted + ' questions from "' + batchInfo.name + '" deleted together. Other uploaded files and individual MCQs were not changed.');
+    } catch(e) { setError(errorText(e)); }
+    finally { setBusy(false); }
+  };
   const remove = async q => {
     if (busy || !adminPanelAccess(user)) return;
     if (!window.confirm('Permanently delete this question from '+q.subject+' '+categoryOf(q)+'? Students’ past answer for this question will no longer appear. This cannot be undone.')) return;
@@ -162,6 +196,15 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         {busy?'Updating subject…':'Move '+records.length+' questions to '+(bulkTarget || 'correct subject')}
       </button>
     </form>}
+    {!loading && importBatches.length > 0 && <div className="edx-admin-subject-move" aria-label="Delete an uploaded MCQ file">
+      <h4>Uploaded JSON files</h4>
+      <p>Delete a complete import in one action. Only MCQs carrying that exact upload batch ID are removed; other files and questions stay unchanged. Older imports made before this feature still use individual Delete.</p>
+      {importBatches.map(batch => <div className="edx-exam-between" key={batch.id} style={{gap:12,marginTop:10}}>
+        <span><FileJson2 size={16} aria-hidden="true"/> <strong>{batch.name}</strong> · {batch.count} question{batch.count===1?'':'s'} in {subject}</span>
+        <button type="button" className="edx-exam-secondary edx-admin-danger" disabled={busy}
+          onClick={()=>removeImportBatch(batch)}><Trash2 size={15}/> Delete complete file</button>
+      </div>)}
+    </div>}
     {message && <p className="edx-exam-success" role="status"><CheckCircle2 size={16}/>{message}</p>}
     {error && <p className="edx-exam-alert" role="alert">{error}</p>}
     <div className="edx-admin-mcq-list">{filtered.map(q=><div className="edx-admin-mcq-row" key={q.id}>
