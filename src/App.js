@@ -6,6 +6,7 @@ import { enforceSingleDashboardQueryForm, restoreDashboardQueryCards } from './d
 // Initialize shared Firebase/Firestore before legacy modules request the instance.
 import './firebase-client';
 import './admin-academic-upload.css';
+import './portfolio.css';
 import {
   Home,
   MessageSquare,
@@ -1438,9 +1439,12 @@ Return the answer in bullet list.
     <img
       src={picUrl}
       alt="Portfolio Avatar"
+      loading="eager"
+      fetchPriority="high"
+      decoding="async"
       onLoad={() => setImageLoaded(true)}
-      className={`w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-indigo-500 shadow-xl transition-opacity duration-500 ${
-        imageLoaded ? "opacity-100" : "opacity-0"
+      className={`w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-indigo-500 shadow-xl ${
+        imageLoaded ? "" : "opacity-0"
       }`}
     />
   )}
