@@ -24,7 +24,7 @@ const DATA = {
   resources: ["Student Resources and Study Tools | EduNexus", "Explore EduNexus academic resources, AI tools, study planner, articles, tutorials and student guides.", "student resources, study tools, VU resources, university resources Pakistan", "CollectionPage"],
   projects: ["Live Projects and Web Apps | EduNexus", "Explore live web projects published online, including EduNexus and the Online Academy project.", "live web projects, education projects, online academy, EduNexus project", "CollectionPage"],
   tutorials: ["Tutorial Videos for VU Students | EduNexus", "Watch VU LMS walkthroughs, study-skills tutorials and practical learning videos. EduNexus also supports administrator-uploaded video tutorials.", "VU tutorial videos, VULMS tutorial, study skills videos, active recall, spaced repetition, university tutorials", "CollectionPage"],
-  privacy: ["Privacy Policy | EduNexus", "Read the EduNexus privacy policy, data practices, cookies and advertising information.", "EduNexus privacy policy, student data privacy, cookies, AdSense privacy", "WebPage"],
+  privacy: ["Privacy Policy | EduNexus", "Read the EduNexus privacy policy, data practices, cookies and advertising information.", "EduNexus privacy policy, student data privacy, cookies, advertising privacy", "WebPage"],
   terms: ["Terms of Service | EduNexus", "Read the terms that apply when using EduNexus study resources and tools.", "EduNexus terms, terms of service, study platform terms", "WebPage"],
   admin: ["Admin Panel | EduNexus", "Protected EduNexus administration area.", "EduNexus admin", "WebPage"]
 };

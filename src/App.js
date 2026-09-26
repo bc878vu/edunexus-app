@@ -4753,7 +4753,7 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
-// ===== Static Pages: Privacy & Terms (simple text, Adsense safe) =====
+// ===== Static Pages: Privacy & Terms (simple text) =====
 
 const PrivacyPage = ({ theme }) => {
   return (
@@ -4765,7 +4765,7 @@ const PrivacyPage = ({ theme }) => {
       </p>
       <p className={theme.text}>
         We only collect basic usage data to keep the website secure, improve features and
-        fix bugs. Some pages may show Google AdSense ads to support free study resources.
+        fix bugs.
       </p>
       <h2 className={`text-xl font-bold mt-6 ${theme.text}`}>Advertising & Cookies</h2>
       <p className={theme.text}>
@@ -5145,8 +5145,8 @@ useEffect(() => {
         </p>
         <p className={`text-xs md:text-sm ${theme.textMuted}`}>
           If you find any issue in notes, quizzes or AI tools, just email us –
-          we improve EduNexus continuously so Google AdSense & students both
-          stay happy. 🙂
+          we improve EduNexus continuously to give every student the best
+          learning experience.
         </p>
       </div>
             <a
@@ -5285,7 +5285,7 @@ useEffect(() => {
         </ul>
       </div>
 
-      {/* Contact + AdSense note */}
+      {/* Contact info */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold tracking-wide">
           Contact & Support
@@ -5308,11 +5308,7 @@ useEffect(() => {
             <span>For study help only (no official VU support).</span>
           </p>
         </div>
-        <p className={`text-xs ${theme.textMuted} leading-relaxed pt-2`}>
-          This site may display Google AdSense ads to support free study
-          resources. We avoid deceptive placements, misleading clicks, and
-          auto-downloads to stay compliant with Google policies.
-        </p>
+
       </div>
     </div>
 

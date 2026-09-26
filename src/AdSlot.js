@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-// AdSense publisher ID (matches public/ads.txt)
+// Ad publisher ID (matches public/ads.txt)
 export const ADSENSE_CLIENT = 'ca-pub-5179042048080611';
 
 // Set to true in Vercel env (REACT_APP_ADSENSE_APPROVED=true) ONLY after Google approves the site.
@@ -8,9 +8,9 @@ export const ADSENSE_CLIENT = 'ca-pub-5179042048080611';
 const ADS_ENABLED = typeof process !== 'undefined' && process.env && process.env.REACT_APP_ADSENSE_APPROVED === 'true';
 
 /**
- * Responsive AdSense ad slot.
+ * Responsive ad slot.
  * Props:
- *   slot   - AdSense ad-unit ID (from AdSense dashboard). If omitted, uses Auto-Ads-compatible responsive format.
+ *   slot   - Ad-unit ID (from ad dashboard). If omitted, uses Auto-Ads-compatible responsive format.
  *   format - 'auto' | 'rectangle' | 'horizontal' | 'vertical'
  *   label  - optional small "Advertisement" label for transparency
  */
@@ -20,7 +20,7 @@ export default function AdSlot({ slot, format = 'auto', label = true, className 
   useEffect(() => {
     if (!ADS_ENABLED) return;
     try {
-      // Load the AdSense library once
+      // Load the ad library once
       if (!document.querySelector('script[src*="pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"]')) {
         const s = document.createElement('script');
         s.async = true;
