@@ -38,11 +38,14 @@ export function previewSandbox(kind) {
   // The parent site is a distinct origin; top navigation is never allowed.
   if (['drive','document','spreadsheet','presentation'].includes(kind))
     return 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox';
-  // Chrome's built-in PDF viewer is blocked in sandboxed cross-origin frames
-  // ("This page has been blocked by Chrome") even when scripts are allowed,
-  // so direct-URL PDFs are fetched as same-origin blob: URLs before framing
-  // (see ResourcePreview). The sandbox below therefore only ever sees
-  // same-origin blobs and Google's document viewer. Top navigation, forms and
-  // popups stay blocked, and only allowlisted URLs ever reach the frame.
+  // Chrome's built-in PDF viewer is blocked inside ANY sandboxed iframe
+  // ("This page has been blocked by Chromium") — verified live with
+  // sandbox="allow-scripts allow-same-origin" for both direct and blob: URLs,
+  // while the same URLs render with no sandbox attribute. Verified PDF blobs
+  // (bytes fetched from an allowlisted host and checked for the %PDF-
+  // signature in ResourcePreview) therefore render with the sandbox attribute
+  // omitted (see the isVerifiedPdfBlob branch). The sandbox below only ever
+  // sees Google's document viewer now. Top navigation, forms and popups stay
+  // blocked, and only allowlisted URLs ever reach the frame.
   return 'allow-same-origin allow-scripts allow-downloads';
 }

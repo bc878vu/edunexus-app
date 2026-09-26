@@ -19,7 +19,8 @@ test('only known cross-origin document hosts can enter the iframe', () => {
   assert.equal(trustedPreviewUrl({kind:'firebase'},'', 'blob:https://edunexus.dpdns.org/abc'),
     'blob:https://edunexus.dpdns.org/abc');
   // Direct-URL PDFs are served to the iframe as same-origin blobs (Chrome
-  // blocks its PDF viewer in sandboxed cross-origin frames).
+  // blocks its PDF viewer in ANY sandboxed iframe; verified blobs render
+  // with the sandbox attribute omitted — see the sandbox test below).
   assert.equal(trustedPreviewUrl({kind:'pdf'},supa,'blob:https://edunexus-app.vercel.app/abc'),
     'blob:https://edunexus-app.vercel.app/abc');
   for (const source of [
@@ -38,10 +39,13 @@ test('preview sandbox isolates PDF and restricts Google document navigation', ()
   const pdf = previewSandbox('pdf');
   const drive = previewSandbox('drive');
   assert.ok(pdf.includes('allow-downloads'));
-  // Chrome's built-in PDF viewer needs script execution inside the frame, and
-  // it stays blocked in sandboxed cross-origin frames even with it — which is
-  // why direct-URL PDFs are framed as same-origin blobs (see the
-  // trustedPreviewUrl blob test above and ResourcePreview).
+  // Chrome's built-in PDF viewer is blocked inside ANY sandboxed iframe
+  // ("This page has been blocked by Chromium") — verified live with
+  // sandbox="allow-scripts allow-same-origin" for both direct and blob: URLs.
+  // Verified PDF blobs therefore render with the sandbox attribute omitted,
+  // but only after the fetched bytes are checked for the %PDF- signature
+  // (verifyPdfBlob) so a blob: URL (our origin) can never frame non-PDF
+  // content. Every other preview kind keeps the sandbox.
   assert.ok(pdf.includes('allow-scripts'));
   assert.ok(drive.includes('allow-scripts'));
   for (const value of [pdf,drive]) {
@@ -49,7 +53,9 @@ test('preview sandbox isolates PDF and restricts Google document navigation', ()
     assert.ok(!value.includes('allow-storage-access-by-user-activation'));
   }
   const component = read('src/AcademicHubPro.js');
-  assert.match(component,/sandbox=\{previewSandbox\(links\.kind\)\}/);
+  assert.match(component,/sandbox=\{isVerifiedPdfBlob \? undefined : previewSandbox\(links\.kind\)\}/);
+  assert.match(component,/function verifyPdfBlob/);
+  assert.match(component,/%PDF-/);
   assert.match(component,/src=\{frameUrl\}/);
   assert.match(component,/trustedPreviewUrl\(links, links\.preview, localUrl\)/);
   assert.doesNotMatch(component,/['"]GIF['"], ['"]SVG['"]/);

@@ -138,6 +138,18 @@ const refreshFileRatingSummary = async (fileId) => {
   }
 };
 
+// Verify fetched bytes are genuinely a PDF before they are framed without a
+// sandbox. A blob: URL inherits our origin, so only real PDFs (checked via the
+// %PDF- magic bytes) may use the unsandboxed viewer path; anything else falls
+// back to the download link.
+function verifyPdfBlob(blob) {
+  if (!blob || blob.size > 20 * 1024 * 1024) return Promise.reject(new Error('preview pdf too large'));
+  return blob.slice(0, 5).text().then((head) => {
+    if (head !== '%PDF-') throw new Error('preview is not a pdf');
+    return blob;
+  });
+}
+
 function ResourcePreview({ file, links, onClose }) {
   const ext = extOf(file);
   const isImage = links.kind === 'image' || (links.kind === 'firebase' && ['JPG','JPEG','PNG','WEBP'].includes(ext));
@@ -155,17 +167,16 @@ function ResourcePreview({ file, links, onClose }) {
   useEffect(() => {
     let loadBlob = null;
     if (supportedFirebase && file.storagePath) {
-      loadBlob = getBlob(storageRef(storage, file.storagePath), 20 * 1024 * 1024);
+      loadBlob = getBlob(storageRef(storage, file.storagePath), 20 * 1024 * 1024).then(verifyPdfBlob);
     } else if (supportedDirectPdf && directPdfUrl) {
       loadBlob = fetch(directPdfUrl, { mode: 'cors' }).then((res) => {
         if (!res.ok) throw new Error('preview fetch failed: ' + res.status);
+        const ctype = res.headers.get('content-type') || '';
+        if (!/pdf/i.test(ctype)) throw new Error('preview is not a pdf');
         const len = parseInt(res.headers.get('content-length') || '0', 10);
         if (len > 20 * 1024 * 1024) throw new Error('preview pdf too large');
         return res.blob();
-      }).then((blob) => {
-        if (blob.size > 20 * 1024 * 1024) throw new Error('preview pdf too large');
-        return blob;
-      });
+      }).then(verifyPdfBlob);
     }
     if (!loadBlob) { setLocalUrl(''); setState('idle'); return; }
     let alive = true;
@@ -187,11 +198,19 @@ function ResourcePreview({ file, links, onClose }) {
   // message instead.
   const directPdfBlocked = links.kind === 'pdf' && ext === 'PDF' && !/^blob:/.test(localUrl || '');
   const canEmbed = Boolean(isImage ? displayUrl : frameUrl) && !directPdfBlocked;
+  // Chrome's built-in PDF viewer is blocked inside ANY sandboxed iframe —
+  // verified live: sandbox="allow-scripts allow-same-origin" still shows "This
+  // page has been blocked by Chromium" for both direct and blob: URLs, while
+  // the same URLs render fine with no sandbox attribute. Verified PDF blobs
+  // (bytes we fetched from an allowlisted host and checked for the %PDF-
+  // signature) therefore render without the sandbox attribute. Every other
+  // preview kind keeps the sandbox.
+  const isVerifiedPdfBlob = ext === 'PDF' && /^blob:/.test(frameUrl || '');
   return <section className="ah-focus" aria-label="Resource preview">
     <div className="ah-between"><div><span className="ah-eyebrow">In-page preview</span><h3>{nameOf(file)}</h3></div><button type="button" className="ah-icon-button" onClick={onClose} aria-label="Close preview"><X size={19} /></button></div>
     {state === 'loading' && <div className="ah-loading" role="status"><div /><p>Preparing a secure in-page preview…</p></div>}
     {canEmbed ? (isImage ? <img className="ah-preview-image" loading="lazy" src={displayUrl} alt={nameOf(file)} /> :
-      <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={frameUrl} sandbox={previewSandbox(links.kind)} referrerPolicy="no-referrer" />) :
+      <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={frameUrl} sandbox={isVerifiedPdfBlob ? undefined : previewSandbox(links.kind)} referrerPolicy="no-referrer" />) :
       state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'Only known PDF and document hosts are previewed inside EduNexus. If the viewer cannot load, use the existing Download button to open the original file.'}</p></div>}
     <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span></div>
   </section>;
