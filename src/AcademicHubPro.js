@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { average, collection, count, deleteDoc, doc, getAggregateFromServer, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
 import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
 import { db, storage } from './firebase-client';
 import { getBlob, ref as storageRef } from 'firebase/storage';
@@ -126,12 +126,13 @@ const readRatingSummary = (data) => {
 };
 const refreshFileRatingSummary = async (fileId) => {
   try {
-    const result = await getAggregateFromServer(
-      query(REVIEWS(fileId), where('status', '==', 'approved')),
-      { reviewCount: count(), ratingAverage: average('rating') });
-    const data = result.data();
-    const total = Number(data.reviewCount) || 0;
-    const value = Number(data.ratingAverage);
+    const snap = await getDocs(query(REVIEWS(fileId), where('status', '==', 'approved'), limit(100)));
+    let sum = 0, total = 0;
+    snap.forEach((d) => {
+      const r = Number(d.data()?.rating);
+      if (Number.isFinite(r) && r >= 1 && r <= 5) { sum += r; total++; }
+    });
+    const value = total > 0 ? sum / total : null;
     await setDoc(fileRatingDoc(fileId), {
       ratingAverage: total > 0 && Number.isFinite(value) ? value : null,
       ratingCount: total,
@@ -378,15 +379,17 @@ function FileCardRating({ fileId, ratingAverage, ratingCount }) {
     if (active) setScore(readRatingSummary({ ratingAverage, ratingCount }));
     const aggregate = async (current) => {
       try {
-        // Server-side aggregation includes ALL approved reviews without a 100-item cap.
-        const result = await getAggregateFromServer(
-          query(REVIEWS(fileId), where('status', '==', 'approved')),
-          { reviewCount: count(), ratingAverage: average('rating') }
-        );
-        const data = result.data();
-        const value = Number(data.ratingAverage);
+        // Regular list query (not server aggregation) — the Firestore rules
+        // allow public listing of approved reviews, and client-side averaging
+        // avoids aggregation permission issues.
+        const snap = await getDocs(query(REVIEWS(fileId), where('status', '==', 'approved'), limit(100)));
+        let sum = 0, n = 0;
+        snap.forEach((d) => {
+          const r = Number(d.data()?.rating);
+          if (Number.isFinite(r) && r >= 1 && r <= 5) { sum += r; n++; }
+        });
         if (active && current === revision) {
-          setScore(Number(data.reviewCount) > 0 && Number.isFinite(value) ? value : null);
+          setScore(n > 0 ? sum / n : null);
         }
       } catch (_) { if (active && current === revision) setScore(null); }
     };
