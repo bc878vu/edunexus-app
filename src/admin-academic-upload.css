@@ -54,6 +54,7 @@
 .edx-admin-file-edit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(148,163,184,.3)}
 .edx-admin-file-edit label{display:grid;gap:6px;font-size:.8rem;font-weight:700}
 .edx-admin-file-edit button{grid-column:1/-1}
+.edx-admin-file-edit .edx-admin-file-edit-desc{grid-column:1/-1}
 .edx-admin-load-more{display:block;margin:18px auto 0;background:transparent;color:#6366f1;border:1px solid #c7d2fe}
 @media(max-width:760px){.edx-admin-upload-group .ah-upload-grid,.edx-admin-link-fields,.edx-admin-file-edit{grid-template-columns:1fr}.edx-admin-link-fields label:nth-child(3),.edx-admin-file-edit button{grid-column:auto}.edx-admin-file-search{max-width:none}.edx-admin-file-actions{width:100%}.edx-admin-file-actions>*{flex:1 1 120px;justify-content:center}}
 @media(max-width:420px){.edx-admin-file-details{gap:9px}.edx-admin-upload-group .ah-actions>*{flex:1}.edx-admin-link-submit{width:100%}}

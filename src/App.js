@@ -2105,6 +2105,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
   const [editingFileId, setEditingFileId] = useState('');
   const [editName, setEditName] = useState('');
   const [editSubject, setEditSubject] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [uDriveLink, setUDriveLink] = useState("");
   const [linkRightsBasis, setLinkRightsBasis] = useState("");
   const [linkRightsConfirmed, setLinkRightsConfirmed] = useState(false);
@@ -2211,17 +2212,19 @@ const AcademicTab = ({ theme, user, showToast }) => {
     setEditingFileId(file.id);
     setEditName(String(file.name || '').slice(0, 150));
     setEditSubject(String(file.subject || 'General').slice(0, 120));
+    setEditDescription(String(file.description || '').slice(0, 1000));
   };
   const saveFileEdit = async (file) => {
     const name = editName.trim();
     const folder = editSubject.trim();
+    const description = editDescription.trim().slice(0, 1000);
     if (!name || !folder || name.length > 150 || folder.length > 120) {
       showToast('Enter a valid name and subject folder.', 'error');
       return;
     }
     try {
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id), {
-        name, subject: folder
+        name, subject: folder, description
       });
       setEditingFileId('');
       showToast('Resource details updated.', 'success');
@@ -2475,6 +2478,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
               {editing && <div className="edx-admin-file-edit">
                 <label>Name <input maxLength={150} value={editName} onChange={(e) => setEditName(e.target.value)} className={`${theme.input} p-3 rounded-xl`} /></label>
                 <label>Folder <input maxLength={120} value={editSubject} onChange={(e) => setEditSubject(e.target.value)} list="edx-admin-existing-folders" className={`${theme.input} p-3 rounded-xl`} /></label>
+                <label className="edx-admin-file-edit-desc">Description <textarea maxLength={1000} rows={3} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className={`${theme.input} p-3 rounded-xl`} placeholder="SEO description shown on the public file page (max 1000 characters)" /></label>
                 <button type="button" onClick={() => saveFileEdit(file)}>Save changes</button>
               </div>}
             </article>;
