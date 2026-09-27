@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
 import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
 import { db, storage } from './firebase-client';
 import { getBlob, ref as storageRef } from 'firebase/storage';
@@ -473,6 +473,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const [older, setOlder] = useState([]);
   const [subjectFiles, setSubjectFiles] = useState([]);
   const [folders, setFolders] = useState([]);
+  const [folderCounts, setFolderCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -503,7 +504,11 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
       setHasMore((prev) => prev && olderPagesLoaded.current ? prev : snap.docs.length === PAGE_SIZE);
       setLoading(false); setError('');
     }, (e) => { setLoading(false); setError(e.code === 'permission-denied' ? 'The file library is not accessible with the currently deployed Firestore rules.' : 'Could not load files. Please check your connection and try again.'); });
-    const unsubFolders = onSnapshot(FOLDERS, (snap) => setFolders(Array.isArray(snap.data()?.list) ? snap.data().list.filter((v) => typeof v === 'string') : []), () => {});
+    const unsubFolders = onSnapshot(FOLDERS, (snap) => {
+      const data = snap.data() || {};
+      setFolders(Array.isArray(data.list) ? data.list.filter((v) => typeof v === 'string') : []);
+      setFolderCounts(data.fileCounts && typeof data.fileCounts === 'object' ? data.fileCounts : {});
+    }, () => {});
     return () => { unsubFiles(); unsubFolders(); window.removeEventListener('popstate', onPop); };
   }, []);
 
@@ -589,7 +594,11 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
       danger: true,
       onConfirm: async () => {
         try {
+          const subjKey = cut(file.subject, 50);
           await deleteDoc(doc(FILES, file.id));
+          if (subjKey) {
+            try { await updateDoc(FOLDERS, { ['fileCounts.' + subjKey]: increment(-1) }); } catch (_) {}
+          }
           setOlder((prev) => prev.filter((f) => f.id !== file.id));
           setLatest((prev) => prev.filter((f) => f.id !== file.id));
           if (selectedId === file.id) setSelectedId('');
@@ -620,7 +629,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     {selected && <div className="ah-panel-wrap" ref={scroller}><div className="ah-panel-tabs" role="group" aria-label="Selected file tools"><button type="button" className={panel === 'preview' ? 'active' : ''} onClick={() => setPanel('preview')}><BookOpen size={16} /> Preview</button><button type="button" className={panel === 'reviews' ? 'active' : ''} onClick={() => setPanel('reviews')}><Star size={16} /> Reviews</button><button type="button" onClick={() => setSelectedId('')}><X size={16} /> Close</button></div>{panel === 'preview' ? <ResourcePreview file={selected} links={fileLinks(selected)} onClose={() => setSelectedId('')} /> : <FileReviews file={selected} user={user} isAdmin={isAdmin} />}</div>}
       {error && <p className="ah-message" role="alert">{error}</p>}
       {loading ? <div className="ah-loading" role="status"><div /><div /><div /><p>Loading academic resources…</p></div> :
-        <>{subjectsExpanded && <div className="ah-subject-grid" aria-label="Subject folders">{subjects.map((code) => <button key={code} type="button" className={'ah-subject' + (subject === code ? ' active' : '')} aria-pressed={subject === code} onClick={() => openSubject(code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{displayFolderName(code)}</strong><small>{counts[code] || 0} loaded {counts[code] === 1 ? 'file' : 'files'}</small></span><ArrowRight size={16} /></button>)}</div>}
+        <>{subjectsExpanded && <div className="ah-subject-grid" aria-label="Subject folders">{subjects.map((code) => <button key={code} type="button" className={'ah-subject' + (subject === code ? ' active' : '')} aria-pressed={subject === code} onClick={() => openSubject(code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{displayFolderName(code)}</strong><small>{(() => { const total = folderCounts[code] ?? counts[code] ?? 0; return total + (total === 1 ? ' file' : ' files'); })()}</small></span><ArrowRight size={16} /></button>)}</div>}
           <div className="ah-results-head"><div><span className="ah-eyebrow">{subject ? 'Selected subject' : 'Resource collection'}</span><h3>{subject || 'All available subjects'}</h3><p>{normalized ? 'Search results from currently loaded files' : 'Showing ' + displayed.length + ' of ' + matches.length + ' matching loaded resources'}</p></div>{subject && <button className="ah-secondary" type="button" onClick={() => openSubject('')}><ArrowLeft size={16} /> Back to subjects</button>}</div>
           {displayed.length ? <div className="ah-resource-grid">{displayed.map((file) => <ResourceCard key={file.id} file={file} isAdmin={isAdmin} onDelete={del} onPreview={(f) => openPanel(f, 'preview')} onReviews={(f) => openPanel(f, 'reviews')} onDownload={download} downloadStatus={downloadStatus[file.id]} />)}</div> : <div className="ah-empty"><FileArchive size={30} /><h3>No matching files in this loaded batch</h3><p>Try another subject or load more resources. You can also check the existing Academic Hub administrator tools for new uploads.</p></div>}
           {matches.length > displayed.length && <button className="ah-secondary ah-load" type="button" onClick={() => setVisible((n) => n + 18)}>Show more matching files <ArrowRight size={16} /></button>}

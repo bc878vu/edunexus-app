@@ -2211,6 +2211,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
         rightsBasis: linkRightsBasis, rightsConfirmed: true, rightsConfirmedAt: serverTimestamp(),
         createdAt: serverTimestamp()
       });
+      try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'folders'), { ['fileCounts.' + selSubject]: increment(1) }); } catch (_) {}
       setUName('');
       setUDriveLink(''); setLinkRightsBasis(''); setLinkRightsConfirmed(false);
       showToast('Resource link added to the Academic Hub.', 'success');
