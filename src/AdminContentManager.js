@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref as storageRef, uploadBytes, deleteObject } from "firebase/storage";
 import { Check, Edit3, Film, LayoutDashboard, Link2, Loader, Plus, Save, Settings, Trash2, Upload, X } from "lucide-react";
+import { useConfirm } from "./ConfirmDialog";
 import "./admin-content-manager.css";
 
 const firebaseConfig = {
@@ -44,6 +45,7 @@ export default function AdminContentManager() {
   const [editingId, setEditingId] = useState(null);
   const [notice, setNotice] = useState("");
   const [form, setForm] = useState({ title: "", category: "VU Tutorials", url: "", description: "", type: "link", file: null });
+  const { requestConfirm, ConfirmUI } = useConfirm();
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
   useEffect(() => {
@@ -106,12 +108,19 @@ export default function AdminContentManager() {
     finally { setSavingTutorial(false); }
   };
   const deleteTutorial = async (item) => {
-    if (!isAdmin || !window.confirm(`Delete “${item.title || "this tutorial"}”?`)) return;
-    try {
-      await deleteDoc(doc(db, "artifacts/edunexus-live/public/data/tutorials", item.id));
-      if (item.storagePath) await deleteObject(storageRef(storage, item.storagePath)).catch(() => {});
-      setNotice("Tutorial deleted.");
-    } catch (error) { setNotice(error?.message || "Delete failed."); }
+    if (!isAdmin) return;
+    requestConfirm({
+      message: `Delete “${item.title || "this tutorial"}"?`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "artifacts/edunexus-live/public/data/tutorials", item.id));
+          if (item.storagePath) await deleteObject(storageRef(storage, item.storagePath)).catch(() => {});
+          setNotice("Tutorial deleted.");
+        } catch (error) { setNotice(error?.message || "Delete failed."); }
+      },
+    });
   };
   const goHome = () => { window.history.pushState({}, "", "/"); window.dispatchEvent(new Event("edunexus:navigation")); };
   const openTutorials = () => { window.history.pushState({}, "", "/tutorials"); window.dispatchEvent(new Event("edunexus:navigation")); };
@@ -126,6 +135,7 @@ export default function AdminContentManager() {
       <section className="edx-admin-card"><div className="edx-admin-cardhead"><div><span>02</span><h2>Video platform — full CRUD</h2><p>Create, edit and delete site-owned tutorials. Students can watch them directly on the Tutorials page.</p></div><button onClick={resetTutorial}><Plus size={16}/> New tutorial</button></div><form className="edx-video-form" onSubmit={saveTutorial}><div className="edx-form-grid"><label>Title<input required value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})}/></label><label>Category<input value={form.category} onChange={(e)=>setForm({...form,category:e.target.value})}/></label></div><div className="edx-mode-tabs"><button type="button" className={form.type==='link'?'active':''} onClick={()=>setForm({...form,type:'link'})}><Link2 size={15}/> YouTube / external link</button><button type="button" className={form.type==='file'?'active':''} onClick={()=>setForm({...form,type:'file'})}><Upload size={15}/> Upload video</button></div>{form.type==='link'?<label>Video URL<input type="url" value={form.url} onChange={(e)=>setForm({...form,url:e.target.value})} placeholder="https://www.youtube.com/watch?v=..." required /></label>:<label>Video file<input type="file" accept="video/*" onChange={(e)=>setForm({...form,file:e.target.files?.[0] || null})} required={!editingId}/></label>}<label>Description<textarea rows="3" value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})}/></label><div className="edx-form-actions"><button type="button" onClick={resetTutorial}>Cancel</button><button className="edx-primary" disabled={savingTutorial}>{savingTutorial?<Loader className="edx-spin" size={17}/>:<Save size={17}/>} {editingId ? "Update tutorial" : "Publish tutorial"}</button></div></form><div className="edx-tutorial-admin-list">{tutorials.length===0?<div className="edx-empty">No admin tutorials yet. Publish your first video above.</div>:tutorials.map((item)=><article className="edx-tutorial-admin-item" key={item.id}><div><span>{item.category || "Tutorial"}</span><h3>{item.title || "Untitled tutorial"}</h3><p>{item.description || "No description"}</p></div><div className="edx-row-actions"><button onClick={()=>editTutorial(item)}><Edit3 size={15}/> Edit</button><button className="danger" onClick={()=>deleteTutorial(item)}><Trash2 size={15}/> Delete</button></div></article>)}</div></section>
       {notice && <div className="edx-admin-notice">{notice}<button onClick={()=>setNotice("")}><X size={15}/></button></div>}
     </main>
+    <ConfirmUI />
   </div>;
 }
 

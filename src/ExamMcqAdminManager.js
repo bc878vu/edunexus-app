@@ -8,6 +8,7 @@ import { refreshExamCatalogCounts } from './examCatalogCounts';
 import { explanationForStudent } from './examAnswerFeedback';
 import { isVerifiedAnswer } from './examPractice';
 import RichContent from './RichContent';
+import { useConfirm } from './ConfirmDialog';
 
 const PATH = ['artifacts','edunexus-live','public','data','examMcqs'];
 const COURSE = /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/;
@@ -21,6 +22,7 @@ const fromRecord = q => ({
 const errorText = e => e?.code === 'permission-denied' ? 'Firebase denied this change. Reopen the verified Admin Panel and check your Firestore rules.' : e?.message || 'Action could not be completed. Try again.';
 
 export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
+  const { requestConfirm, ConfirmUI } = useConfirm();
   const [subject, setSubject] = useState(COURSE.test(initialSubject) ? initialSubject : 'CS620');
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -120,8 +122,11 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       setError('Enter the exact number of loaded questions to confirm this subject correction (maximum 450 per operation).');
       return;
     }
-    if (!window.confirm('Move ALL ' + records.length + ' published questions from ' + subject + ' to ' + target +
-      '? Only the subject code will change. Existing questions under ' + target + ' will remain.')) return;
+    requestConfirm({
+      message: 'Move ALL ' + records.length + ' published questions from ' + subject + ' to ' + target +
+        '? Only the subject code will change. Existing questions under ' + target + ' will remain.',
+      confirmLabel: 'Move all',
+      onConfirm: async () => {
     setBusy(true);
     try {
       // Do not silently move a subset when the source has changed or exceeds
@@ -148,6 +153,9 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         '. Question text, answer choices, keys, categories and document IDs were not changed.');
     } catch(err) {setError(errorText(err));}
     finally {setBusy(false);}
+      },
+    });
+    return;
   };
   const batchRecordsOf = upload => records.filter(q =>
     upload.tracked ? q.importBatchId === upload.batchId : (q.sourceFileName === upload.fileName && !q.importBatchId)
@@ -156,7 +164,11 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     if (busy || loading || !adminPanelAccess(user) || !upload?.id) return;
     const batchRecords = batchRecordsOf(upload);
     if (!batchRecords.length) return;
-    if (!window.confirm('Permanently delete the complete uploaded JSON file "' + upload.name + '" (' + batchRecords.length + ' questions) from ' + subject + '? Individual-question delete will remain available. Other uploads, study files and existing content will not be changed. This cannot be undone.')) return;
+    requestConfirm({
+      message: 'Permanently delete the complete uploaded JSON file "' + upload.name + '" (' + batchRecords.length + ' questions) from ' + subject + '? Individual-question delete will remain available. Other uploads, study files and existing content will not be changed. This cannot be undone.',
+      confirmLabel: 'Delete all',
+      danger: true,
+      onConfirm: async () => {
     setBusy(true); setDeletingBatch(upload.id); setError(''); setMessage('');
     try {
       const batchQuery = upload.tracked
@@ -179,6 +191,9 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       setMessage(deleted + ' questions from "' + upload.name + '" deleted together. No other upload or site content was changed.');
     } catch(e) { setError(errorText(e)); }
     finally { setBusy(false); setDeletingBatch(''); }
+      },
+    });
+    return;
   };
   // Delete ALL questions currently listed (subject + exam category as shown).
   // This is the escape hatch for older imports that carry no importBatchId or
@@ -194,7 +209,11 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       return;
     }
     const scopeLabel = subject + (category !== 'all' ? ' · ' + category : '');
-    if (!window.confirm('Permanently delete ALL ' + targets.length + ' listed questions (' + scopeLabel + ')? This is the complete-file delete and cannot be undone. Other subjects and site content will not change.')) return;
+    requestConfirm({
+      message: 'Permanently delete ALL ' + targets.length + ' listed questions (' + scopeLabel + ')? This is the complete-file delete and cannot be undone. Other subjects and site content will not change.',
+      confirmLabel: 'Delete all',
+      danger: true,
+      onConfirm: async () => {
     setBusy(true); setDeletingAll(true);
     try {
       let deleted = 0;
@@ -211,24 +230,36 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       setMessage(deleted + ' questions (' + scopeLabel + ') deleted together. No other subject or site content was changed.');
     } catch (e) { setError(errorText(e)); }
     finally { setBusy(false); setDeletingAll(false); }
+      },
+    });
+    return;
   };
   const remove = async q => {
     if (busy || !adminPanelAccess(user)) return;
-    if (!window.confirm('Permanently delete this question from '+q.subject+' '+categoryOf(q)+'? Students’ past answer for this question will no longer appear. This cannot be undone.')) return;
+    requestConfirm({
+      message: 'Permanently delete this question from '+q.subject+' '+categoryOf(q)+'? Students’ past answer for this question will no longer appear. This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
     setBusy(true);setError('');setMessage('');
     try { await deleteDoc(doc(db,...PATH,q.id)); if(selected?.id===q.id){setSelected(null);setDraft(null);}
       try { await refreshExamCatalogCounts([q.subject]); }
       catch (_) {}
       setMessage('Question deleted. All other published questions and resources remain unchanged.');
     } catch(e){setError(errorText(e));}finally{setBusy(false);}
+      },
+    });
   };
   const toggleActive = async q => {
     if (busy || !adminPanelAccess(user)) return;
     const next = q.isActive === false ? true : false;
     const action = next ? 'activate' : 'disable';
-    if (!window.confirm(action === 'disable'
-      ? 'Disable this question? It will be hidden from students but can be re-enabled anytime.'
-      : 'Activate this question? It will be visible to students again.')) return;
+    requestConfirm({
+      message: action === 'disable'
+        ? 'Disable this question? It will be hidden from students but can be re-enabled anytime.'
+        : 'Activate this question? It will be visible to students again.',
+      confirmLabel: action === 'disable' ? 'Disable' : 'Activate',
+      onConfirm: async () => {
     setBusy(true); setError(''); setMessage('');
     try {
       await updateDoc(doc(db,...PATH,q.id), { isActive: next, updatedAt: serverTimestamp() });
@@ -236,6 +267,8 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       catch (_) {}
       setMessage(next ? 'Question activated.' : 'Question disabled. It is now hidden from students.');
     } catch(e){setError(errorText(e));}finally{setBusy(false);}
+      },
+    });
   };
   const toggleBatchActive = async upload => {
     if (busy || loading || !adminPanelAccess(user) || !upload?.id) return;
@@ -244,9 +277,12 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     const disabledCount = batchRecords.filter(q => q.isActive === false).length;
     const next = disabledCount > batchRecords.length / 2 ? true : false;
     const action = next ? 'activate' : 'disable';
-    if (!window.confirm(action === 'disable'
-      ? 'Disable ALL ' + batchRecords.length + ' questions from "' + upload.name + '"? They will be hidden from students but can be re-enabled anytime.'
-      : 'Activate ALL ' + batchRecords.length + ' questions from "' + upload.name + '"? They will be visible to students again.')) return;
+    requestConfirm({
+      message: action === 'disable'
+        ? 'Disable ALL ' + batchRecords.length + ' questions from "' + upload.name + '"? They will be hidden from students but can be re-enabled anytime.'
+        : 'Activate ALL ' + batchRecords.length + ' questions from "' + upload.name + '"? They will be visible to students again.',
+      confirmLabel: action === 'disable' ? 'Disable all' : 'Activate all',
+      onConfirm: async () => {
     setBusy(true); setError(''); setMessage('');
     try {
       const batchQuery = upload.tracked
@@ -265,6 +301,9 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       catch (_) {}
       setMessage(updated + ' questions from "' + upload.name + '" ' + (next ? 'activated.' : 'disabled.'));
     } catch(e){setError(errorText(e));}finally{setBusy(false);}
+      },
+    });
+    return;
   };
   return <section className="edx-exam-card edx-exam-form edx-admin-mcqs" aria-label="Manage published MCQs">
     <div className="edx-exam-between"><div><h3>Manage published questions</h3>
@@ -355,5 +394,6 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         <small>A NEW source is required when changing the question, options or answer. If you only edit its category or notes, a previously verified source remains attached. AI alone cannot verify an answer key.</small></label>
       <button type="submit" className="edx-exam-primary" disabled={busy}>{busy?'Saving…':'Save question changes'}</button>
     </form>}
-  </section>;
+      <ConfirmUI />
+    </section>;
 }

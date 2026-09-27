@@ -8,6 +8,7 @@ import './academic-hub-v2.css';
 import { reviewQualityMessage } from './reviewQuality';
 import { trustedPreviewUrl, previewSandbox } from './academic-preview.mjs';
 import { routeParamsFromPath } from './app-routes.mjs';
+import { useConfirm } from './ConfirmDialog';
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 
 const BASE = ['artifacts', 'edunexus-live', 'public', 'data'];
@@ -233,6 +234,7 @@ function FileReviews({ file, user, isAdmin }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [reported, setReported] = useState({});
+  const { requestConfirm, ConfirmUI } = useConfirm();
   const [reportResults, setReportResults] = useState({});
   const admin = reviewIsAdmin(user, isAdmin);
 
@@ -307,11 +309,18 @@ function FileReviews({ file, user, isAdmin }) {
     finally { setBusy(false); }
   };
   const remove = async (item) => {
-    if (!admin || !window.confirm('Permanently delete this resource review?')) return;
-    setBusy(true); setStatus('');
-    try { await deleteDoc(reviewDoc(file.id, item.id)); const summaryOk = await refreshFileRatingSummary(file.id); setStatus('Review deleted.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } })); }
-    catch (_) { setStatus('Review deletion failed.'); }
-    finally { setBusy(false); }
+    if (!admin) return;
+    requestConfirm({
+      message: 'Permanently delete this resource review?',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setBusy(true); setStatus('');
+        try { await deleteDoc(reviewDoc(file.id, item.id)); const summaryOk = await refreshFileRatingSummary(file.id); setStatus('Review deleted.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } })); }
+        catch (_) { setStatus('Review deletion failed.'); }
+        finally { setBusy(false); }
+      },
+    });
   };
   const reportReview = async (review) => {
     if (!user?.uid || review.id === user.uid || busy || reported[review.id]) return;
@@ -354,6 +363,7 @@ function FileReviews({ file, user, isAdmin }) {
     {user?.uid ? (mine ? null :
       <form className="ah-review-form" onSubmit={publish}><h4>Share your experience</h4><label>Rating<select value={rating} onChange={(e) => setRating(Number(e.target.value))}><option value={5}>5 — Excellent</option><option value={4}>4 — Helpful</option><option value={3}>3 — Average</option><option value={2}>2 — Needs improvement</option><option value={1}>1 — Not helpful</option></select></label><label>Written review<textarea required minLength={20} maxLength={50000} rows={5} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Write your own detailed review of this file…" /></label><p className="ah-note">Up to 50,000 characters. Reviews publish automatically. Please share genuine feedback, without personal data or active exam content.</p><button type="submit" className="ah-primary" disabled={busy || comment.trim().length < 20 || comment.trim().length > 50000}>{busy ? 'Publishing…' : 'Publish review'}</button></form>) : <p className="ah-note">Sign in to leave a review.</p>}
     {admin && pending.length > 0 && <div className="ah-review-queue"><h4><ShieldCheck size={17} /> Earlier unpublished reviews ({pending.length})</h4>{pending.map((r) => <article key={r.id} className="ah-review"><strong>{r.rating} / 5 · Student review</strong><p>{String(r.comment || '')}</p><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy} onClick={() => moderate(r)}>Publish earlier review</button><button type="button" className="ah-delete" disabled={busy} onClick={() => remove(r)}>Delete</button></div></article>)}</div>}
+    <ConfirmUI />
   </section>;
 }
 
@@ -452,6 +462,7 @@ const guidance = [
 ];
 
 export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
+  const { requestConfirm, ConfirmUI } = useConfirm();
   const [latest, setLatest] = useState([]);
   const [older, setOlder] = useState([]);
   const [subjectFiles, setSubjectFiles] = useState([]);
@@ -565,14 +576,21 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     finally { setLoadingMore(false); }
   };
   const del = async (file) => {
-    if (!isAdmin || !window.confirm('Delete this file record from the Academic Hub?')) return;
-    try {
-      await deleteDoc(doc(FILES, file.id));
-      setOlder((prev) => prev.filter((f) => f.id !== file.id));
-      setLatest((prev) => prev.filter((f) => f.id !== file.id));
-      if (selectedId === file.id) setSelectedId('');
-      if (showToast) showToast('File record deleted.', 'info');
-    } catch (_) { if (showToast) showToast('File deletion failed.', 'error'); }
+    if (!isAdmin) return;
+    requestConfirm({
+      message: 'Delete this file record from the Academic Hub?',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(FILES, file.id));
+          setOlder((prev) => prev.filter((f) => f.id !== file.id));
+          setLatest((prev) => prev.filter((f) => f.id !== file.id));
+          if (selectedId === file.id) setSelectedId('');
+          if (showToast) showToast('File record deleted.', 'info');
+        } catch (_) { if (showToast) showToast('File deletion failed.', 'error'); }
+      },
+    });
   };
   const download = (event, file, links) => {
     if (!links.source) { event.preventDefault(); return; }
@@ -610,5 +628,6 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
 
     <section className="ah-outro"><div><span className="ah-eyebrow">Continue your learning</span><h2>Your next step is one useful resource away</h2><p>Select a subject, open a resource, record the concepts you need to revise and practice explaining them in your own words. Return to this hub for more files or use the existing exam-preparation tools for additional practice.</p></div><a href="/?page=exam-prep">Go to Exam Prep <ArrowRight size={17} /></a></section>
     <p className="ah-disclaimer">EduNexus is an independent student resource platform, not an official Virtual University service. Materials and student opinions may be incomplete or outdated; verify current course requirements with your institution. External file hosts control access and final download behavior.</p>
+    <ConfirmUI />
   </div>;
 }

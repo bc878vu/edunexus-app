@@ -7,6 +7,7 @@ import { categoryOf, quizSetOf } from './examMcqImport';
 import { explanationForStudent, explanationPrompt, plainFeedback } from './examAnswerFeedback';
 import { CATEGORY_NAMES, answerKeyStats, attemptMessage, buildPracticeAttempt, canAdvance, isVerifiedAnswer, orderedQuestions, progressKey, QUESTION_LIMIT, recordAnswer, restoreAttemptIds, sanitizeProgress } from './examPractice';
 import RichContent from './RichContent';
+import { useConfirm } from './ConfirmDialog';
 import './exam-mcq-practice.css';
 
 const MCQS = ['artifacts', 'edunexus-live', 'public', 'data', 'examMcqs'];
@@ -62,26 +63,33 @@ function AdminAnswerReview({ question, onUpdated }) {
   const [source, setSource] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const { requestConfirm, ConfirmUI } = useConfirm();
   useEffect(() => { setAnswer(question.answer); setSource(''); setMessage(''); }, [question.id, question.answer]);
   const save = async (event) => {
     event.preventDefault();
     if (busy) return;
     if (source.trim().length < 12) { setMessage('Describe the trusted handout, answer key or reasoning used to verify this answer (at least 12 characters).'); return; }
-    if (!window.confirm('Publish the reviewed option and use it for future score calculations?')) return;
-    setBusy(true); setMessage('');
-    try {
-      const marker = '[EduNexus admin verified]';
-      let explanation = String(question.explanation || '');
-      if (!explanation.includes(marker)) explanation = (explanation + ' ' + marker).trim();
-      const note = ' Admin review source: ' + source.trim();
-      if (explanation.length + note.length > 1000) throw new Error('Verification note exceeds the Firestore explanation length limit. Shorten the source reference.');
-      explanation += note;
-      await updateDoc(doc(db, ...MCQS, question.id), { answer: Number(answer), explanation });
-      onUpdated({ ...question, answer: Number(answer), explanation });
-      setMessage('Admin review saved. This answer can now contribute to scores.');
-      setSource('');
-    } catch (error) { setMessage(error?.message || 'Could not save the reviewed answer.'); }
-    finally { setBusy(false); }
+    requestConfirm({
+      message: 'Publish the reviewed option and use it for future score calculations?',
+      confirmLabel: 'Publish',
+      onConfirm: async () => {
+        setBusy(true); setMessage('');
+        try {
+          const marker = '[EduNexus admin verified]';
+          let explanation = String(question.explanation || '');
+          if (!explanation.includes(marker)) explanation = (explanation + ' ' + marker).trim();
+          const note = ' Admin review source: ' + source.trim();
+          if (explanation.length + note.length > 1000) throw new Error('Verification note exceeds the Firestore explanation length limit. Shorten the source reference.');
+          explanation += note;
+          await updateDoc(doc(db, ...MCQS, question.id), { answer: Number(answer), explanation });
+          onUpdated({ ...question, answer: Number(answer), explanation });
+          setMessage('Admin review saved. This answer can now contribute to scores.');
+          setSource('');
+        } catch (error) { setMessage(error?.message || 'Could not save the reviewed answer.'); }
+        finally { setBusy(false); }
+      },
+    });
+    return;
   };
   return <details className="edx-practice-admin"><summary><ShieldCheck size={16}/> Administrator · verify or correct this answer</summary>
     <form onSubmit={save}><p>Check the original course handout or reliable answer key. AI output alone is not verification. Other users' existing selections will remain unchanged.</p>
@@ -90,10 +98,12 @@ function AdminAnswerReview({ question, onUpdated }) {
       <button className="edx-exam-primary" disabled={busy}>{busy ? 'Saving…' : 'Save reviewed answer'}</button>
       {message && <p role="status">{message}</p>}
     </form>
+    <ConfirmUI />
   </details>;
 }
 
 export default function ExamMcqPractice({ user, subject, term, onSubjectChange, onTermChange, categoryCounts = {}, subjects = [] }) {
+  const { requestConfirm, ConfirmUI } = useConfirm();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -297,8 +307,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   };
   const startConfiguredAttempt = (resetOnly = false) => {
     if (!questions.length || loading || restoring) return;
-    if ((stats.answered || finished) &&
-      !window.confirm('Start a new attempt? Your saved choices for this subject and quiz set will be replaced.')) return;
+    const doStart = () => {
     const mode = resetOnly ? attemptMode : desiredMode;
     const count = resetOnly ? attemptLimit : desiredCount === 'all' ? 'all' : Math.max(1, Math.min(questions.length, Number(desiredCount === 'custom' ? customCount : desiredCount) || 1));
     const ids = buildPracticeAttempt(questions, count, mode);
@@ -311,6 +320,16 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     setAnswers({}); setFinished(false); setAi({ id:null, busy:false, answer:'', error:'' }); setSearch('');
     setCurrentId(ids[0] || null);
     save({}, ids[0] || null, false, { ids, mode, count });
+    };
+    if (stats.answered || finished) {
+      requestConfirm({
+        message: 'Start a new attempt? Your saved choices for this subject and quiz set will be replaced.',
+        confirmLabel: 'Start new',
+        onConfirm: doStart,
+      });
+      return;
+    }
+    doStart();
   };
   const restart = () => startConfiguredAttempt(true);
   const askAI = async (selectedOption = null) => {
@@ -422,5 +441,6 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
           <button type="button" className="edx-exam-secondary" onClick={restart}><RotateCcw size={15}/> Start a new attempt</button></div>
       </div>}
     <p className="edx-practice-privacy"><ShieldCheck size={15}/> Progress is saved per subject and exam type to this browser and, when signed in, to your private Firebase user record. IP addresses are not used: they can change or be shared by different students. To resume on a different device, use the same Firebase account.</p>
+    <ConfirmUI />
   </section>;
 }
