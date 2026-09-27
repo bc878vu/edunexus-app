@@ -425,8 +425,10 @@ function FileCardRating({ fileId, ratingAverage, ratingCount }) {
     return () => { active = false; window.removeEventListener('edunexus:file-review-changed', onReviewChange); document.removeEventListener('visibilitychange', onVisible); };
   }, [fileId, ratingAverage, ratingCount]);
   if (score === null) return null;
-  return <span className="ah-card-rating" aria-label={'Average student rating ' + score.toFixed(1) + ' out of 5'}>
-    <Star size={15} fill="currentColor" aria-hidden="true" /><span>{score.toFixed(1)}</span>
+  const fullStars = Math.max(0, Math.min(5, Math.round(score)));
+  const countLabel = Number(ratingCount) > 0 ? ' (' + Number(ratingCount) + ')' : '';
+  return <span className="ah-card-rating" aria-label={'Average student rating ' + score.toFixed(1) + ' out of 5 stars' + (countLabel ? ', based on' + countLabel + ' reviews' : '')}>
+    <span className="ah-card-stars" aria-hidden="true">{'★'.repeat(fullStars)}{'☆'.repeat(5 - fullStars)}</span><span>{score.toFixed(1)}{countLabel}</span>
   </span>;
 }
 
