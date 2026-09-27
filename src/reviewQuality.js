@@ -4,10 +4,15 @@
 const LINK = /(?:https?:\/\/|www\.)\S+/i;
 const EMAIL = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const REPEATED = /(.)\1{24,}/;
+export function countWords(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return 0;
+  return text.split(/\s+/).filter(Boolean).length;
+}
 export function reviewQualityMessage(raw) {
   const text=String(raw||'').trim();
-  if(text.length<20)return 'Please write at least 20 characters describing your experience with the file.';
-  if(text.length>50000)return 'Review exceeds the 50,000-character limit.';
+  if(!text)return 'Please write your review before publishing.';
+  if(countWords(text)>50)return 'Please keep your review to 50 words or fewer.';
   if(LINK.test(text)||EMAIL.test(text))return 'Do not include URLs or email addresses in a public file review.';
   if(REPEATED.test(text))return 'Please remove repeated filler characters and submit a meaningful review.';
   return '';
