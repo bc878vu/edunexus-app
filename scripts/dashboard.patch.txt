@@ -121,6 +121,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
 
   return (
     <div className="animate-fade-in pb-10">
+      <PinnedAd />
       <section className="relative overflow-hidden rounded-[2rem] border border-indigo-200/60 dark:border-indigo-900/60 bg-slate-950 text-white shadow-2xl">
         <div className="absolute inset-0 opacity-50 pointer-events-none"><div className="absolute -top-24 -right-20 h-72 w-72 rounded-full bg-indigo-500/30 blur-3xl animate-pulse" /><div className="absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-violet-500/25 blur-3xl" /><div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.045)_1px,transparent_1px)] bg-[size:36px_36px]" /></div>
         <div className="relative grid lg:grid-cols-[1.3fr_.7fr] gap-8 p-6 sm:p-8 lg:p-10">
