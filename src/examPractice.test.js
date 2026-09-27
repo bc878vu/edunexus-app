@@ -65,6 +65,15 @@ test('random and sequence attempts remove duplicate question wording even when s
   expect(randomIds).toHaveLength(3);
   expect(new Set(randomIds).size).toBe(3);
 });
+test('questions with identical wording but different options are all kept in play', () => {
+  const source = [
+    {...make('a','Key'),question:'What is 2+2?',options:['3','4','5','6']},
+    {...make('b','Key'),question:'What is 2+2?',options:['4','5','6','7']},
+    {...make('c','Key'),question:'What is 2+2?',options:['3','4','5','6']}
+  ];
+  expect(buildPracticeAttempt(source,'all','sequence')).toEqual(['a','b']);
+  expect(restoreAttemptIds({attemptIds:['a','b','c'],answers:{}},source)).toEqual(['a','b']);
+});
 
 test('restoring a random saved attempt preserves exactly the same IDs, order and previous answers', () => {
   const source=['a','b','c','d','e'].map(id=>make(id,'Original uploaded answer'));

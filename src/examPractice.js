@@ -83,11 +83,20 @@ export function answerKeyStats(questions, answers) {
     sourceUnreviewed: answered.filter(q => !isVerifiedAnswer(q)).length
   };
 }
+const normalizeDedupText = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, '').trim();
+// Dedup key covers the stem AND all options: two records are the same
+// question only when both match. A stem-only key silently dropped real
+// questions whose wording normalized identically but whose options differed
+// (e.g. CS401's bank showed 647 while play offered 626).
+const dedupKey = (q) => {
+  const opts = Array.isArray(q?.options) ? q.options : ['A', 'B', 'C', 'D'].map((k) => q?.options?.[k]);
+  return normalizeDedupText(q?.question) + '|' + opts.map(normalizeDedupText).join('|');
+};
 export function buildPracticeAttempt(questions, count = 'all', mode = 'sequence', random = Math.random) {
   const seen = new Set();
   const unique = questions.filter(q => {
     if (typeof q?.id !== 'string') return false;
-    const key = String(q.question || '').toLowerCase().replace(/\s+/g,' ').replace(/[^a-z0-9 ]/g,'').trim();
+    const key = dedupKey(q);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -109,7 +118,7 @@ export function restoreAttemptIds(record, questions) {
   const byId = new Map(questions.map(q=>[q.id,q]));
   const seenQuestions = new Set();
   return [...new Set(saved.filter(id => typeof id === 'string' && available.has(id)))].filter(id => {
-    const key = String(byId.get(id)?.question || '').toLowerCase().replace(/\s+/g,' ').replace(/[^a-z0-9 ]/g,'').trim();
+    const key = dedupKey(byId.get(id));
     if (seenQuestions.has(key)) return false;
     seenQuestions.add(key);
     return true;
