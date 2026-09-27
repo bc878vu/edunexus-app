@@ -657,3 +657,4 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     <ConfirmUI />
   </div>;
 }
+
