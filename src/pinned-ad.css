@@ -1,0 +1,118 @@
+/* PinnedAd — pinned video announcement on the main dashboard.
+   Distinct but not intrusive; matches the EduNexus indigo theme. */
+
+.edx-pinned-ad {
+  margin: 0 0 1.5rem;
+}
+
+.edx-pinned-ad-inner {
+  position: relative;
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  border-radius: 1.25rem;
+  background: linear-gradient(145deg, #eef2ff, #f8faff);
+  box-shadow: 0 8px 28px rgba(79, 70, 229, 0.12);
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.dark .edx-pinned-ad-inner,
+.edx-exam-dark .edx-pinned-ad-inner {
+  background: linear-gradient(145deg, #1e1b4b, #172554);
+  border-color: rgba(129, 140, 248, 0.35);
+}
+
+.edx-pinned-ad-badge {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+}
+
+.edx-pinned-ad-dismiss {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 2;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 9999px;
+  border: none;
+  background: rgba(15, 23, 42, 0.55);
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edx-pinned-ad-dismiss:hover {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.edx-pinned-ad-video-wrap {
+  border-radius: 0.9rem;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.edx-pinned-ad-video {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  background: #0f172a;
+}
+
+.edx-pinned-ad-text {
+  padding: 0.85rem 0.25rem 0.15rem;
+}
+
+.edx-pinned-ad-title {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+
+.dark .edx-pinned-ad-title,
+.edx-exam-dark .edx-pinned-ad-title {
+  color: #e0e7ff;
+}
+
+.edx-pinned-ad-desc {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.dark .edx-pinned-ad-desc,
+.edx-exam-dark .edx-pinned-ad-desc {
+  color: #cbd5e1;
+}
+
+@media (max-width: 640px) {
+  .edx-pinned-ad-video {
+    max-height: 260px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edx-pinned-ad-inner {
+    box-shadow: none;
+  }
+}

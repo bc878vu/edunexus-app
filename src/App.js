@@ -5,9 +5,11 @@ import ArticleComments, { useCommentCount } from './ArticleComments';
 import ArticlesPage from './ArticlesPage';
 import DashboardFAQ from './DashboardFAQ';
 import AdSlot from './AdSlot';
+import PinnedAd from './PinnedAd';
 import { enforceSingleDashboardQueryForm, restoreDashboardQueryCards } from './dashboard-query-singleton.mjs';
 // Initialize shared Firebase/Firestore before legacy modules request the instance.
 import './firebase-client';
+import { useConfirm } from './ConfirmDialog';
 import './admin-academic-upload.css';
 import './portfolio.css';
 import {
@@ -88,6 +90,7 @@ import {
   Pause,
   Video,
   Reply,
+  Pin,
 } from "lucide-react";
 
 
@@ -119,6 +122,7 @@ const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 const AdminAcademicReviews = React.lazy(() => import('./AdminAcademicReviews'));
 const AdminContentManager = React.lazy(() => import('./AdminContentManager'));
+const AdminPinnedAds = React.lazy(() => import('./AdminPinnedAds'));
 const EduBotAssistant = React.lazy(() => import('./EduBotAssistant'));
 const ContentHub = React.lazy(() => import('./ContentHub'));
 const TutorialHub = React.lazy(() => import('./TutorialHub'));
@@ -727,6 +731,7 @@ const Forum = ({ user, theme, showToast }) => {
 
 // ================= AcademicHub (user side) =================
 const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
+  const { requestConfirm, ConfirmUI } = useConfirm();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentSubject, setCurrentSubject] = useState("");
@@ -855,26 +860,33 @@ const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
 
   const handleDelete = async (fileId) => {
     if (!isAdmin) return;
-    if (!window.confirm("Delete this file?")) return;
-    try {
-      const ref = doc(
-        db,
-        "artifacts",
-        appId,
-        "public",
-        "data",
-        "files",
-        fileId
-      );
-      await deleteDoc(ref);
-      showToast && showToast("File deleted", "info");
-    } catch (e) {
-      console.error(e);
-      showToast && showToast("Delete failed", "error");
-    }
+    requestConfirm({
+      message: "Delete this file?",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          const ref = doc(
+            db,
+            "artifacts",
+            appId,
+            "public",
+            "data",
+            "files",
+            fileId
+          );
+          await deleteDoc(ref);
+          showToast && showToast("File deleted", "info");
+        } catch (e) {
+          console.error(e);
+          showToast && showToast("Delete failed", "error");
+        }
+      },
+    });
   };
 
   return (
+    <>
     <section>
       <h1 className={`text-3xl font-extrabold mb-4 ${theme.text}`}>
         Academic Hub
@@ -987,6 +999,8 @@ const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
       )}
 
     </section>
+    <ConfirmUI />
+    </>
   );
 };
 const FileItem = ({ file, theme, isAdmin, onDelete }) => {
@@ -2036,6 +2050,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
 
   return (
     <div className="animate-fade-in pb-10">
+      <PinnedAd />
       <section className="relative overflow-hidden rounded-[2rem] border border-indigo-200/60 dark:border-indigo-900/60 bg-slate-950 text-white shadow-2xl">
         <div className="absolute inset-0 opacity-50 pointer-events-none"><div className="absolute -top-24 -right-20 h-72 w-72 rounded-full bg-indigo-500/30 blur-3xl animate-pulse" /><div className="absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-violet-500/25 blur-3xl" /><div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.045)_1px,transparent_1px)] bg-[size:36px_36px]" /></div>
         <div className="relative grid lg:grid-cols-[1.3fr_.7fr] gap-8 p-6 sm:p-8 lg:p-10">
@@ -2098,6 +2113,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
 // 14. Floating AI Chat (Updated: Draggable & Resizable)
 // 15. ADMIN PANEL
 const AcademicTab = ({ theme, user, showToast }) => {
+  const { requestConfirm, ConfirmUI } = useConfirm();
   const [uName, setUName] = useState("");
   const [linkSaving, setLinkSaving] = useState(false);
   const [fileSearch, setFileSearch] = useState('');
@@ -2235,26 +2251,37 @@ const AcademicTab = ({ theme, user, showToast }) => {
   const toggleFileActive = async (file) => {
     const next = file.isActive === false ? true : false;
     const action = next ? 'activate' : 'disable';
-    if (!window.confirm(next
-      ? 'Activate "' + String(file.name || 'resource') + '"? It will be visible to students again.'
-      : 'Disable "' + String(file.name || 'resource') + '"? It will be hidden from students but can be re-enabled anytime.')) return;
-    try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id), {
-        isActive: next, updatedAt: serverTimestamp()
-      });
-      showToast(next ? 'Resource activated.' : 'Resource disabled. Hidden from students.', 'success');
-    } catch (_) {
-      showToast('Could not ' + action + ' this resource.', 'error');
-    }
+    requestConfirm({
+      message: next
+        ? 'Activate "' + String(file.name || 'resource') + '"? It will be visible to students again.'
+        : 'Disable "' + String(file.name || 'resource') + '"? It will be hidden from students but can be re-enabled anytime.',
+      confirmLabel: next ? 'Activate' : 'Disable',
+      onConfirm: async () => {
+        try {
+          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id), {
+            isActive: next, updatedAt: serverTimestamp()
+          });
+          showToast(next ? 'Resource activated.' : 'Resource disabled. Hidden from students.', 'success');
+        } catch (_) {
+          showToast('Could not ' + action + ' this resource.', 'error');
+        }
+      },
+    });
   };
   const removeFileRecord = async (file) => {
-    if (!window.confirm('Remove "' + String(file.name || 'resource') + '" from the Academic Hub? The original file on its external host will not be deleted.')) return;
-    try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id));
-      showToast('Resource listing removed. Original file retained.', 'success');
-    } catch (_) {
-      showToast('Could not remove this resource listing.', 'error');
-    }
+    requestConfirm({
+      message: 'Remove "' + String(file.name || 'resource') + '" from the Academic Hub? The original file on its external host will not be deleted.',
+      confirmLabel: 'Remove',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id));
+          showToast('Resource listing removed. Original file retained.', 'success');
+        } catch (_) {
+          showToast('Could not remove this resource listing.', 'error');
+        }
+      },
+    });
   };
 
   const handleAddFolder = async () => {
@@ -2295,15 +2322,20 @@ const AcademicTab = ({ theme, user, showToast }) => {
       return;
     }
     const filesInFolder = files.filter(f => f.subject === name).length;
-    if (!window.confirm('Delete folder "' + name + '"' + (filesInFolder > 0 ? ' containing ' + filesInFolder + ' file(s)' : '') + '? The files inside will become orphaned (hidden from folders but still in database). This cannot be undone.')) return;
-    const updated = subjects.filter((s) => s !== name);
-    setSubjects(updated);
-    await saveFoldersToDb(updated);
-    showToast("Folder deleted", "success");
-
-    if (selSubject === name) {
-      setSelSubject("General");
-    }
+    requestConfirm({
+      message: 'Delete folder "' + name + '"' + (filesInFolder > 0 ? ' containing ' + filesInFolder + ' file(s)' : '') + '? The files inside will become orphaned (hidden from folders but still in database). This cannot be undone.',
+      confirmLabel: 'Delete folder',
+      danger: true,
+      onConfirm: async () => {
+        const updated = subjects.filter((s) => s !== name);
+        setSubjects(updated);
+        await saveFoldersToDb(updated);
+        showToast("Folder deleted", "success");
+        if (selSubject === name) {
+          setSelSubject("General");
+        }
+      },
+    });
   };
 
   return (
@@ -2490,6 +2522,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
           Load more files ({visibleFiles.length - fileVisible} remaining)
         </button>}
       </section>
+      <ConfirmUI />
     </div>
   );
 };
@@ -2498,7 +2531,9 @@ const AcademicTab = ({ theme, user, showToast }) => {
 
 
 
+
 const AdminPanel = ({ theme, user, showToast, isDark = false }) => { 
+  const { requestConfirm, ConfirmUI } = useConfirm();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [feedbacks, setFeedbacks] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
@@ -2564,7 +2599,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               {isUnread && <span className="absolute top-3 left-3 w-2 h-2 rounded-full bg-indigo-500" title="Unread"/>}
               <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 {mEmail && <a href={`mailto:${mEmail}?subject=${replySubject}&body=${replyBody}`} title="Reply via email" className="p-1.5 bg-green-100 text-green-600 rounded hover:bg-green-200"><Reply size={14}/></a>}
-                <button onClick={(e)=>{ e.stopPropagation(); if(window.confirm('Delete this message?')) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id)); }} title="Delete" className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
+                <button onClick={(e)=>{ e.stopPropagation(); requestConfirm({ message: 'Delete this message?', confirmLabel: 'Delete', danger: true, onConfirm: () => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id)) }); }} title="Delete" className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
               </div>
               <p className={`text-xs font-bold ${theme.text} pr-16 ${isUnread ? 'pl-4' : ''}`}>{String(mName)} {mEmail && <a href={`mailto:${mEmail}`} className="text-indigo-500 hover:underline">&lt;{String(mEmail)}&gt;</a>}</p>
               {mDate && <p className={`text-[10px] ${theme.textMuted} ${isUnread ? 'pl-4' : ''}`}>{mDate}</p>}
@@ -2651,10 +2686,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     };
 
     const handleLoadDefaults = async () => {
-      if (highlights.length > 0) {
-        if (!window.confirm("You already have highlights. Add duplicates?")) return;
-      }
-      
+      const doLoad = async () => {
       const defaults = [
         {
           title: "Mid-Term Datesheet Released",
@@ -2698,6 +2730,16 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
         console.error("Error adding defaults: ", error);
         showToast("Failed to add defaults", "error");
       }
+      };
+      if (highlights.length > 0) {
+        requestConfirm({
+          message: "You already have highlights. Add duplicates?",
+          confirmLabel: "Add duplicates",
+          onConfirm: doLoad,
+        });
+        return;
+      }
+      doLoad();
     };
 
     const handleEditStart = (item) => {
@@ -2718,10 +2760,15 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     };
 
     const handleDeleteHighlight = async (id) => {
-        if (window.confirm("Delete this highlight?")) {
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', id));
-            showToast("Highlight Deleted", "success");
-        }
+        requestConfirm({
+            message: "Delete this highlight?",
+            confirmLabel: "Delete",
+            danger: true,
+            onConfirm: async () => {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', id));
+                showToast("Highlight Deleted", "success");
+            },
+        });
     };
 
     return (
@@ -3087,11 +3134,13 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           </div>
         </div>
       )}
+      <ConfirmUI />
       </>
     );
   };
   // ADMIN PANEL – DISCUSSION MODERATION WITH REPLY ADD / EDIT / DELETE
 const ForumTab = ({ theme, showToast }) => {
+  const { requestConfirm, ConfirmUI } = useConfirm();
   const [posts, setPosts] = useState([]);
   const [editId, setEditId] = useState(null);     // jis post ka reply edit ho raha hai
   const [replyText, setReplyText] = useState(""); // current reply text
@@ -3121,32 +3170,43 @@ const ForumTab = ({ theme, showToast }) => {
 
   // Post delete (user ka message delete)
   const handleDeletePost = async (id) => {
-    if (!window.confirm("Delete this post?")) return;
-    try {
-      await deleteDoc(
-        doc(db, "artifacts", appId, "public", "data", "discussions", id)
-      );
-      showToast("Post deleted", "info");
-    } catch (e) {
-      console.error(e);
-      showToast("Failed to delete post", "error");
-    }
+    requestConfirm({
+      message: "Delete this post?",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(
+            doc(db, "artifacts", appId, "public", "data", "discussions", id)
+          );
+          showToast("Post deleted", "info");
+        } catch (e) {
+          console.error(e);
+          showToast("Failed to delete post", "error");
+        }
+      },
+    });
   };
 
   // Post hide/show toggle
   const handleToggleHidePost = async (post) => {
     const next = post.isActive === false ? true : false;
-    if (!window.confirm(next ? "Show this post to everyone again?" : "Hide this post from everyone? It can be shown again anytime.")) return;
-    try {
-      await updateDoc(
-        doc(db, "artifacts", appId, "public", "data", "discussions", post.id),
-        { isActive: next, updatedAt: serverTimestamp() }
-      );
-      showToast(next ? "Post is now visible" : "Post hidden", "success");
-    } catch (e) {
-      console.error(e);
-      showToast("Failed to update post", "error");
-    }
+    requestConfirm({
+      message: next ? "Show this post to everyone again?" : "Hide this post from everyone? It can be shown again anytime.",
+      confirmLabel: next ? "Show" : "Hide",
+      onConfirm: async () => {
+        try {
+          await updateDoc(
+            doc(db, "artifacts", appId, "public", "data", "discussions", post.id),
+            { isActive: next, updatedAt: serverTimestamp() }
+          );
+          showToast(next ? "Post is now visible" : "Post hidden", "success");
+        } catch (e) {
+          console.error(e);
+          showToast("Failed to update post", "error");
+        }
+      },
+    });
   };
 
   // Post pin/unpin toggle
@@ -3340,6 +3400,7 @@ const ForumTab = ({ theme, showToast }) => {
           </div>
         ))}
       </div>
+      <ConfirmUI />
     </div>
   );
 };
@@ -3349,6 +3410,7 @@ const ForumTab = ({ theme, showToast }) => {
 /// 15. Admin Panel – Profile / Portfolio Manager (FULL PROFILE)
 
 const ProfileTab = ({ theme, user, showToast }) => {
+  const { requestConfirm, ConfirmUI } = useConfirm();
   const [currUrl, setCurrUrl] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -3450,31 +3512,37 @@ const ProfileTab = ({ theme, user, showToast }) => {
   };
 
   const handleReset = async () => {
-    try {
-      // basically delete / reset profile
-      if (!window.confirm("Reset profile details? Existing projects, skills and experience will be preserved.")) return;
-      await setDoc(profileRef, {
-        picUrl: defaultUrl,
-        fullName: "",
-        title: "",
-        tagline: "",
-        contactEmail: user?.email || "",
-        contactPhone: "",
-        about: "",
-      }, { merge: true });
-      setCurrUrl("");
-      setFullName("");
-      setTitle("");
-      setTagline("");
-      setContactEmail(user?.email || "");
-      setContactPhone("");
-      setAbout("");
-      setNewUrl("");
-      showToast("Profile reset to default", "success");
-    } catch (e) {
-      console.error(e);
-      showToast("Reset failed", "error");
-    }
+    requestConfirm({
+      message: "Reset profile details? Existing projects, skills and experience will be preserved.",
+      confirmLabel: "Reset",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          // basically delete / reset profile
+          await setDoc(profileRef, {
+            picUrl: defaultUrl,
+            fullName: "",
+            title: "",
+            tagline: "",
+            contactEmail: user?.email || "",
+            contactPhone: "",
+            about: "",
+          }, { merge: true });
+          setCurrUrl("");
+          setFullName("");
+          setTitle("");
+          setTagline("");
+          setContactEmail(user?.email || "");
+          setContactPhone("");
+          setAbout("");
+          setNewUrl("");
+          showToast("Profile reset to default", "success");
+        } catch (e) {
+          console.error(e);
+          showToast("Reset failed", "error");
+        }
+      },
+    });
   };
 
   const displayName = user?.displayName || "EduNexus Admin";
@@ -3686,6 +3754,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
           </ul>
         </div>
       </div>
+      <ConfirmUI />
     </div>
   );
 };
@@ -3697,6 +3766,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'highlights', label: 'Highlights', icon: Megaphone },
+    { id: 'pinned-ads', label: 'Pinned Ads', icon: Pin },
     { id: 'academic', label: 'Academic', icon: Folder },
     { id: 'exam', label: 'Exam Prep', icon: GraduationCap },
     { id: 'blog', label: 'Blog', icon: FileText },
@@ -3720,6 +3790,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
       <div className="animate-slide-up">
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'highlights' && <HighlightsTab />}
+        {activeTab === 'pinned-ads' && <React.Suspense fallback={<p>Loading pinned ads…</p>}><AdminPinnedAds showToast={showToast} /></React.Suspense>}
         {activeTab === 'academic' && <><AcademicTab theme={theme} user={user} showToast={showToast} /><React.Suspense fallback={<p>Loading file review management…</p>}><AdminAcademicReviews user={user} /></React.Suspense></>}
         {activeTab === 'exam' && <React.Suspense fallback={<p>Loading Exam Prep management…</p>}><ExamPrepHub user={user} initialTab="admin" adminWorkspace isDark={isDark} /></React.Suspense>}
         {activeTab === 'blog' && <BlogTab />}
