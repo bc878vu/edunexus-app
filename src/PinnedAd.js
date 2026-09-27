@@ -4,6 +4,8 @@ import { Pin } from "lucide-react";
 import { db } from "./firebase-client";
 import "./pinned-ad.css";
 
+// PinnedAd v1.0.1 — dashboard video announcement (redeploy trigger)
+
 const PINNED_ADS = collection(db, "artifacts/edunexus-live/public/data/pinned_ads");
 
 /**
