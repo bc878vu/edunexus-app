@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AboutUs, ContactUs, PrivacyPage, TermsPage } from './LegalContactPages';
 import RichContent from './RichContent';
-import ArticleComments, { useCommentCount } from './ArticleComments';
-import ArticlesPage from './ArticlesPage';
 import DashboardFAQ from './DashboardFAQ';
 import AdSlot from './AdSlot';
 import PinnedAd from './PinnedAd';
@@ -127,6 +125,7 @@ const AdminPinnedAds = React.lazy(() => import('./AdminPinnedAds'));
 const EduBotAssistant = React.lazy(() => import('./EduBotAssistant'));
 const ContentHub = React.lazy(() => import('./ContentHub'));
 const TutorialHub = React.lazy(() => import('./TutorialHub'));
+const ArticlesPage = React.lazy(() => import('./ArticlesPage'));
 
 // --- Configuration (YOUR KEYS) ---
 const firebaseConfig = {
@@ -2799,7 +2798,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                         <div>
                             <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Image (Optional)</label>
                             <input value={hImage} onChange={e=>setHImage(e.target.value)} placeholder="Image URL (https://...)" className={`w-full ${theme.input} p-3 rounded-lg`} />
-                            {hImage && <img src={hImage} alt="Preview" className="mt-2 h-20 w-full object-cover rounded-lg" />}
+                            {hImage && <img src={hImage} alt="Preview" loading="lazy" className="mt-2 h-20 w-full object-cover rounded-lg" />}
                         </div>
                         <div>
                             <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Video (Optional)</label>
@@ -3044,7 +3043,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               <input type="file" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
               <span className={`text-xs ${theme.textMuted} flex items-center justify-center gap-1`}><Upload size={12}/> Upload Image File (Max 1MB)</span>
             </div>
-            {imageUrl && <div className="mt-2 h-20 w-full overflow-hidden rounded-lg bg-slate-100"><img src={imageUrl} alt="Preview" className="h-full w-full object-cover opacity-80" /></div>}
+            {imageUrl && <div className="mt-2 h-20 w-full overflow-hidden rounded-lg bg-slate-100"><img src={imageUrl} alt="Preview" loading="lazy" className="h-full w-full object-cover opacity-80" /></div>}
           </div>
 
           <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Content <span className="font-normal">(rich text editor)</span></label>
@@ -5098,12 +5097,14 @@ useEffect(() => {
           />
         )}
         {page === 'articles' && (
-          <ArticlesPage
-            user={user}
-            isAdmin={adminAuthorized}
-            theme={theme}
-            showToast={showToast}
-          />
+          <React.Suspense fallback={<div role="status" className="py-8 text-sm text-slate-500">Loading articles…</div>}>
+            <ArticlesPage
+              user={user}
+              isAdmin={adminAuthorized}
+              theme={theme}
+              showToast={showToast}
+            />
+          </React.Suspense>
         )}
         {page === 'about' && <AboutUs theme={theme} />}
         {page === 'contact' && <ContactUs theme={theme} />}

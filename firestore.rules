@@ -1,3 +1,4 @@
+// EduNexus Firestore rules — console publish version 2026-09-28 (complete: article likes + paperName/paperPath/paperUrl admin update)
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
