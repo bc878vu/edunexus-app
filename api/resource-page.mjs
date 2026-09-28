@@ -64,6 +64,19 @@ function buildSchema({ name, subject, summary, canonical }) {
   };
   return JSON.stringify(schema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 }
+function compactSharedFallback(req, id) {
+  const raw = String(req.query?.p || '');
+  if (!raw || raw.length > 1200 || !/^[A-Za-z0-9_-]+$/.test(raw)) return null;
+  try {
+    const padded = raw.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - raw.length % 4) % 4);
+    const [nameRaw, subjectRaw, descRaw] = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+    const clean = (v, max) => String(v || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, max);
+    const name = clean(nameRaw, 180);
+    if (!name) return null;
+    return { id, name, title: name, subject: clean(subjectRaw, 120) || 'General',
+      description: clean(descRaw, 500), ext: 'Study file', isActive: true };
+  } catch (_) { return null; }
+}
 function sharedFallback(req, id) {
   if (String(req.query?.share || '') !== '1') return null;
   const clean = (v, max) => String(v || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, max);
@@ -106,14 +119,19 @@ export default async function handler(req, res) {
     }
   }
   try {
-    let file;
-    try { file = await getPublicFile(id); } catch (lookupError) {
-      file = sharedFallback(req, id);
-      if (!file) throw lookupError;
+    // Compact share links are self-contained. Decode them before any Firestore
+    // read so WhatsApp preview generation does not consume quota or fail on 503.
+    let file = compactSharedFallback(req, id);
+    const compactShare = Boolean(file);
+    if (!file) {
+      try { file = await getPublicFile(id); } catch (lookupError) {
+        file = sharedFallback(req, id);
+        if (!file) throw lookupError;
+      }
+      if (!file) file = sharedFallback(req, id);
     }
-    if (!file) file = sharedFallback(req, id);
     if (!file) return res.status(404).send('Resource not found');
-    if (String(req.query?.share || '') === '1') {
+    if (compactShare || String(req.query?.share || '') === '1') {
       const html = sharedPreviewHtml(req, file);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
