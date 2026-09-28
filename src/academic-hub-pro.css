@@ -63,3 +63,27 @@ body.ah-preview-open .edx-free-orb{display:none!important}
  .pdfjs-pageinput{width:46px!important;min-width:46px!important;height:36px!important;flex-basis:46px}
  .pdfjs-zoomlabel{min-width:42px!important}
 }
+
+/* Mobile-first PDF renderer: fill the available file window in either orientation. */
+.pdfjs-zoomlabel{border:0;background:transparent;cursor:pointer;padding:0 4px}
+@media(max-width:790px){
+ .ah-focus{padding:14px 10px!important;gap:10px}
+ .pdfjs-viewer{width:100%;height:calc(100svh - 210px);min-height:500px;max-height:820px}
+ .pdfjs-pagewrap{width:100%;min-width:0}
+ .pdfjs-toolbar{justify-content:center}
+}
+@media(max-width:790px) and (orientation:landscape){
+ .ah-root{max-width:none}
+ .ah-library{padding:10px}
+ .ah-focus{padding:8px!important;border-radius:14px}
+ .ah-focus>.ah-between{display:none}
+ .pdfjs-viewer{width:100%;height:calc(100svh - 92px);min-height:300px;max-height:none;border-radius:10px}
+ .pdfjs-toolbar{min-height:44px;padding:4px 8px!important;justify-content:center}
+ .pdfjs-btn{width:36px!important;min-width:36px!important;height:36px!important;flex-basis:36px}
+ .pdfjs-pageinput{height:36px!important}
+ .pdfjs-hint{font-size:.68rem;padding:3px 8px}
+ .pdfjs-pagewrap{padding:8px}
+}
+@media(min-width:791px){
+ .pdfjs-viewer{height:min(78vh,820px)}
+}
