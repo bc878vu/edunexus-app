@@ -53,10 +53,12 @@ const safeHttp = (raw) => {
 const nameOf = (f) => cut(f.name || f.title || 'Untitled resource', 170);
 // Every file link is a preview link: it opens the Academic Hub with the file's
 // preview panel directly, so shared links land on the preview.
-const filePreviewLink = (f) => '/?page=academic'
-  + '&subject=' + encodeURIComponent(f.subject || '')
-  + '&file=' + encodeURIComponent(f.id)
-  + '&panel=preview';
+const slugForPreview = (value) => String(value || 'study-resource').normalize('NFKD').toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'study-resource';
+// Canonical share/preview URL. Server-rendered resource pages carry each
+// file's own title, description and OG/Twitter metadata; when opened by a
+// person they provide a direct "Preview this file" route into the SPA.
+const filePreviewLink = (f) => '/vu-notes/file/' + encodeURIComponent(f.id) + '/' + slugForPreview(nameOf(f));
 const extOf = (f) => {
   const explicit = cut(f.ext, 10).replace(/[^a-z0-9]/gi, '').toUpperCase();
   if (explicit && explicit !== 'LINK') return explicit;
@@ -921,8 +923,7 @@ const ResourceCard = React.memo(function ResourceCard({ file, isAdmin, onDelete,
       <div className="ah-actions">
         <button type="button" className="ah-secondary" disabled={!links.source} onClick={() => onPreview(file)}><BookOpen size={16} /> Preview</button>
         <button type="button" className="ah-secondary" onClick={() => onReviews(file)}><Star size={16} /> Reviews</button>
-        <a className="ah-secondary" href={filePreviewLink(file)}><Link size={16} /> Preview link</a>
-        <button type="button" className="ah-secondary" onClick={() => copyPreviewLink(file, setCopied)}>{copied ? 'Copied!' : 'Copy link'}</button>
+        <button type="button" className="ah-secondary" onClick={() => copyPreviewLink(file, setCopied)} title="Copy preview link with this file's title and description"><Link size={16} /> {copied ? 'Copied!' : 'Copy link'}</button>
         {links.source ? <a className="ah-primary" href={links.download} download={links.direct ? safeFileName(file) : undefined} rel="noopener noreferrer" onClick={(e) => onDownload(e, file, links)}>{links.kind === "folder" || links.kind === "external-link" ? <ExternalLink size={16} /> : <Download size={16} />}{links.kind === "folder" ? "Open folder" : links.kind === "external-link" ? "Open resource" : "Download"}</a> : <span className="ah-muted">File link unavailable</span>}
         {isAdmin && <button type="button" className="ah-delete" onClick={() => onDelete(file)} aria-label={'Delete ' + title}>Delete</button>}
       </div>
