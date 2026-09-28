@@ -1,8 +1,9 @@
 import {
- ADMIN_EMAIL, ADMIN_LOGOUT_KEY, ADMIN_TAB_KEY,
+ ADMIN_EMAIL, ADMIN_LOGOUT_KEY, ADMIN_TAB_KEY, ADMIN_SESSION_KEY, ADMIN_SESSION_TIMEOUT_MS,
  adminLoginFinished, adminLoginStarted, isAdminLoginPending,
  adminPanelAccess, adminTabIsActive, broadcastAdminLogout,
- clearAdminTab, currentPageIsAdmin, grantAdminTab, verifiedAdmin
+ clearAdminTab, currentPageIsAdmin, grantAdminTab, verifiedAdmin,
+ stampAdminSession, touchAdminSession, adminSessionAlive, clearAdminSession
 } from './adminSession';
 
 const verified = { uid: 'admin-firebase-uid', email: ADMIN_EMAIL, emailVerified: true, isAnonymous: false };
@@ -58,4 +59,55 @@ test('admin login transition never doubles as a security credential', () => {
  adminLoginStarted(); expect(isAdminLoginPending()).toBe(true);
  expect(adminTabIsActive(verified)).toBe(false);
  adminLoginFinished(); expect(isAdminLoginPending()).toBe(false);
+});
+
+test('admin session timeout is 30 minutes', () => {
+ expect(ADMIN_SESSION_TIMEOUT_MS).toBe(30 * 60 * 1000);
+});
+
+test('granting the admin tab starts a live 30-minute session', () => {
+ expect(adminSessionAlive()).toBe(false);
+ expect(grantAdminTab(verified)).toBe(true);
+ expect(adminSessionAlive()).toBe(true);
+ expect(adminTabIsActive(verified)).toBe(true);
+ expect(window.sessionStorage.getItem(ADMIN_SESSION_KEY)).toMatch(/"lastActiveAt":[0-9]+/);
+});
+
+test('an expired session is dead and deactivates the tab', () => {
+ expect(grantAdminTab(verified)).toBe(true);
+ const expired = Date.now() - ADMIN_SESSION_TIMEOUT_MS - 1000;
+ window.sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ loginAt: expired, lastActiveAt: expired }));
+ expect(adminSessionAlive()).toBe(false);
+ expect(adminTabIsActive(verified)).toBe(false);
+ // expiry cleans up its own storage
+ expect(window.sessionStorage.getItem(ADMIN_SESSION_KEY)).toBeNull();
+});
+
+test('touch refreshes an aging session but cannot revive an expired one', () => {
+ expect(grantAdminTab(verified)).toBe(true);
+ const aging = Date.now() - ADMIN_SESSION_TIMEOUT_MS + 60000; // 1 minute left
+ window.sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ loginAt: aging, lastActiveAt: aging }));
+ expect(touchAdminSession()).toBe(true);
+ const refreshed = JSON.parse(window.sessionStorage.getItem(ADMIN_SESSION_KEY)).lastActiveAt;
+ expect(Date.now() - refreshed).toBeLessThan(5000);
+ const expired = Date.now() - ADMIN_SESSION_TIMEOUT_MS - 1000;
+ window.sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ loginAt: expired, lastActiveAt: expired }));
+ expect(touchAdminSession()).toBe(false);
+ expect(adminSessionAlive()).toBe(false);
+});
+
+test('clearing the admin tab also clears the session', () => {
+ expect(grantAdminTab(verified)).toBe(true);
+ expect(adminSessionAlive()).toBe(true);
+ clearAdminTab();
+ expect(adminSessionAlive()).toBe(false);
+ expect(window.sessionStorage.getItem(ADMIN_SESSION_KEY)).toBeNull();
+ expect(window.sessionStorage.getItem(ADMIN_TAB_KEY)).toBeNull();
+});
+
+test('stamp and clear work standalone without a tab grant', () => {
+ expect(stampAdminSession()).toBe(true);
+ expect(adminSessionAlive()).toBe(true);
+ clearAdminSession();
+ expect(adminSessionAlive()).toBe(false);
 });

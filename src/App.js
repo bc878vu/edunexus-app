@@ -117,7 +117,7 @@ import {
 } from "firebase/storage";
 
 // This declaration must follow all static imports (CRA enforces import/first).
-import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, adminLoginStarted, adminLoginFinished, isAdminLoginPending, grantAdminTab, clearAdminTab, adminTabIsActive, adminPanelAccess, currentPageIsAdmin, verifiedAdmin, broadcastAdminLogout } from './adminSession';
+import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, adminLoginStarted, adminLoginFinished, isAdminLoginPending, grantAdminTab, clearAdminTab, adminTabIsActive, adminPanelAccess, currentPageIsAdmin, verifiedAdmin, broadcastAdminLogout, touchAdminSession, adminSessionAlive } from './adminSession';
 const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
@@ -3856,7 +3856,7 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
       if (!grantAdminTab(credential.user)) throw new Error("Session storage unavailable. Enable it to open Admin Panel.");
       onLoginSuccess(credential.user);
       setPage("admin");
-      showToast("Admin mode enabled securely.", "success");
+      showToast("Admin mode enabled. Session stays active for 30 minutes of inactivity.", "success");
       onClose();
     } catch (error) {
       clearAdminTab();
@@ -4845,10 +4845,22 @@ const NAV_ITEMS = PAGES;
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [page]);
 
+    // Leaving the Admin Panel no longer kills the session: it stays alive for
+    // 30 minutes of inactivity, and coming back re-enables admin mode.
+  const syncAdminModeForPage = (nextPage) => {
+    if (nextPage === 'admin' && adminTabIsActive(auth.currentUser)) {
+      touchAdminSession();
+      setUser(auth.currentUser);
+      setIsAdminMode(true);
+    } else if (nextPage !== 'admin') {
+      setIsAdminMode(false);
+    }
+  };
     // ✅ central navigation function (har jagah isi ko use karna hai)
   const navigate = (targetPage) => {
     if (!PAGES.includes(targetPage)) targetPage = 'home';
-    if (targetPage !== 'admin' && (adminTabIsActive(auth.currentUser) || verifiedAdmin(auth.currentUser))) void handleLogoutAdmin({ redirect: false });
+    if (verifiedAdmin(auth.currentUser)) touchAdminSession();
+    syncAdminModeForPage(targetPage);
 
     setPage(targetPage);
     setIsMenuOpen(false); // mobile menu close
@@ -4873,7 +4885,8 @@ const NAV_ITEMS = PAGES;
   // Keep the main page in sync when the browser returns from a subject link.
   const syncFromHistory = () => {
     const nextPage = routeFromLocation(window.location);
-    if (nextPage !== 'admin' && (adminTabIsActive(auth.currentUser) || verifiedAdmin(auth.currentUser))) void handleLogoutAdmin({ redirect: false });
+    if (verifiedAdmin(auth.currentUser)) touchAdminSession();
+    syncAdminModeForPage(nextPage);
     setPage(nextPage);
     setIsMenuOpen(false);
   };
@@ -4887,19 +4900,20 @@ const NAV_ITEMS = PAGES;
 
 
   // Real auth state controls every privileged panel. A stale admin login is
-  // signed out when this tab is outside the Admin Panel or has no active session.
+  // signed out when the 30-minute session lapses or was never granted in this tab.
   useEffect(() => {
     let active = true;
     const unsub = onAuthStateChanged(auth, account => {
       if (!active || logoutInProgress.current) return;
       if (verifiedAdmin(account)) {
         if (isAdminLoginPending()) return;
-        if (!adminPanelAccess(account)) {
+        if (!adminTabIsActive(account)) {
           setUser(null); setIsAdminMode(false);
           void handleLogoutAdmin({ redirect: currentPageIsAdmin(), broadcast: true });
           return;
         }
-        setUser(account); setIsAdminMode(true);
+        touchAdminSession();
+        setUser(account); setIsAdminMode(currentPageIsAdmin());
       } else {
         clearAdminTab(); setUser(account); setIsAdminMode(false);
         if (!account && !isAdminLoginPending()) signInAnonymously(auth).catch(() => {});
@@ -4912,6 +4926,33 @@ const NAV_ITEMS = PAGES;
     };
     window.addEventListener('storage', otherTab);
     return () => { active = false; unsub(); window.removeEventListener('storage', otherTab); };
+  }, []);
+
+  // 30-minute rolling admin session: any activity (click / key / touch /
+  // navigation) refreshes it, and a minute-tick signs out once it lapses.
+  useEffect(() => {
+    let lastBump = 0;
+    const bump = () => {
+      const now = Date.now();
+      if (now - lastBump < 60000) return;
+      lastBump = now;
+      if (verifiedAdmin(auth.currentUser)) touchAdminSession();
+    };
+    const enforce = () => {
+      if (verifiedAdmin(auth.currentUser) && !adminSessionAlive()) {
+        void handleLogoutAdmin({ redirect: currentPageIsAdmin(), broadcast: true });
+      }
+    };
+    const timer = setInterval(enforce, 60000);
+    window.addEventListener('click', bump, true);
+    window.addEventListener('keydown', bump, true);
+    window.addEventListener('touchstart', bump, true);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('click', bump, true);
+      window.removeEventListener('keydown', bump, true);
+      window.removeEventListener('touchstart', bump, true);
+    };
   }, []);
 
   // ✅ GA4 page view tracking – har page change par event
