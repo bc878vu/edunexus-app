@@ -43,6 +43,10 @@ export function sanitizeArticleHtml(input) {
   if (!s) return '';
   // Tolerate bodies stored entity-encoded (literal "&lt;h2&gt;" text).
   if (/&lt;\s*\/?\s*[a-z]/i.test(s)) s = decodeEntitiesOnce(s);
+  // Unwrap headings that wrongly wrap whole blocks — a paste artifact from the
+  // contentEditable admin editor (e.g. <h2><p>...</p></h2>), which renders
+  // entire paragraphs/lists bold. Real headings (<h2>text</h2>) are untouched.
+  s = s.replace(/<(h2|h3|h4)>((?:\s*<(p|ul|ol|div|blockquote)\b[\s\S]*?<\/\3\s*>)+)\s*<\/\1\s*>/gi, '$2');
   s = s.replace(DANGEROUS_BLOCK, '').replace(DANGEROUS_TAG, '');
   s = s.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^<>]*)>/g, (m, tag, attrs) => {
     const t = tag.toLowerCase();
