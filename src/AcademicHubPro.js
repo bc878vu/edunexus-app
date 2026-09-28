@@ -61,21 +61,9 @@ const slugForPreview = (value) => String(value || 'study-resource').normalize('N
 // Keep the share URL short. The opaque file id is enough for the server to
 // load the resource and emit its real OG title/description; the short slug is
 // only human-readable and is canonicalized server-side.
-const filePreviewLink = (f) => {
-  const subject = extractCourseCode(f.subject || '') || String(f.subject || '').split('_')[0] || 'resource';
-  // Short self-contained share token: unlike the old long t/s/d query string,
-  // this keeps the URL compact while still letting the SSR endpoint build the
-  // exact OG card if the database is temporarily unavailable.
-  const payload = JSON.stringify([nameOf(f), cut(f.subject, 80) || 'General', cut(f.description, 190)]);
-  let token = '';
-  try {
-    const bytes = new TextEncoder().encode(payload);
-    let binary = ''; bytes.forEach((b) => { binary += String.fromCharCode(b); });
-    token = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-  } catch (_) { /* server lookup remains the fallback */ }
-  const base = '/vu-notes/file/' + encodeURIComponent(f.id) + '/' + slugForPreview(subject);
-  return token ? base + '?p=' + encodeURIComponent(token) : base;
-};
+const filePreviewLink = (f) => '/vu-notes/file/' + encodeURIComponent(f.id) + '/' + slugForPreview(
+  extractCourseCode(f.subject || '') || String(f.subject || '').split('_')[0] || 'resource'
+);
 const extOf = (f) => {
   const explicit = cut(f.ext, 10).replace(/[^a-z0-9]/gi, '').toUpperCase();
   if (explicit && explicit !== 'LINK') return explicit;
