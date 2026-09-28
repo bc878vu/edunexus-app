@@ -215,6 +215,7 @@ function PdfJsPreview({ blob }) {
   const [pageNum, setPageNum] = useState(1); // nearest visible page
   const [pageInput, setPageInput] = useState('1');
   const [zoom, setZoom] = useState(1); // 1 = fit width; user zoom is relative to current viewport
+  const [viewerWidth, setViewerWidth] = useState(0);
   const [fitScale, setFitScale] = useState(0);
   const fitScaleRef = useRef(0);
   const [pageAspect, setPageAspect] = useState(1.414); // h/w placeholder ratio
@@ -309,7 +310,9 @@ function PdfJsPreview({ blob }) {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         if (cancelled || !pdfDocRef.current || !containerRef.current) return;
-        const w = containerRef.current.clientWidth - 24;
+        const measured = containerRef.current.clientWidth;
+        setViewerWidth(measured);
+        const w = measured - 24;
         if (w <= 0) return;
         pdfDocRef.current.getPage(1).then((page) => {
           if (cancelled) return;
@@ -429,10 +432,16 @@ function PdfJsPreview({ blob }) {
     renderVisiblePages(z);
   }, [renderVisiblePages]);
   const changeZoom = (dir) => {
-    // Predictable 10% steps are easier to control on phones than multiplicative jumps.
-    applyZoom(zoomRef.current + (dir > 0 ? 0.10 : -0.10));
+    // Fine control near fit-width, faster steps only at high magnification.
+    const current = zoomRef.current;
+    const step = current < 1.5 ? 0.10 : 0.20;
+    applyZoom(current + (dir > 0 ? step : -step));
   };
   const resetZoom = () => applyZoom(1);
+  // Browser "Desktop site" on a phone changes the CSS viewport width. We use
+  // the measured viewer width rather than user-agent detection, so rotation,
+  // desktop-site toggles and split-screen all refit automatically.
+  const compactViewer = viewerWidth > 0 && viewerWidth < 720;
 
   // Pinch-to-zoom on touch devices. One-finger scrolling stays native
   // (touch-action: pan-x pan-y on the container); we only intercept two
@@ -494,7 +503,7 @@ function PdfJsPreview({ blob }) {
   }
 
   return (
-    <div className="pdfjs-viewer">
+    <div className={`pdfjs-viewer ${compactViewer ? "pdfjs-compact" : "pdfjs-wide"}`}>
       <div className="pdfjs-toolbar" role="toolbar" aria-label="PDF controls">
         <button type="button" className="pdfjs-btn" onClick={() => scrollToPage(pageNum - 1)} disabled={pageNum <= 1} aria-label="Previous page">‹</button>
         <input
