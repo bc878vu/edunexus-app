@@ -10,6 +10,7 @@ import { enforceSingleDashboardQueryForm, restoreDashboardQueryCards } from './d
 // Initialize shared Firebase/Firestore before legacy modules request the instance.
 import './firebase-client';
 import { useConfirm } from './ConfirmDialog';
+import { unwrapNestedHeadings } from './article-sanitize.mjs';
 import './admin-academic-upload.css';
 import './portfolio.css';
 import {
@@ -2907,6 +2908,18 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       setContent(editorRef.current?.innerHTML || '');
     };
 
+    // Clean pasted HTML before it lands in the editor: unwraps headings that
+    // wrongly wrap whole blocks (<h2><p>...</p></h2>), the artifact that used
+    // to make entire article bodies render bold. Plain-text pastes are left
+    // to the browser's default handling.
+    const handleEditorPaste = (e) => {
+      const html = e.clipboardData?.getData('text/html');
+      if (!html) return;
+      e.preventDefault();
+      document.execCommand('insertHTML', false, unwrapNestedHeadings(html));
+      setContent(editorRef.current?.innerHTML || '');
+    };
+
     const applyFontFamily = (family) => {
       setFontFamily(family);
       execCmd('fontName', family);
@@ -2936,7 +2949,8 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
         showToast('New articles need meaningful original content (at least 450 characters) and an authorship/permission declaration.', 'error');
         return;
       }
-      const htmlContent = editorRef.current?.innerHTML || content;
+      // Never persist headings that wrap whole blocks (paste artifact).
+      const htmlContent = unwrapNestedHeadings(editorRef.current?.innerHTML || content);
       const articleData = {
         title: title.trim(),
         content: htmlContent,
@@ -2970,12 +2984,13 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const handleEdit = (art) => {
       setEditId(art.id);
       setTitle(art.title || '');
-      setContent(art.content || '');
+      const cleanBody = unwrapNestedHeadings(art.content || '');
+      setContent(cleanBody);
       setImageUrl(art.imageUrl || '');
       setKeywords(art.keywords || '');
       setHiddenLinks(art.hiddenLinks || '');
       setIsActive(art.isActive !== false);
-      if (editorRef.current) editorRef.current.innerHTML = art.content || '';
+      if (editorRef.current) editorRef.current.innerHTML = cleanBody;
       window.scrollTo({top: 0, behavior: 'smooth'});
     };
 
@@ -3071,6 +3086,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               ref={editorRef}
               contentEditable
               onInput={handleEditorInput}
+              onPaste={handleEditorPaste}
               className={`min-h-[180px] p-3 outline-none ${theme.text} bg-white dark:bg-slate-900`}
               style={{fontSize: '15px', lineHeight: '1.6'}}
               data-placeholder="Write article content here..."

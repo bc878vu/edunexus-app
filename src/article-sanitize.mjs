@@ -18,7 +18,13 @@ const ALLOWED_TAGS = new Set([
   'blockquote', 'div', 'span', 'a',
 ]);
 
-// Dangerous elements: remove with their entire content.
+// Unwrap headings that wrongly wrap whole blocks — a paste artifact from the
+// contentEditable admin editor (e.g. <h2><p>...</p></h2>), which renders
+// entire paragraphs/lists bold. Real headings (<h2>text</h2>) are untouched.
+// Exported so the admin editor can clean pasted/saved content too.
+export function unwrapNestedHeadings(input) {
+  return String(input ?? '').replace(/<(h2|h3|h4)>((?:\s*<(p|ul|ol|div|blockquote)\b[\s\S]*?<\/\3\s*>)+)\s*<\/\1\s*>/gi, '$2');
+}
 const DANGEROUS_BLOCK = /<(script|style|iframe|object|embed|form|input|button|textarea|select|option|link|meta|base|noscript|template|frame|frameset|applet|canvas|svg|math|video|audio|picture)\b[\s\S]*?<\/\1\s*>/gi;
 // Stray dangerous tags (self-closed or unclosed).
 const DANGEROUS_TAG = /<(script|style|iframe|object|embed|link|meta|base|img|video|audio|source|track|form|input|button|textarea|select|option|canvas|svg)\b[^>]*\/?>/gi;
@@ -43,10 +49,7 @@ export function sanitizeArticleHtml(input) {
   if (!s) return '';
   // Tolerate bodies stored entity-encoded (literal "&lt;h2&gt;" text).
   if (/&lt;\s*\/?\s*[a-z]/i.test(s)) s = decodeEntitiesOnce(s);
-  // Unwrap headings that wrongly wrap whole blocks — a paste artifact from the
-  // contentEditable admin editor (e.g. <h2><p>...</p></h2>), which renders
-  // entire paragraphs/lists bold. Real headings (<h2>text</h2>) are untouched.
-  s = s.replace(/<(h2|h3|h4)>((?:\s*<(p|ul|ol|div|blockquote)\b[\s\S]*?<\/\3\s*>)+)\s*<\/\1\s*>/gi, '$2');
+  s = unwrapNestedHeadings(s);
   s = s.replace(DANGEROUS_BLOCK, '').replace(DANGEROUS_TAG, '');
   s = s.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^<>]*)>/g, (m, tag, attrs) => {
     const t = tag.toLowerCase();
