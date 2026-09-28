@@ -15,6 +15,7 @@ const MIME = new Map(Object.entries({
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   txt: "text/plain", csv: "text/csv", jpg: "image/jpeg",
   jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+  zip: "application/zip",
 }));
 const GOOGLE_KEYS = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
 

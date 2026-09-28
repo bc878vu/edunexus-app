@@ -12,7 +12,7 @@ const kindForExtension = Object.freeze({
   pdf:'pdf', doc:'ole', ppt:'ole', xls:'ole',
   docx:'zip', pptx:'zip', xlsx:'zip',
   jpg:'jpeg', jpeg:'jpeg', png:'png', webp:'webp',
-  txt:'text', csv:'text'
+  txt:'text', csv:'text', zip:'zip'
 });
 
 export function inspectAcademicHeader(extension, bytes) {

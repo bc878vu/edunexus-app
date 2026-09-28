@@ -19,7 +19,8 @@ const TYPES = {
   xls: 'application/vnd.ms-excel',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   txt: 'text/plain', csv: 'text/csv', jpg: 'image/jpeg',
-  jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp'
+  jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  zip: 'application/zip'
 };
 const extension = (name) => String(name || '').match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase() || '';
 const safeName = (name) => String(name || 'resource').normalize('NFKD')
@@ -30,7 +31,7 @@ const publicUrl = (path) => 'https://' + SUPABASE_PROJECT + '.supabase.co/storag
 const allowedMime = (file) => TYPES[extension(file?.name)];
 const validFile = (file) => {
   if (!file) return 'Choose a resource file first.';
-  if (!allowedMime(file)) return 'Supported types: PDF, Office documents, TXT, CSV, JPG, PNG and WEBP.';
+  if (!allowedMime(file)) return 'Supported types: PDF, Office documents, TXT, CSV, JPG, PNG, WEBP and ZIP.';
   if (file.size < 1) return 'The selected file is empty.';
   if (file.size > MAX_BYTES) return 'Free Supabase uploads are limited to 45 MiB. For larger files, add a Google Drive link below.';
   return '';
@@ -186,7 +187,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
         <strong>{file ? file.name : 'Choose or drop a file'}</strong>
         <p>{file ? readableSize(file.size) + ' · ' + extension(file.name).toUpperCase() : 'Supported documents and images · 45 MiB maximum on Free'}</p>
         <input ref={fileInput} type="file" id={inputId + '-file'} disabled={busy}
-          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp"
+          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp,.zip"
           className="ah-visually-hidden" onChange={(e) => choose(e.target.files[0])}/>
         <label className="ah-secondary" htmlFor={inputId + '-file'}>Browse files</label>
       </div>
