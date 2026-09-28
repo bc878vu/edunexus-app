@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, F
 import { storage } from './firebase-client';
 import { getBlob, ref as storageRef } from 'firebase/storage';
 import { USE_SUPABASE, supabase } from './supabase-client';
-import { listFiles, getFile, getMetaDoc, setMetaDoc, bumpFolderCount, deleteFile, subscribeFiles, subscribeMetaDoc } from './db/files';
+import { listFiles, searchFiles, getFile, getMetaDoc, setMetaDoc, bumpFolderCount, deleteFile, subscribeFiles, subscribeMetaDoc } from './db/files';
 import { listReviews, addReview, updateReview, deleteReview, reportReview as reportReviewRecord, listReviewReports, refreshRatingSummary, subscribeReviews } from './db/reviews';
 import './academic-hub-pro.css';
 import './academic-hub-v2.css';
@@ -974,7 +974,11 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const fullLoadDone = useRef(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const deferredSearch = useDeferredValue(search);
+  const [submittedSearch, setSubmittedSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const deferredSearch = useDeferredValue(submittedSearch);
   const [format, setFormat] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [subjectsExpanded, setSubjectsExpanded] = useState(true);
@@ -1137,14 +1141,15 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     return words.every((word) => haystack.includes(word));
   }, [normalized, normalizedCompact]);
   const matches = useMemo(() => {
-    const result = files.filter((f) => f.isActive !== false
+    const searchPool = normalized ? searchResults : files;
+    const result = searchPool.filter((f) => f.isActive !== false
       && (!activeCode || activeAliasSet.has(f.subject))
       && (format === 'all' || (format === 'documents' ? ['PDF','DOC','DOCX','PPT','PPTX','XLS','XLSX','TXT','CSV'].includes(extOf(f)) : format === 'images' ? ['PNG','JPG','JPEG','WEBP'].includes(extOf(f)) : extOf(f) === 'LINK'))
       && searchMatchesFile(f));
     if (sortBy === 'name') result.sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
     else if (sortBy === 'oldest') result.reverse();
     return result;
-  }, [files, activeCode, activeAliasSet, format, searchMatchesFile, sortBy]);
+  }, [files, searchResults, normalized, activeCode, activeAliasSet, format, searchMatchesFile, sortBy]);
   // A selected subject shows its files immediately and completely — no
   // manual "load more" needed. The unfiltered view keeps client-side paging.
   const displayed = activeCode ? matches : matches.slice(0, visible);
@@ -1225,6 +1230,45 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     window.history.pushState({ page: 'academic', file: file.id }, '', url.pathname + url.search);
     window.dispatchEvent(new Event('edunexus:navigation'));
   };
+  const runSearch = async (event) => {
+    if (event?.preventDefault) event.preventDefault();
+    const raw = search.trim();
+    setVisible(18); setSearchError('');
+    if (!raw) { setSubmittedSearch(''); setSearchResults([]); return; }
+    setSubmittedSearch(raw);
+    setSearching(true);
+    try {
+      const compact = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const course = compact.match(/^([a-z]{2,})(\d{3}[a-z]?)?$/i);
+      let found = [];
+      if (course && course[2]) {
+        const exact = (course[1] + course[2]).toUpperCase();
+        const group = codeGroups.get(exact);
+        const aliases = group?.aliases?.length ? group.aliases : [exact];
+        const page = await listFiles({ subjects: aliases.slice(0, 10), limit: 400 });
+        found = page.items || [];
+      } else if (course) {
+        const prefix = course[1].toUpperCase();
+        const codes = mergedCodes.filter((c) => subjectPrefix(c).toUpperCase() === prefix);
+        const aliases = [...new Set(codes.flatMap((c) => codeGroups.get(c)?.aliases || [c]))];
+        for (let i = 0; i < aliases.length; i += 10) {
+          const page = await listFiles({ subjects: aliases.slice(i, i + 10), limit: 400 });
+          found.push(...(page.items || []));
+        }
+      } else {
+        found = await searchFiles(raw, { limit: 100 });
+      }
+      const uniq = new Map();
+      found.forEach((item) => { if (item?.id && item.isActive !== false) uniq.set(item.id, item); });
+      setSearchResults([...uniq.values()]);
+    } catch (e) {
+      setSearchResults([]);
+      setSearchError('Search could not be completed. Please retry.');
+    } finally { setSearching(false); }
+  };
+  const clearSearch = () => {
+    setSearch(''); setSubmittedSearch(''); setSearchResults([]); setSearchError(''); setVisible(18);
+  };
   const more = async () => {
     if (!cursor || loadingMore) return;
     setLoadingMore(true); setError('');
@@ -1301,9 +1345,9 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
 
     <section id="academic-library" className="ah-library" aria-label="Academic resources"><div className="ah-section-heading"><span className="ah-eyebrow">Browse, preview & download</span><h2>Subject resource library</h2><p>Choose a subject, search the loaded resources and open a file directly in the page when preview is supported.</p></div>
       <div className="ah-stats"><div><strong>{subjectGroups.length}</strong><span>Main folders</span></div><div><strong>{mergedCodes.reduce((n, c) => n + codeFileCount(c), 0)}</strong><span>Total resources</span></div><div><strong>{files.length}</strong><span>Loaded for browsing</span></div></div>
-      <div className="ah-toolbar"><label className="ah-search"><Search size={19} /><span className="ah-visually-hidden">Search resources</span><input value={search} onChange={(e) => { setSearch(e.target.value); setVisible(18); }} placeholder="Search file title, subject, topic or format…" aria-label="Search resources" />{search && <button type="button" className="ah-clear" aria-label="Clear search" onClick={() => setSearch('')}><X size={16} /></button>}</label><button type="button" className="ah-secondary" onClick={() => { setSearch(''); setFormat('all'); openSubject(''); setSubjectsExpanded(true); }}><FolderOpen size={17} /> All subjects</button></div>
+      <form className="ah-toolbar ah-search-form" onSubmit={runSearch}><label className="ah-search"><Search size={19} /><span className="ah-visually-hidden">Search resources</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search CS, CS101, file title or topic…" aria-label="Search resources" autoComplete="off" />{search && <button type="button" className="ah-clear" aria-label="Clear search" onClick={clearSearch}><X size={16} /></button>}</label><button type="submit" className="ah-primary ah-search-submit" disabled={searching || !search.trim()}><Search size={17} /> {searching ? 'Searching…' : 'Search'}</button><button type="button" className="ah-secondary" onClick={() => { clearSearch(); setFormat('all'); openSubject(''); setSubjectsExpanded(true); }}><FolderOpen size={17} /> All subjects</button></form>
       <div className="ah-filterbar" aria-label="Filter and sort study files"><label>File type <select value={format} onChange={(e) => { setFormat(e.target.value); setVisible(18); }}><option value="all">All formats</option><option value="documents">Documents</option><option value="images">Images</option><option value="links">Other links</option></select></label><label>Sort by <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setVisible(18); }}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">File name A–Z</option></select></label><button type="button" className="ah-secondary" aria-expanded={subjectsExpanded} onClick={() => setSubjectsExpanded((v) => !v)}><FolderOpen size={16} /> {subjectsExpanded ? 'Hide folders' : 'Browse folders'}</button></div>
-      {deepSearching && normalized && <p className="ah-deepsearch" role="status"><span className="ah-spin" aria-hidden="true" /> Searching the entire library… {files.length} files scanned so far</p>}
+      {searching && <p className="ah-deepsearch" role="status"><span className="ah-spin" aria-hidden="true" /> Searching matching subjects and resources…</p>}{searchError && <p className="ah-message" role="alert">{searchError}</p>}
     {selected && <div className="ah-panel-wrap" ref={scroller}><div className="ah-panel-tabs" role="group" aria-label="Selected file tools"><button type="button" className={panel === 'preview' ? 'active' : ''} onClick={() => setPanel('preview')}><BookOpen size={16} /> Preview</button><button type="button" className={panel === 'reviews' ? 'active' : ''} onClick={() => setPanel('reviews')}><Star size={16} /> Reviews</button><button type="button" onClick={() => setSelectedId('')}><X size={16} /> Close</button></div>{panel === 'preview' ? <ResourcePreview file={selected} links={fileLinks(selected)} onClose={() => setSelectedId('')} /> : <FileReviews file={selected} user={user} isAdmin={isAdmin} />}</div>}
       {error && <p className="ah-message" role="alert">{error}</p>}
       {loading ? <div className="ah-loading" role="status"><div /><div /><div /><p>Loading academic resources…</p></div> :
@@ -1311,7 +1355,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
           {normalized && !subject && searchSuggestions.length > 0 && <div className="ah-subject-grid ah-search-subjects" aria-label="Subjects matching search">{searchSuggestions.map((item) => <button key={item.code} type="button" className="ah-subject" onClick={() => openSubject(item.code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{item.label}</strong><small>{item.count + (item.count === 1 ? ' file' : ' files')}</small></span><ArrowRight size={16} /></button>)}</div>}
           {searchSuggestions.length > 0 && <div className="ah-suggest" role="group" aria-label="Matching subjects"><span className="ah-suggest-label">Subjects found:</span>{searchSuggestions.map((s) => <button key={s.code} type="button" className="ah-suggest-chip" onClick={() => openSubject(s.code)}><BookOpen size={15} /> {s.label} · {s.count + (s.count === 1 ? ' file' : ' files')} <ArrowRight size={14} /></button>)}</div>}
           <div className="ah-results-head"><div><span className="ah-eyebrow">{activeCode ? 'Selected subject' : 'Resource collection'}</span><h3>{(activeCode && displayFolderName((codeGroups.get(activeCode) || {}).display || activeCode)) || 'All available subjects'}</h3><p>{normalized ? (deepSearching ? 'Scanning the entire library for "' + search.trim() + '"…' : 'Results for "' + search.trim() + '" — ' + files.length + ' loaded files scanned (use "Load more resources" for deeper results)') : 'Showing ' + displayed.length + ' of ' + matches.length + ' matching loaded resources'}</p></div>{activeCode && <button className="ah-secondary" type="button" onClick={backToSubjects}><ArrowLeft size={16} /> Back to subjects</button>}</div>
-          {displayed.length ? <div className="ah-resource-grid">{displayed.map((file) => <ResourceCard key={file.id} file={file} isAdmin={isAdmin} onDelete={del} onPreview={(f) => openPanel(f, 'preview')} onReviews={(f) => openPanel(f, 'reviews')} onDownload={download} downloadStatus={downloadStatus[file.id]} />)}</div> : <div className="ah-empty"><FileArchive size={30} />{normalized ? (deepSearching ? <><h3>Searching the entire library…</h3><p>{'Scanning every uploaded file for "' + search.trim() + '". Results appear automatically — no need to load more by hand.'}</p></> : <><h3>{'No files found for "' + search.trim() + '"'}</h3><p>The whole library was searched. Try different keywords, a subject chip above, or browse the folders.</p><button className="ah-secondary" type="button" onClick={() => setSearch('')}>Clear search</button></>) : <><h3>No matching files in this loaded batch</h3><p>Try a subject chip above, another search, or load more resources. You can also check the existing Academic Hub administrator tools for new uploads.</p>{hasMore && !deepSearching && !bgLoading && <button className="ah-primary" type="button" disabled={loadingMore} onClick={more}>{loadingMore ? 'Loading more files…' : 'Load more resources'}</button>}</>}</div>}
+          {displayed.length ? <div className="ah-resource-grid">{displayed.map((file) => <ResourceCard key={file.id} file={file} isAdmin={isAdmin} onDelete={del} onPreview={(f) => openPanel(f, 'preview')} onReviews={(f) => openPanel(f, 'reviews')} onDownload={download} downloadStatus={downloadStatus[file.id]} />)}</div> : <div className="ah-empty"><FileArchive size={30} />{normalized ? (deepSearching ? <><h3>Searching the entire library…</h3><p>{'Scanning every uploaded file for "' + search.trim() + '". Results appear automatically — no need to load more by hand.'}</p></> : <><h3>{'No files found for "' + search.trim() + '"'}</h3><p>The whole library was searched. Try different keywords, a subject chip above, or browse the folders.</p><button className="ah-secondary" type="button" onClick={clearSearch}>Clear search</button></>) : <><h3>No matching files in this loaded batch</h3><p>Try a subject chip above, another search, or load more resources. You can also check the existing Academic Hub administrator tools for new uploads.</p>{hasMore && !deepSearching && !bgLoading && <button className="ah-primary" type="button" disabled={loadingMore} onClick={more}>{loadingMore ? 'Loading more files…' : 'Load more resources'}</button>}</>}</div>}
           {matches.length > displayed.length && <button className="ah-secondary ah-load" type="button" onClick={() => setVisible((n) => n + 18)}>Show more matching files <ArrowRight size={16} /></button>}
           {hasMore && !deepSearching && !bgLoading && <button className="ah-primary ah-load" type="button" disabled={loadingMore} onClick={more}>{loadingMore ? 'Loading more files…' : 'Load next ' + PAGE_SIZE + ' resources'} <ArrowRight size={16} /></button>}
         </>}
