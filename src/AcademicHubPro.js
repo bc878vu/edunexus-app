@@ -915,50 +915,15 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     } catch (_) { setError('Could not load more resources. Please retry.'); }
     finally { setLoadingMore(false); }
   };
-  // Live mirror of the pagination cursor so the background deep-search always
-  // resumes from the newest known position.
+  // Live mirror of the pagination cursor for the manual "Load more" pager.
   useEffect(() => { cursorRef.current = cursor; });
-  // Full-library background load: after the first page arrives, automatically
-  // page through the ENTIRE files collection (silently, in the background).
-  // This makes folder counts true without any admin backfill, and makes
-  // search instant + complete — every file ends up in memory, so `matches`
-  // filters the whole library the moment the user types. Pauses while a
-  // subject is open (that view runs its own dedicated query). The
-  // "Searching the entire library…" indicator appears only when the user is
-  // actively searching while the load is still in progress.
-  useEffect(() => {
-    if (loading || activeCode) return;
-    if (!cursorRef.current || fullLoadDone.current) return;
-    let cancelled = false;
-    setBgLoading(true);
-    if (normalized) setDeepSearching(true);
-    (async () => {
-      try {
-        while (!cancelled && cursorRef.current && !fullLoadDone.current) {
-          const snap = await getDocs(query(FILES, orderBy('createdAt', 'desc'), startAfter(cursorRef.current), limit(PAGE_SIZE)));
-          if (cancelled) break;
-          const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          olderPagesLoaded.current = true;
-          setOlder((prev) => {
-            const seen = new Set(prev.map((f) => f.id));
-            const fresh = docs.filter((f) => !seen.has(f.id));
-            return fresh.length ? [...prev, ...fresh] : prev;
-          });
-          const cur = snap.docs[snap.docs.length - 1] || null;
-          cursorRef.current = cur;
-          setCursor(cur);
-          const morePages = snap.docs.length === PAGE_SIZE;
-          setHasMore(morePages);
-          if (!morePages) { fullLoadDone.current = true; break; }
-        }
-      } catch (_) {
-        // Best-effort: manual "Load more resources" still works on failure.
-      } finally {
-        if (!cancelled) { setBgLoading(false); setDeepSearching(false); }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [loading, activeCode]);
+  // NOTE (2026-09-28, quota hotfix): the background full-library loader was
+  // removed. It paged through the ENTIRE files collection on every visit
+  // (~500 Firestore reads/visit) and pushed the project over the Spark
+  // free-tier quota. Folder counts come from the denormalized
+  // meta/folders.fileCounts map; search filters the loaded batch and the
+  // user can "Load more resources" for deeper results. Server-side search
+  // arrives with the Supabase migration (Postgres FTS).
   const del = async (file) => {
     if (!isAdmin) return;
     requestConfirm({
@@ -1019,7 +984,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
       {loading ? <div className="ah-loading" role="status"><div /><div /><div /><p>Loading academic resources…</p></div> :
         <>{subjectsExpanded && !subject && !normalized && (openGroup ? <div aria-label={openGroup + ' subject folders'}><div className="ah-crumb"><button type="button" className="ah-secondary" onClick={() => openGroupView('')}><ArrowLeft size={15} /> All folders</button><span className="ah-crumb-sep" aria-hidden="true">/</span><strong>{openGroup}</strong></div><div className="ah-subject-grid" aria-label={openGroup + ' subjects'}>{(subjectGroups.find(([p]) => p === openGroup) || ['', []])[1].map((code) => <button key={code} type="button" className="ah-subject" onClick={() => openSubject(code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{displayFolderName((codeGroups.get(code) || {}).display || code)}</strong><small>{(() => { const total = codeFileCount(code); return total + (total === 1 ? ' file' : ' files'); })()}</small></span><ArrowRight size={16} /></button>)}</div></div> : <div className="ah-group-grid" aria-label="Main subject folders">{subjectGroups.map(([prefix, codes]) => { const totalFiles = codes.reduce((n, c) => n + codeFileCount(c), 0); return <button key={prefix} type="button" className="ah-group" onClick={() => openGroupView(prefix)}><span className="ah-group-icon"><Folder size={22} /></span><span><strong>{prefix}</strong><small>{codes.length + (codes.length === 1 ? ' subject' : ' subjects') + ' · ' + totalFiles + (totalFiles === 1 ? ' file' : ' files')}</small></span><ArrowRight size={16} /></button>; })}</div>)}
           {searchSuggestions.length > 0 && <div className="ah-suggest" role="group" aria-label="Matching subjects"><span className="ah-suggest-label">Subjects found:</span>{searchSuggestions.map((s) => <button key={s.code} type="button" className="ah-suggest-chip" onClick={() => openSubject(s.code)}><BookOpen size={15} /> {s.label} · {s.count + (s.count === 1 ? ' file' : ' files')} <ArrowRight size={14} /></button>)}</div>}
-          <div className="ah-results-head"><div><span className="ah-eyebrow">{activeCode ? 'Selected subject' : 'Resource collection'}</span><h3>{(activeCode && displayFolderName((codeGroups.get(activeCode) || {}).display || activeCode)) || 'All available subjects'}</h3><p>{normalized ? (deepSearching ? 'Scanning the entire library for "' + search.trim() + '"…' : 'Full-library results for "' + search.trim() + '" — ' + files.length + ' files scanned') : 'Showing ' + displayed.length + ' of ' + matches.length + ' matching loaded resources'}</p></div>{activeCode && <button className="ah-secondary" type="button" onClick={backToSubjects}><ArrowLeft size={16} /> Back to subjects</button>}</div>
+          <div className="ah-results-head"><div><span className="ah-eyebrow">{activeCode ? 'Selected subject' : 'Resource collection'}</span><h3>{(activeCode && displayFolderName((codeGroups.get(activeCode) || {}).display || activeCode)) || 'All available subjects'}</h3><p>{normalized ? (deepSearching ? 'Scanning the entire library for "' + search.trim() + '"…' : 'Results for "' + search.trim() + '" — ' + files.length + ' loaded files scanned (use "Load more resources" for deeper results)') : 'Showing ' + displayed.length + ' of ' + matches.length + ' matching loaded resources'}</p></div>{activeCode && <button className="ah-secondary" type="button" onClick={backToSubjects}><ArrowLeft size={16} /> Back to subjects</button>}</div>
           {displayed.length ? <div className="ah-resource-grid">{displayed.map((file) => <ResourceCard key={file.id} file={file} isAdmin={isAdmin} onDelete={del} onPreview={(f) => openPanel(f, 'preview')} onReviews={(f) => openPanel(f, 'reviews')} onDownload={download} downloadStatus={downloadStatus[file.id]} />)}</div> : <div className="ah-empty"><FileArchive size={30} />{normalized ? (deepSearching ? <><h3>Searching the entire library…</h3><p>{'Scanning every uploaded file for "' + search.trim() + '". Results appear automatically — no need to load more by hand.'}</p></> : <><h3>{'No files found for "' + search.trim() + '"'}</h3><p>The whole library was searched. Try different keywords, a subject chip above, or browse the folders.</p><button className="ah-secondary" type="button" onClick={() => setSearch('')}>Clear search</button></>) : <><h3>No matching files in this loaded batch</h3><p>Try a subject chip above, another search, or load more resources. You can also check the existing Academic Hub administrator tools for new uploads.</p>{hasMore && !deepSearching && !bgLoading && <button className="ah-primary" type="button" disabled={loadingMore} onClick={more}>{loadingMore ? 'Loading more files…' : 'Load more resources'}</button>}</>}</div>}
           {matches.length > displayed.length && <button className="ah-secondary ah-load" type="button" onClick={() => setVisible((n) => n + 18)}>Show more matching files <ArrowRight size={16} /></button>}
           {hasMore && !deepSearching && !bgLoading && <button className="ah-primary ah-load" type="button" disabled={loadingMore} onClick={more}>{loadingMore ? 'Loading more files…' : 'Load next ' + PAGE_SIZE + ' resources'} <ArrowRight size={16} /></button>}
