@@ -317,11 +317,11 @@ function PdfJsPreview({ blob }) {
     if (!pdfDoc || !fitScale) return;
     const key = n + '|' + zoomRef.current.toFixed(2);
     if (renderedRef.current.has(key)) return;
-    renderedRef.current.add(key);
     try {
       const page = await pdfDoc.getPage(n);
       const canvas = canvasRefs.current[n];
-      if (!canvas) { renderedRef.current.delete(key); return; }
+      if (!canvas) return;
+      renderedRef.current.add(key);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const scale = fitScale * zoomRef.current;
       // Backing store at DPR for sharpness; CSS size set explicitly so zoom
@@ -348,9 +348,15 @@ function PdfJsPreview({ blob }) {
       });
     }, { root: containerRef.current, rootMargin: '900px 0px' });
     Object.values(pageWrapRefs.current).forEach((el) => el && obs.observe(el));
-    // Render the first page immediately so something is visible at once.
-    renderPage(1);
-    return () => obs.disconnect();
+    // Refs are populated only after the ready render commits. Render visible
+    // pages on the next frame as well as through IntersectionObserver; this
+    // avoids the mobile blank-page race seen on long PDFs.
+    const raf = requestAnimationFrame(() => {
+      Object.values(pageWrapRefs.current).forEach((el) => el && obs.observe(el));
+      renderPage(pageNum || 1);
+      renderPage(1);
+    });
+    return () => { cancelAnimationFrame(raf); obs.disconnect(); };
   }, [status, numPages, zoom, fitScale, renderPage]);
 
   // Scroll handler: track nearest page + free memory of far-off pages.
@@ -381,7 +387,7 @@ function PdfJsPreview({ blob }) {
             const c = canvasRefs.current[i];
             if (!w || !c || !c.width) continue;
             const r = w.getBoundingClientRect();
-            if (r.bottom < cTop - vh * 3 || r.top > cTop + vh * 4) {
+            if (r.bottom < cTop - vh * 5 || r.top > cTop + vh * 6) {
               c.width = 0; c.height = 0;
               c.style.width = ''; c.style.height = '';
               // Allow re-render when scrolled back into range.
