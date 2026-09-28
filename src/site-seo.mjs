@@ -1,6 +1,7 @@
 // Single canonical URL contract shared by SPA metadata and server-rendered pages.
-// Do not infer the public canonical host from window.location: both configured
-// domains can serve the same content, and the URL should remain stable.
+// Do not infer the public canonical host from window.location: the canonical
+// host is edunexus.dpdns.org (primary); edunexus-app.vercel.app is secondary.
+// The URL should remain stable.
 import { APP_PAGES, pathForPage, routeFromLocation } from './app-routes.mjs';
 
 export const SITE = 'https://edunexus.dpdns.org';
