@@ -87,3 +87,21 @@ body.ah-preview-open .edx-free-orb{display:none!important}
 @media(min-width:791px){
  .pdfjs-viewer{height:min(78vh,820px)}
 }
+
+/* Viewport-driven PDF controls: also adapts when mobile Chrome toggles Desktop site. */
+.pdfjs-viewer.pdfjs-compact .pdfjs-toolbar{justify-content:center}
+.pdfjs-viewer.pdfjs-wide .pdfjs-toolbar{justify-content:flex-start}
+.pdfjs-zoomlabel{min-width:54px!important;border-radius:8px!important;color:#d7dce6!important}
+.pdfjs-zoomlabel:hover,.pdfjs-zoomlabel:focus-visible{background:rgba(255,255,255,.12)}
+.pdfjs-btn,.pdfjs-zoomlabel{user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.pdfjs-pagewrap{scroll-behavior:smooth}
+@media(pointer:coarse){
+ .pdfjs-btn{min-width:42px;height:42px}
+ .pdfjs-pageinput{height:42px}
+ .pdfjs-zoomlabel{min-height:42px}
+}
+@media(orientation:landscape) and (max-height:600px){
+ .pdfjs-viewer{height:calc(100svh - 82px)!important;max-height:none!important}
+ .pdfjs-toolbar{min-height:42px!important}
+ .pdfjs-hint{display:none}
+}
