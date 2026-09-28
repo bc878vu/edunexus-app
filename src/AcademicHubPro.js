@@ -183,6 +183,12 @@ function PdfJsPreview({ blob }) {
     (async () => {
       try {
         const pdfjsLib = await import('pdfjs-dist');
+        // pdf.js v6 REQUIRES a real worker file in the browser (its fake-worker
+        // fallback does a runtime import of workerSrc, so leaving it unset
+        // fails). The file is deployed at /pdf.worker.min.mjs and CSP
+        // worker-src 'self' allows it. NOTE: if pdfjs-dist is ever upgraded,
+        // re-copy node_modules/pdfjs-dist/build/pdf.worker.min.mjs to public/.
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
         // Polyfills for older mobile browsers: pdf.js v6 uses recent
         // Uint8Array extras (toHex/toBase64/fromBase64) and
         // Promise.withResolvers, which are missing on Chrome < ~129 and
