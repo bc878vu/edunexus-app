@@ -69,6 +69,17 @@ export default async function handler(req, res) {
   const id = String(req.query?.id || req.query?.file || '');
   const reviewPage = validReviewPage(req.query?.reviews);
   if (!validId(id) || reviewPage === null) return res.status(404).send('Resource not found');
+  // OG-preview fast path: serve from cache before touching Firestore, so shared
+  // links keep correct previews during quota outages.
+  if (req.query?.ogpreview) {
+    const cachedOg = cacheGet(id + ':ogpreview');
+    if (cachedOg) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      if (req.method === 'HEAD') return res.status(200).end();
+      return res.status(200).send(cachedOg);
+    }
+  }
   try {
     const file = await getPublicFile(id);
     if (!file) return res.status(404).send('Resource not found');
@@ -187,8 +198,33 @@ ${renderedReviews}${pagination}<a href="${h(reviewUrl)}">Read and write reviews 
     return res.status(200).send(fullHtml);
   } catch (error) {
     console.error('Resource page lookup failed', error?.message || 'unknown');
-    const cached = cacheGet(id + ':reviews=' + reviewPage);
-    if (cached) return res.status(200).send(cached);
+    const cacheKey = req.query?.ogpreview ? id + ':ogpreview' : id + ':reviews=' + reviewPage;
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(200).send(cached);
+    }
+    // Quota outage + empty OG cache: try to salvage OG tags from a cached full page.
+    if (req.query?.ogpreview) {
+      const fullCached = cacheGet(id + ':reviews=1');
+      if (fullCached) {
+        const ogTitle = (/property="og:title" content="([^"]*)"/.exec(fullCached) || [])[1];
+        const ogDesc = (/property="og:description" content="([^"]*)"/.exec(fullCached) || [])[1];
+        if (ogTitle) {
+          const salvaged =
+            '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+            '<title>' + ogTitle + '</title>' +
+            '<meta property="og:title" content="' + ogTitle + '">' +
+            (ogDesc ? '<meta property="og:description" content="' + ogDesc + '">' : '') +
+            '<meta property="og:image" content="' + h(SITE + '/logo512.png') + '">' +
+            '<meta name="twitter:card" content="summary_large_image">' +
+            '</head><body></body></html>';
+          cacheSet(id + ':ogpreview', salvaged);
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          return res.status(200).send(salvaged);
+        }
+      }
+    }
     return res.status(503).send(fallbackPage());
   }
 }
