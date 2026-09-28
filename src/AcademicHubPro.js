@@ -183,6 +183,42 @@ function PdfJsPreview({ blob }) {
     (async () => {
       try {
         const pdfjsLib = await import('pdfjs-dist');
+        // Polyfills for older mobile browsers: pdf.js v6 uses recent
+        // Uint8Array extras (toHex/toBase64/fromBase64) and
+        // Promise.withResolvers, which are missing on Chrome < ~129 and
+        // crash getDocument() with "toHex is not a function".
+        if (typeof Uint8Array.prototype.toHex !== 'function') {
+          Uint8Array.prototype.toHex = function () {
+            let s = '';
+            for (let i = 0; i < this.length; i++) s += this[i].toString(16).padStart(2, '0');
+            return s;
+          };
+        }
+        if (typeof Uint8Array.prototype.toBase64 !== 'function') {
+          Uint8Array.prototype.toBase64 = function () {
+            let s = '';
+            const CH = 0x8000;
+            for (let i = 0; i < this.length; i += CH) {
+              s += String.fromCharCode.apply(null, this.subarray(i, i + CH));
+            }
+            return btoa(s);
+          };
+        }
+        if (typeof Uint8Array.fromBase64 !== 'function') {
+          Uint8Array.fromBase64 = function (str) {
+            const bin = atob(str);
+            const out = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+            return out;
+          };
+        }
+        if (typeof Promise.withResolvers !== 'function') {
+          Promise.withResolvers = function () {
+            let resolve, reject;
+            const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+            return { promise, resolve, reject };
+          };
+        }
         const data = new Uint8Array(await blob.arrayBuffer());
         if (cancelled) return;
         pdfDoc = await pdfjsLib.getDocument({ data }).promise;
