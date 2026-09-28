@@ -739,21 +739,6 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     return () => { unsubFiles(); unsubFolders(); window.removeEventListener('popstate', onPop); };
   }, []);
 
-  // Fast subject view: when a subject folder is opened (e.g.
-  // ?page=academic&subject=CS609_System_Programming), load ALL of that
-  // subject's files immediately with a single where-query instead of paging
-  // through the global newest-first feed. No orderBy here, so no composite
-  // index is required; client-side sort happens in the `files` memo below.
-  useEffect(() => {
-    if (!activeCode) { setSubjectFiles([]); return; }
-    const grp = codeGroups.get(activeCode);
-    const aliases = (grp ? grp.aliases : [activeCode]).slice(0, 10);
-    const unsub = onSnapshot(query(FILES, where('subject', 'in', aliases.length ? aliases : [activeCode]), limit(400)),
-      (snap) => setSubjectFiles(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      () => {});
-    return () => unsub();
-  }, [activeCode, codeGroups]);
-
   const files = useMemo(() => {
     const map = new Map();
     [...older, ...latest, ...subjectFiles].forEach((f) => map.set(f.id, f));
@@ -794,6 +779,21 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     for (const [code, g] of codeGroups) if (g.aliases.includes(subject)) return code;
     return subject;
   }, [subject, codeGroups]);
+
+  // Fast subject view: when a subject folder is opened (e.g.
+  // ?page=academic&subject=CS609_System_Programming), load ALL of that
+  // subject's files immediately with a single where-query instead of paging
+  // through the global newest-first feed. No orderBy here, so no composite
+  // index is required; client-side sort happens in the `files` memo below.
+  useEffect(() => {
+    if (!activeCode) { setSubjectFiles([]); return; }
+    const grp = codeGroups.get(activeCode);
+    const aliases = (grp ? grp.aliases : [activeCode]).slice(0, 10);
+    const unsub = onSnapshot(query(FILES, where('subject', 'in', aliases.length ? aliases : [activeCode]), limit(400)),
+      (snap) => setSubjectFiles(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      () => {});
+    return () => unsub();
+  }, [activeCode, codeGroups]);
   const activeAliasSet = useMemo(() => new Set(activeCode ? (codeGroups.get(activeCode) ? codeGroups.get(activeCode).aliases : [activeCode]) : []), [activeCode, codeGroups]);
   // True per-card counts: denormalized fileCounts (kept fresh by upload/delete plus the
   // admin "Recalculate folder counts" backfill) summed across the code's aliases, falling
