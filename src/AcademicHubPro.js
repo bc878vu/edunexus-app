@@ -1104,15 +1104,34 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [mergedCodes]);
   const normalized = deferredSearch.trim().toLowerCase();
+  // Course-aware search. A department prefix such as "cs" intentionally
+  // matches every CS course; a complete course code such as "cs101" matches
+  // CS101 only (including its folder aliases) and never CS1010/CS101A.
+  const normalizedCompact = normalized.replace(/[^a-z0-9]/g, '');
+  const courseQuery = normalizedCompact.match(/^([a-z]{2,})(\d{3}[a-z]?)?$/i);
+  const searchMatchesFile = useCallback((f) => {
+    if (!normalized) return true;
+    const subjectCode = extractCourseCode(f.subject || '');
+    if (courseQuery) {
+      const prefix = courseQuery[1].toUpperCase();
+      const exactCode = courseQuery[2] ? (prefix + courseQuery[2].toUpperCase()) : '';
+      if (exactCode) return subjectCode === exactCode;
+      if (subjectCode && subjectPrefix(subjectCode) === prefix) return true;
+    }
+    const words = normalized.split(/\s+/).filter(Boolean);
+    const haystack = [f.name, f.title, f.subject, f.description, f.ext]
+      .map((value) => String(value || '').toLowerCase()).join(' ');
+    return words.every((word) => haystack.includes(word));
+  }, [normalized, normalizedCompact]);
   const matches = useMemo(() => {
     const result = files.filter((f) => f.isActive !== false
       && (!activeCode || activeAliasSet.has(f.subject))
       && (format === 'all' || (format === 'documents' ? ['PDF','DOC','DOCX','PPT','PPTX','XLS','XLSX','TXT','CSV'].includes(extOf(f)) : format === 'images' ? ['PNG','JPG','JPEG','WEBP'].includes(extOf(f)) : extOf(f) === 'LINK'))
-      && (!normalized || [f.name, f.title, f.subject, f.description, f.ext].some((value) => String(value || '').toLowerCase().includes(normalized))));
+      && searchMatchesFile(f));
     if (sortBy === 'name') result.sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
     else if (sortBy === 'oldest') result.reverse();
     return result;
-  }, [files, activeCode, activeAliasSet, format, normalized, sortBy]);
+  }, [files, activeCode, activeAliasSet, format, searchMatchesFile, sortBy]);
   // A selected subject shows its files immediately and completely — no
   // manual "load more" needed. The unfiltered view keeps client-side paging.
   const displayed = activeCode ? matches : matches.slice(0, visible);
@@ -1123,22 +1142,25 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const searchSuggestions = useMemo(() => {
     const q = normalized;
     if (!q || activeCode) return [];
-    const out = [];
-    const code = extractCourseCode(q.toUpperCase());
-    if (code && codeGroups.has(code)) {
+    const compact = q.replace(/[^a-z0-9]/g, '');
+    const typedCourse = compact.match(/^([a-z]{2,})(\d{3}[a-z]?)?$/i);
+    let candidates = mergedCodes;
+    if (typedCourse) {
+      const prefix = typedCourse[1].toUpperCase();
+      const exact = typedCourse[2] ? prefix + typedCourse[2].toUpperCase() : '';
+      candidates = exact
+        ? mergedCodes.filter((c) => c.toUpperCase() === exact)
+        : mergedCodes.filter((c) => subjectPrefix(c).toUpperCase() === prefix);
+    } else {
+      candidates = mergedCodes.filter((c) => {
+        const label = String((codeGroups.get(c) || {}).display || c).toLowerCase();
+        return q.split(/\s+/).filter(Boolean).every((word) => label.includes(word));
+      });
+    }
+    return candidates.slice(0, 50).map((code) => {
       const g = codeGroups.get(code);
-      out.push({ code, label: displayFolderName(g.display || code), count: codeFileCount(code) });
-    }
-    if (out.length === 0) {
-      for (const c of mergedCodes) {
-        const label = displayFolderName((codeGroups.get(c) || {}).display || c);
-        if (label.toLowerCase().includes(q) && c.toLowerCase() !== q) {
-          out.push({ code: c, label, count: codeFileCount(c) });
-          if (out.length >= 5) break;
-        }
-      }
-    }
-    return out;
+      return { code, label: displayFolderName(g?.display || code), count: codeFileCount(code) };
+    });
   }, [normalized, activeCode, codeGroups, mergedCodes]);
   const selected = files.find((f) => f.id === selectedId);
   // Hide the floating promo orbs while the preview panel is open so they
