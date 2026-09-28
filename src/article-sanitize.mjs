@@ -67,7 +67,121 @@ export function sanitizeArticleHtml(input) {
     }
     return '<' + t + '>';
   });
+  // Plain-text bodies (no HTML tags at all): restore the author's line
+  // structure as paragraphs, lists, headings, dividers and links, so they
+  // don't render as one unbroken wall of text. Bodies that already carry
+  // HTML are left untouched.
+  if (s.includes('\n') && !/<[a-zA-Z/!]/.test(s)) {
+    s = structurePlainText(s);
+  }
   return s.trim();
+}
+
+// --- Plain-text structuring -----------------------------------------------
+// Several articles were stored as plain text (newlines only, no HTML), which
+// HTML collapses into a single "raw irregular" wall. This rebuilds a faithful
+// structure: blank lines separate paragraphs, single newlines become <br>,
+// divider lines become <hr>, list-like lines become real lists, short
+// heading-like lines become <h2>, and bare URLs become links.
+
+const DIVIDER_RE = /^[\s\u2501\u2500\-_\u2014*.~#]{4,}$/;
+const LIST_NUM_RE = /^\s*\d+\s*(?:[-)\u00BB>]+|\.\s+)\s*(\S[\s\S]*)$/;
+const LIST_BUL_RE = /^\s*[\u2022\-*\u2192\u25B6+]\s+(\S[\s\S]*)$/;
+const HEADING_STOPWORDS = new Set([
+  'of', 'the', 'a', 'an', 'and', 'to', 'in', 'on', 'for', 'vs', 'with',
+  'or', 'as', 'at', 'by', 'from', 'is',
+]);
+
+function escapeText(s) {
+  return String(s)
+    .replace(/&(?!#?\w+;)/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function linkifyText(s) {
+  return String(s).replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+    const clean = url.replace(/[.,;:!?)\]]+$/, '');
+    const trail = url.slice(clean.length);
+    return '<a href="' + clean + '">' + clean + '</a>' + trail;
+  });
+}
+
+function isListLine(line) {
+  return LIST_NUM_RE.test(line) || LIST_BUL_RE.test(line);
+}
+
+// Conservative heading detection for plain-text lines. A line becomes <h2>
+// only when it is short, has no sentence punctuation/digits/URLs, and is
+// either mostly UPPERCASE (e.g. "\uD83C\uDF0B 12:00 AM \u2014 EARTH KA JANAM")
+// or Title Case (e.g. "CGPA Calculation Formula").
+function looksLikeHeading(line) {
+  const t = line.trim();
+  if (t.length < 4 || t.length > 70) return false;
+  if (!/[A-Za-z\u00C0-\u024F]/.test(t)) return false;
+  if (/[.!?]\s*$/.test(t) || /[:,;!?)]\s*$/.test(t)) return false;
+  if (/https?:\/\//i.test(t) || /=/.test(t)) return false;
+  const letters = t.match(/[A-Za-z\u00C0-\u024F]/g) || [];
+  const upper = letters.filter((c) => c !== c.toLowerCase()).length;
+  if (letters.length >= 4 && upper / letters.length >= 0.6) return true;
+  if (/\d/.test(t) || /[.!?]/.test(t)) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 8) return false;
+  return words.every((w) => {
+    const core = w.replace(/^["'\u201C\u201D\u2018\u2019(\[{]+|["'\u201C\u201D\u2018\u2019)\]}:;,.!?-]+$/g, '');
+    if (!core) return true;
+    if (HEADING_STOPWORDS.has(core.toLowerCase())) return true;
+    return /^[A-Z\u00C0-\u024F]/.test(core);
+  });
+}
+
+export function structurePlainText(input) {
+  const lines = String(input ?? '').split('\n');
+  const out = [];
+  let para = [];
+  let list = null; // { tag: 'ol'|'ul', items: [] }
+  const flushPara = () => {
+    if (para.length) { out.push('<p>' + para.join('<br>') + '</p>'); para = []; }
+  };
+  const flushList = () => {
+    if (list) {
+      out.push('<' + list.tag + '>' + list.items.map((i) => '<li>' + i + '</li>').join('') + '</' + list.tag + '>');
+      list = null;
+    }
+  };
+  const pushListItem = (tag, itemHtml) => {
+    flushPara();
+    if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
+    list.items.push(itemHtml);
+  };
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx].trim();
+    if (!line) {
+      // Blank line: keep a list open only when the next content line
+      // continues it (items are often blank-line separated).
+      let nxt = idx + 1;
+      while (nxt < lines.length && !lines[nxt].trim()) nxt++;
+      flushPara();
+      if (nxt >= lines.length || !isListLine(lines[nxt].trim())) flushList();
+      continue;
+    }
+    if (DIVIDER_RE.test(line)) { flushPara(); flushList(); out.push('<hr>'); continue; }
+    const lm = line.match(LIST_NUM_RE) || line.match(LIST_BUL_RE);
+    if (lm) {
+      pushListItem(LIST_NUM_RE.test(line) ? 'ol' : 'ul', linkifyText(escapeText(lm[1].trim())));
+      continue;
+    }
+    if (looksLikeHeading(line)) {
+      flushPara(); flushList();
+      out.push('<h2>' + linkifyText(escapeText(line)) + '</h2>');
+      continue;
+    }
+    flushList();
+    para.push(linkifyText(escapeText(line)));
+  }
+  flushPara();
+  flushList();
+  return out.join('');
 }
 
 // Plain text version of an article body (tags removed, blocks spaced).
