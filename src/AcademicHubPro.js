@@ -214,8 +214,9 @@ function PdfJsPreview({ blob }) {
   const [numPages, setNumPages] = useState(0);
   const [pageNum, setPageNum] = useState(1); // nearest visible page
   const [pageInput, setPageInput] = useState('1');
-  const [zoom, setZoom] = useState(1); // multiplier over fit-width
+  const [zoom, setZoom] = useState(1); // 1 = fit width; user zoom is relative to current viewport
   const [fitScale, setFitScale] = useState(0);
+  const fitScaleRef = useRef(0);
   const [pageAspect, setPageAspect] = useState(1.414); // h/w placeholder ratio
   // Mirror zoom in a ref ONLY for the pinch gesture (touch handlers are
   // registered once); every render path takes zoom as an explicit argument.
@@ -283,7 +284,9 @@ function PdfJsPreview({ blob }) {
         const v1 = page.getViewport({ scale: 1 });
         const el = containerRef.current;
         const availW = el ? Math.max(el.clientWidth - 24, 200) : 360;
-        setFitScale(Math.max(availW / v1.width, 0.2));
+        const initialFit = Math.max(availW / v1.width, 0.2);
+        fitScaleRef.current = initialFit;
+        setFitScale(initialFit);
         setPageAspect(v1.height / v1.width);
         setStatus('ready');
       } catch (err) {
@@ -312,6 +315,7 @@ function PdfJsPreview({ blob }) {
           if (cancelled) return;
           const v1 = page.getViewport({ scale: 1 });
           const ns = Math.max(w / v1.width, 0.2);
+          fitScaleRef.current = ns;
           setFitScale((prev) => (Math.abs(prev - ns) > 0.02 ? ns : prev));
         }).catch(() => {});
       });
@@ -425,8 +429,10 @@ function PdfJsPreview({ blob }) {
     renderVisiblePages(z);
   }, [renderVisiblePages]);
   const changeZoom = (dir) => {
-    applyZoom(zoomRef.current * (dir > 0 ? 1.25 : 0.8));
+    // Predictable 10% steps are easier to control on phones than multiplicative jumps.
+    applyZoom(zoomRef.current + (dir > 0 ? 0.10 : -0.10));
   };
+  const resetZoom = () => applyZoom(1);
 
   // Pinch-to-zoom on touch devices. One-finger scrolling stays native
   // (touch-action: pan-x pan-y on the container); we only intercept two
@@ -501,7 +507,7 @@ function PdfJsPreview({ blob }) {
         <button type="button" className="pdfjs-btn" onClick={() => scrollToPage(pageNum + 1)} disabled={numPages > 0 && pageNum >= numPages} aria-label="Next page">›</button>
         <span className="pdfjs-sep" />
         <button type="button" className="pdfjs-btn" onClick={() => changeZoom(-1)} disabled={zoom <= 0.5} aria-label="Zoom out">−</button>
-        <span className="pdfjs-zoomlabel">{Math.round(zoom * 100)}%</span>
+        <button type="button" className="pdfjs-zoomlabel" onClick={resetZoom} aria-label="Fit page to viewer" title="Fit width">{Math.round(zoom * 100)}%</button>
         <button type="button" className="pdfjs-btn" onClick={() => changeZoom(1)} disabled={zoom >= 3} aria-label="Zoom in">+</button>
       </div>
       <div className="pdfjs-hint">Swipe to scroll pages · Pinch to zoom</div>
