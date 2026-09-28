@@ -143,3 +143,18 @@ body.ah-preview-open .edx-free-orb{display:none!important}
  .pdfjs-btn{min-width:42px!important;height:42px!important}
  .pdfjs-pageinput,.pdfjs-zoomlabel{min-height:42px!important}
 }
+
+
+/* Explicit Academic Hub search action */
+.ah-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:stretch}
+.ah-search-form .ah-search{min-width:0}
+.ah-search-submit{white-space:nowrap;min-width:112px;justify-content:center}
+@media(max-width:640px){
+  .ah-search-form{grid-template-columns:minmax(0,1fr) auto}
+  .ah-search-form>.ah-secondary{grid-column:1/-1;width:100%;justify-content:center}
+  .ah-search-submit{min-width:96px;padding-inline:12px}
+}
+@media(max-width:390px){
+  .ah-search-form{grid-template-columns:1fr}
+  .ah-search-submit,.ah-search-form>.ah-secondary{width:100%}
+}
