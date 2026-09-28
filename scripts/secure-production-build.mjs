@@ -46,7 +46,7 @@ const checks = [
   [/const db = getFirestore\(app\)/, 'shared Firestore instance'],
   [/getApps\(\)\.length \? getApp\(\) : initializeApp\(firebaseConfig\)/, 'Firebase singleton initialization'],
   [/signInWithEmailAndPassword\(auth, enteredEmail, password\)/, 'Firebase admin authentication'],
-  [/adminPanelAccess\(account\)/, 'verified admin session scoped to the active panel'],
+  [/adminPanelAccess\(\w+\)/, 'verified admin session scoped to the active panel'],
   [/browserSessionPersistence/, 'tab-scoped Firebase auth persistence'],
   [/await signOut\(auth\)/, 'real Firebase sign-out'],
   [/broadcastAdminLogout\(\)/, 'cross-tab admin logout'],
