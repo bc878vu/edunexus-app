@@ -89,6 +89,10 @@
       "destination": "/api/subjects-sitemap"
     },
     {
+      "source": "/vu-notes/file/:id",
+      "destination": "/api/resource-page?id=:id"
+    },
+    {
       "source": "/vu-notes/file/:id/:slug",
       "destination": "/api/resource-page?id=:id&slug=:slug"
     },
