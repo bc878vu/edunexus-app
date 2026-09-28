@@ -70,6 +70,10 @@
       "destination": "/api/resource-sitemap"
     },
     {
+      "source": "/subjects-sitemap.xml",
+      "destination": "/api/subjects-sitemap"
+    },
+    {
       "source": "/vu-notes/file/:id/:slug",
       "destination": "/api/resource-page?id=:id&slug=:slug"
     },
