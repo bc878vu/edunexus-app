@@ -105,3 +105,41 @@ body.ah-preview-open .edx-free-orb{display:none!important}
  .pdfjs-toolbar{min-height:42px!important}
  .pdfjs-hint{display:none}
 }
+
+/* Final adaptive PDF control pass — driven by available space, not UA mode. */
+.pdfjs-toolbar{container-type:inline-size}
+.pdfjs-toolbar>*{flex-shrink:0}
+.pdfjs-pageinput{font-variant-numeric:tabular-nums}
+.pdfjs-viewer.pdfjs-compact .pdfjs-toolbar{justify-content:space-between!important}
+.pdfjs-viewer.pdfjs-compact .pdfjs-sep{display:none}
+.pdfjs-viewer.pdfjs-compact .pdfjs-btn{min-width:40px!important;width:40px!important;flex-basis:40px!important}
+.pdfjs-viewer.pdfjs-compact .pdfjs-pageinput{width:58px!important;min-width:58px!important}
+.pdfjs-viewer.pdfjs-compact .pdfjs-zoomlabel{min-width:62px!important}
+@container (max-width:460px){
+ .pdfjs-btn{min-width:36px!important;width:36px!important;flex-basis:36px!important}
+ .pdfjs-pageinput{width:50px!important;min-width:50px!important}
+ .pdfjs-zoomlabel{min-width:54px!important}
+ .pdfjs-toolbar{gap:3px!important;padding-inline:5px!important}
+}
+@container (max-width:370px){
+ .pdfjs-btn{min-width:32px!important;width:32px!important;flex-basis:32px!important}
+ .pdfjs-pageinput{width:44px!important;min-width:44px!important}
+ .pdfjs-zoomlabel{min-width:48px!important;padding-inline:2px!important}
+ .pdfjs-pagetotal{font-size:.76rem}
+}
+@media(max-width:790px){
+ .pdfjs-viewer{height:min(76svh,820px)!important;min-height:480px}
+}
+@media(max-width:790px) and (orientation:landscape){
+ .ah-library{padding-inline:4px!important}
+ .ah-panel-wrap{margin-inline:-4px}
+ .pdfjs-viewer{height:calc(100svh - 76px)!important;width:100%!important;min-height:280px!important}
+ .pdfjs-pagewrap{padding:6px!important}
+}
+@media(pointer:coarse) and (min-width:791px){
+ /* Phone/tablet requesting Desktop site: retain touch-sized controls while
+    letting the wider CSS viewport use desktop geometry. */
+ .pdfjs-toolbar{justify-content:center!important}
+ .pdfjs-btn{min-width:42px!important;height:42px!important}
+ .pdfjs-pageinput,.pdfjs-zoomlabel{min-height:42px!important}
+}
