@@ -33,12 +33,14 @@ test('never silently publish missing or null answers as option A', () => {
   expect(() => validateMcq(base({ answer: '0' }))).toThrow(/answer index/);
   expect(() => validateMcq(base({ options: ['A','B','C'] }))).toThrow(/four/);
 });
-test('accepts one 42-question JSON file but rejects oversized batches and invalid JSON', () => {
+test('accepts large JSON files with no question-count cap, but rejects invalid JSON', () => {
   const items = Array.from({ length: 42 }, (_, i) => base({ question: 'Question ' + (i+1) }));
   const parsed = parseMcqJson(JSON.stringify(items));
   expect(parsed).toHaveLength(42);
   expect(summarizeImport(parsed)).toMatchObject({ count:42, totals:{quiz:42,midterm:0,finalterm:0}, subjects:['CS620'] });
-  expect(() => parseMcqJson(JSON.stringify(Array.from({ length:201 }, (_, i) => base({ question:'Q '+i }))))).toThrow(/1–200/);
+  // The 200-question cap was intentionally removed (JSON files are unlimited;
+  // only the 32 MiB browser safety limit remains), so 201 items must parse.
+  expect(parseMcqJson(JSON.stringify(Array.from({ length: 201 }, (_, i) => base({ question:'Q '+i }))))).toHaveLength(201);
   expect(() => parseMcqJson('[{"broken"')).toThrow(/Invalid JSON/);
 });
 test('counts provisional answers and conflicting solved source keys before publishing', () => {

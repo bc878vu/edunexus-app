@@ -1,16 +1,60 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { Edit3, MessageCircle, Plus, Search, Trash2 } from 'lucide-react';
-import { db, storage } from './firebase-client';
+import { storage } from './firebase-client';
 import { deleteObject, ref as storageRef } from 'firebase/storage';
+import { supabase, USE_SUPABASE } from './supabase-client';
 import { adminPanelAccess } from './adminSession';
+import { listCommunityReviews, listLegacyReviews, updateCommunityReview, deleteCommunityReview, setCommunityReviewActive, updateLegacyReview, deleteLegacyReview, subscribeCommunityReviews } from './db/examReviews';
+import { listFeedback, subscribeFeedback } from './db/feedback';
+import { subscribeTable } from './db/realtime';
 
 const REVIEW_WORD_LIMIT = 10000;
 const REVIEW_CHAR_LIMIT = 300000;
 const countReviewWords = (value) => String(value || '').trim().match(/\S+/gu)?.length || 0;
-const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
+const LEGACY_ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
 const COLLECTIONS = ['examCommunityReviews', 'examReviews'];
-const col = (name) => collection(db, ...ROOT, name);
+// TODO(adapter): db/examReviews.js has no subscribeLegacyReviews or
+// createLegacyReview helper yet. These local mini-adapters expose the same
+// onInvalidate contract / plain-row semantics; move them into the adapter
+// when they are available.
+const subscribeLegacyReviews = ({ onInvalidate }) => {
+  if (USE_SUPABASE) return subscribeTable({ table: 'exam_reviews', onInvalidate });
+  let unsub = () => {};
+  let cancelled = false;
+  (async () => {
+    const { collection, query, limit, onSnapshot } = await import('firebase/firestore');
+    const { db } = await import('./firebase-client');
+    if (cancelled) return;
+    unsub = onSnapshot(query(collection(db, ...LEGACY_ROOT, 'examReviews'), limit(200)),
+      () => { try { onInvalidate(); } catch (_) {} }, () => {});
+  })();
+  return () => { cancelled = true; unsub(); };
+};
+// Mirrors the LEGACY_SPEC field mapping in db/examReviews.js.
+const createLegacyReview = async (values) => {
+  if (USE_SUPABASE) {
+    const id = (window.crypto?.randomUUID?.() || ('id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12)));
+    const { error } = await supabase.from('exam_reviews').insert({
+      id,
+      subject: values.subject,
+      term: values.term,
+      semester: values.semester || null,
+      exam_date: values.examDate || null,
+      exam_time: values.examTime || null,
+      shared_by: values.sharedBy || null,
+      difficulty: values.difficulty,
+      topics: values.topics || null,
+      summary: values.summary,
+      created_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+    return id;
+  }
+  const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+  const { db } = await import('./firebase-client');
+  const ref = await addDoc(collection(db, ...LEGACY_ROOT, 'examReviews'), { ...values, createdAt: serverTimestamp() });
+  return ref.id;
+};
 const trim = (value, max) => String(value || '').trim().slice(0, max);
 const courseCode = (value) => trim(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, '');
 const validCode = (code) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(code);
@@ -27,7 +71,17 @@ const editable = (record) => ({
   topics: record.topics || '',
   summary: record.summary || ''
 });
-const timestamp = (value) => value?.toMillis?.() || 0;
+const timestamp = (value) => {
+  if (value?.toMillis) return value.toMillis();
+  const t = value ? Date.parse(String(value)) : NaN;
+  return Number.isFinite(t) ? t : 0;
+};
+const formatReportDate = (value) => {
+  try {
+    const d = value?.toDate ? value.toDate() : (value ? new Date(value) : null);
+    return d && Number.isFinite(d.getTime()) ? d.toLocaleString() : 'Date pending';
+  } catch (_) { return 'Date pending'; }
+};
 
 // Editing changes public student content, so the source/owner and original
 // publication timestamp remain immutable. The admin must confirm every save.
@@ -55,7 +109,7 @@ export function validateReviewDraft(draft, original = null) {
   const moment = new Date(values.examDate + 'T' + (values.examTime || '00:00') + ':00');
   if (!Number.isFinite(moment.getTime()) || moment.getTime() > Date.now())
     throw new Error('The exam date and time must be in the past.');
-  return { values, examAt: Timestamp.fromDate(moment) };
+  return { values, examAt: moment };
 }
 
 export default function ExamPaperReviewManager({ user }) {
@@ -93,20 +147,42 @@ export default function ExamPaperReviewManager({ user }) {
   const [reportError, setReportError] = useState('');
   useEffect(() => {
     if (!allowed) return;
-    return onSnapshot(query(col('feedback'), where('category','==','exam-review-report')),
-      snapshot => { setReports(snapshot.docs.map(d=>({id:d.id,...d.data()}))); setReportError(''); },
-      () => setReportError('Could not load review reports. Check admin permissions.'));
+    let active = true;
+    const load = async () => {
+      try {
+        const items = await listFeedback({ category: 'exam-review-report', limit: 200 });
+        if (!active) return;
+        setReports(items);
+        setReportError('');
+      } catch (_) {
+        if (active) setReportError('Could not load review reports. Check admin permissions.');
+      }
+    };
+    load();
+    const unsubscribe = subscribeFeedback({ onInvalidate: load });
+    return () => { active = false; unsubscribe(); };
   }, [allowed]);
   useEffect(() => {
     if (!allowed || !validCode(subject)) { setCommunity([]); setLegacy([]); return; }
     setError('');
-    const stop = COLLECTIONS.map((name, index) => onSnapshot(
-      query(col(name), where('subject','==',subject), limit(200)),
-      snap => (index === 0 ? setCommunity : setLegacy)(
-        snap.docs.map(docSnap => ({ id:docSnap.id, collectionName:name, ...docSnap.data() }))),
-      () => setError('Reviews could not load. Please retry in a moment.')
-    ));
-    return () => stop.forEach(unsubscribe => unsubscribe());
+    let active = true;
+    const loadCommunity = async () => {
+      try {
+        const items = await listCommunityReviews({ subject, limit: 200 });
+        if (active) setCommunity(items.map(item => ({ ...item, collectionName: COLLECTIONS[0] })));
+      } catch (_) { if (active) setError('Reviews could not load. Please retry in a moment.'); }
+    };
+    const loadLegacy = async () => {
+      try {
+        const items = await listLegacyReviews({ subject, limit: 200 });
+        if (active) setLegacy(items.map(item => ({ ...item, collectionName: COLLECTIONS[1] })));
+      } catch (_) { if (active) setError('Reviews could not load. Please retry in a moment.'); }
+    };
+    loadCommunity();
+    loadLegacy();
+    const stopCommunity = subscribeCommunityReviews({ subject, onInvalidate: loadCommunity });
+    const stopLegacy = subscribeLegacyReviews({ onInvalidate: loadLegacy });
+    return () => { active = false; stopCommunity(); stopLegacy(); };
   }, [allowed, subject]);
   const records = useMemo(() => [...community,...legacy]
     .filter(r => [r.summary,r.topics,r.sharedBy,r.examDate].some(v => String(v || '').toLowerCase().includes(search.trim().toLowerCase())))
@@ -141,9 +217,10 @@ export default function ExamPaperReviewManager({ user }) {
           { subject:values.subject, term:values.term, examDate:values.examDate, examTime:values.examTime,
             sharedBy:values.sharedBy, semester:values.semester, difficulty:values.difficulty,
             topics:values.topics, summary:values.summary };
-        await updateDoc(doc(col(selected.collectionName),selected.id), changes);
+        if (selected.collectionName === COLLECTIONS[0]) await updateCommunityReview(selected.id, changes);
+        else await updateLegacyReview(selected.id, changes);
       } else {
-        await addDoc(col('examReviews'), { ...values, createdAt:serverTimestamp() });
+        await createLegacyReview(values);
       }
       setNotice(selected ? 'Review updated.' : 'Review published.');
       setSelected(null); setDraft(initial());
@@ -161,7 +238,12 @@ export default function ExamPaperReviewManager({ user }) {
     const next = record.isActive === false ? true : false;
     setBusy(true); setError(''); setNotice('');
     try {
-      await updateDoc(doc(col(record.collectionName), record.id), { isActive: next, updatedAt: serverTimestamp() });
+      // TODO(adapter): on the Supabase branch legacy visibility writes have no
+      // is_active column mapping yet (see updateLegacyReview); legacy records
+      // stay visible until that column is added. Community visibility works on
+      // both branches via setCommunityReviewActive.
+      if (record.collectionName === COLLECTIONS[0]) await setCommunityReviewActive(record.id, next);
+      else await updateLegacyReview(record.id, { isActive: next });
       setNotice(next ? 'Review is now visible to students.' : 'Review hidden from students. It can be shown again anytime.');
     } catch (_) { setError('Could not update review visibility. Please check your access.'); }
     finally { setBusy(false); }
@@ -173,10 +255,18 @@ export default function ExamPaperReviewManager({ user }) {
     if (!adminPanelAccess(user)) { setError('Your admin session for this tab has expired. Reload the admin page (?page=admin) and sign in again.'); return; }
     setBusy(true); setError(''); setNotice('');
     try {
-      await deleteDoc(doc(col(record.collectionName),record.id));
+      if (record.collectionName === COLLECTIONS[0]) await deleteCommunityReview(record.id);
+      else await deleteLegacyReview(record.id);
       let attachmentNotice = '';
       if (record.paperPath && record.paperPath.startsWith('exam-papers/' + record.userId + '/')) {
-        try { await deleteObject(storageRef(storage, record.paperPath)); }
+        try {
+          if (USE_SUPABASE) {
+            const { error: storageError } = await supabase.storage.from('exam-papers').remove([record.paperPath]);
+            if (storageError) throw storageError;
+          } else {
+            await deleteObject(storageRef(storage, record.paperPath));
+          }
+        }
         catch (_) { attachmentNotice = ' The review was removed; its attached file may still need to be deleted from storage.'; }
       }
       if (selected?.id === record.id && selected?.collectionName === record.collectionName) {
@@ -188,7 +278,7 @@ export default function ExamPaperReviewManager({ user }) {
   };
   return <section className="edx-exam-card edx-review-manager" aria-label="Manage paper reviews">
     <div className="edx-exam-between"><div><h3>Manage paper reviews</h3><p>Publish, edit or remove completed-paper reviews without changing student accounts.</p></div><MessageCircle size={24}/></div>
-    <section className="edx-review-manager-reports" aria-label="Student review reports"><h4>Student review reports ({reports.length})</h4>{reportError && <p role="alert">{reportError}</p>}{!reports.length && !reportError && <p>No reports received.</p>}{reports.sort((a,b)=>timestamp(b.createdAt)-timestamp(a.createdAt)).map(report=><article key={report.id}><strong>{trim(report.reviewId,140)}</strong><p>{trim(report.reason,500)}</p><small>{report.reviewCollection === 'examReviews' ? 'Earlier review' : 'Student review'} · {report.createdAt?.toDate?.()?.toLocaleString?.() || 'Date pending'}</small><div><button type="button" className="edx-exam-secondary" onClick={()=>{setSubject(courseCode(String(report.reviewId||'').split('_').slice(-3)[0]));setSearch('');}}>Find reported review</button></div></article>)}</section>
+    <section className="edx-review-manager-reports" aria-label="Student review reports"><h4>Student review reports ({reports.length})</h4>{reportError && <p role="alert">{reportError}</p>}{!reports.length && !reportError && <p>No reports received.</p>}{reports.sort((a,b)=>timestamp(b.createdAt)-timestamp(a.createdAt)).map(report=><article key={report.id}><strong>{trim(report.reviewId,140)}</strong><p>{trim(report.reason,500)}</p><small>{report.reviewCollection === 'examReviews' ? 'Earlier review' : 'Student review'} · {formatReportDate(report.createdAt)}</small><div><button type="button" className="edx-exam-secondary" onClick={()=>{setSubject(courseCode(String(report.reviewId||'').split('_').slice(-3)[0]));setSearch('');}}>Find reported review</button></div></article>)}</section>
     <div className="edx-review-manager-controls">
       <label className="edx-exam-field">Course code<input value={subject} maxLength={12} onChange={e=>setSubject(courseCode(e.target.value))} placeholder="e.g. CS620"/></label>
       <label className="edx-exam-field">Find a review <span className="edx-study-search"><Search size={17}/><input type="search" value={search} placeholder="Search name, date or content" onChange={e=>setSearch(e.target.value)}/></span></label>

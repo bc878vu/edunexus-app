@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { db } from './firebase-client';
-import { collection, query, orderBy, onSnapshot, updateDoc, doc, increment, arrayUnion } from 'firebase/firestore';
+import { listArticles, toggleLike, subscribeArticles } from './db/articles';
 import { Heart, BookOpen, Share2, MessageCircle, ChevronDown, ChevronUp, Clock, Maximize2, X } from 'lucide-react';
 import { sanitizeArticleHtml, articlePlainText, articleExcerpt } from './article-sanitize.mjs';
 import ArticleComments, { useCommentCount } from './ArticleComments';
-const appId = 'edunexus-live';
 
 // Local date formatter (matches App.js formatDate)
 const formatDate = (timestamp) => {
@@ -40,7 +38,10 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
   const commentCount = useCommentCount(art.id);
   const excerpt = getExcerpt(art.content);
   const isLong = stripHtml(art.content).length > 280;
-  const hasLiked = art.likedBy?.includes(user?.uid);
+  // likedNow: the Supabase branch returns likedBy: [] on reads (likes live in
+  // article_likes), so flip the heart locally on a successful toggle.
+  const [likedNow, setLikedNow] = useState(false);
+  const hasLiked = likedNow || art.likedBy?.includes(user?.uid);
 
   const handleLike = async () => {
     if (!user) {
@@ -49,10 +50,12 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
     }
     if (hasLiked) return;
     try {
-      await updateDoc(
-        doc(db, "artifacts", appId, "public", "data", "articles", art.id),
-        { likes: increment(1), likedBy: arrayUnion(user.uid) }
-      );
+      const res = await toggleLike(art.id, user.uid);
+      if (res && res.liked === false) {
+        showToast("Already liked", "error");
+        return;
+      }
+      setLikedNow(true);
       showToast("Liked!", "success");
     } catch (e) {
       showToast("Could not like", "error");
@@ -253,24 +256,26 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
   const [visibleCount, setVisibleCount] = useState(10);
 
   useEffect(() => {
-    const q = query(
-      collection(db, "artifacts", appId, "public", "data", "articles"),
-      orderBy("createdAt", "desc")
-    );
-    const unsubscribe = onSnapshot(q, (s) => {
-      const all = s.docs.map((d) => ({ id: d.id, ...d.data() }));
-      // Hide disabled articles from public
-      const visible = all.filter(a => a.isActive !== false);
-      setArticles(visible);
+    let alive = true;
+    const load = async () => {
       try {
-        localStorage.setItem("edunexus_articles", JSON.stringify(visible));
-      } catch (e) {}
-      setLoading(false);
-    }, (err) => {
-      console.log("Articles sync skipped", err);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+        const all = await listArticles({ limit: 100 });
+        if (!alive) return;
+        // Hide disabled articles from public
+        const visible = all.filter(a => a.isActive !== false);
+        setArticles(visible);
+        try {
+          localStorage.setItem("edunexus_articles", JSON.stringify(visible));
+        } catch (e) {}
+        setLoading(false);
+      } catch (err) {
+        console.log("Articles sync skipped", err);
+        if (alive) setLoading(false);
+      }
+    };
+    load();
+    const unsubscribe = subscribeArticles({ onInvalidate: load });
+    return () => { alive = false; unsubscribe(); };
   }, []);
 
   const visibleArticles = articles.slice(0, visibleCount);

@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { Pin } from "lucide-react";
-import { db } from "./firebase-client";
+import { getActiveAd, subscribePinnedAds } from "./db/pinnedAds";
 import "./pinned-ad.css";
 
 // PinnedAd v1.0.1 — dashboard video announcement (redeploy trigger)
-
-const PINNED_ADS = collection(db, "artifacts/edunexus-live/public/data/pinned_ads");
 
 /**
  * PinnedAd — pinned video announcement shown at the top of the main dashboard.
@@ -21,24 +18,25 @@ export default function PinnedAd() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    const q = query(PINNED_ADS, orderBy("createdAt", "desc"));
-    return onSnapshot(q, (snap) => {
-      const now = Date.now();
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const active = items.find((item) => {
-        if (item.isActive === false) return false;
-        if (item.startAt) {
-          const start = item.startAt?.toMillis ? item.startAt.toMillis() : new Date(item.startAt).getTime();
-          if (Number.isFinite(start) && now < start) return false;
-        }
-        if (item.endAt) {
-          const end = item.endAt?.toMillis ? item.endAt.toMillis() : new Date(item.endAt).getTime();
-          if (Number.isFinite(end) && now > end) return false;
-        }
-        return true;
-      });
-      setAd(active || null);
-    }, () => setAd(null));
+    let alive = true;
+    const load = async () => {
+      try {
+        const next = await getActiveAd();
+        if (alive) setAd(next);
+      } catch (_) {
+        if (alive) setAd(null);
+      }
+    };
+    void load();
+    let unsubscribe = () => {};
+    try {
+      const maybe = subscribePinnedAds({ onInvalidate: () => void load() });
+      if (typeof maybe === "function") unsubscribe = maybe;
+    } catch (_) {}
+    return () => {
+      alive = false;
+      try { unsubscribe(); } catch (_) {}
+    };
   }, []);
 
   useEffect(() => { setDismissed(false); }, [ad?.id]);

@@ -6,6 +6,23 @@ const API_KEY = process.env.FIREBASE_WEB_API_KEY || 'AIzaSyCdoWl5a0irdMGftJUYkng
 const ROOT = 'artifacts/edunexus-live/public/data/files';
 const ENDPOINT = 'https://firestore.googleapis.com/v1/projects/' + PROJECT + '/databases/(default)/documents/';
 
+// ===== Supabase/PostgREST backend (feature-flagged; default stays Firestore) =====
+const USE_SUPABASE = process.env.DATA_BACKEND === 'supabase';
+const SUPABASE_URL = 'https://cprpndovdfnkvekewstv.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'PASTE_FULL_PUBLISHABLE_KEY_HERE';
+const POSTGREST = SUPABASE_URL + '/rest/v1';
+const postgrestHeaders = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY };
+// PostgREST rows are snake_case; convert to the camelCase shape the SEO pages expect.
+const toCamel = (row) => {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
+  const out = {};
+  for (const [key, val] of Object.entries(row)) {
+    out[String(key).replace(/_([a-z0-9])/g, (_, ch) => ch.toUpperCase())] = val;
+  }
+  return out;
+};
+const postgrestGet = (table, params) => getJson(POSTGREST + '/' + table + '?' + params, postgrestHeaders);
+
 export const validId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id);
 export const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 export const slugFor = (name) => String(name || 'study-resource').normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'study-resource';
@@ -25,11 +42,11 @@ export function decodeDoc(doc) {
   for (const [key, val] of Object.entries(doc?.fields || {})) item[key] = fieldValue(val);
   return item;
 }
-async function getJson(url) {
+async function getJson(url, extraHeaders) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const response = await fetch(url, { signal: controller.signal, headers: { accept: 'application/json' } });
+    const response = await fetch(url, { signal: controller.signal, headers: { accept: 'application/json', ...(extraHeaders || {}) } });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error('Public resource lookup failed: HTTP ' + response.status);
     return await response.json();
@@ -37,10 +54,24 @@ async function getJson(url) {
 }
 export async function getPublicFile(id) {
   if (!validId(id)) return null;
+  if (USE_SUPABASE) {
+    const rows = await postgrestGet('files', 'select=*&id=eq.' + encodeURIComponent(id) + '&limit=1');
+    return rows && rows[0] ? toCamel(rows[0]) : null;
+  }
   const doc = await getJson(endpoint(ROOT + '/' + encodeURIComponent(id)));
   return doc ? decodeDoc(doc) : null;
 }
 export async function listPublicFiles(maxPages = 30) {
+  if (USE_SUPABASE) {
+    const result = [];
+    for (let i = 0; i < maxPages; i += 1) {
+      const rows = await postgrestGet('files', 'select=*&order=created_at.desc&limit=100&offset=' + (i * 100));
+      if (!rows || rows.length === 0) break;
+      result.push(...rows.map(toCamel));
+      if (rows.length < 100) break;
+    }
+    return result;
+  }
   const result = []; let token = '';
   for (let i = 0; i < maxPages; i += 1) {
     const url = new URL(ENDPOINT + ROOT);
@@ -60,6 +91,14 @@ export async function listPublicFiles(maxPages = 30) {
 export async function listApprovedReviews(id, page = 1, pageSize = 20) {
   if (!validId(id) || !Number.isSafeInteger(page) || page < 1 || page > 1000) {
     return { items: [], hasMore: false };
+  }
+  if (USE_SUPABASE) {
+    const rows = await postgrestGet('file_reviews',
+      'select=*&file_id=eq.' + encodeURIComponent(id) +
+      '&status=eq.approved&order=created_at.desc&limit=' + (pageSize + 1) +
+      '&offset=' + ((page - 1) * pageSize));
+    const items = (rows || []).map(toCamel);
+    return { items: items.slice(0, pageSize), hasMore: items.length > pageSize };
   }
   const queryUrl = ENDPOINT + ROOT + '/' + encodeURIComponent(id) + ':runQuery?key=' + encodeURIComponent(API_KEY);
   const controller = new AbortController();
@@ -86,10 +125,24 @@ const ARTICLES = 'artifacts/edunexus-live/public/data/articles';
 export const articlePath = (id, title) => '/articles/read/' + encodeURIComponent(id) + '/' + slugFor(title);
 export async function getPublicArticle(id) {
   if (!validId(id)) return null;
+  if (USE_SUPABASE) {
+    const rows = await postgrestGet('articles', 'select=*&id=eq.' + encodeURIComponent(id) + '&limit=1');
+    return rows && rows[0] ? toCamel(rows[0]) : null;
+  }
   const doc = await getJson(endpoint(ARTICLES + '/' + encodeURIComponent(id)));
   return doc ? decodeDoc(doc) : null;
 }
 export async function listPublicArticles(maxPages = 10) {
+  if (USE_SUPABASE) {
+    const result = [];
+    for (let i = 0; i < maxPages; i += 1) {
+      const rows = await postgrestGet('articles', 'select=*&order=created_at.desc&limit=100&offset=' + (i * 100));
+      if (!rows || rows.length === 0) break;
+      result.push(...rows.map(toCamel));
+      if (rows.length < 100) break;
+    }
+    return result;
+  }
   const result = []; let token = '';
   for (let i = 0; i < maxPages; i += 1) {
     const url = new URL(ENDPOINT + ARTICLES);

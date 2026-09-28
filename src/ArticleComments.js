@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { db } from './firebase-client';
-import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { listComments, addComment, deleteComment, subscribeComments } from './db/articles';
 import { MessageCircle, Send, Trash2 } from 'lucide-react';
-const appId = 'edunexus-live';
 
 // Facebook-style comments for articles
 export default function ArticleComments({ articleId, user, isAdmin, theme, showToast }) {
@@ -13,16 +11,18 @@ export default function ArticleComments({ articleId, user, isAdmin, theme, showT
 
   useEffect(() => {
     if (!articleId) return;
-    const q = query(
-      collection(db, 'artifacts', appId, 'public', 'data', 'articles', articleId, 'comments'),
-      orderBy('createdAt', 'asc')
-    );
-    const unsub = onSnapshot(q, (s) => {
-      setComments(s.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => {
-      console.log('Comments sync skipped', err);
-    });
-    return () => unsub();
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const items = await listComments(articleId);
+        if (alive) setComments(items);
+      } catch (err) {
+        console.log('Comments sync skipped', err);
+      }
+    };
+    refresh();
+    const unsub = subscribeComments(articleId, { onInvalidate: refresh });
+    return () => { alive = false; unsub(); };
   }, [articleId]);
 
   const handlePost = async () => {
@@ -34,15 +34,11 @@ export default function ArticleComments({ articleId, user, isAdmin, theme, showT
     }
     setPosting(true);
     try {
-      await addDoc(
-        collection(db, 'artifacts', appId, 'public', 'data', 'articles', articleId, 'comments'),
-        {
-          userId: user.uid,
-          userName: user.displayName || user.email?.split('@')[0] || 'Student',
-          text: text.slice(0, 1000),
-          createdAt: serverTimestamp()
-        }
-      );
+      await addComment(articleId, {
+        userId: user.uid,
+        userName: user.displayName || user.email?.split('@')[0] || 'Student',
+        text: text.slice(0, 1000),
+      });
       setNewComment('');
       showToast('Comment posted', 'success');
     } catch (e) {
@@ -57,7 +53,7 @@ export default function ArticleComments({ articleId, user, isAdmin, theme, showT
     const canDelete = isAdmin || comment.userId === user.uid;
     if (!canDelete) return;
     try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', articleId, 'comments', comment.id));
+      await deleteComment(articleId, comment.id);
       showToast('Comment deleted', 'success');
     } catch (e) {
       showToast('Could not delete comment', 'error');
@@ -65,8 +61,10 @@ export default function ArticleComments({ articleId, user, isAdmin, theme, showT
   };
 
   const formatTime = (ts) => {
-    if (!ts?.toDate) return '';
-    const d = ts.toDate();
+    if (!ts) return '';
+    // Firestore Timestamp on the Firebase branch, ISO string / Date on Supabase.
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    if (Number.isNaN(d.getTime())) return '';
     const now = new Date();
     const diffMs = now - d;
     const diffMin = Math.floor(diffMs / 60000);
@@ -164,12 +162,16 @@ export function useCommentCount(articleId) {
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (!articleId) return;
-    const q = query(
-      collection(db, 'artifacts', appId, 'public', 'data', 'articles', articleId, 'comments'),
-      orderBy('createdAt', 'asc')
-    );
-    const unsub = onSnapshot(q, (s) => setCount(s.size), () => {});
-    return () => unsub();
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const items = await listComments(articleId);
+        if (alive) setCount(items.length);
+      } catch (_) {}
+    };
+    refresh();
+    const unsub = subscribeComments(articleId, { onInvalidate: refresh });
+    return () => { alive = false; unsub(); };
   }, [articleId]);
   return count;
 }

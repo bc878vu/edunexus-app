@@ -1,23 +1,55 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { addDoc, collection, doc, getDoc, limit, onSnapshot, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
-import { db, storage } from './firebase-client';
+import { storage } from './firebase-client';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
-import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
+import { supabase, USE_SUPABASE, SUPABASE_URL } from './supabase-client';
+import { submitCommunityReview, listCommunityReviews, listLegacyReviews, submitFeedbackReport, subscribeCommunityReviews, listSubmissions, subscribeSubmissions } from './db/examReviews';
+import { subscribeTable } from './db/realtime';
+import { examReviewText, formatExamDate, formatExamTime, safePaperUrl as firebaseSafePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import RichContent from './RichContent';
 import './exam-paper-community.css';
 
 const REVIEW_WORD_LIMIT = 10000;
 const REVIEW_CHAR_LIMIT = 300000;
 const countReviewWords = (value) => String(value || '').trim().match(/\S+/gu)?.length || 0;
-const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
-const col = (name) => collection(db, ...ROOT, name);
-const REVIEW_COLLECTION = 'examCommunityReviews';
-const LEGACY_COLLECTION = 'examReviews';
+const LEGACY_ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
+const SUPABASE_PROJECT_HOST = (() => { try { return new URL(SUPABASE_URL).hostname; } catch (_) { return ''; } })();
+// TODO(adapter): db/examReviews.js has no subscribeLegacyReviews helper yet.
+// This local mini-adapter exposes the same onInvalidate contract; move it
+// into the adapter when it is available.
+const subscribeLegacyReviews = ({ onInvalidate }) => {
+  if (USE_SUPABASE) return subscribeTable({ table: 'exam_reviews', onInvalidate });
+  let unsub = () => {};
+  let cancelled = false;
+  (async () => {
+    const { collection, query, limit, onSnapshot } = await import('firebase/firestore');
+    const { db } = await import('./firebase-client');
+    if (cancelled) return;
+    unsub = onSnapshot(query(collection(db, ...LEGACY_ROOT, 'examReviews'), limit(200)),
+      () => { try { onInvalidate(); } catch (_) {} }, () => {});
+  })();
+  return () => { cancelled = true; unsub(); };
+};
+// safePaperUrl from examReviewFormat only allowlists the Firebase Storage host
+// (imported as firebaseSafePaperUrl above). On the Supabase branch we accept
+// https URLs on the project's own storage host instead, with the same
+// `exam-papers/` prefix requirement.
+const safePaperUrl = (review) => {
+  if (!USE_SUPABASE) return firebaseSafePaperUrl(review);
+  if (!String(review?.paperPath || '').startsWith('exam-papers/')) return '';
+  try {
+    const url = new URL(review?.paperUrl || '');
+    return url.protocol === 'https:' && SUPABASE_PROJECT_HOST && url.hostname === SUPABASE_PROJECT_HOST ? url.href : '';
+  } catch (_) { return ''; }
+};
+const dateValue = (value) => {
+  if (value && typeof value.toMillis === 'function') return value.toMillis();
+  const t = value ? Date.parse(String(value)) : NaN;
+  return Number.isFinite(t) ? t : 0;
+};
 const safe = (value, max = 10000) => String(value == null ? '' : value).trim().slice(0, max);
 const courseCode = (value) => safe(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, '');
 const validCourse = (value) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(value);
-const dateValue = (value) => value && typeof value.toMillis === 'function' ? value.toMillis() : 0;
 const todayLocal = () => {
   const d = new Date(), pad = (v) => String(v).padStart(2, '0');
   return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
@@ -84,12 +116,6 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
     saving.current = true; setBusy(true);
     let orphanUpload = null;
     try {
-      const id = [user.uid, code, form.term, form.examDate].join('_');
-      const reviewRef = doc(col(REVIEW_COLLECTION), id);
-      if ((await getDoc(reviewRef)).exists()) {
-        setError('You already shared a review for this course, exam type and date. Find it in the reviews below, or contact the site administrator to correct it.');
-        return;
-      }
       // A paper attachment is optional. The file is only uploaded after the
       // completed-exam confirmation; ordinary text reviews work without storage.
       let attachment = {};
@@ -98,19 +124,30 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
         const fileName = paper.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 95) || 'paper.' + ext;
         const uploadId = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
         const paperPath = 'exam-papers/' + user.uid + '/' + uploadId + '/' + fileName;
-        const destination = storageRef(storage, paperPath);
-        await uploadBytes(destination, paper, { contentType: paper.type });
-        orphanUpload = destination;
-        const paperUrl = await getDownloadURL(destination);
-        attachment = { paperName:fileName, paperPath, paperUrl };
+        if (USE_SUPABASE) {
+          const { error: uploadError } = await supabase.storage.from('exam-papers')
+            .upload(paperPath, paper, { contentType: paper.type });
+          if (uploadError) throw uploadError;
+          orphanUpload = paperPath;
+          const { data, error: signError } = await supabase.storage.from('exam-papers')
+            .createSignedUrl(paperPath, 60 * 60 * 24 * 7);
+          if (signError) throw signError;
+          attachment = { paperName:fileName, paperPath, paperUrl:data?.signedUrl || '' };
+        } else {
+          const destination = storageRef(storage, paperPath);
+          await uploadBytes(destination, paper, { contentType: paper.type });
+          orphanUpload = destination;
+          const paperUrl = await getDownloadURL(destination);
+          attachment = { paperName:fileName, paperPath, paperUrl };
+        }
       }
-      await setDoc(reviewRef, {
+      await submitCommunityReview({
         userId: user.uid, subject: code, term: form.term,
         semester: form.semesterSeason + ' ' + form.semesterYear,
         examDate: form.examDate, examTime: form.examTime,
-        examAt: Timestamp.fromDate(examMoment),
+        examAt: examMoment,
         sharedBy: name, difficulty: form.difficulty,
-        topics: safe(form.topics, 400), summary, createdAt: serverTimestamp(),
+        topics: safe(form.topics, 400), summary, createdAt: new Date(),
         ...attachment
       });
       orphanUpload = null;
@@ -120,8 +157,15 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
       setAgreed(false); setPaper(null);
       if (fileInput.current) fileInput.current.value = '';
     } catch (err) {
-      if (orphanUpload) await deleteObject(orphanUpload).catch(() => {});
-      setError(err?.code === 'permission-denied'
+      if (orphanUpload) {
+        try {
+          if (USE_SUPABASE) await supabase.storage.from('exam-papers').remove([orphanUpload]);
+          else await deleteObject(orphanUpload);
+        } catch (_) {}
+      }
+      setError(err?.message && err.message.startsWith('duplicate:')
+        ? 'You already shared a review for this course, exam type and date. Find it in the reviews below, or contact the site administrator to correct it.'
+        : err?.code === 'permission-denied'
         ? 'Publishing is blocked by the live database rules. Please ask the site administrator to publish the updated Firestore review rules. Your review text is still here.'
         : err?.code === 'unavailable' || err?.code === 'deadline-exceeded'
           ? 'Connection to the review database failed. Check your internet connection and try again; your text is still here.'
@@ -193,17 +237,16 @@ function ReviewCard({ review, user }) {
     if (!user?.uid || working) { setNotice('Please sign in before reporting a review.'); return; }
     setWorking(true);
     try {
-      await addDoc(col('feedback'), {
-        userId: user.uid, category: 'exam-review-report',
-        reviewId: review.id, reviewCollection: review.collectionName,
-        reason: 'Please check this public exam review for inappropriate or confidential content.',
-        createdAt: serverTimestamp()
+      await submitFeedbackReport({
+        reviewId: review.id, collectionName: review.collectionName,
+        reporterId: user.uid,
+        reason: 'Please check this public exam review for inappropriate or confidential content.'
       });
       setNotice('Thanks for your report. We will review it.');
     } catch (_) { setNotice('Report could not be sent. Please try again.'); }
     finally { setWorking(false); }
   };
-  const legacy = review.collectionName === LEGACY_COLLECTION;
+  const legacy = review.collectionName === 'examReviews';
   const paperUrl = safePaperUrl(review);
   return <article className="edx-paper-card">
     <div className="edx-paper-card-head"><div className="edx-paper-course"><GraduationCap size={18} /><strong>{safe(review.subject, 12)}</strong><span>{review.term === 'midterm' ? 'Midterm' : 'Finalterm'}{review.semester ? ' · ' + safe(review.semester, 20) : ''}</span></div><span className="edx-paper-chip">{legacy ? 'Previous paper' : 'Shared experience'}</span></div>
@@ -224,12 +267,26 @@ function EarlierSubmissions({ user, onReuse }) {
     if (!user?.uid) { setItems([]); setStatus('signed-out'); return; }
     setItems([]); setStatus('loading'); setError('');
     // Earlier versions saved submissions for moderation rather than publishing
-    // them. They can only be listed by the original Firebase account.
-    return onSnapshot(query(col('examReviewSubmissions'), where('userId', '==', user.uid), limit(100)),
-      snap => { setItems(snap.docs.map(d => ({ id:d.id,...d.data() }))); setStatus('loaded'); },
-      err => { setStatus('error'); setError(err?.code === 'permission-denied'
-        ? 'Previous submissions cannot be loaded until the updated review permissions are published.'
-        : 'Could not check your earlier submissions. Please try again later.'); });
+    // them. Only the original author can see them; the adapter has no
+    // server-side user filter, so filter the recent submissions client-side.
+    let active = true;
+    const load = async () => {
+      try {
+        const all = await listSubmissions({ limit: 100 });
+        if (!active) return;
+        setItems(all.filter(item => item.userId === user.uid));
+        setStatus('loaded');
+      } catch (err) {
+        if (!active) return;
+        setStatus('error');
+        setError(err?.code === 'permission-denied'
+          ? 'Previous submissions cannot be loaded until the updated review permissions are published.'
+          : 'Could not check your earlier submissions. Please try again later.');
+      }
+    };
+    load();
+    const unsubscribe = subscribeSubmissions({ onInvalidate: load });
+    return () => { active = false; unsubscribe(); };
   }, [user?.uid]);
   if (status === 'signed-out' || (status === 'loaded' && !items.length)) return null;
   return <section className="edx-paper-earlier" aria-labelledby="edx-earlier-title">
@@ -254,12 +311,16 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
   const [errors, setErrors] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
   const [showForm, setShowForm] = useState(false);
-  const [browseSubject, setBrowseSubject] = useState('');
+  const [browseSubject, setBrowseSubject] = useState(courseCode(subject));
   const [allSubjects, setAllSubjects] = useState(true);
   const [browseTerm, setBrowseTerm] = useState('all');
   const [reviewSearch, setReviewSearch] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [reuseDraft, setReuseDraft] = useState(null);
+  // Keep the browse filter in step with the MCQ Bank's selected subject, so
+  // unchecking "Show reviews for all subjects" filters to that subject
+  // instead of hiding every review.
+  useEffect(() => { setBrowseSubject(courseCode(subject)); }, [subject]);
   useEffect(() => {
     let active = true;
     setCommunity([]); setLegacy([]); setLoading(true); setErrors([]);
@@ -271,22 +332,25 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
     // Fetch public reviews regardless of the MCQ Bank's selected subject or
     // category. Historical reviews used different subjects/terms and were
     // previously hidden by an exact-match filter.
-    const observe = (name, setItems, key) => onSnapshot(query(col(name), limit(200)),
-      snapshot => {
+    const observe = async (loader, setItems, key, collectionName) => {
+      try {
+        const items = await loader({ limit: 200 });
         if (!active) return;
-        setItems(snapshot.docs.map(d => ({ id:d.id,collectionName:name,...d.data() })).filter(r => r.isActive !== false));
-        setErrors(prev => prev.filter(entry=>entry.key!==key));
-        done(key);
-      }, err => {
+        setItems(items.map(item => ({ ...item, collectionName })).filter(r => r.isActive !== false));
+        setErrors(prev => prev.filter(entry => entry.key !== key));
+      } catch (err) {
         if (!active) return;
-        setErrors(prev=>[...prev.filter(entry=>entry.key!==key),
-          {key,message:readError(err,key==='community'?'Student reviews':'Earlier published reviews')}]);
-        done(key);
-      }
-    );
-    const stopCommunity = observe(REVIEW_COLLECTION,setCommunity,'community');
-    const stopLegacy = observe(LEGACY_COLLECTION,setLegacy,'legacy');
-    return () => {active=false; stopCommunity(); stopLegacy();};
+        setErrors(prev => [...prev.filter(entry => entry.key !== key),
+          { key, message: readError(err, key === 'community' ? 'Student reviews' : 'Earlier published reviews') }]);
+      } finally { done(key); }
+    };
+    const loadCommunity = () => observe(listCommunityReviews, setCommunity, 'community', 'examCommunityReviews');
+    const loadLegacy = () => observe(listLegacyReviews, setLegacy, 'legacy', 'examReviews');
+    loadCommunity();
+    loadLegacy();
+    const stopCommunity = subscribeCommunityReviews({ onInvalidate: loadCommunity });
+    const stopLegacy = subscribeLegacyReviews({ onInvalidate: loadLegacy });
+    return () => { active = false; stopCommunity(); stopLegacy(); };
   }, [reloadKey]);
   const reviews = useMemo(() => [...community,...legacy].filter(r =>
     (allSubjects || courseCode(r.subject)===browseSubject) &&

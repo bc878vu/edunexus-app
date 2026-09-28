@@ -1,31 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { adminPanelAccess } from './adminSession';
-import { getApps, initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import {
-  collection, deleteDoc, doc, getFirestore, onSnapshot, orderBy, query, serverTimestamp,
-  setDoc, updateDoc
-} from "firebase/firestore";
-import { getDownloadURL, getStorage, ref as storageRef, uploadBytes, deleteObject } from "firebase/storage";
+import { getDownloadURL, ref as storageRef, uploadBytes, deleteObject } from "firebase/storage";
 import { Check, Edit3, Film, LayoutDashboard, Link2, Loader, Plus, Save, Settings, Trash2, Upload, X } from "lucide-react";
 import { useConfirm } from "./ConfirmDialog";
 import "./admin-content-manager.css";
+import { storage } from "./firebase-client";
+import { USE_SUPABASE, supabase } from "./supabase-client";
+import { onAuthChange } from "./db/auth";
+import { getMetaDoc, setMetaDoc, subscribeMetaDoc } from "./db/files";
+import { listTutorials, createTutorial, updateTutorial, removeTutorial, subscribeTutorials } from "./db/tutorials";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCdoWl5a0irdMGftJUYkng-dQLUI1ZImP8",
-  authDomain: "edunexus-live-e0b84.firebaseapp.com",
-  projectId: "edunexus-live-e0b84",
-  storageBucket: "edunexus-live-e0b84.firebasestorage.app",
-  messagingSenderId: "464541062794",
-  appId: "1:464541062794:web:7894ed257d604f202bbf73"
-};
-
-const firebaseApp = getApps().find((item) => item.name === "[DEFAULT]") || initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
-const storage = getStorage(firebaseApp);
-const TUTORIALS = collection(db, "artifacts/edunexus-live/public/data/tutorials");
-const SETTINGS = doc(db, "artifacts/edunexus-live/public/data/meta/floatingHub");
 const DEFAULT_BUTTONS = [
   { label: "Study Guides", href: "/study-guides", enabled: true },
   { label: "Tutorial Videos", href: "/tutorials", enabled: true },
@@ -47,17 +31,32 @@ export default function AdminContentManager() {
   const [form, setForm] = useState({ title: "", category: "VU Tutorials", url: "", description: "", type: "link", file: null });
   const { requestConfirm, ConfirmUI } = useConfirm();
 
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
+  useEffect(() => onAuthChange(setUser), []);
   useEffect(() => {
-    return onSnapshot(SETTINGS, (snap) => {
-      const data = snap.data() || {};
-      if (Array.isArray(data.buttons) && data.buttons.length) setButtons(data.buttons.map((b) => ({ label: b.label || "Resource", href: b.href || "/", enabled: b.enabled !== false })));
-      setPinned(data.dashboardPinned !== false);
-    }, () => {});
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const data = (await getMetaDoc('floatingHub')) || {};
+        if (!alive) return;
+        if (Array.isArray(data.buttons) && data.buttons.length) setButtons(data.buttons.map((b) => ({ label: b.label || "Resource", href: b.href || "/", enabled: b.enabled !== false })));
+        setPinned(data.dashboardPinned !== false);
+      } catch (_) { /* keep defaults */ }
+    };
+    refresh();
+    const unsub = subscribeMetaDoc('floatingHub', { onInvalidate: refresh });
+    return () => { alive = false; unsub(); };
   }, []);
   useEffect(() => {
-    const q = query(TUTORIALS, orderBy("createdAt", "desc"));
-    return onSnapshot(q, (snap) => setTutorials(snap.docs.map((item) => ({ id: item.id, ...item.data() }))), () => setTutorials([]));
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const items = await listTutorials();
+        if (alive) setTutorials(items);
+      } catch (_) { if (alive) setTutorials([]); }
+    };
+    refresh();
+    const unsub = subscribeTutorials({ onInvalidate: refresh });
+    return () => { alive = false; unsub(); };
   }, []);
 
   const isAdmin = adminPanelAccess(user);
@@ -65,7 +64,7 @@ export default function AdminContentManager() {
     if (!isAdmin) return;
     setSavingSettings(true);
     try {
-      await setDoc(SETTINGS, { buttons, dashboardPinned: pinned, updatedAt: serverTimestamp(), updatedBy: user.email }, { merge: true });
+      await setMetaDoc('floatingHub', { buttons, dashboardPinned: pinned, updatedAt: new Date(), updatedBy: user.email });
       localStorage.setItem("edunexus_dashboard_pinned", pinned ? "1" : "0");
       window.dispatchEvent(new Event("edunexus:resource-config"));
       setNotice("Resource buttons and dashboard setting saved.");
@@ -83,24 +82,34 @@ export default function AdminContentManager() {
     if (!isAdmin || !form.title.trim()) return;
     setSavingTutorial(true);
     try {
-      const base = { title: form.title.trim(), category: form.category.trim() || "Tutorial", description: form.description.trim(), updatedAt: serverTimestamp(), updatedBy: user.email };
+      const base = { title: form.title.trim(), category: form.category.trim() || "Tutorial", description: form.description.trim(), updatedAt: new Date(), updatedBy: user.email };
       if (editingId) {
-        await updateDoc(doc(db, "artifacts/edunexus-live/public/data/tutorials", editingId), form.type === "link" ? { ...base, type: "youtube", url: form.url.trim(), videoId: youtubeId(form.url.trim()) } : base);
+        await updateTutorial(editingId, form.type === "link" ? { ...base, type: "youtube", url: form.url.trim(), videoId: youtubeId(form.url.trim()) } : base);
         setNotice("Tutorial updated.");
       } else {
-        let payload = { ...base, createdAt: serverTimestamp(), createdBy: user.email };
+        let payload = { ...base, createdAt: new Date(), createdBy: user.email };
         if (form.type === "file") {
           if (!form.file || !form.file.type.startsWith("video/")) throw new Error("Please select a video file.");
           if (form.file.size > 200 * 1024 * 1024) throw new Error("Video must be 200 MB or smaller.");
           const safeName = form.file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
           const path = `tutorials/${Date.now()}-${safeName}`;
-          const uploaded = await uploadBytes(storageRef(storage, path), form.file, { contentType: form.file.type });
-          payload = { ...payload, type: "file", url: await getDownloadURL(uploaded.ref), fileName: form.file.name, contentType: form.file.type, storagePath: path };
+          let fileUrl;
+          if (USE_SUPABASE) {
+            const { error } = await supabase.storage.from('tutorial-videos').upload(path, form.file, { contentType: form.file.type, upsert: true });
+            if (error) throw error;
+            fileUrl = supabase.storage.from('tutorial-videos').getPublicUrl(path).data.publicUrl;
+          } else {
+            const uploaded = await uploadBytes(storageRef(storage, path), form.file, { contentType: form.file.type });
+            fileUrl = await getDownloadURL(uploaded.ref);
+          }
+          // TODO(schema): `storagePath`/`updatedBy` have no columns in plan §1
+          // (file adapter already documents this) — on the Supabase branch the
+          // storage path is not persisted, so file deletes can't clean it up.
+          payload = { ...payload, type: "file", url: fileUrl, fileName: form.file.name, contentType: form.file.type, storagePath: path };
         } else {
           payload = { ...payload, type: "youtube", url: form.url.trim(), videoId: youtubeId(form.url.trim()) };
         }
-        const newRef = doc(collection(db, "artifacts/edunexus-live/public/data/tutorials"));
-        await setDoc(newRef, payload);
+        await createTutorial(payload);
         setNotice("Tutorial published.");
       }
       resetTutorial();
@@ -115,8 +124,14 @@ export default function AdminContentManager() {
       danger: true,
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, "artifacts/edunexus-live/public/data/tutorials", item.id));
-          if (item.storagePath) await deleteObject(storageRef(storage, item.storagePath)).catch(() => {});
+          await removeTutorial(item.id);
+          if (item.storagePath) {
+            if (USE_SUPABASE) {
+              await supabase.storage.from('tutorial-videos').remove([item.storagePath]).catch(() => {});
+            } else {
+              await deleteObject(storageRef(storage, item.storagePath)).catch(() => {});
+            }
+          }
           setNotice("Tutorial deleted.");
         } catch (error) { setNotice(error?.message || "Delete failed."); }
       },

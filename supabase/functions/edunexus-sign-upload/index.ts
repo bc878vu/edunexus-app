@@ -1,8 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { createRemoteJWKSet, jwtVerify } from "npm:jose@6";
+import { createRemoteJWKSet, jwtVerify, createSecretKey } from "npm:jose@6";
 
 const PROJECT = "edunexus-live-e0b84";
 const ADMIN_EMAIL = "veducator4@gmail.com";
+// Supabase project (post-migration issuer). JWT secret comes from env.
+const SUPABASE_PROJECT_URL = "https://cprpndovdfnkvekewstv.supabase.co";
 const BUCKET = "edunexus-public-files";
 const MAX_SIZE = 45 * 1024 * 1024;
 const ALLOWED_ORIGINS = new Set(["https://edunexus.dpdns.org", "https://edunexus-app.vercel.app", "http://localhost:3000"]);
@@ -39,19 +41,46 @@ Deno.serve(async (request: Request) => {
   const bearer = request.headers.get("authorization") || "";
   if (!bearer.startsWith("Bearer ")) return response(origin, 401, { error: "Sign in to EduNexus as the verified administrator." });
   let userId = "";
+  const token = bearer.slice(7);
+  // Primary: verify the Supabase JWT (HS256 with the project's JWT secret).
+  // Fallback: Firebase ID token (Google JWKS) — kept during the
+  // Firebase -> Supabase transition so both backends keep working.
+  let authenticated = false;
   try {
-    const { payload } = await jwtVerify(bearer.slice(7), GOOGLE_KEYS, {
-      issuer: "https://securetoken.google.com/" + PROJECT,
-      audience: PROJECT,
-      algorithms: ["RS256"],
+    const jwtSecret = Deno.env.get("SUPABASE_JWT_SECRET");
+    if (!jwtSecret) throw new Error("SUPABASE_JWT_SECRET not configured");
+    const { payload } = await jwtVerify(token, createSecretKey(jwtSecret, "utf-8"), {
+      algorithms: ["HS256"],
     });
-    if (payload.email !== ADMIN_EMAIL || payload.email_verified !== true || !payload.sub ||
-        payload.sub !== payload.user_id || payload.firebase == null) {
-      return response(origin, 403, { error: "Only the verified EduNexus administrator may upload." });
-    }
+    const iss = String(payload.iss || "");
+    const issOk = iss.includes("supabase.co") || iss === SUPABASE_PROJECT_URL ||
+      iss === SUPABASE_PROJECT_URL + "/auth/v1";
+    const audOk = payload.aud === "authenticated" ||
+      (Array.isArray(payload.aud) && payload.aud.includes("authenticated"));
+    const meta = (payload.user_metadata ?? {}) as { is_admin?: unknown };
+    const isAdmin = meta.is_admin === true || payload.email === ADMIN_EMAIL;
+    if (!issOk || !audOk || !payload.sub) throw new Error("Invalid Supabase token claims");
+    if (!isAdmin) return response(origin, 403, { error: "Only the verified EduNexus administrator may upload." });
     userId = String(payload.sub);
+    authenticated = true;
   } catch {
-    return response(origin, 401, { error: "Your Firebase session could not be verified. Sign in again." });
+    // Supabase verification failed -> fall through to the Firebase path.
+  }
+  if (!authenticated) {
+    try {
+      const { payload } = await jwtVerify(token, GOOGLE_KEYS, {
+        issuer: "https://securetoken.google.com/" + PROJECT,
+        audience: PROJECT,
+        algorithms: ["RS256"],
+      });
+      if (payload.email !== ADMIN_EMAIL || payload.email_verified !== true || !payload.sub ||
+          payload.sub !== payload.user_id || payload.firebase == null) {
+        return response(origin, 403, { error: "Only the verified EduNexus administrator may upload." });
+      }
+      userId = String(payload.sub);
+    } catch {
+      return response(origin, 401, { error: "Your Firebase session could not be verified. Sign in again." });
+    }
   }
 
   let incoming: { filename?: unknown; size?: unknown; contentType?: unknown };

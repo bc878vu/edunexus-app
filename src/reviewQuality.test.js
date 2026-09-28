@@ -8,8 +8,10 @@ describe('public review hygiene',()=>{
     expect(reviewQualityMessage('Contact abc@example.com to purchase the original answer key')).toMatch(/email/);
     expect(reviewQualityMessage('This file is aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')).toMatch(/filler/);
   });
-  test('guards the size limit without truncating input',()=>{
-    expect(reviewQualityMessage('')).toMatch(/20 characters/);
-    expect(reviewQualityMessage('a'.repeat(50001))).toMatch(/50,000/);
+  test('requires a meaningful review within the 50-word cap',()=>{
+    expect(reviewQualityMessage('')).toMatch(/write your review/);
+    expect(reviewQualityMessage('word '.repeat(51).trim())).toMatch(/50 words/);
+    expect(reviewQualityMessage('a'.repeat(50001))).toMatch(/repeated filler/);
+    expect(reviewQualityMessage('word '.repeat(50).trim())).toBe('');
   });
 });

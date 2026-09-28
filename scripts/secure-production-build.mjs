@@ -42,18 +42,24 @@ if (fs.existsSync(aiFile)) {
   fs.writeFileSync(aiFile, ai);
 }
 
+// Post-mutation production safeguards. The app now routes data/auth through
+// the adapter layer (src/db/*), so these checks validate the safeguards
+// across App.js, the auth adapter and the Firebase client — not just App.js.
+const authAdapter = fs.existsSync('src/db/auth.js') ? fs.readFileSync('src/db/auth.js', 'utf8') : '';
+const firebaseClient = fs.existsSync('src/firebase-client.js') ? fs.readFileSync('src/firebase-client.js', 'utf8') : '';
+const combined = source + '\n' + authAdapter + '\n' + firebaseClient;
 const checks = [
-  [/const db = getFirestore\(app\)/, 'shared Firestore instance'],
   [/getApps\(\)\.length \? getApp\(\) : initializeApp\(firebaseConfig\)/, 'Firebase singleton initialization'],
-  [/signInWithEmailAndPassword\(auth, enteredEmail, password\)/, 'Firebase admin authentication'],
+  [/from ['"]\.\/firebase-client['"]/, 'shared Firebase client (db/auth)'],
+  [/signInWithEmailAndPassword\(auth,/, 'Firebase admin authentication'],
   [/adminPanelAccess\(\w+\)/, 'verified admin session scoped to the active panel'],
   [/browserSessionPersistence/, 'tab-scoped Firebase auth persistence'],
-  [/await signOut\(auth\)/, 'real Firebase sign-out'],
+  [/fbSignOut\(auth\)|await signOut\(auth\)/, 'real Firebase sign-out'],
   [/broadcastAdminLogout\(\)/, 'cross-tab admin logout'],
-  [/sendEmailVerification\(credential\.user\)/, 'admin email verification flow'],
+  [/sendEmailVerification\(/, 'admin email verification flow'],
   [/from ['"]\.\/LegalContactPages['"]/, 'detailed legal/contact pages'],
 ];
-const failures = checks.filter(([pattern]) => !pattern.test(source)).map(([, label]) => label);
+const failures = checks.filter(([pattern]) => !pattern.test(combined)).map(([, label]) => label);
 if (/const handleLogoutAdmin\s*=\s*\(\)\s*=>\s*\{\s*setIsAdminMode\(false\)/.test(source)) failures.push('legacy React-only logout returned');
 if (/setIsAdminMode\(true\);\s*setPage\("admin"\)/.test(source)) failures.push('legacy unguarded admin login returned');
 

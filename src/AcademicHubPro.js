@@ -1,8 +1,10 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, deleteDoc, doc, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
 import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, Folder, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
-import { db, storage } from './firebase-client';
+import { storage } from './firebase-client';
 import { getBlob, ref as storageRef } from 'firebase/storage';
+import { USE_SUPABASE, supabase } from './supabase-client';
+import { listFiles, getFile, getMetaDoc, setMetaDoc, bumpFolderCount, deleteFile, subscribeFiles, subscribeMetaDoc } from './db/files';
+import { listReviews, addReview, updateReview, deleteReview, reportReview as reportReviewRecord, listReviewReports, refreshRatingSummary, subscribeReviews } from './db/reviews';
 import './academic-hub-pro.css';
 import './academic-hub-v2.css';
 import { countWords, reviewQualityMessage } from './reviewQuality';
@@ -11,9 +13,6 @@ import { routeParamsFromPath } from './app-routes.mjs';
 import { useConfirm } from './ConfirmDialog';
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 
-const BASE = ['artifacts', 'edunexus-live', 'public', 'data'];
-const FILES = collection(db, ...BASE, 'files');
-const FOLDERS = doc(db, ...BASE, 'meta', 'folders');
 const DEFAULT_SUBJECTS = ['PHY101', 'CS101', 'MGT101', 'ENG101', 'CS201', 'MTH101', 'ISL201', 'PAK301'];
 const EDITORIAL_GUIDES = [
   ['CS101','CS101: Computing fundamentals','cs101-from-bits-to-programs-a-practical-study-guide'],
@@ -63,8 +62,24 @@ const extOf = (f) => {
   const fromPath = url && url.pathname.match(/\.([a-z0-9]{2,6})$/i);
   return (part ? part[1] : fromPath ? fromPath[1] : 'LINK').toUpperCase();
 };
+// createdAt arrives as a Firestore Timestamp on the Firebase branch and as an
+// ISO string on the Supabase branch — normalize both to epoch millis for
+// sorting and display.
+const createdAtMillis = (v) => {
+  if (!v) return 0;
+  if (typeof v === 'object') {
+    if (typeof v.toMillis === 'function') { try { return v.toMillis(); } catch (_) { return 0; } }
+    if (typeof v.toDate === 'function') { try { return v.toDate().getTime(); } catch (_) { return 0; } }
+    if (v instanceof Date) return v.getTime();
+  }
+  const ms = new Date(v).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+};
 const dateOf = (f) => {
-  try { return f.createdAt && typeof f.createdAt.toDate === 'function' ? f.createdAt.toDate().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''; }
+  try {
+    const ms = createdAtMillis(f.createdAt);
+    return ms > 0 ? new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+  }
   catch (_) { return ''; }
 };
 const driveId = (url) => {
@@ -121,8 +136,6 @@ const safeFileName = (f) => {
   const ext = extOf(f).toLowerCase();
   return ext && ext !== 'link' && !base.toLowerCase().endsWith('.' + ext) ? base + '.' + ext : base;
 };
-const REVIEWS = (id) => collection(db, ...BASE, 'files', id, 'reviews');
-const reviewDoc = (id, uid) => doc(db, ...BASE, 'files', id, 'reviews', uid);
 const reviewIsAdmin = (user, isAdmin) => Boolean(isAdmin && user && user.email === 'veducator4@gmail.com' && user.emailVerified);
 
 // Denormalized rating summary stored as fields on the file document itself.
@@ -131,32 +144,12 @@ const reviewIsAdmin = (user, isAdmin) => Boolean(isAdmin && user && user.email =
 // getAggregateFromServer query ran per visible card). FileCardRating reads
 // these fields first and keeps the live aggregation as the fallback while
 // they are absent. The summary is refreshed best-effort after every review
-// write below; permission-denied is tolerated silently because the current
-// Firestore rules only let the verified admin update file documents.
-const fileRatingDoc = (id) => doc(db, ...BASE, 'files', id);
+// write via refreshRatingSummary() from ../db/reviews (adapter: recomputes
+// from approved reviews and writes the file doc on both backends).
 const readRatingSummary = (data) => {
   const value = Number(data?.ratingAverage);
   const total = Number(data?.ratingCount);
   return Number.isFinite(value) && Number.isInteger(total) && total > 0 ? value : null;
-};
-const refreshFileRatingSummary = async (fileId) => {
-  try {
-    const snap = await getDocs(query(REVIEWS(fileId), where('status', '==', 'approved'), limit(100)));
-    let sum = 0, total = 0;
-    snap.forEach((d) => {
-      const r = Number(d.data()?.rating);
-      if (Number.isFinite(r) && r >= 1 && r <= 5) { sum += r; total++; }
-    });
-    const value = total > 0 ? sum / total : null;
-    await setDoc(fileRatingDoc(fileId), {
-      ratingAverage: total > 0 && Number.isFinite(value) ? value : null,
-      ratingCount: total,
-      ratingSummaryUpdatedAt: serverTimestamp(),
-    }, { merge: true });
-    return true;
-  } catch (_) {
-    return false;
-  }
 };
 
 // Verify fetched bytes are genuinely a PDF before they are framed without a
@@ -390,7 +383,22 @@ function ResourcePreview({ file, links, onClose }) {
     }
     let loadBlob = null;
     if (supportedFirebase && file.storagePath) {
-      loadBlob = getBlob(storageRef(storage, file.storagePath), 20 * 1024 * 1024).then(verifyPdfBlob);
+      if (USE_SUPABASE) {
+        // Legacy firebase-kind files migrated to Supabase Storage: fetch the
+        // bytes through the Storage API instead of the Firebase SDK.
+        // TODO(storage): the storage data-migration must keep `storageBucket`
+        // on these legacy records pointing at the migrated Supabase bucket;
+        // records still carrying the firebase bucket name fall back to
+        // 'edunexus-public-files' here (and to the Google viewer on failure).
+        const bucket = file.storageBucket && !/\.firebasestorage\.app$/i.test(String(file.storageBucket))
+          ? file.storageBucket : 'edunexus-public-files';
+        loadBlob = supabase.storage.from(bucket).download(file.storagePath).then(({ data, error }) => {
+          if (error || !data) throw error || new Error('preview download failed');
+          return data;
+        }).then(verifyPdfBlob);
+      } else {
+        loadBlob = getBlob(storageRef(storage, file.storagePath), 20 * 1024 * 1024).then(verifyPdfBlob);
+      }
     } else if (supportedDirectPdf && directPdfUrl) {
       loadBlob = fetch(directPdfUrl, { mode: 'cors' }).then((res) => {
         if (!res.ok) throw new Error('preview fetch failed: ' + res.status);
@@ -415,7 +423,7 @@ function ResourcePreview({ file, links, onClose }) {
       if (alive) setViewerOverride('gview');
     });
     return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [file.storagePath, supportedFirebase, supportedDirectPdf, directPdfUrl, links.preview, links.kind, links.source, isPdf, pdfMode, gviewUrl, viewerOverride, ext]);
+  }, [file.storagePath, file.storageBucket, supportedFirebase, supportedDirectPdf, directPdfUrl, links.preview, links.kind, links.source, isPdf, pdfMode, gviewUrl, viewerOverride, ext]);
   const displayUrl = localUrl || links.preview;
   const frameUrl = pdfMode === 'gview' && isPdf ? gviewUrl : trustedPreviewUrl(links, links.preview, localUrl);
   // Until a direct PDF's blob is ready — or if it can't be fetched — keep the
@@ -466,17 +474,41 @@ function FileReviews({ file, user, isAdmin }) {
   useEffect(() => {
     let alive = true;
     setItems([]); setMine(null); setStatus(''); setLoading(true); setPending([]); setEditing(null);
-    const approved = query(REVIEWS(file.id), where('status', '==', 'approved'), limit(100));
-    const unsub = onSnapshot(approved, (snap) => {
-      if (alive) { setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter(r => r.isActive !== false).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))); setLoading(false); }
-    }, (error) => { if (alive) { setLoading(false); setStatus(error.code === 'permission-denied' ? 'Review access is denied. The updated Firestore rules must be published.' : 'Reviews could not load. Please check your connection.'); } });
-    let ownUnsub = () => {};
-    if (user?.uid) ownUnsub = onSnapshot(reviewDoc(file.id, user.uid), (snap) => {
-      if (alive) setMine(snap.exists() ? { id: snap.id, ...snap.data() } : null);
-    }, () => {});
+    const refreshApproved = async () => {
+      try {
+        const reviews = await listReviews(file.id, { status: 'approved' });
+        if (!alive) return;
+        setItems(reviews.filter((r) => r.isActive !== false)
+          .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt)));
+        setLoading(false);
+      } catch (error) {
+        if (!alive) return;
+        setLoading(false);
+        setStatus(error && error.code === 'permission-denied' ? 'Review access is denied. The updated Firestore rules must be published.' : 'Reviews could not load. Please check your connection.');
+      }
+    };
+    const refreshMine = async () => {
+      // The review doc id == user id; any review change re-derives the own review.
+      if (!user?.uid) return;
+      try {
+        const all = await listReviews(file.id, { status: 'all' });
+        if (alive) setMine(all.find((r) => r.id === user.uid) || null);
+      } catch (_) {}
+    };
+    const refreshPending = async () => {
+      try {
+        const queued = await listReviews(file.id, { status: 'pending' });
+        if (alive) setPending(queued);
+      } catch (_) {}
+    };
+    refreshApproved();
+    refreshMine();
+    if (admin) refreshPending();
+    const unsub = subscribeReviews(file.id, { status: 'approved', onInvalidate: refreshApproved });
+    const ownUnsub = user?.uid ? subscribeReviews(file.id, { status: 'all', onInvalidate: refreshMine }) : () => {};
     let pendingUnsub = () => {};
     // Only historical pending records need an administrator action. New reviews publish immediately.
-    if (admin) pendingUnsub = onSnapshot(query(REVIEWS(file.id), where('status', '==', 'pending'), limit(40)), (snap) => { if (alive) setPending(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); }, () => {});
+    if (admin) pendingUnsub = subscribeReviews(file.id, { status: 'pending', onInvalidate: refreshPending });
     return () => { alive = false; unsub(); ownUnsub(); pendingUnsub(); };
   }, [file.id, user?.uid, admin]);
 
@@ -491,11 +523,8 @@ function FileReviews({ file, user, isAdmin }) {
     if (safetyMessage) { setStatus(safetyMessage); return; }
     setBusy(true); setStatus('');
     try {
-      await setDoc(reviewDoc(file.id, user.uid), {
-        userId: user.uid, rating: Number(rating), comment: value, originalComment: value,
-        status: 'approved', createdAt: serverTimestamp()
-      });
-      const summaryOk = await refreshFileRatingSummary(file.id);
+      await addReview(file.id, { userId: user.uid, rating: Number(rating), comment: value });
+      const summaryOk = await refreshRatingSummary(file.id);
       setComment(''); setStatus(''); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } }));
     } catch (error) {
       // The published Firestore rules accept exactly this 6-field approved
@@ -511,7 +540,7 @@ function FileReviews({ file, user, isAdmin }) {
   };
   const moderate = async (item) => {
     setBusy(true); setStatus('');
-    try { await updateDoc(reviewDoc(file.id, item.id), { status: 'approved', moderatedAt: serverTimestamp() }); const summaryOk = await refreshFileRatingSummary(file.id); setStatus('Earlier pending review published.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } })); }
+    try { await updateReview(file.id, item.id, { status: 'approved', moderatedAt: new Date() }); const summaryOk = await refreshRatingSummary(file.id); setStatus('Earlier pending review published.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } })); }
     catch (_) { setStatus('Could not publish this earlier review. Check administrator permissions.'); }
     finally { setBusy(false); }
   };
@@ -520,8 +549,8 @@ function FileReviews({ file, user, isAdmin }) {
     if (!admin || editText.trim().length < 20 || editText.trim().length > 50000) return;
     setBusy(true); setStatus('');
     try {
-      await updateDoc(reviewDoc(file.id, item.id), { comment: editText.trim(), rating: Number(editRating), editedAt: serverTimestamp() });
-      const summaryOk = await refreshFileRatingSummary(file.id);
+      await updateReview(file.id, item.id, { comment: editText.trim(), rating: Number(editRating), editedAt: new Date() });
+      const summaryOk = await refreshRatingSummary(file.id);
       setEditing(null); setStatus('Review updated by administrator.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } }));
     } catch (_) { setStatus('Could not edit the review. Check administrator permissions.'); }
     finally { setBusy(false); }
@@ -534,7 +563,7 @@ function FileReviews({ file, user, isAdmin }) {
       danger: true,
       onConfirm: async () => {
         setBusy(true); setStatus('');
-        try { await deleteDoc(reviewDoc(file.id, item.id)); const summaryOk = await refreshFileRatingSummary(file.id); setStatus('Review deleted.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } })); }
+        try { await deleteReview(file.id, item.id); const summaryOk = await refreshRatingSummary(file.id); setStatus('Review deleted.'); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } })); }
         catch (_) { setStatus('Review deletion failed.'); }
         finally { setBusy(false); }
       },
@@ -550,9 +579,7 @@ function FileReviews({ file, user, isAdmin }) {
     }
     setBusy(true); setStatus('');
     try {
-      await setDoc(doc(db, ...BASE, 'files', file.id, 'reviews', review.id, 'reports', user.uid), {
-        reporterUid: user.uid, reason: value, createdAt: serverTimestamp()
-      });
+      await reportReviewRecord(file.id, review.id, user.uid, value);
       setReported((prev) => ({ ...prev, [review.id]: true }));
       setStatus('Thanks. The review has been reported to the administrator for inspection.');
     } catch (error) {
@@ -565,9 +592,9 @@ function FileReviews({ file, user, isAdmin }) {
     if (!admin || busy) return;
     setBusy(true); setStatus('');
     try {
-      const snapshot = await getDocs(collection(db, ...BASE, 'files', file.id, 'reviews', review.id, 'reports'));
+      const reports = await listReviewReports(file.id, review.id);
       setReportResults((prev) => ({
-        ...prev, [review.id]: snapshot.docs.map((record) => ({ id: record.id, ...record.data() }))
+        ...prev, [review.id]: reports
       }));
     } catch (_) { setStatus('Review reports could not be loaded. Check deployed Firestore rules.'); }
     finally { setBusy(false); }
@@ -599,10 +626,10 @@ function FileCardRating({ fileId, ratingAverage, ratingCount }) {
         // Regular list query (not server aggregation) — the Firestore rules
         // allow public listing of approved reviews, and client-side averaging
         // avoids aggregation permission issues.
-        const snap = await getDocs(query(REVIEWS(fileId), where('status', '==', 'approved'), limit(100)));
+        const reviews = await listReviews(fileId, { status: 'approved' });
         let sum = 0, n = 0;
-        snap.forEach((d) => {
-          const r = Number(d.data()?.rating);
+        reviews.forEach((item) => {
+          const r = Number(item?.rating);
           if (Number.isFinite(r) && r >= 1 && r <= 5) { sum += r; n++; }
         });
         if (active && current === revision) {
@@ -619,8 +646,8 @@ function FileCardRating({ fileId, ratingAverage, ratingCount }) {
       if (mode === 'aggregate') denormalized = false;
       if (mode !== 'aggregate' && (mode === 'summary' || denormalized)) {
         try {
-          const snapshot = await getDoc(fileRatingDoc(fileId));
-          const summary = snapshot.exists() ? readRatingSummary(snapshot.data()) : null;
+          const fileDoc = await getFile(fileId);
+          const summary = fileDoc ? readRatingSummary(fileDoc) : null;
           if (summary !== null) {
             denormalized = true;
             if (active && current === revision) setScore(summary);
@@ -724,32 +751,49 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   useEffect(() => {
     const onPop = () => { const params = new URLSearchParams(window.location.search); setSubject(params.get('subject') || routeParamsFromPath(window.location.pathname).subject || ''); setOpenGroup(params.get('group') || ''); setSelectedId(params.get('file') || ''); setPanel(params.get('panel') === 'reviews' ? 'reviews' : 'preview'); };
     window.addEventListener('popstate', onPop);
-    const unsubFiles = onSnapshot(query(FILES, orderBy('createdAt', 'desc'), limit(PAGE_SIZE)), (snap) => {
-      setLatest(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      // Follow the live first page until older pages have been requested.
-      setCursor((prev) => prev && prev.id !== latestCursorRef.current ? prev : (snap.docs[snap.docs.length - 1] || null));
-      latestCursorRef.current = snap.docs[snap.docs.length - 1]?.id || null;
-      setHasMore((prev) => prev && olderPagesLoaded.current ? prev : snap.docs.length === PAGE_SIZE);
-      setLoading(false); setError('');
-    }, (e) => { setLoading(false); setError(e.code === 'permission-denied' ? 'The file library is not accessible with the currently deployed Firestore rules.' : 'Could not load files. Please check your connection and try again.'); });
-    const unsubFolders = onSnapshot(FOLDERS, (snap) => {
-      const data = snap.data() || {};
-      setFolders(Array.isArray(data.list) ? data.list.filter((v) => typeof v === 'string') : []);
-      setFolderCounts(data.fileCounts && typeof data.fileCounts === 'object' ? data.fileCounts : {});
-    }, () => {});
-    return () => { unsubFiles(); unsubFolders(); window.removeEventListener('popstate', onPop); };
+    let alive = true;
+    // First page of the public catalogue (adapter read; realtime only invalidates).
+    const refreshLatest = async () => {
+      try {
+        const { items, cursor: firstCursor, hasMore: morePages } = await listFiles({ limit: PAGE_SIZE });
+        if (!alive) return;
+        setLatest(items);
+        // Follow the live first page until older pages have been requested.
+        setCursor((prev) => prev && prev.id !== latestCursorRef.current ? prev : (firstCursor || null));
+        latestCursorRef.current = firstCursor?.id || null;
+        setHasMore((prev) => prev && olderPagesLoaded.current ? prev : morePages);
+        setLoading(false); setError('');
+      } catch (e) {
+        if (!alive) return;
+        setLoading(false);
+        setError(e && e.code === 'permission-denied' ? 'The file library is not accessible with the currently deployed Firestore rules.' : 'Could not load files. Please check your connection and try again.');
+      }
+    };
+    const refreshFolders = async () => {
+      try {
+        const data = (await getMetaDoc('folders')) || {};
+        if (!alive) return;
+        setFolders(Array.isArray(data.list) ? data.list.filter((v) => typeof v === 'string') : []);
+        setFolderCounts(data.fileCounts && typeof data.fileCounts === 'object' ? data.fileCounts : {});
+      } catch (_) {}
+    };
+    refreshLatest();
+    refreshFolders();
+    const unsubFiles = subscribeFiles({ limit: PAGE_SIZE, onInvalidate: refreshLatest });
+    const unsubFolders = subscribeMetaDoc('folders', { onInvalidate: refreshFolders });
+    return () => { alive = false; unsubFiles(); unsubFolders(); window.removeEventListener('popstate', onPop); };
   }, []);
 
   const files = useMemo(() => {
     const map = new Map();
     [...older, ...latest, ...subjectFiles].forEach((f) => map.set(f.id, f));
-    return [...map.values()].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    return [...map.values()].sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt));
   }, [latest, older, subjectFiles]);
   useEffect(() => {
     if (!selectedId || files.some((f) => f.id === selectedId)) return;
     let alive = true;
-    getDoc(doc(FILES, selectedId)).then((snap) => {
-      if (alive && snap.exists()) setOlder((prev) => [...prev.filter((f) => f.id !== snap.id), { id: snap.id, ...snap.data() }]);
+    getFile(selectedId).then((fileDoc) => {
+      if (alive && fileDoc) setOlder((prev) => [...prev.filter((f) => f.id !== fileDoc.id), fileDoc]);
     }).catch(() => { if (alive) setError('The selected file could not be loaded.'); });
     return () => { alive = false; };
   }, [selectedId, files]);
@@ -788,12 +832,22 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   // index is required; client-side sort happens in the `files` memo below.
   useEffect(() => {
     if (!activeCode) { setSubjectFiles([]); return; }
+    let alive = true;
     const grp = codeGroups.get(activeCode);
     const aliases = (grp ? grp.aliases : [activeCode]).slice(0, 10);
-    const unsub = onSnapshot(query(FILES, where('subject', 'in', aliases.length ? aliases : [activeCode]), limit(400)),
-      (snap) => setSubjectFiles(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      () => {});
-    return () => unsub();
+    // NOTE: the adapter always orders by createdAt, so on the Firebase branch
+    // this query needs a composite index files(subject, createdAt) — the
+    // legacy code deliberately used no orderBy to avoid it. Deploy the index
+    // (firestore.indexes.json) or the subject view stays empty on Firebase.
+    const refresh = async () => {
+      try {
+        const { items } = await listFiles({ subjects: aliases.length ? aliases : [activeCode], limit: 400, activeOnly: false });
+        if (alive) setSubjectFiles(items);
+      } catch (_) {}
+    };
+    refresh();
+    const unsub = subscribeFiles({ subjects: aliases.length ? aliases : [activeCode], limit: 400, onInvalidate: refresh });
+    return () => { alive = false; unsub(); };
   }, [activeCode, codeGroups]);
   const activeAliasSet = useMemo(() => new Set(activeCode ? (codeGroups.get(activeCode) ? codeGroups.get(activeCode).aliases : [activeCode]) : []), [activeCode, codeGroups]);
   // True per-card counts: the background full-library loader keeps the live
@@ -907,11 +961,11 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     if (!cursor || loadingMore) return;
     setLoadingMore(true); setError('');
     try {
-      const snap = await getDocs(query(FILES, orderBy('createdAt', 'desc'), startAfter(cursor), limit(PAGE_SIZE)));
+      const page = await listFiles({ limit: PAGE_SIZE, cursor });
       olderPagesLoaded.current = true;
-      setOlder((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...d.data() }))]);
-      if (snap.docs.length) setCursor(snap.docs[snap.docs.length - 1]);
-      setHasMore(snap.docs.length === PAGE_SIZE);
+      setOlder((prev) => [...prev, ...page.items]);
+      if (page.cursor) setCursor(page.cursor);
+      setHasMore(page.hasMore);
     } catch (_) { setError('Could not load more resources. Please retry.'); }
     finally { setLoadingMore(false); }
   };
@@ -933,9 +987,9 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
       onConfirm: async () => {
         try {
           const subjKey = cut(file.subject, 50);
-          await deleteDoc(doc(FILES, file.id));
+          await deleteFile(file.id);
           if (subjKey) {
-            try { await updateDoc(FOLDERS, { ['fileCounts.' + subjKey]: increment(-1) }); } catch (_) {}
+            try { await bumpFolderCount(subjKey, -1); } catch (_) {}
           }
           setOlder((prev) => prev.filter((f) => f.id !== file.id));
           setLatest((prev) => prev.filter((f) => f.id !== file.id));
@@ -966,11 +1020,14 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
       if (!recalcArmed) { setRecalcArmed(true); if (showToast) showToast('Click "Recalculate folder counts" again to confirm. This reads all file records once.', 'info'); return; }
       setRecalcArmed(false);
       try {
-        const snap = await getDocs(FILES);
+        // Full-library scan for the one-time backfill (the adapter has no
+        // unbounded iterator, so this reads one large page; the library is
+        // in the hundreds of files).
+        const { items } = await listFiles({ limit: 10000, activeOnly: false });
         const counts = {};
-        snap.docs.forEach((d) => { const k = cut(d.data()?.subject, 50); if (k) counts[k] = (counts[k] || 0) + 1; });
-        await updateDoc(FOLDERS, { fileCounts: counts });
-        if (showToast) showToast('Folder counts recalculated: ' + snap.size + ' files across ' + Object.keys(counts).length + ' folders.', 'success');
+        items.forEach((f) => { const k = cut(f.subject, 50); if (k) counts[k] = (counts[k] || 0) + 1; });
+        await setMetaDoc('folders', { fileCounts: counts });
+        if (showToast) showToast('Folder counts recalculated: ' + items.length + ' files across ' + Object.keys(counts).length + ' folders.', 'success');
       } catch (e) { if (showToast) showToast('Count recalculation failed: ' + (e?.message || 'error'), 'error'); }
     }}><FolderOpen size={16} /> {recalcArmed ? 'Click again to confirm recalculation' : 'Recalculate folder counts'}</button></div>}
 

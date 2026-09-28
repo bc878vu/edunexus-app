@@ -4,8 +4,27 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import ExamPaperCommunity from './ExamPaperCommunity';
 import { collection, onSnapshot, query } from 'firebase/firestore';
+import {
+  listCommunityReviews, listLegacyReviews, listSubmissions,
+  subscribeCommunityReviews, subscribeLegacyReviews, subscribeSubmissions,
+} from './db/examReviews';
 
 jest.mock('./firebase-client', () => ({ db:{}, storage:{} }));
+// The component reads through the db adapter (Firebase branch by default in
+// tests). Mock the adapter's list/subscribe functions with the same fixtures
+// the old Firestore onSnapshot mock used to provide.
+jest.mock('./db/examReviews', () => {
+  return {
+    submitCommunityReview: jest.fn(),
+    submitFeedbackReport: jest.fn(),
+    listCommunityReviews: jest.fn(),
+    listLegacyReviews: jest.fn(),
+    listSubmissions: jest.fn(),
+    subscribeCommunityReviews: jest.fn(),
+    subscribeLegacyReviews: jest.fn(),
+    subscribeSubmissions: jest.fn(),
+  };
+});
 jest.mock('firebase/storage', () => ({
   deleteObject:jest.fn(), getDownloadURL:jest.fn(), ref:jest.fn(), uploadBytes:jest.fn()
 }));
@@ -40,6 +59,17 @@ beforeEach(() => {
     notify({docs:records.map(item=>({id:item.id,data:()=>item}))});
     return jest.fn();
   });
+  // Adapter mocks (wiped by jest.clearAllMocks in afterEach, so re-arm here).
+  listCommunityReviews.mockResolvedValue(
+    [posted('first','MGT611','finalterm','Previously shared MGT611 final exam review')]);
+  listLegacyReviews.mockResolvedValue(
+    [posted('older','CS620','midterm','Previously published CS620 paper review')]);
+  listSubmissions.mockResolvedValue(
+    [{id:'pending',userId:'reader123',subject:'MGT611',term:'midterm',
+      examDate:'2026-09-21',summary:'An older privately submitted paper review',status:'pending'}]);
+  subscribeCommunityReviews.mockImplementation(() => jest.fn());
+  subscribeLegacyReviews.mockImplementation(() => jest.fn());
+  subscribeSubmissions.mockImplementation(() => jest.fn());
 });
 afterEach(()=>{cleanup();jest.clearAllMocks();});
 

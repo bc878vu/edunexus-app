@@ -27,14 +27,13 @@ const HomePage = ({setPage, theme, showToast, user}) => {
   const refreshDashboard = async (silent = false) => {
     if (!silent) setRefreshing(true);
     try {
-      const base = ['artifacts', appId, 'public', 'data'];
-      const countCollection = (name) =>
-        getCountFromServer(query(collection(db, ...base, name))).then((snap) => snap.data().count || 0);
+      // Backend-agnostic counts via the db adapter (Firebase today, Supabase
+      // when REACT_APP_DATA_BACKEND=supabase). No direct Firestore access.
       const [files, articles, discussions, highlightsCount] = await Promise.all([
-        countCollection('files'),
-        countCollection('articles'),
-        countCollection('discussions'),
-        countCollection('highlights'),
+        countFiles(),
+        countArticles(),
+        countDiscussions(),
+        countHighlights(),
       ]);
       setStats({ files, articles, discussions, highlights: highlightsCount });
       setLastUpdated(new Date());
@@ -47,32 +46,33 @@ const HomePage = ({setPage, theme, showToast, user}) => {
     }
   };
 
+  const loadHighlights = async () => {
+    try {
+      const [config, items] = await Promise.all([
+        getMetaDoc('highlightsConfig').catch(() => null),
+        listHighlights({ activeOnly: false, limit: 200 }),
+      ]);
+      if (config) setShowSection(config.isVisible !== false);
+      setHighlights(items);
+      setHighlightsLoading(false);
+      setHighlightsError(false);
+      try {
+        const publicItems = items.map(({ id, title, desc, link, iconName, color }) => ({ id, title, desc, link, iconName, color }));
+        window.sessionStorage.setItem('edunexus:public-highlights:v2', JSON.stringify({ savedAt: Date.now(), items: publicItems }));
+      } catch (_) { /* Storage is optional; the backend remains the source of truth. */ }
+    } catch (error) {
+      console.error('Highlights List Error', error);
+      setHighlightsLoading(false);
+      setHighlightsError(true);
+    }
+  };
+
   useEffect(() => {
-    const unsubConfig = onSnapshot(
-      doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'highlightsConfig'),
-      (docSnap) => {
-        if (docSnap.exists()) setShowSection(docSnap.data().isVisible !== false);
-      },
-      (error) => console.log('Highlights Config Error', error)
-    );
-    const q = query(
-      collection(db, 'artifacts', appId, 'public', 'data', 'highlights'),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubList = onSnapshot(
-      q,
-      (snapshot) => {
-        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setHighlights(items);
-        setHighlightsLoading(false);
-        setHighlightsError(false);
-        try {
-          const publicItems = items.map(({ id, title, desc, link, iconName, color }) => ({ id, title, desc, link, iconName, color }));
-          window.sessionStorage.setItem('edunexus:public-highlights:v2', JSON.stringify({ savedAt: Date.now(), items: publicItems }));
-        } catch (_) { /* Storage is optional; Firestore remains the source of truth. */ }
-      },
-      (error) => { console.error('Highlights List Error', error); setHighlightsLoading(false); setHighlightsError(true); }
-    );
+    // Realtime invalidation signals from the adapter; data is refetched on
+    // every invalidation so both backends stay live.
+    const unsubConfig = subscribeMetaDoc('highlightsConfig', { onInvalidate: loadHighlights });
+    const unsubList = subscribeHighlights({ onInvalidate: loadHighlights });
+    loadHighlights();
     refreshDashboard(true);
     const timer = setInterval(() => refreshDashboard(true), 60000);
     return () => {

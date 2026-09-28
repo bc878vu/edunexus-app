@@ -1,13 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { adminPanelAccess } from './adminSession';
-import { getApps, initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Settings, Save, Plus, Trash2, Pin, Film, ExternalLink, X } from 'lucide-react';
-
-const firebaseConfig = { apiKey:'AIzaSyCdoWl5a0irdMGftJUYkng-dQLUI1ZImP8', authDomain:'edunexus-live-e0b84.firebaseapp.com', projectId:'edunexus-live-e0b84', storageBucket:'edunexus-live-e0b84.firebasestorage.app', messagingSenderId:'464541062794', appId:'1:464541062794:web:7894ed257d604f202bbf73' };
-const app=getApps().find(a=>a.name==='[DEFAULT]')||initializeApp(firebaseConfig);
-const auth=getAuth(app); const db=getFirestore(app); const SETTINGS=doc(db,'artifacts/edunexus-live/public/data/meta/floatingHub');
+import { onAuthChange } from './db/auth';
+import { getMetaDoc, setMetaDoc, subscribeMetaDoc } from './db/files';
 const defaults=[['Study Guides','/study-guides'],['Tutorial Videos','/tutorials'],['Student Resources','/student-resources'],['Live Projects','/live-projects']];
 const isAdminPage=()=>new URLSearchParams(location.search).get('page')==='admin'||location.pathname.replace(/\/$/,'')==='/admin';
 
@@ -16,12 +11,26 @@ export default function AdminResourceManagerV2(){
   const [buttons,setButtons]=useState(defaults.map(([label,href])=>({label,href,enabled:true}))); const [pinned,setPinned]=useState(true); const [saved,setSaved]=useState(false);
   const [saveError,setSaveError]=useState('');
   useEffect(()=>{const sync=()=>{setActive(isAdminPage());if(!isAdminPage())setOpen(false)};addEventListener('popstate',sync);addEventListener('edunexus:navigation',sync);return()=>{removeEventListener('popstate',sync);removeEventListener('edunexus:navigation',sync)}},[]);
-  useEffect(()=>onAuthStateChanged(auth,setUser),[]);
-  useEffect(()=>active?onSnapshot(SETTINGS,s=>{const d=s.data()||{};if(Array.isArray(d.buttons)&&d.buttons.length)setButtons(d.buttons.map(x=>({label:String(x.label||'Resource'),href:String(x.href||'/'),enabled:x.enabled!==false})));setPinned(d.dashboardPinned!==false)},()=>{}):undefined,[active]);
+  useEffect(()=>onAuthChange(setUser),[]);
+  useEffect(()=>{
+    if (!active) return undefined;
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const d = (await getMetaDoc('floatingHub')) || {};
+        if (!alive) return;
+        if (Array.isArray(d.buttons) && d.buttons.length) setButtons(d.buttons.map(x=>({label:String(x.label||'Resource'),href:String(x.href||'/'),enabled:x.enabled!==false})));
+        setPinned(d.dashboardPinned !== false);
+      } catch (_) {}
+    };
+    refresh();
+    const unsub = subscribeMetaDoc('floatingHub', { onInvalidate: refresh });
+    return () => { alive = false; unsub(); };
+  },[active]);
   if(!active||!adminPanelAccess(user))return null;
   // A failed write must surface instead of dying as an unhandled rejection
   // while the Save button keeps showing its idle label.
-  const save=async()=>{setSaveError('');try{await setDoc(SETTINGS,{buttons,dashboardPinned:pinned,updatedAt:serverTimestamp(),updatedBy:user.email},{merge:true});localStorage.setItem('edunexus_dashboard_pinned',pinned?'1':'0');dispatchEvent(new Event('edunexus:resource-config'));setSaved(true);setTimeout(()=>setSaved(false),1800)}catch(e){setSaved(false);setSaveError(e?.message||'Could not save resource settings. Check your admin session and try again.')}};
+  const save=async()=>{setSaveError('');try{await setMetaDoc('floatingHub',{buttons,dashboardPinned:pinned,updatedAt:new Date(),updatedBy:user.email});localStorage.setItem('edunexus_dashboard_pinned',pinned?'1':'0');dispatchEvent(new Event('edunexus:resource-config'));setSaved(true);setTimeout(()=>setSaved(false),1800)}catch(e){setSaved(false);setSaveError(e?.message||'Could not save resource settings. Check your admin session and try again.')}};
   const go=(path)=>{setOpen(false);history.pushState({},'',path);dispatchEvent(new Event('edunexus:navigation'))};
   return <>
     <button className="edx-resource-manager-launcher" onClick={()=>setOpen(v=>!v)} aria-label="Open resource manager"><Settings size={18}/><span>Resources</span></button>

@@ -1,13 +1,7 @@
 import React, { useEffect, useState } from "react";
-import {
-  addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query,
-  serverTimestamp, updateDoc,
-} from "firebase/firestore";
 import { Megaphone, Pencil, Plus, Trash2, X } from "lucide-react";
-import { db } from "./firebase-client";
 import { useConfirm } from "./ConfirmDialog";
-
-const PINNED_ADS = collection(db, "artifacts/edunexus-live/public/data/pinned_ads");
+import { listPinnedAds, createPinnedAd, updatePinnedAd, removePinnedAd, setPinnedAdActive, subscribePinnedAds } from "./db/pinnedAds";
 
 const EMPTY_FORM = {
   title: "",
@@ -47,13 +41,20 @@ export default function AdminPinnedAds({ showToast }) {
   const { requestConfirm, ConfirmUI } = useConfirm();
 
   useEffect(() => {
-    const q = query(PINNED_ADS, orderBy("createdAt", "desc"));
-    return onSnapshot(q,
-      (snap) => {
-        setAds(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const items = await listPinnedAds();
+        if (!alive) return;
+        setAds(items);
         setLoading(false);
-      },
-      () => setLoading(false));
+      } catch (_) {
+        if (alive) setLoading(false);
+      }
+    };
+    refresh();
+    const unsub = subscribePinnedAds({ onInvalidate: refresh });
+    return () => { alive = false; unsub(); };
   }, []);
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -93,16 +94,13 @@ export default function AdminPinnedAds({ showToast }) {
         isActive: !!form.isActive,
         startAt: toTimestamp(form.startAt),
         endAt: toTimestamp(form.endAt),
-        updatedAt: serverTimestamp(),
+        updatedAt: new Date(),
       };
       if (editingId) {
-        await updateDoc(doc(PINNED_ADS, editingId), payload);
+        await updatePinnedAd(editingId, payload);
         if (showToast) showToast("Ad updated.", "success");
       } else {
-        await addDoc(PINNED_ADS, {
-          ...payload,
-          createdAt: serverTimestamp(),
-        });
+        await createPinnedAd({ ...payload, createdAt: new Date() });
         if (showToast) showToast("Ad created.", "success");
       }
       cancelEdit();
@@ -121,7 +119,7 @@ export default function AdminPinnedAds({ showToast }) {
       danger: true,
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(PINNED_ADS, ad.id));
+          await removePinnedAd(ad.id);
           if (showToast) showToast("Ad deleted.", "success");
         } catch (err) {
           console.error("Pinned ad delete failed:", err);
@@ -133,10 +131,7 @@ export default function AdminPinnedAds({ showToast }) {
 
   const toggleActive = async (ad) => {
     try {
-      await updateDoc(doc(PINNED_ADS, ad.id), {
-        isActive: !(ad.isActive !== false),
-        updatedAt: serverTimestamp(),
-      });
+      await setPinnedAdActive(ad.id, !(ad.isActive !== false));
     } catch (err) {
       console.error("Pinned ad toggle failed:", err);
       if (showToast) showToast("Could not update the ad.", "error");

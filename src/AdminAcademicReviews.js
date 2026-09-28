@@ -1,12 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, startAfter, updateDoc } from 'firebase/firestore';
-import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { useConfirm } from './ConfirmDialog';
 import './admin-academic-reviews.css';
+import { listFiles, updateFile } from './db/files';
+import { listReviews, updateReview, deleteReview, subscribeReviews } from './db/reviews';
 
-const FILES = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'files');
-const REVIEW_PAGE_SIZE = 100;
+// createdAt arrives as a Firestore Timestamp on the Firebase branch and as an
+// ISO string on the Supabase branch — normalize both to epoch millis.
+const tsMillis = (v) => {
+  if (!v) return 0;
+  if (typeof v === 'object') {
+    if (typeof v.toMillis === 'function') { try { return v.toMillis(); } catch (_) { return 0; } }
+    if (typeof v.toDate === 'function') { try { return v.toDate().getTime(); } catch (_) { return 0; } }
+    if (v instanceof Date) return v.getTime();
+  }
+  const ms = new Date(v).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+};
 
 export default function AdminAcademicReviews({ user }) {
   const [files, setFiles] = useState([]);
@@ -15,8 +25,6 @@ export default function AdminAcademicReviews({ user }) {
   const [selectedId, setSelectedId] = useState('');
   const [filter, setFilter] = useState('');
   const [reviews, setReviews] = useState([]);
-  const [reviewCursor, setReviewCursor] = useState(null);
-  const [hasMoreReviews, setHasMoreReviews] = useState(false);
   const [editingId, setEditingId] = useState('');
   const [editText, setEditText] = useState('');
   const [editRating, setEditRating] = useState(5);
@@ -31,61 +39,52 @@ export default function AdminAcademicReviews({ user }) {
   useEffect(() => {
     if (!permitted) return;
     let active = true;
-    getDocs(query(FILES, orderBy('createdAt', 'desc'), limit(100))).then((snapshot) => {
+    listFiles({ limit: 100, activeOnly: false }).then(({ items, cursor, hasMore }) => {
       if (!active) return;
-      setFiles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setFileCursor(snapshot.docs[snapshot.docs.length - 1] || null);
-      setHasMoreFiles(snapshot.docs.length === 100);
+      setFiles(items);
+      setFileCursor(cursor);
+      setHasMoreFiles(hasMore);
     }).catch(() => { if (active) setNotice('Could not load file records. Check admin permissions.'); });
     return () => { active = false; };
   }, [permitted]);
 
   useEffect(() => {
     if (!permitted || !selectedId) { setReviews([]); return; }
-    setEditingId(''); setReviews([]); setReviewCursor(null); setHasMoreReviews(false);
-    return onSnapshot(query(collection(FILES, selectedId, 'reviews'), orderBy('createdAt', 'desc'), limit(REVIEW_PAGE_SIZE)), (snapshot) => {
-      setReviews((previous) => {
-        const map = new Map(previous.map((item) => [item.id, item]));
-        for (const item of snapshot.docs) map.set(item.id, { id: item.id, ...item.data() });
-        for (const item of previous) if (!snapshot.docs.some((d) => d.id === item.id) && previous.length <= REVIEW_PAGE_SIZE) map.delete(item.id);
-        return [...map.values()].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      });
-      setReviewCursor(snapshot.docs[snapshot.docs.length - 1] || null);
-      setHasMoreReviews(snapshot.docs.length === REVIEW_PAGE_SIZE);
-    }, () => setNotice('Could not load reviews. Check published Firestore rules.'));
+    setEditingId(''); setReviews([]);
+    let active = true;
+    // The adapter returns the full review list (no pagination); the legacy
+    // 100-per-page "load more" pager is retired — every review loads at once.
+    const refresh = async () => {
+      try {
+        const items = await listReviews(selectedId, { status: 'all' });
+        if (!active) return;
+        setReviews([...items].sort((a, b) => tsMillis(b.createdAt) - tsMillis(a.createdAt)));
+      } catch (_) {
+        if (active) setNotice('Could not load reviews. Check published Firestore rules.');
+      }
+    };
+    refresh();
+    const unsub = subscribeReviews(selectedId, { status: 'all', onInvalidate: refresh });
+    return () => { active = false; unsub(); };
   }, [permitted, selectedId]);
 
   const moreFiles = async () => {
     if (!fileCursor || busy) return;
     setBusy(true);
     try {
-      const snap = await getDocs(query(FILES, orderBy('createdAt', 'desc'), startAfter(fileCursor), limit(100)));
-      setFiles((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...d.data() }))]);
-      setFileCursor(snap.docs[snap.docs.length - 1] || null);
-      setHasMoreFiles(snap.docs.length === 100);
+      const { items, cursor, hasMore } = await listFiles({ limit: 100, cursor: fileCursor, activeOnly: false });
+      setFiles((prev) => [...prev, ...items]);
+      setFileCursor(cursor);
+      setHasMoreFiles(hasMore);
     } catch (_) { setNotice('Unable to load more files.'); } finally { setBusy(false); }
-  };
-  const moreReviews = async () => {
-    if (!reviewCursor || busy || !selectedId) return;
-    setBusy(true);
-    try {
-      const snap = await getDocs(query(collection(FILES, selectedId, 'reviews'), orderBy('createdAt', 'desc'), startAfter(reviewCursor), limit(REVIEW_PAGE_SIZE)));
-      setReviews((prev) => {
-        const map = new Map(prev.map((item) => [item.id, item]));
-        snap.docs.forEach((item) => map.set(item.id, { id: item.id, ...item.data() }));
-        return [...map.values()].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      });
-      setReviewCursor(snap.docs[snap.docs.length - 1] || null);
-      setHasMoreReviews(snap.docs.length === REVIEW_PAGE_SIZE);
-    } catch (_) { setNotice('Unable to load more reviews.'); } finally { setBusy(false); }
   };
   const begin = (review) => { setEditingId(review.id); setEditText(String(review.comment || '')); setEditRating(Number(review.rating || 5)); setNotice(''); };
   const save = async (review) => {
     if (!permitted || busy || editText.trim().length < 20 || editText.trim().length > 50000) return;
     setBusy(true); setNotice('');
     try {
-      await updateDoc(doc(FILES, selectedId, 'reviews', review.id), {
-        comment: editText.trim(), rating: Number(editRating), editedAt: serverTimestamp()
+      await updateReview(selectedId, review.id, {
+        comment: editText.trim(), rating: Number(editRating), editedAt: new Date()
       });
       setEditingId(''); setNotice('Review saved. The original author text is retained in the review record.');
     } catch (_) { setNotice('Could not save review. Check admin permissions.'); } finally { setBusy(false); }
@@ -98,7 +97,7 @@ export default function AdminAcademicReviews({ user }) {
       danger: true,
       onConfirm: async () => {
         setBusy(true); setNotice('');
-        try { await deleteDoc(doc(FILES, selectedId, 'reviews', review.id)); setNotice('Review deleted.'); }
+        try { await deleteReview(selectedId, review.id); setNotice('Review deleted.'); }
         catch (_) { setNotice('Could not delete review.'); } finally { setBusy(false); }
       },
     });
@@ -112,7 +111,10 @@ export default function AdminAcademicReviews({ user }) {
       onConfirm: async () => {
         setBusy(true); setNotice('');
         try {
-          await updateDoc(doc(FILES, selectedId, 'reviews', review.id), { isActive: next, moderatedAt: serverTimestamp() });
+          // TODO(schema): `isActive` has no column in plan §1's file_reviews
+          // table and the adapter drops it on the Supabase branch — hide/show
+          // persists on Firebase only until the schema/adapter gain is_active.
+          await updateReview(selectedId, review.id, { isActive: next, moderatedAt: new Date() });
           setNotice(next ? 'Review is now visible to students.' : 'Review hidden from students.');
         } catch (_) { setNotice('Could not update review visibility.'); } finally { setBusy(false); }
       },
@@ -122,7 +124,7 @@ export default function AdminAcademicReviews({ user }) {
     if (!permitted || busy) return;
     setBusy(true); setNotice('');
     try {
-      await updateDoc(doc(FILES, selectedId, 'reviews', review.id), { status: 'approved', moderatedAt: serverTimestamp() });
+      await updateReview(selectedId, review.id, { status: 'approved', moderatedAt: new Date() });
       setNotice('Earlier pending review published.');
     } catch (_) { setNotice('Unable to publish earlier review.'); } finally { setBusy(false); }
   };
@@ -130,8 +132,8 @@ export default function AdminAcademicReviews({ user }) {
     if (!permitted || busy || !rightsFile || !rightsBasis || !rightsConfirmed) return;
     setBusy(true); setNotice('');
     try {
-      await updateDoc(doc(FILES, rightsFile), {
-        rightsBasis, rightsConfirmed: true, rightsConfirmedAt: serverTimestamp()
+      await updateFile(rightsFile, {
+        rightsBasis, rightsConfirmed: true, rightsConfirmedAt: new Date()
       });
       setFiles((prev)=>prev.map((item)=>item.id === rightsFile
         ? {...item,rightsBasis,rightsConfirmed:true} : item));
@@ -170,7 +172,6 @@ export default function AdminAcademicReviews({ user }) {
       <div className="edx-review-actions"><button type="button" disabled={busy} onClick={() => begin(r)}>Edit</button><button type="button" disabled={busy} onClick={() => toggleHidden(r)}>{r.isActive === false ? 'Show' : 'Hide'}</button><button type="button" disabled={busy} onClick={() => remove(r)}>Delete</button>{r.status === 'pending' && <button type="button" disabled={busy} onClick={() => publishLegacy(r)}>Publish earlier review</button>}</div>
       {editingId === r.id && <div className="edx-review-editor"><label>Rating <select value={editRating} onChange={(e) => setEditRating(Number(e.target.value))}>{[1,2,3,4,5].map((n) => <option value={n} key={n}>{n} / 5</option>)}</select></label><label>Edit published text <textarea rows={7} maxLength={50000} value={editText} onChange={(e) => setEditText(e.target.value)} /></label><div className="edx-review-actions"><button type="button" disabled={busy || editText.trim().length < 20} onClick={() => save(r)}>Save review</button><button type="button" onClick={() => setEditingId('')}>Cancel</button></div></div>}
     </article>)}</div> : <p>No reviews found for this file.</p>)}
-    {selectedId && hasMoreReviews && <button type="button" disabled={busy} onClick={moreReviews}>Load more reviews</button>}
     <ConfirmUI />
   </section>;
 }

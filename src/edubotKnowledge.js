@@ -1,5 +1,9 @@
-import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
-import { db } from './firebase-client';
+import { listAnnouncements } from './db/announcements';
+import { listArticles } from './db/articles';
+import { listHighlights } from './db/highlights';
+import { listTutorials } from './db/tutorials';
+import { listFiles, getMetaDoc } from './db/files';
+import { listCommunityReviews, listLegacyReviews } from './db/examReviews';
 
 export const EDUNEXUS_GROUP = 'https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW';
 export const EDUNEXUS_SITE = 'https://edunexus-app.vercel.app/';
@@ -20,10 +24,14 @@ export const SITE_GUIDE = Object.freeze([
   { name: 'Privacy', url: '/?page=privacy', detail: 'Website privacy policy.' },
   { name: 'Terms', url: '/?page=terms', detail: 'Website usage terms.' }
 ]);
-const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
 const PUBLIC_COLLECTIONS = [
-  ['announcements', 8], ['articles', 12], ['highlights', 10],
-  ['tutorials', 12], ['files', 45], ['examCommunityReviews', 10], ['examReviews', 10]
+  ['announcements', () => listAnnouncements({ activeOnly: false, limit: 8 })],
+  ['articles', () => listArticles({ limit: 12 })],
+  ['highlights', () => listHighlights({ activeOnly: false, limit: 10 })],
+  ['tutorials', () => listTutorials({ limit: 12 })],
+  ['files', async () => (await listFiles({ activeOnly: false, limit: 45 })).items],
+  ['examCommunityReviews', () => listCommunityReviews({ activeOnly: false, limit: 10 })],
+  ['examReviews', () => listLegacyReviews({ limit: 10 })],
 ];
 const text = (value, max = 180) => String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
 export const courseCode = (message) => String(message || '').toUpperCase().match(/\b[A-Z]{2,5}[0-9]{3}[A-Z]?\b/)?.[0] || '';
@@ -84,10 +92,10 @@ let currentLoad = null;
 export async function fetchPublicKnowledge(force = false) {
   if (!force && cache && Date.now() - cacheAt < 180000) return cache;
   if (currentLoad) return currentLoad;
-  currentLoad = Promise.all(PUBLIC_COLLECTIONS.map(async ([name, count]) => {
+  currentLoad = Promise.all(PUBLIC_COLLECTIONS.map(async ([name, load]) => {
     try {
-      const results = await getDocs(query(collection(db, ...ROOT, name), limit(count)));
-      return results.docs.map(document => ({ section:name, data:document.data() }));
+      const items = await load();
+      return items.map(item => ({ section: name, data: item }));
     } catch (_) { return []; }
   })).then(groups => {
     cache = groups.flat(); cacheAt = Date.now(); return cache;
@@ -120,13 +128,20 @@ export async function fetchRelevantPublicKnowledge(message) {
   const base = await fetchPublicKnowledge();
   const subject = courseCode(message);
   if (!subject) return base;
-  const col = collection(db, ...ROOT, 'files');
   // The Academic Hub uses both subject and folder names. Query both without
   // introducing a new index; older records may store the subject only in name.
   const targeted = await Promise.all(['subject', 'folder', 'category'].map(async field => {
     try {
-      const shot = await getDocs(query(col, where(field, '==', subject), limit(25)));
-      return shot.docs.map(item => ({ section:'files', data:item.data(), id:item.id }));
+      if (field === 'subject') {
+        const { items } = await listFiles({ subject, limit: 25, activeOnly: false });
+        return items.map(item => ({ section: 'files', data: item, id: item.id }));
+      }
+      if (field === 'folder') {
+        const { items } = await listFiles({ folder: subject, limit: 25, activeOnly: false });
+        return items.map(item => ({ section: 'files', data: item, id: item.id }));
+      }
+      // 'category' has no adapter filter; the base snapshot above covers it.
+      return [];
     } catch (_) { return []; }
   }));
   const folders = await getPublicFolderNames();
@@ -142,8 +157,9 @@ export async function fetchRelevantPublicKnowledge(message) {
 }
 export async function getPublicFolderNames() {
   try {
-    const folders = await getDoc(doc(db, ...ROOT, 'meta', 'folders'));
-    return Array.isArray(folders.data()?.list) ? folders.data().list.filter(x => typeof x === 'string').slice(0, 120) : [];
+    const data = await getMetaDoc('folders');
+    const list = data?.list;
+    return Array.isArray(list) ? list.filter(x => typeof x === 'string').slice(0, 120) : [];
   } catch (_) { return []; }
 }
 export function makeEduBotPrompt(message, history, knowledge) {

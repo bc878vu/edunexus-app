@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, doc, getDoc, limit, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { listMcqs, updateMcq, subscribeMcqs } from './db/examMcqs';
+import { getProgress, saveProgress } from './db/examProgress';
 import { BookOpen, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, RotateCcw, Search, ShieldCheck } from 'lucide-react';
-import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { categoryOf, quizSetOf } from './examMcqImport';
 import { explanationForStudent, explanationPrompt, plainFeedback } from './examAnswerFeedback';
@@ -10,7 +10,6 @@ import RichContent from './RichContent';
 import { useConfirm } from './ConfirmDialog';
 import './exam-mcq-practice.css';
 
-const MCQS = ['artifacts', 'edunexus-live', 'public', 'data', 'examMcqs'];
 // In-memory cache for MCQ questions: subject -> { docs, fetchedAt }.
 // Serves repeat visits instantly with ZERO Firestore reads for 5 minutes.
 // Refresh button (setRefresh) bypasses this cache.
@@ -81,7 +80,7 @@ function AdminAnswerReview({ question, onUpdated }) {
           const note = ' Admin review source: ' + source.trim();
           if (explanation.length + note.length > 1000) throw new Error('Verification note exceeds the Firestore explanation length limit. Shorten the source reference.');
           explanation += note;
-          await updateDoc(doc(db, ...MCQS, question.id), { answer: Number(answer), explanation });
+          await updateMcq(question.id, { answer: Number(answer), explanation });
           onUpdated({ ...question, answer: Number(answer), explanation });
           setMessage('Admin review saved. This answer can now contribute to scores.');
           setSource('');
@@ -161,7 +160,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   useEffect(() => {
     const session = ++sessionRef.current;
     if (writeTimer.current) clearTimeout(writeTimer.current);
-    if (pendingCloud.current) { const queued = pendingCloud.current; pendingCloud.current = null; void setDoc(queued.ref, queued.payload).catch(() => {}); }
+    if (pendingCloud.current) { const queued = pendingCloud.current; pendingCloud.current = null; if (user?.uid) void saveProgress(user.uid, cloudProgressId, queued.payload).catch(() => {}); }
     answerLocksRef.current = new Set();
     answersRef.current = {};
     aiRequestRef.current++;
@@ -175,8 +174,8 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const cached = questionCache.get(subject);
     const now = Date.now();
     if (cached && (now - cached.fetchedAt) < CACHE_TTL_MS && cached.docs) {
-      // Serve from cache - process the cached docs the same way as snapshot docs
-      const all = orderedQuestions(cached.docs.map(d => ({ id: d.id, ...d.data() })), term);
+      // Serve from cache - process the cached questions the same way as fresh items
+      const all = orderedQuestions(cached.docs, term);
       if (term === 'quiz') setQuizSets([...new Set(all.map(quizSetOf))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})));
       else setQuizSets([]);
       const ordered = term === 'quiz' && quizSet !== 'all' ? all.filter(q => quizSetOf(q) === quizSet) : all;
@@ -189,20 +188,19 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       // skip the query entirely to save reads. User can hit "Check for new questions" to refresh.
       return () => {};
     }
-    unsubscribe = onSnapshot(query(
-      // The subject-only query avoids a new composite index. The Quiz category
-      // is physically stored as midterm with a Quiz marker for old rules.
-      collection(db, ...MCQS), where('subject', '==', subject), limit(QUESTION_LIMIT)
-    ), async snapshot => {
+    // Adapter read + invalidation subscription: the subject-only query avoids a
+    // new composite index. The Quiz category is physically stored as midterm
+    // with a Quiz marker for old rules.
+    const applyItems = async items => {
       if (sessionRef.current !== session) return;
       // Populate cache for future visits
-      questionCache.set(subject, { docs: snapshot.docs, fetchedAt: Date.now() });
-      const all = orderedQuestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })).filter(q => q.isActive !== false), term);
+      questionCache.set(subject, { docs: items, fetchedAt: Date.now() });
+      const all = orderedQuestions(items.filter(q => q.isActive !== false), term);
       if (term === 'quiz') setQuizSets([...new Set(all.map(quizSetOf))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})));
       else setQuizSets([]);
       const ordered = term === 'quiz' && quizSet !== 'all' ? all.filter(q => quizSetOf(q) === quizSet) : all;
       setQuestions(ordered);
-      setLimited(snapshot.docs.length >= QUESTION_LIMIT);
+      setLimited(items.length >= QUESTION_LIMIT);
       setLoadError('');
       if (initialized) return; // Preserve in-progress choices when new MCQs publish.
       initialized = true;
@@ -210,9 +208,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       let cloud = null;
       if (user?.uid) {
         try {
-          const saved = await getDoc(doc(db, 'artifacts', 'edunexus-live', 'users',
-            user.uid, 'examProgress', cloudProgressId));
-          if (saved.exists()) cloud = saved.data();
+          cloud = await getProgress(user.uid, cloudProgressId);
         } catch (_) {
           if (sessionRef.current === session)
             setSaveStatus('Offline/local mode. Cloud sync will retry when you answer a question.');
@@ -235,19 +231,27 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       setAnswers(restored.answers); setCurrentId(restored.currentId); setFinished(restored.finished);
       if (latest) setSaveStatus('Your saved practice has been restored.');
       setLoading(false); setRestoring(false);
-    }, error => {
+    };
+    const loadError = error => {
       if (sessionRef.current !== session) return;
       setLoadError(error?.code === 'permission-denied'
         ? 'MCQ bank could not load. Check published Firestore read rules.'
         : 'Questions could not load. Check your connection and retry.');
       setLoading(false); setRestoring(false);
-    });
+    };
+    const refresh = async () => {
+      try {
+        await applyItems(await listMcqs({ subject, limit: QUESTION_LIMIT, activeOnly: false }));
+      } catch (error) { loadError(error); }
+    };
+    refresh();
+    unsubscribe = subscribeMcqs({ subject, onInvalidate: refresh });
     return () => {
       unsubscribe();
       if (writeTimer.current) clearTimeout(writeTimer.current);
       if (pendingCloud.current) {
         const queued = pendingCloud.current; pendingCloud.current = null;
-        void setDoc(queued.ref, queued.payload).catch(() => {});
+        if (user?.uid) void saveProgress(user.uid, cloudProgressId, queued.payload).catch(() => {});
       }
       sessionRef.current++;
     };
@@ -263,14 +267,13 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const revision = ++saveRevision.current;
     const session = sessionRef.current;
     if (user?.uid) {
-      pendingCloud.current = { ref: doc(db, 'artifacts', 'edunexus-live', 'users', user.uid,
-        'examProgress', cloudProgressId), payload };
+      pendingCloud.current = { payload };
       writeTimer.current = setTimeout(async () => {
         const queued = pendingCloud.current;
         pendingCloud.current = null;
         if (!queued) return;
         try {
-          await setDoc(queued.ref, queued.payload);
+          await saveProgress(user.uid, cloudProgressId, queued.payload);
           if (sessionRef.current === session && saveRevision.current === revision) setSaveStatus('Saved to your private Firebase session and this browser.');
         } catch (_) {
           if (sessionRef.current === session && saveRevision.current === revision)
