@@ -158,3 +158,24 @@ body.ah-preview-open .edx-free-orb{display:none!important}
   .ah-search-form{grid-template-columns:1fr}
   .ah-search-submit,.ah-search-form>.ah-secondary{width:100%}
 }
+
+
+/* Simplified responsive Academic Hub search/folder controls */
+.ah-search-form{grid-template-columns:minmax(0,1fr) auto auto}
+.ah-folder-actions{display:flex;align-items:stretch;gap:8px;min-width:max-content}
+.ah-folder-actions .ah-secondary{height:100%;white-space:nowrap}
+@media(max-width:900px){
+  .ah-search-form{grid-template-columns:minmax(0,1fr) auto}
+  .ah-folder-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;min-width:0}
+  .ah-folder-actions .ah-secondary{width:100%;justify-content:center}
+}
+@media(max-width:480px){
+  .ah-search-form{grid-template-columns:minmax(0,1fr) auto}
+  .ah-search-submit{min-width:94px}
+  .ah-folder-actions{grid-template-columns:1fr 1fr}
+}
+@media(max-width:360px){
+  .ah-search-form{grid-template-columns:1fr}
+  .ah-search-submit{width:100%}
+  .ah-folder-actions{grid-template-columns:1fr}
+}
