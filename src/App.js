@@ -96,23 +96,33 @@ import {
 
 import { MAIN_ITEMS, MOBILE_ITEMS } from './site-navigation.mjs';
 import { APP_PAGES, CONTENT_PAGE_IDS, routeFromLocation, pathForPage, navActivePage } from './app-routes.mjs';
-import { getApp, getApps, initializeApp } from 'firebase/app';
+import { db } from './firebase-client';
 import {
-  getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken,
-  updateProfile, signOut, setPersistence, browserSessionPersistence, createUserWithEmailAndPassword,
-  signInWithEmailAndPassword, sendEmailVerification
-} from 'firebase/auth';
-import {
-  getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
-  serverTimestamp, doc,  increment, deleteDoc, where, updateDoc,
-  getDoc, getDocs, getCountFromServer, setDoc, arrayUnion, writeBatch
+  // Still used directly: the site_profile sections (no adapter yet).
+  doc, getDoc, setDoc, serverTimestamp
 } from 'firebase/firestore';
+import { onAuthChange, ensureAnon, signInAdmin, signOut, getCurrentUser } from './db/auth';
 import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "firebase/storage";
+  listFiles, publishFile, updateFile, deleteFile,
+  getMetaDoc, setMetaDoc, bumpFolderCount, countFiles,
+  subscribeFiles, subscribeMetaDoc
+} from './db/files';
+import { listAnnouncements, subscribeAnnouncements } from './db/announcements';
+import {
+  listDiscussions, addDiscussion, deleteDiscussion, setPinned, setAdminReply,
+  setDiscussionActive, reportDiscussion, listDiscussionReports, countDiscussions, subscribeDiscussions
+} from './db/discussions';
+import {
+  listFeedback, createFeedback, markFeedbackRead, markAllFeedbackRead,
+  deleteFeedback, subscribeFeedback
+} from './db/feedback';
+import {
+  listHighlights, createHighlight, updateHighlight, removeHighlight,
+  setHighlightActive, countHighlights, subscribeHighlights
+} from './db/highlights';
+import {
+  listArticles, createArticle, updateArticle, deleteArticle, countArticles, subscribeArticles
+} from './db/articles';
 
 // This declaration must follow all static imports (CRA enforces import/first).
 import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, adminLoginStarted, adminLoginFinished, isAdminLoginPending, grantAdminTab, clearAdminTab, adminTabIsActive, adminPanelAccess, currentPageIsAdmin, verifiedAdmin, broadcastAdminLogout, touchAdminSession, adminSessionAlive } from './adminSession';
@@ -127,24 +137,11 @@ const ContentHub = React.lazy(() => import('./ContentHub'));
 const TutorialHub = React.lazy(() => import('./TutorialHub'));
 const ArticlesPage = React.lazy(() => import('./ArticlesPage'));
 
-// --- Configuration (YOUR KEYS) ---
-const firebaseConfig = {
-  apiKey: "AIzaSyCdoWl5a0irdMGftJUYkng-dQLUI1ZImP8",
-  authDomain: "edunexus-live-e0b84.firebaseapp.com",
-  projectId: "edunexus-live-e0b84",
-  storageBucket: "edunexus-live-e0b84.firebasestorage.app",
-  messagingSenderId: "464541062794",
-  appId: "1:464541062794:web:7894ed257d604f202bbf73"
-};
-
-// --- Initialize Firebase ---
+// --- Firebase instances come from the shared ./firebase-client module (imported
+// above); auth/data operations go through the ./db/* adapters. ---
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET;
 console.log("CLOUDINARY ENV:", CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET);
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
 const appId = "edunexus-live"; // Static App ID for your live site
 
 // --- Constants ---
@@ -204,7 +201,9 @@ const customStyles = `
 // --- Helpers ---
 const formatDate = (timestamp) => {
   if (!timestamp) return 'Just now';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date();
+  // Firestore Timestamp on the Firebase branch, ISO string / Date on Supabase.
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return 'Just now';
   return new Intl.DateTimeFormat('en-US', {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   }).format(date);
@@ -531,18 +530,16 @@ const Announcements = ({ user }) => {
   const [news, setNews] = useState([]);
 
     useEffect(() => {
-    const q = query(
-      collection(db, 'artifacts', appId, 'public', 'data', 'announcements'),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (s) => setNews(s.docs.map((d) => d.data())),
-      (err) => console.log('Announcements sync skipped', err)
-    );
-
-    return () => unsubscribe();
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const items = await listAnnouncements({ activeOnly: false, limit: 100 });
+        if (alive) setNews(items);
+      } catch (err) { console.log('Announcements sync skipped', err); }
+    };
+    refresh();
+    const unsubscribe = subscribeAnnouncements({ onInvalidate: refresh });
+    return () => { alive = false; unsubscribe(); };
   }, []); // 🔁 user dependency hata di
 
 
@@ -568,16 +565,17 @@ const Forum = ({ user, theme, showToast }) => {
 
   useEffect(() => {
     // sab ko posts dikh sakti hain (anon user bhi), is liye user check optional hai
-    const q = query(
-      collection(db, "artifacts", appId, "public", "data", "discussions"),
-      orderBy("createdAt", "desc")
-    );
-
-    const unsub = onSnapshot(q, (s) =>
-      setPosts(s.docs.map((d) => ({ id: d.id, ...d.data() })).filter(p => p.isActive !== false).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)))
-    );
-
-    return () => unsub();
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const items = await listDiscussions({ includeHidden: false });
+        if (!alive) return;
+        setPosts(items.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)));
+      } catch (_) {}
+    };
+    refresh();
+    const unsub = subscribeDiscussions({ includeHidden: false, onInvalidate: refresh });
+    return () => { alive = false; unsub(); };
   }, []);
 
   const handlePost = async () => {
@@ -593,16 +591,11 @@ const Forum = ({ user, theme, showToast }) => {
 
     try {
       setLoading(true);
-      await addDoc(
-        collection(db, "artifacts", appId, "public", "data", "discussions"),
-        {
-          content: newPost.trim(),
-          createdAt: serverTimestamp(),
-          userId: user.uid || null,
-          userName: user.displayName || "Student",
-          userEmail: "", // Do not reveal account email in public posts.
-        }
-      );
+      await addDiscussion({
+        content: newPost.trim(),
+        userId: user.uid || null,
+        userName: user.displayName || "Student",
+      });
       setNewPost("");
       showToast("Post added to discussion!", "success");
     } catch (e) {
@@ -621,9 +614,7 @@ const Forum = ({ user, theme, showToast }) => {
       showToast('Please choose a valid report reason.', 'error'); return;
     }
     try {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'discussions', post.id, 'reports', user.uid), {
-        reporterUid: user.uid, reason, createdAt: serverTimestamp()
-      });
+      await reportDiscussion(post.id, user.uid, reason);
       setForumReported((prev)=>({...prev,[post.id]:true}));
       showToast('Post reported privately to the administrator.', 'success');
     } catch (_) { showToast('Report failed. Check the updated Firestore rules or use the Contact page.', 'error'); }
@@ -700,9 +691,12 @@ const Forum = ({ user, theme, showToast }) => {
                 </p>
                 <p className={`text-xs ${theme.textMuted}`}>
 
-                  {p.createdAt?.toDate
-                    ? p.createdAt.toDate().toLocaleString()
-                    : ""}
+                  {(() => {
+                    const t = p.createdAt;
+                    if (!t) return "";
+                    const d = t.toDate ? t.toDate() : new Date(t);
+                    return Number.isNaN(d.getTime()) ? "" : d.toLocaleString();
+                  })()}
                 </p>
               </div>
             </div>
@@ -741,59 +735,40 @@ const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
 
   // 🔹 Firestore se files + folders dono ko realtime load karo
   useEffect(() => {
+    let alive = true;
     // 1) Files
-    const filesCol = collection(
-      db,
-      "artifacts",
-      appId,
-      "public",
-      "data",
-      "files"
-    );
-    const qFiles = query(filesCol, orderBy("createdAt", "desc"));
-
-    const unsubFiles = onSnapshot(
-      qFiles,
-      (snap) => {
-        const list = [];
-        snap.forEach((docSnap) => {
-          list.push({ id: docSnap.id, ...docSnap.data() });
-        });
-        setFiles(list);
+    const refreshFiles = async () => {
+      try {
+        const { items } = await listFiles({ limit: 10000, activeOnly: false });
+        if (!alive) return;
+        setFiles(items);
         setLoading(false);
-      },
-      (err) => {
+      } catch (err) {
         console.error(err);
+        if (!alive) return;
         setLoading(false);
         showToast && showToast("Failed to load files", "error");
       }
-    );
+    };
 
     // 2) Custom folders (meta/folders)
-    const foldersRef = doc(
-      db,
-      "artifacts",
-      appId,
-      "public",
-      "data",
-      "meta",
-      "folders"
-    );
-    const unsubFolders = onSnapshot(
-      foldersRef,
-      (docSnap) => {
-        if (docSnap.exists()) {
-          setCustomFolders(docSnap.data().list || []);
-        } else {
-          setCustomFolders([]);
-        }
-      },
-      (err) => {
+    const refreshFolders = async () => {
+      try {
+        const data = await getMetaDoc('folders');
+        if (!alive) return;
+        setCustomFolders(data ? data.list || [] : []);
+      } catch (err) {
         console.error("folders meta error:", err);
       }
-    );
+    };
+
+    refreshFiles();
+    refreshFolders();
+    const unsubFiles = subscribeFiles({ limit: 10000, onInvalidate: refreshFiles });
+    const unsubFolders = subscribeMetaDoc('folders', { onInvalidate: refreshFolders });
 
     return () => {
+      alive = false;
       unsubFiles();
       unsubFolders();
     };
@@ -866,16 +841,7 @@ const AcademicHub = ({ user, isAdmin, theme, showToast }) => {
       danger: true,
       onConfirm: async () => {
         try {
-          const ref = doc(
-            db,
-            "artifacts",
-            appId,
-            "public",
-            "data",
-            "files",
-            fileId
-          );
-          await deleteDoc(ref);
+          await deleteFile(fileId);
           showToast && showToast("File deleted", "info");
         } catch (e) {
           console.error(e);
@@ -1142,6 +1108,9 @@ const Portfolio = ({ user, isAdmin, theme }) => {
   const [portfolioShowStarter, setPortfolioShowStarter] = useState(true);
   const [customSections, setCustomSections] = useState([]);
   const [services, setServices] = useState([]);
+  // TODO(supabase): public/data/profile/main maps to plan §1 table 13
+  // (site_profile) but no adapter module covers it yet — the portfolio
+  // reads/writes below stay on direct Firestore until one exists.
   const profileRef = doc(db, "artifacts", appId, "public", "data", "profile", "main");
   const validPublicUrl = (url) => { try { const u = new URL(url); return ['https:', 'http:'].includes(u.protocol) ? u.href : ''; } catch (_) { return ''; } };
   const isOwnSiteUrl = (url) => { try { const host = new URL(url).hostname.toLowerCase(); return ['edunexus.dpdns.org', 'edunexus-app.vercel.app', window.location.hostname.toLowerCase()].includes(host); } catch (_) { return false; } };
@@ -1832,7 +1801,7 @@ const Feedback = ({ theme, showToast }) => {
       return;
     }
 
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feedback'), { name, email, msg, createdAt: serverTimestamp() });
+    await createFeedback({ name, email, msg, createdAt: new Date() });
     showToast('Feedback Sent! We will contact you soon.', 'success');
     setMsg(''); setName(''); setEmail('');
   };
@@ -1956,14 +1925,13 @@ const HomePage = ({setPage, theme, showToast, user}) => {
   const refreshDashboard = async (silent = false) => {
     if (!silent) setRefreshing(true);
     try {
-      const base = ['artifacts', appId, 'public', 'data'];
-      const countCollection = (name) =>
-        getCountFromServer(query(collection(db, ...base, name))).then((snap) => snap.data().count || 0);
+      // Backend-agnostic counts via the db adapter (Firebase today, Supabase
+      // when REACT_APP_DATA_BACKEND=supabase). No direct Firestore access.
       const [files, articles, discussions, highlightsCount] = await Promise.all([
-        countCollection('files'),
-        countCollection('articles'),
-        countCollection('discussions'),
-        countCollection('highlights'),
+        countFiles(),
+        countArticles(),
+        countDiscussions(),
+        countHighlights(),
       ]);
       setStats({ files, articles, discussions, highlights: highlightsCount });
       setLastUpdated(new Date());
@@ -1976,32 +1944,33 @@ const HomePage = ({setPage, theme, showToast, user}) => {
     }
   };
 
+  const loadHighlights = async () => {
+    try {
+      const [config, items] = await Promise.all([
+        getMetaDoc('highlightsConfig').catch(() => null),
+        listHighlights({ activeOnly: false, limit: 200 }),
+      ]);
+      if (config) setShowSection(config.isVisible !== false);
+      setHighlights(items);
+      setHighlightsLoading(false);
+      setHighlightsError(false);
+      try {
+        const publicItems = items.map(({ id, title, desc, link, iconName, color }) => ({ id, title, desc, link, iconName, color }));
+        window.sessionStorage.setItem('edunexus:public-highlights:v2', JSON.stringify({ savedAt: Date.now(), items: publicItems }));
+      } catch (_) { /* Storage is optional; the backend remains the source of truth. */ }
+    } catch (error) {
+      console.error('Highlights List Error', error);
+      setHighlightsLoading(false);
+      setHighlightsError(true);
+    }
+  };
+
   useEffect(() => {
-    const unsubConfig = onSnapshot(
-      doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'highlightsConfig'),
-      (docSnap) => {
-        if (docSnap.exists()) setShowSection(docSnap.data().isVisible !== false);
-      },
-      (error) => console.log('Highlights Config Error', error)
-    );
-    const q = query(
-      collection(db, 'artifacts', appId, 'public', 'data', 'highlights'),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubList = onSnapshot(
-      q,
-      (snapshot) => {
-        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setHighlights(items);
-        setHighlightsLoading(false);
-        setHighlightsError(false);
-        try {
-          const publicItems = items.map(({ id, title, desc, link, iconName, color }) => ({ id, title, desc, link, iconName, color }));
-          window.sessionStorage.setItem('edunexus:public-highlights:v2', JSON.stringify({ savedAt: Date.now(), items: publicItems }));
-        } catch (_) { /* Storage is optional; Firestore remains the source of truth. */ }
-      },
-      (error) => { console.error('Highlights List Error', error); setHighlightsLoading(false); setHighlightsError(true); }
-    );
+    // Realtime invalidation signals from the adapter; data is refetched on
+    // every invalidation so both backends stay live.
+    const unsubConfig = subscribeMetaDoc('highlightsConfig', { onInvalidate: loadHighlights });
+    const unsubList = subscribeHighlights({ onInvalidate: loadHighlights });
+    loadHighlights();
     refreshDashboard(true);
     const timer = setInterval(() => refreshDashboard(true), 60000);
     return () => {
@@ -2132,36 +2101,37 @@ const AcademicTab = ({ theme, user, showToast }) => {
   const [editingName, setEditingName] = useState("");
 
   useEffect(() => {
+    let alive = true;
     // folders meta load
-    getDoc(
-      doc(db, "artifacts", appId, "public", "data", "meta", "folders")
-    ).then((s) => {
-      if (s.exists()) {
-        const dbFolders = Array.isArray(s.data().list) ? s.data().list : [];
+    getMetaDoc('folders').then((data) => {
+      if (!alive) return;
+      if (data) {
+        const dbFolders = Array.isArray(data.list) ? data.list : [];
         // Merge, never replace: folders may also originate from existing files
         // or be added while the initial metadata request is in flight.
         setSubjects((prev) => [...new Set([...DEFAULT_FOLDERS, ...prev, ...dbFolders].filter((item) => typeof item === 'string' && item.trim()))]);
       }
-    });
+    }).catch(() => {});
 
     // files list load
-    const q = query(
-      collection(db, "artifacts", appId, "public", "data", "files"),
-      orderBy("createdAt", "desc")
-    );
-    const unsub = onSnapshot(q, (snapshot) => {
-      const records = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-      setFiles(records);
-      // Include existing resource categories even if their folder metadata
-      // was never written or a folder has an unusual course title.
-      const found = records.map((item) => item.subject)
-        .filter((item) => typeof item === 'string' && item.trim());
-      setSubjects((prev) => {
-        const merged = [...new Set([...prev, ...found])];
-        return merged.length === prev.length ? prev : merged;
-      });
-    });
-    return () => unsub();
+    const refreshFiles = async () => {
+      try {
+        const { items: records } = await listFiles({ limit: 10000, activeOnly: false });
+        if (!alive) return;
+        setFiles(records);
+        // Include existing resource categories even if their folder metadata
+        // was never written or a folder has an unusual course title.
+        const found = records.map((item) => item.subject)
+          .filter((item) => typeof item === 'string' && item.trim());
+        setSubjects((prev) => {
+          const merged = [...new Set([...prev, ...found])];
+          return merged.length === prev.length ? prev : merged;
+        });
+      } catch (_) {}
+    };
+    refreshFiles();
+    const unsub = subscribeFiles({ limit: 10000, onInvalidate: refreshFiles });
+    return () => { alive = false; unsub(); };
   }, []);
 
   const saveFoldersToDb = async (updatedSubjects) => {
@@ -2169,10 +2139,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
     const custom = updatedSubjects.filter(
       (f) => !DEFAULT_FOLDERS.includes(f)
     );
-    await setDoc(
-      doc(db, "artifacts", appId, "public", "data", "meta", "folders"),
-      { list: custom }
-    );
+    await setMetaDoc('folders', { list: custom }, { merge: false });
   };
 
         // ✅ Cloudinary-based upload (raw files + drive links)
@@ -2199,17 +2166,17 @@ const AcademicTab = ({ theme, user, showToast }) => {
     }
     setLinkSaving(true);
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'files'), {
+      await publishFile({
         name: uName.trim().slice(0, 150) || 'Study resource link',
         subject: selSubject,
         url: parsed.href,
         ext: 'LINK',
         isLinkOnly: true,
         uploadedBy: 'Admin',
-        rightsBasis: linkRightsBasis, rightsConfirmed: true, rightsConfirmedAt: serverTimestamp(),
-        createdAt: serverTimestamp()
+        rightsBasis: linkRightsBasis, rightsConfirmed: true, rightsConfirmedAt: new Date(),
+        createdAt: new Date()
       });
-      try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'folders'), { ['fileCounts.' + selSubject]: increment(1) }); } catch (_) {}
+      try { await bumpFolderCount(selSubject, 1); } catch (_) {}
       setUName('');
       setUDriveLink(''); setLinkRightsBasis(''); setLinkRightsConfirmed(false);
       showToast('Resource link added to the Academic Hub.', 'success');
@@ -2238,7 +2205,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
       return;
     }
     try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id), {
+      await updateFile(file.id, {
         name, subject: folder, description
       });
       setEditingFileId('');
@@ -2257,8 +2224,8 @@ const AcademicTab = ({ theme, user, showToast }) => {
       confirmLabel: next ? 'Activate' : 'Disable',
       onConfirm: async () => {
         try {
-          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id), {
-            isActive: next, updatedAt: serverTimestamp()
+          await updateFile(file.id, {
+            isActive: next, updatedAt: new Date()
           });
           showToast(next ? 'Resource activated.' : 'Resource disabled. Hidden from students.', 'success');
         } catch (_) {
@@ -2274,7 +2241,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
       danger: true,
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'files', file.id));
+          await deleteFile(file.id);
           showToast('Resource listing removed. Original file retained.', 'success');
         } catch (_) {
           showToast('Could not remove this resource listing.', 'error');
@@ -2540,19 +2507,31 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
   useEffect(() => {
     if (!user) return;
-    const qF = query(collection(db, 'artifacts', appId, 'public', 'data', 'feedback'), orderBy('createdAt', 'desc'), limit(50));
-    const unsubF = onSnapshot(qF, s => setFeedbacks(s.docs.map(d => ({id: d.id, ...d.data()}))));
-    const qA = query(collection(db, 'artifacts', appId, 'public', 'data', 'files'), orderBy('createdAt', 'desc'), limit(3));
-    const unsubA = onSnapshot(qA, s => {
-      const files = s.docs.map(d => ({type: 'file', msg: `Uploaded file: ${d.data().name}`, ...d.data()}));
-      // Dedupe: every files-collection write re-delivers the same 3 latest
-      // docs, which previously got prepended again as duplicates.
-      setRecentActivity(prev => {
-        const seen = new Set(prev.map(a => a.msg));
-        return [...files.filter(f => !seen.has(f.msg)), ...prev].slice(0, 10);
-      });
-    });
-    return () => { unsubF(); unsubA(); };
+    let alive = true;
+    const refreshFeedback = async () => {
+      try {
+        const items = await listFeedback({ limit: 50 });
+        if (alive) setFeedbacks(items);
+      } catch (_) {}
+    };
+    const refreshActivity = async () => {
+      try {
+        const { items } = await listFiles({ limit: 3, activeOnly: false });
+        if (!alive) return;
+        const files = items.map((d) => ({ type: 'file', msg: `Uploaded file: ${d.name}`, ...d }));
+        // Dedupe: every files-collection write re-delivers the same 3 latest
+        // docs, which previously got prepended again as duplicates.
+        setRecentActivity((prev) => {
+          const seen = new Set(prev.map((a) => a.msg));
+          return [...files.filter((f) => !seen.has(f.msg)), ...prev].slice(0, 10);
+        });
+      } catch (_) {}
+    };
+    refreshFeedback();
+    refreshActivity();
+    const unsubF = subscribeFeedback({ onInvalidate: refreshFeedback });
+    const unsubA = subscribeFiles({ limit: 3, onInvalidate: refreshActivity });
+    return () => { alive = false; unsubF(); unsubA(); };
   }, [user]);
 
   const DashboardTab = () => {
@@ -2561,16 +2540,14 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const markAsRead = async (msg) => {
       if (msg.read) return;
       try {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id), { read: true, readAt: serverTimestamp() });
+        await markFeedbackRead(msg.id, true);
       } catch (_) {}
     };
     const markAllRead = async () => {
       const unread = feedbacks.filter(m => !m.read);
       if (!unread.length) return;
       try {
-        const batch = writeBatch(db);
-        unread.forEach(m => batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', m.id), { read: true, readAt: serverTimestamp() }));
-        await batch.commit();
+        await markAllFeedbackRead(unread.map((m) => m.id));
         showToast(unread.length + ' messages marked as read.', 'success');
       } catch (_) { showToast('Could not mark messages as read.', 'error'); }
     };
@@ -2598,7 +2575,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               {isUnread && <span className="absolute top-3 left-3 w-2 h-2 rounded-full bg-indigo-500" title="Unread"/>}
               <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 {mEmail && <a href={`mailto:${mEmail}?subject=${replySubject}&body=${replyBody}`} title="Reply via email" className="p-1.5 bg-green-100 text-green-600 rounded hover:bg-green-200"><Reply size={14}/></a>}
-                <button onClick={(e)=>{ e.stopPropagation(); requestConfirm({ message: 'Delete this message?', confirmLabel: 'Delete', danger: true, onConfirm: () => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feedback', msg.id)) }); }} title="Delete" className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
+                <button onClick={(e)=>{ e.stopPropagation(); requestConfirm({ message: 'Delete this message?', confirmLabel: 'Delete', danger: true, onConfirm: () => deleteFeedback(msg.id) }); }} title="Delete" className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200"><Trash2 size={14}/></button>
               </div>
               <p className={`text-xs font-bold ${theme.text} pr-16 ${isUnread ? 'pl-4' : ''}`}>{String(mName)} {mEmail && <a href={`mailto:${mEmail}`} className="text-indigo-500 hover:underline">&lt;{String(mEmail)}&gt;</a>}</p>
               {mDate && <p className={`text-[10px] ${theme.textMuted} ${isUnread ? 'pl-4' : ''}`}>{mDate}</p>}
@@ -2625,23 +2602,29 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const [editHId, setEditHId] = useState(null);
 
     useEffect(() => {
-        const unsubConfig = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'highlightsConfig'), (docSnap) => {
-            if (docSnap.exists()) {
-                setMasterVisible(docSnap.data().isVisible !== false);
-            }
-        });
-
-        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), orderBy('createdAt', 'desc'));
-        const unsubList = onSnapshot(q, (snapshot) => {
-            setHighlights(snapshot.docs.map(d => ({id: d.id, ...d.data()})));
-        });
-
-        return () => { unsubConfig(); unsubList(); };
+        let alive = true;
+        const refreshConfig = async () => {
+            try {
+                const data = await getMetaDoc('highlightsConfig');
+                if (alive && data) setMasterVisible(data.isVisible !== false);
+            } catch (_) {}
+        };
+        const refreshList = async () => {
+            try {
+                const items = await listHighlights({ activeOnly: false });
+                if (alive) setHighlights(items);
+            } catch (_) {}
+        };
+        refreshConfig();
+        refreshList();
+        const unsubConfig = subscribeMetaDoc('highlightsConfig', { onInvalidate: refreshConfig });
+        const unsubList = subscribeHighlights({ onInvalidate: refreshList });
+        return () => { alive = false; unsubConfig(); unsubList(); };
     }, []);
 
     const toggleMasterVisibility = async () => {
         const newValue = !masterVisible;
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'meta', 'highlightsConfig'), { isVisible: newValue });
+        await setMetaDoc('highlightsConfig', { isVisible: newValue }, { merge: false });
         showToast(newValue ? "Highlights Section Visible" : "Highlights Section Hidden", "info");
     };
 
@@ -2651,9 +2634,12 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             return;
         }
 
+        // TODO(schema): iconName/color/imageUrl/videoUrl have no columns in
+        // plan §1 (the highlights adapter already documents this) — they
+        // persist on Firebase only until the table is extended.
         if (editHId) {
             // Edit: preserve existing isActive and original createdAt
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', editHId), {
+            await updateHighlight(editHId, {
                 title: hTitle,
                 desc: hDesc,
                 link: hLink,
@@ -2661,7 +2647,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                 color: hColor,
                 imageUrl: hImage,
                 videoUrl: hVideo,
-                updatedAt: serverTimestamp()
+                updatedAt: new Date()
             });
             showToast("Highlight Updated", "success");
         } else {
@@ -2675,9 +2661,9 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                 imageUrl: hImage,
                 videoUrl: hVideo,
                 isActive: true,
-                createdAt: serverTimestamp()
+                createdAt: new Date()
             };
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), data);
+            await createHighlight(data);
             showToast("Highlight Added", "success");
         }
 
@@ -2693,7 +2679,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           iconName: "Calendar",
           color: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-100",
           link: "https://vulms.vu.edu.pk",
-          createdAt: serverTimestamp()
+          createdAt: new Date()
         },
         {
           title: "CS101 Assignment Help",
@@ -2701,7 +2687,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           iconName: "Code",
           color: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-100",
           link: "",
-          createdAt: serverTimestamp()
+          createdAt: new Date()
         },
         {
           title: "Gaming Tournament",
@@ -2709,7 +2695,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           iconName: "Trophy",
           color: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-100",
           link: "",
-          createdAt: serverTimestamp()
+          createdAt: new Date()
         },
         {
           title: "Scholarship Deadline",
@@ -2717,12 +2703,12 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           iconName: "Star",
           color: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-100",
           link: "",
-          createdAt: serverTimestamp()
+          createdAt: new Date()
         }
       ];
 
       try {
-        const batchPromises = defaults.map(item => addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'highlights'), item));
+        const batchPromises = defaults.map(item => createHighlight(item));
         await Promise.all(batchPromises);
         showToast("Default highlights added successfully!", "success");
       } catch (error) {
@@ -2754,7 +2740,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
     const handleToggleActive = async (item) => {
         const newActive = item.isActive === false ? true : false;
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', item.id), { isActive: newActive });
+        await setHighlightActive(item.id, newActive);
         showToast(newActive ? "Highlight Activated" : "Highlight Disabled", "success");
     };
 
@@ -2764,7 +2750,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             confirmLabel: "Delete",
             danger: true,
             onConfirm: async () => {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'highlights', id));
+                await removeHighlight(id);
                 showToast("Highlight Deleted", "success");
             },
         });
@@ -2885,9 +2871,16 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const editorRef = React.useRef(null);
 
     useEffect(() => {
-      const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), orderBy('createdAt', 'desc'));
-      const unsub = onSnapshot(q, s => setArts(s.docs.map(d => ({id: d.id, ...d.data()}))));
-      return () => unsub();
+      let alive = true;
+      const refresh = async () => {
+        try {
+          const items = await listArticles();
+          if (alive) setArts(items);
+        } catch (_) {}
+      };
+      refresh();
+      const unsub = subscribeArticles({ onInvalidate: refresh });
+      return () => { alive = false; unsub(); };
     }, []);
 
     // Sync editor content when editing
@@ -2950,6 +2943,10 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       }
       // Never persist headings that wrap whole blocks (paste artifact).
       const htmlContent = unwrapNestedHeadings(editorRef.current?.innerHTML || content);
+      // TODO(schema): keywords/hiddenLinks/isActive/rightsConfirmed/
+      // originalContentConfirmed/likedBy have no columns in plan §1 (the
+      // articles adapter already documents this) — they persist on Firebase
+      // only until the table is extended.
       const articleData = {
         title: title.trim(),
         content: htmlContent,
@@ -2957,16 +2954,16 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
         keywords: keywords.trim(),
         hiddenLinks: hiddenLinks.trim(),
         isActive,
-        updatedAt: serverTimestamp()
+        updatedAt: new Date()
       };
       if(editId) {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', editId), articleData);
+        await updateArticle(editId, articleData);
         showToast("Article Updated", "success");
       } else {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), {
+        await createArticle({
           ...articleData,
           author: 'Admin', rightsConfirmed: true, originalContentConfirmed: true,
-          likes: 0, likedBy: [], createdAt: serverTimestamp()
+          likes: 0, likedBy: [], createdAt: new Date()
         });
         showToast("Article Published", "success");
       }
@@ -2999,7 +2996,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
     const confirmDelete = async () => {
       if (!showDeleteConfirm) return;
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', showDeleteConfirm.id));
+      await deleteArticle(showDeleteConfirm.id);
       showToast("Article deleted", "success");
       setShowDeleteConfirm(null);
       if (editId === showDeleteConfirm.id) resetForm();
@@ -3007,8 +3004,8 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
     const toggleActive = async (art) => {
       const next = art.isActive === false ? true : false;
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', art.id), {
-        isActive: next, updatedAt: serverTimestamp()
+      await updateArticle(art.id, {
+        isActive: next, updatedAt: new Date()
       });
       showToast(next ? "Article activated" : "Article disabled", "success");
     };
@@ -3163,22 +3160,22 @@ const ForumTab = ({ theme, showToast }) => {
 
   // Live discussions sync
   useEffect(() => {
-    const qRef = query(
-      collection(db, "artifacts", appId, "public", "data", "discussions"),
-      orderBy("createdAt", "desc")
-    );
-
-    const unsub = onSnapshot(qRef, (snap) => {
-      setPosts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
-
-    return () => unsub();
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const items = await listDiscussions({ includeHidden: true });
+        if (alive) setPosts(items);
+      } catch (_) {}
+    };
+    refresh();
+    const unsub = subscribeDiscussions({ includeHidden: true, onInvalidate: refresh });
+    return () => { alive = false; unsub(); };
   }, []);
 
   const inspectForumReports = async (post) => {
     try {
-      const snap=await getDocs(collection(db, "artifacts", appId, "public", "data", "discussions", post.id, "reports"));
-      setForumReports((prev)=>({...prev,[post.id]:snap.docs.map((r)=>r.data().reason)}));
+      const reports = await listDiscussionReports(post.id);
+      setForumReports((prev)=>({...prev,[post.id]:reports.map((r)=>r.reason)}));
     } catch (_) { showToast("Could not load private post reports. Deploy the updated Firestore rules.", "error"); }
   };
 
@@ -3190,9 +3187,7 @@ const ForumTab = ({ theme, showToast }) => {
       danger: true,
       onConfirm: async () => {
         try {
-          await deleteDoc(
-            doc(db, "artifacts", appId, "public", "data", "discussions", id)
-          );
+          await deleteDiscussion(id);
           showToast("Post deleted", "info");
         } catch (e) {
           console.error(e);
@@ -3210,10 +3205,7 @@ const ForumTab = ({ theme, showToast }) => {
       confirmLabel: next ? "Show" : "Hide",
       onConfirm: async () => {
         try {
-          await updateDoc(
-            doc(db, "artifacts", appId, "public", "data", "discussions", post.id),
-            { isActive: next, updatedAt: serverTimestamp() }
-          );
+          await setDiscussionActive(post.id, next);
           showToast(next ? "Post is now visible" : "Post hidden", "success");
         } catch (e) {
           console.error(e);
@@ -3227,10 +3219,7 @@ const ForumTab = ({ theme, showToast }) => {
   const handleTogglePinPost = async (post) => {
     const next = !post.pinned;
     try {
-      await updateDoc(
-        doc(db, "artifacts", appId, "public", "data", "discussions", post.id),
-        { pinned: next, updatedAt: serverTimestamp() }
-      );
+      await setPinned(post.id, next);
       showToast(next ? "Post pinned to top" : "Post unpinned", "success");
     } catch (e) {
       console.error(e);
@@ -3254,13 +3243,7 @@ const ForumTab = ({ theme, showToast }) => {
   const handleDeleteReply = async (id) => {
     setSaving(true);
     try {
-      await updateDoc(
-        doc(db, "artifacts", appId, "public", "data", "discussions", id),
-        {
-          adminReply: "",
-          adminReplyAt: null,
-        }
-      );
+      await setAdminReply(id, "");
       showToast("Reply deleted", "info");
       if (editId === id) {
         setEditId(null);
@@ -3286,13 +3269,7 @@ const ForumTab = ({ theme, showToast }) => {
 
     setSaving(true);
     try {
-      await updateDoc(
-        doc(db, "artifacts", appId, "public", "data", "discussions", editId),
-        {
-          adminReply: replyText.trim(),
-          adminReplyAt: serverTimestamp(),
-        }
-      );
+      await setAdminReply(editId, replyText.trim());
       showToast("Reply saved", "success");
       setEditId(null);
       setReplyText("");
@@ -3441,6 +3418,9 @@ const ProfileTab = ({ theme, user, showToast }) => {
     "https://api.dicebear.com/7.x/avataaars/svg?seed=Asad1&backgroundColor=1e293b";
 
   // profile doc path
+  // TODO(supabase): public/data/profile/main maps to plan §1 table 13
+  // (site_profile) but no adapter module covers it yet — the ProfileTab
+  // reads/writes below stay on direct Firestore until one exists.
   const profileRef = doc(
     db,
     "artifacts",
@@ -3841,25 +3821,19 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
     try {
       const enteredEmail = email.trim().toLowerCase();
       if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) throw new Error("Invalid admin credentials.");
-      // Admin auth survives refresh in this tab but is not automatically shared
-      // with every other tab through Firebase's default LOCAL persistence.
-      await setPersistence(auth, browserSessionPersistence);
-      const credential = await signInWithEmailAndPassword(auth, enteredEmail, password);
-      await credential.user.reload();
-      if (!credential.user.emailVerified) {
-        await sendEmailVerification(credential.user);
-        await signOut(auth);
-        await signInAnonymously(auth);
-        throw new Error("Verification email sent to the admin address. Open it, verify your email, then sign in again.");
-      }
-      if (!grantAdminTab(credential.user)) throw new Error("Session storage unavailable. Enable it to open Admin Panel.");
-      onLoginSuccess(credential.user);
+      // Tab-scoped session persistence + email-verification flow live inside
+      // the auth adapter's signInAdmin (Firebase branch). Supabase branch
+      // uses Supabase's own session + confirmation handling.
+      const appUser = await signInAdmin(enteredEmail, password);
+      const firebaseUser = appUser.raw;
+      if (!grantAdminTab(firebaseUser)) throw new Error("Session storage unavailable. Enable it to open Admin Panel.");
+      onLoginSuccess(firebaseUser);
       setPage("admin");
       showToast("Admin mode enabled. Session stays active for 30 minutes of inactivity.", "success");
       onClose();
     } catch (error) {
       clearAdminTab();
-      if (verifiedAdmin(auth.currentUser)) await signOut(auth).catch(() => {});
+      await signOut().catch(() => {});
       const code = error?.code || "";
       const message = code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found"
         ? "Invalid admin email or password."
@@ -3897,36 +3871,40 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
 
           {/* Email */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-300">
+            <label htmlFor="admin-login-email" className="text-xs font-semibold text-slate-300">
               Admin Email
             </label>
             <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2 border border-slate-700 focus-within:border-indigo-500">
               <Mail size={14} className="text-slate-400" />
               <input
+                id="admin-login-email"
+                name="admin-email"
                 type="email"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
                 placeholder="Enter admin Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoComplete="off"
+                autoComplete="username"
               />
             </div>
           </div>
 
           {/* Password */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-300">
+            <label htmlFor="admin-login-password" className="text-xs font-semibold text-slate-300">
               Admin Password
             </label>
             <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2 border border-slate-700 focus-within:border-indigo-500">
               <Lock size={14} className="text-slate-400" />
               <input
+                id="admin-login-password"
+                name="admin-password"
                 type="password"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
                 placeholder="Enter admin password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="off"
+                autoComplete="current-password"
               />
             </div>
           </div>
@@ -4847,9 +4825,9 @@ const NAV_ITEMS = PAGES;
     // Leaving the Admin Panel no longer kills the session: it stays alive for
     // 30 minutes of inactivity, and coming back re-enables admin mode.
   const syncAdminModeForPage = (nextPage) => {
-    if (nextPage === 'admin' && adminTabIsActive(auth.currentUser)) {
+    if (nextPage === 'admin' && adminTabIsActive(getCurrentUser())) {
       touchAdminSession();
-      setUser(auth.currentUser);
+      setUser(getCurrentUser());
       setIsAdminMode(true);
     } else if (nextPage !== 'admin') {
       setIsAdminMode(false);
@@ -4858,7 +4836,7 @@ const NAV_ITEMS = PAGES;
     // ✅ central navigation function (har jagah isi ko use karna hai)
   const navigate = (targetPage) => {
     if (!PAGES.includes(targetPage)) targetPage = 'home';
-    if (verifiedAdmin(auth.currentUser)) touchAdminSession();
+    if (verifiedAdmin(getCurrentUser())) touchAdminSession();
     syncAdminModeForPage(targetPage);
 
     setPage(targetPage);
@@ -4884,7 +4862,7 @@ const NAV_ITEMS = PAGES;
   // Keep the main page in sync when the browser returns from a subject link.
   const syncFromHistory = () => {
     const nextPage = routeFromLocation(window.location);
-    if (verifiedAdmin(auth.currentUser)) touchAdminSession();
+    if (verifiedAdmin(getCurrentUser())) touchAdminSession();
     syncAdminModeForPage(nextPage);
     setPage(nextPage);
     setIsMenuOpen(false);
@@ -4902,7 +4880,9 @@ const NAV_ITEMS = PAGES;
   // signed out when the 30-minute session lapses or was never granted in this tab.
   useEffect(() => {
     let active = true;
-    const unsub = onAuthStateChanged(auth, account => {
+    // The adapter normalizes the account (uid/email/emailVerified/isAnonymous);
+    // downstream helpers only read those plain fields.
+    const unsub = onAuthChange(account => {
       if (!active || logoutInProgress.current) return;
       if (verifiedAdmin(account)) {
         if (isAdminLoginPending()) return;
@@ -4915,12 +4895,12 @@ const NAV_ITEMS = PAGES;
         setUser(account); setIsAdminMode(currentPageIsAdmin());
       } else {
         clearAdminTab(); setUser(account); setIsAdminMode(false);
-        if (!account && !isAdminLoginPending()) signInAnonymously(auth).catch(() => {});
+        if (!account && !isAdminLoginPending()) ensureAnon().catch(() => {});
       }
     });
     const otherTab = event => {
       if (event.key !== ADMIN_LOGOUT_KEY || !event.newValue) return;
-      if (verifiedAdmin(auth.currentUser)) void handleLogoutAdmin({ redirect: true, broadcast: false });
+      if (verifiedAdmin(getCurrentUser())) void handleLogoutAdmin({ redirect: true, broadcast: false });
       else clearAdminTab();
     };
     window.addEventListener('storage', otherTab);
@@ -4935,10 +4915,10 @@ const NAV_ITEMS = PAGES;
       const now = Date.now();
       if (now - lastBump < 60000) return;
       lastBump = now;
-      if (verifiedAdmin(auth.currentUser)) touchAdminSession();
+      if (verifiedAdmin(getCurrentUser())) touchAdminSession();
     };
     const enforce = () => {
-      if (verifiedAdmin(auth.currentUser) && !adminSessionAlive()) {
+      if (verifiedAdmin(getCurrentUser()) && !adminSessionAlive()) {
         void handleLogoutAdmin({ redirect: currentPageIsAdmin(), broadcast: true });
       }
     };
@@ -4991,14 +4971,14 @@ useEffect(() => {
     if (broadcast) broadcastAdminLogout();
     if (redirect) navigate('home');
     try {
-      if (verifiedAdmin(auth.currentUser)) await signOut(auth);
-      if (!auth.currentUser) await signInAnonymously(auth);
+      if (verifiedAdmin(getCurrentUser())) await signOut();
+      if (!getCurrentUser()) await ensureAnon();
       // The auth observer intentionally ignores events while logout is pending.
       // Reattach the guest session explicitly so public tools keep working.
-      if (!verifiedAdmin(auth.currentUser)) setUser(auth.currentUser);
+      if (!verifiedAdmin(getCurrentUser())) setUser(getCurrentUser());
       if (redirect) showToast('Admin signed out from all EduNexus pages in this browser and its open tabs.', 'info');
     } catch (_) {
-      showToast('Firebase sign-out failed. Close this tab and retry.', 'error');
+      showToast('Sign-out failed. Close this tab and retry.', 'error');
     } finally { logoutInProgress.current = false; }
   };
 
