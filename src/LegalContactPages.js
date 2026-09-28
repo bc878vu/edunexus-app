@@ -105,7 +105,7 @@ export const ContactUs = ({ theme }) => {
     setSending(true);
     const body = `Name: ${cleanName}\nReply email: ${cleanEmail}\n\nMessage:\n${cleanMessage}`;
     const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(SITE_SUPPORT_EMAIL)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(url, "_self", "noopener,noreferrer");
     window.setTimeout(() => setSending(false), 700);
   };
 
@@ -121,7 +121,7 @@ export const ContactUs = ({ theme }) => {
       </section>
 
       <section className="grid gap-5 md:grid-cols-2">
-        {contactCards.map(({ icon: Icon, title, value, description, href, action }) => <article key={title} className={`${theme.card} rounded-2xl border ${theme.border} p-6 shadow-sm`}><div className="flex items-start gap-4"><div className="rounded-xl bg-indigo-500/10 p-3 text-indigo-500"><Icon size={22}/></div><div className="min-w-0 flex-1"><h2 className={`font-bold text-lg ${theme.text}`}>{title}</h2><a href={href} target={title === "Email support" ? "_blank" : undefined} rel={title === "Email support" ? "noopener noreferrer" : undefined} className="mt-1 block break-all font-semibold text-indigo-500 hover:underline">{value}</a><p className={`mt-2 leading-6 ${theme.textMuted}`}>{description}</p><a href={href} target={title === "Email support" ? "_blank" : undefined} rel={title === "Email support" ? "noopener noreferrer" : undefined} className="mt-4 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700">{action}</a></div></div></article>)}
+        {contactCards.map(({ icon: Icon, title, value, description, href, action }) => <article key={title} className={`${theme.card} rounded-2xl border ${theme.border} p-6 shadow-sm`}><div className="flex items-start gap-4"><div className="rounded-xl bg-indigo-500/10 p-3 text-indigo-500"><Icon size={22}/></div><div className="min-w-0 flex-1"><h2 className={`font-bold text-lg ${theme.text}`}>{title}</h2><a href={href} className="mt-1 block break-all font-semibold text-indigo-500 hover:underline">{value}</a><p className={`mt-2 leading-6 ${theme.textMuted}`}>{description}</p><a href={href} className="mt-4 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700">{action}</a></div></div></article>)}
       </section>
 
       <section className="grid gap-8 lg:grid-cols-[1.15fr_.85fr]">

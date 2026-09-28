@@ -1145,7 +1145,7 @@ const Portfolio = ({ user, isAdmin, theme }) => {
   const profileRef = doc(db, "artifacts", appId, "public", "data", "profile", "main");
   const validPublicUrl = (url) => { try { const u = new URL(url); return ['https:', 'http:'].includes(u.protocol) ? u.href : ''; } catch (_) { return ''; } };
   const isOwnSiteUrl = (url) => { try { const host = new URL(url).hostname.toLowerCase(); return ['edunexus.dpdns.org', 'edunexus-app.vercel.app', window.location.hostname.toLowerCase()].includes(host); } catch (_) { return false; } };
-  const portfolioLinkTarget = (url) => isOwnSiteUrl(url) ? '_self' : '_blank';
+  const portfolioLinkTarget = (url) => '_self'; // All links open in the same tab (no new tabs).
   const savePortfolio = async () => {
     if (!isAdmin || !user) return;
     setPortfolioSaving(true); setPortfolioNotice('');
