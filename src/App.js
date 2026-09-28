@@ -2104,8 +2104,6 @@ const HomePage = ({setPage, theme, showToast, user}) => {
         </div>
         <p className={`mt-3 text-xs ${theme.textMuted}`}>#VUExamPreparation · #VUMCQs · #VUPastPapers · #VUStudyFiles</p>
       </nav>
-
-      <div className="mt-10"><Feedback theme={theme} showToast={showToast} /></div>
     </div>
   );
 };
