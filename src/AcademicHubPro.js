@@ -158,10 +158,77 @@ function verifyPdfBlob(blob) {
 
 // Android Chrome (and some other mobile browsers) cannot render a PDF from a
 // blob: URL inside an iframe — the frame shows "This content is blocked" —
-// while desktop Chrome renders the same blob fine. On mobile we therefore
-// render PDFs through Google Docs Viewer (HTML), which works everywhere.
+// while desktop Chrome renders the same blob fine. Mobile browsers therefore
+// default to our own PDF.js renderer, which needs neither the native PDF
+// plugin nor Google's viewer service.
 function isMobileBrowser() {
   return typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+}
+
+// Self-contained in-page PDF renderer (PDF.js). Unlike the blob: iframe it
+// does not need the browser's native PDF plugin, and unlike Google Docs
+// Viewer it does not need docs.google.com to be reachable — the PDF bytes we
+// already fetched are rendered to canvas. Intentionally no workerSrc: a worker
+// file would need extra CSP (worker-src) and bundler wiring; pdf.js falls
+// back to parsing on the main thread, which is fine for a preview.
+function PdfJsPreview({ blob }) {
+  const containerRef = useRef(null);
+  const [pdfStatus, setPdfStatus] = useState('loading');
+  const [pageCount, setPageCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    let pdfDoc = null;
+    setPdfStatus('loading'); setPageCount(0);
+    if (containerRef.current) containerRef.current.innerHTML = '';
+    (async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        const data = new Uint8Array(await blob.arrayBuffer());
+        if (cancelled) return;
+        pdfDoc = await pdfjsLib.getDocument({ data }).promise;
+        if (cancelled) { try { pdfDoc.destroy(); } catch (e) {} return; }
+        setPageCount(pdfDoc.numPages);
+        setPdfStatus('ready');
+        const container = containerRef.current;
+        for (let n = 1; n <= pdfDoc.numPages; n++) {
+          if (cancelled) break;
+          const page = await pdfDoc.getPage(n);
+          if (cancelled) break;
+          const viewport = page.getViewport({ scale: 1.6 });
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.floor(viewport.width);
+          canvas.height = Math.floor(viewport.height);
+          canvas.style.width = '100%';
+          canvas.style.height = 'auto';
+          canvas.style.display = 'block';
+          canvas.style.background = '#fff';
+          const wrap = document.createElement('div');
+          wrap.style.margin = '0 auto 12px';
+          wrap.style.maxWidth = '100%';
+          wrap.style.boxShadow = '0 2px 10px rgba(20,30,60,.12)';
+          wrap.style.borderRadius = '6px';
+          wrap.style.overflow = 'hidden';
+          wrap.appendChild(canvas);
+          if (container) container.appendChild(wrap);
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+          await new Promise((r) => setTimeout(r, 0));
+        }
+      } catch (err) {
+        if (!cancelled) setPdfStatus('error');
+      }
+    })();
+    return () => { cancelled = true; if (pdfDoc) { try { pdfDoc.destroy(); } catch (e) {} } };
+  }, [blob]);
+  if (pdfStatus === 'error') {
+    return <div className="ah-empty"><FileText size={26} /><p>This PDF could not be rendered in the preview. Please use the Download button to open the original file.</p></div>;
+  }
+  return (
+    <div>
+      {pdfStatus === 'loading' && <div className="ah-loading" role="status"><div /><p>Rendering PDF pages…</p></div>}
+      {pageCount > 0 && <p className="ah-muted" style={{ margin: '0 0 8px' }}>{pageCount} pages</p>}
+      <div ref={containerRef} style={{ maxHeight: '70vh', overflowY: 'auto', background: '#f1f4fb', borderRadius: '12px', padding: '12px' }} />
+    </div>
+  );
 }
 
 function ResourcePreview({ file, links, onClose }) {
@@ -179,12 +246,15 @@ function ResourcePreview({ file, links, onClose }) {
     && (!Number.isFinite(file.size) || file.size <= 20 * 1024 * 1024);
   const [localUrl, setLocalUrl] = useState('');
   const [state, setState] = useState('idle');
+  const [pdfBlob, setPdfBlob] = useState(null);
   // PDF viewer choice: 'blob' renders fetched bytes in the native viewer
-  // (desktop Chrome), 'gview' renders through Google Docs Viewer as HTML
-  // (mobile default, and the automatic fallback when the blob path fails).
+  // (desktop Chrome), 'pdfjs' renders the bytes with our own PDF.js renderer
+  // (mobile default — needs neither the native PDF plugin nor Google), and
+  // 'gview' renders through Google Docs Viewer (fallback when the bytes cannot
+  // be fetched at all).
   const [viewerOverride, setViewerOverride] = useState(null);
   const mobileDefault = useMemo(isMobileBrowser, []);
-  const pdfMode = isPdf ? (viewerOverride || (mobileDefault ? 'gview' : 'blob')) : 'blob';
+  const pdfMode = isPdf ? (viewerOverride || (mobileDefault ? 'pdfjs' : 'blob')) : 'blob';
   // Source URL for Google Docs Viewer: the validated direct PDF URL, or the
   // Firebase Storage download URL for firebase-kind PDFs.
   const gviewSource = links.kind === 'pdf' ? directPdfUrl
@@ -200,8 +270,8 @@ function ResourcePreview({ file, links, onClose }) {
     }
     if (isPdf && pdfMode === 'gview') {
       // Google Docs Viewer fetches the public PDF itself; nothing to download.
-      if (gviewUrl) { setLocalUrl(''); setState('ready'); }
-      else { setLocalUrl(''); setState('idle'); }
+      if (gviewUrl) { setLocalUrl(''); setPdfBlob(null); setState('ready'); }
+      else { setLocalUrl(''); setPdfBlob(null); setState('idle'); }
       return;
     }
     let loadBlob = null;
@@ -217,17 +287,17 @@ function ResourcePreview({ file, links, onClose }) {
         return res.blob();
       }).then(verifyPdfBlob);
     }
-    if (!loadBlob) { setLocalUrl(''); setState('idle'); return; }
+    if (!loadBlob) { setLocalUrl(''); setPdfBlob(null); setState('idle'); return; }
     let alive = true;
     let objectUrl = '';
-    setLocalUrl(''); setState('loading');
+    setLocalUrl(''); setPdfBlob(null); setState('loading');
     loadBlob.then((blob) => {
       if (!alive) return;
       objectUrl = URL.createObjectURL(blob);
-      setLocalUrl(objectUrl); setState('ready');
+      setLocalUrl(objectUrl); setPdfBlob(blob); setState('ready');
     }).catch(() => {
-      // Blob path failed (network/CORS/verification): fall back to Google Docs
-      // Viewer instead of showing an error.
+      // Bytes could not be fetched (network/CORS/verification): fall back to
+      // Google Docs Viewer, which fetches the public file itself.
       if (alive) setViewerOverride('gview');
     });
     return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
@@ -238,7 +308,8 @@ function ResourcePreview({ file, links, onClose }) {
   // blocked cross-origin URL out of the iframe and show the loading/download
   // message instead.
   const directPdfBlocked = pdfMode === 'blob' && links.kind === 'pdf' && ext === 'PDF' && !/^blob:/.test(localUrl || '');
-  const canEmbed = Boolean(isImage ? displayUrl : frameUrl) && !directPdfBlocked;
+  const pdfJsReady = pdfMode === 'pdfjs' && isPdf && Boolean(localUrl) && Boolean(pdfBlob);
+  const canEmbed = Boolean(isImage ? displayUrl : (pdfMode === 'pdfjs' && isPdf ? pdfJsReady : frameUrl)) && !directPdfBlocked;
   // Chrome's built-in PDF viewer is blocked inside ANY sandboxed iframe —
   // verified live: sandbox="allow-scripts allow-same-origin" still shows "This
   // page has been blocked by Chromium" for both direct and blob: URLs, while
@@ -251,9 +322,13 @@ function ResourcePreview({ file, links, onClose }) {
     <div className="ah-between"><div><span className="ah-eyebrow">In-page preview</span><h3>{nameOf(file)}</h3></div><button type="button" className="ah-icon-button" onClick={onClose} aria-label="Close preview"><X size={19} /></button></div>
     {state === 'loading' && <div className="ah-loading" role="status"><div /><p>Preparing a secure in-page preview…</p></div>}
     {canEmbed ? (isImage ? <img className="ah-preview-image" loading="lazy" src={displayUrl} alt={nameOf(file)} /> :
+      pdfMode === 'pdfjs' && isPdf ? <PdfJsPreview blob={pdfBlob} /> :
       <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={frameUrl} sandbox={isVerifiedPdfBlob ? undefined : previewSandbox(links.kind)} referrerPolicy="no-referrer" />) :
       state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'Only known PDF and document hosts are previewed inside EduNexus. If the viewer cannot load, use the existing Download button to open the original file.'}</p></div>}
-    <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span>{isPdf && gviewSource && <button type="button" onClick={() => setViewerOverride(pdfMode === 'gview' ? 'blob' : 'gview')} style={{ background: 'none', border: 0, padding: 0, color: '#6366f1', fontWeight: 700, cursor: 'pointer', fontSize: 'inherit', fontFamily: 'inherit' }}>{pdfMode === 'gview' ? 'Try native viewer' : 'Try Google viewer'}</button>}</div>
+    <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span>{isPdf && gviewSource && <button type="button" onClick={() => {
+      const order = ['blob', 'pdfjs', 'gview'];
+      setViewerOverride(order[(order.indexOf(pdfMode) + 1) % order.length]);
+    }} style={{ background: 'none', border: 0, padding: 0, color: '#6366f1', fontWeight: 700, cursor: 'pointer', fontSize: 'inherit', fontFamily: 'inherit' }}>{pdfMode === 'blob' ? 'Try PDF renderer' : pdfMode === 'pdfjs' ? 'Try Google viewer' : 'Try native viewer'}</button>}</div>
   </section>;
 }
 
