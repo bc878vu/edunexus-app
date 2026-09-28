@@ -20,7 +20,16 @@ service cloud.firestore {
 
     match /artifacts/edunexus-live/public/data/articles/{docId} {
       allow read: if true;
-      allow create, update, delete: if admin();
+      allow create, delete: if admin();
+      // Signed-in readers may like an article: the ONLY permitted change is
+      // likes +1 together with their own uid appended to likedBy.
+      allow update: if admin() || (
+        signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedBy'])
+        && request.resource.data.get('likes', 0) == resource.data.get('likes', 0) + 1
+        && !(request.auth.uid in resource.data.get('likedBy', []))
+        && request.auth.uid in request.resource.data.get('likedBy', [])
+      );
     }
 
     // Facebook-style comments on articles. Anyone can read; signed-in users

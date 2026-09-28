@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from './firebase-client';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc, increment, arrayUnion } from 'firebase/firestore';
 import { Heart, BookOpen, Share2, MessageCircle, ChevronDown, ChevronUp, Clock, Maximize2, X } from 'lucide-react';
-import RichContent from './RichContent';
+import { sanitizeArticleHtml, articlePlainText, articleExcerpt } from './article-sanitize.mjs';
 import ArticleComments, { useCommentCount } from './ArticleComments';
 const appId = 'edunexus-live';
 
@@ -28,21 +28,9 @@ const articlePublicPath = (article) => {
   return '/articles/read/' + encodeURIComponent(id) + '/' + slug;
 };
 
-// Strip HTML tags for excerpt
-const stripHtml = (html) => {
-  if (!html) return '';
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  return (tmp.textContent || tmp.innerText || '').trim();
-};
-
-const getExcerpt = (content, maxLen = 280) => {
-  const plain = stripHtml(content);
-  if (plain.length <= maxLen) return plain;
-  const cut = plain.slice(0, maxLen);
-  const lastSpace = cut.lastIndexOf(' ');
-  return (lastSpace > maxLen * 0.7 ? cut.slice(0, lastSpace) : cut).trim() + '...';
-};
+// Excerpt + plain-text helpers (shared sanitizer understands the stored HTML)
+const getExcerpt = (content, maxLen = 280) => articleExcerpt(content, maxLen);
+const stripHtml = (html) => articlePlainText(html);
 
 // Single article card with excerpt, expand, like, share, comments
 const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
@@ -166,9 +154,10 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
         {/* Excerpt or full content */}
         <div className={`${theme.text} leading-relaxed mb-4 ${theme.textMuted && !expanded ? '' : ''}`}>
           {expanded ? (
-            <div className="whitespace-pre-wrap">
-              <RichContent value={art.content} />
-            </div>
+            <div
+              className="edx-article-body"
+              dangerouslySetInnerHTML={{ __html: sanitizeArticleHtml(art.content) }}
+            />
           ) : (
             <p className="whitespace-pre-wrap">{excerpt}</p>
           )}
