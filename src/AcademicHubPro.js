@@ -484,6 +484,9 @@ function FileReviews({ file, user, isAdmin }) {
     event.preventDefault();
     const value = comment.trim();
     if (!user?.uid || mine || !Number.isInteger(Number(rating))) return;
+    // The Firestore review rules require at least 20 characters. Validate
+    // locally so a short review gets a clear message instead of a permission error.
+    if (value.length < 20) { setStatus('Please write at least 20 characters so your review can be published.'); return; }
     const safetyMessage = reviewQualityMessage(value);
     if (safetyMessage) { setStatus(safetyMessage); return; }
     setBusy(true); setStatus('');
@@ -495,24 +498,14 @@ function FileReviews({ file, user, isAdmin }) {
       const summaryOk = await refreshFileRatingSummary(file.id);
       setComment(''); setStatus(''); window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: summaryOk } }));
     } catch (error) {
-      // Avoid regressing existing submission behavior if Firebase rules deploy
-      // after the Vercel frontend: the old policy accepts only <=800-char drafts.
-      if (error.code === 'permission-denied' && value.length <= 800) {
-        try {
-          await setDoc(reviewDoc(file.id, user.uid), {
-            userId: user.uid, rating: Number(rating), comment: value,
-            status: 'pending', createdAt: serverTimestamp()
-          });
-          const pendingSummaryOk = await refreshFileRatingSummary(file.id);
-          setComment('');
-          window.dispatchEvent(new CustomEvent('edunexus:file-review-changed', { detail: { fileId: file.id, ratingSummaryUpdated: pendingSummaryOk } }));
-          setStatus('Your review was saved under the existing approval policy. The administrator must deploy the updated Firebase rules to enable instant publication.');
-        } catch (_) { setStatus('Review could not be saved. The updated Firebase rules may still need to be published.'); }
-      } else {
-        setStatus(error.code === 'permission-denied'
-          ? 'The updated Firebase review rules must be published before this long review can appear immediately.'
-          : 'Review could not be saved. Please try again.');
-      }
+      // The published Firestore rules accept exactly this 6-field approved
+      // write. A permission-denied here means the updated rules have not been
+      // published yet in the Firebase console. The legacy pending-draft shape
+      // (fewer fields, status 'pending') cannot satisfy the current rules, so
+      // retrying it only produces a confusing error — surface the real cause.
+      setStatus(error.code === 'permission-denied'
+        ? 'Review could not be saved because the updated Firebase rules have not been published yet. Please publish them from the Firebase console (Firestore Database → Rules).'
+        : 'Review could not be saved. Please try again.');
     }
     finally { setBusy(false); }
   };
@@ -659,7 +652,12 @@ function FileCardRating({ fileId, ratingAverage, ratingCount }) {
   </p>;
 }
 
-function ResourceCard({ file, isAdmin, onDelete, onPreview, onReviews, onDownload, downloadStatus }) {
+// Memoized so typing in search, changing filters/sort, or another card's
+// download note does not re-render every visible card. The parent passes
+// fresh inline callbacks each render, so the comparator only watches the
+// data props — all four callbacks are closure-safe (they read stable setters
+// and props only, never changing render state).
+const ResourceCard = React.memo(function ResourceCard({ file, isAdmin, onDelete, onPreview, onReviews, onDownload, downloadStatus }) {
   const links = fileLinks(file);
   const title = nameOf(file);
   return <article className="ah-resource">
@@ -678,7 +676,7 @@ function ResourceCard({ file, isAdmin, onDelete, onPreview, onReviews, onDownloa
       {downloadStatus && <p className="ah-note" role="status">{downloadStatus}</p>}
     </div>
   </article>;
-}
+}, (prev, next) => prev.file === next.file && prev.isAdmin === next.isAdmin && prev.downloadStatus === next.downloadStatus);
 
 const guidance = [
   { icon: '01', title: 'Build a subject-wise study library', body: 'Start with the course code used in your learning management system and keep lecture notes, handouts, summaries and practice material together. A subject folder provides a predictable place to return to whenever you revise. If a folder currently has no uploaded resources, it remains available so new material can be added without changing how students navigate the library.' },
@@ -901,7 +899,9 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
           }
           setOlder((prev) => prev.filter((f) => f.id !== file.id));
           setLatest((prev) => prev.filter((f) => f.id !== file.id));
-          if (selectedId === file.id) setSelectedId('');
+          // Functional update: the memoized ResourceCard may hold an older
+          // onDelete closure, so never read selectedId from the closure here.
+          setSelectedId((prev) => (prev === file.id ? '' : prev));
           if (showToast) showToast('File record deleted.', 'info');
         } catch (_) { if (showToast) showToast('File deletion failed.', 'error'); }
       },
