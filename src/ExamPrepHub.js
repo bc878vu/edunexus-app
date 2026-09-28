@@ -104,7 +104,7 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
       {!loading && !!visible.length && <div className="edx-study-grid">{visible.map(file =>
         <article className="edx-study-file" key={file.id}><div className="edx-study-icon"><FileText size={21}/></div>
           <div><strong>{safe(file.name || file.title,120) || 'Study resource'}</strong><small>{safe(file.ext,10).toUpperCase() || 'RESOURCE'} · {subject}</small></div>
-          <a className="edx-exam-secondary" target="_blank" rel="noopener noreferrer" href={safeUrl(file.url || file.downloadUrl || file.fileUrl)}>Open <ChevronRight size={16}/></a>
+          <a className="edx-exam-secondary" rel="noopener noreferrer" href={safeUrl(file.url || file.downloadUrl || file.fileUrl)}>Open <ChevronRight size={16}/></a>
         </article>)}</div>}
       <a className="edx-exam-secondary edx-study-browse" href="/?page=academic">Browse all study material <ChevronRight size={16}/></a>
     </section>
@@ -158,7 +158,7 @@ function AdminTools({ user, onView }) {
   return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Exam content management</h2><p>Only publish original or properly licensed questions and completed-exam guidance.</p></div><ShieldCheck size={28} /></div>
     {message && <p role="status" className="edx-exam-alert">{message}</p>}
     {lastPublished && <div className="edx-exam-publish-actions">
-      <a className="edx-exam-primary" href={'/?page=exam-prep&subject=' + encodeURIComponent(lastPublished.subject) + '&term=' + encodeURIComponent(lastPublished.term)} target="_blank" rel="noopener noreferrer">Open published {lastPublished.subject} {lastPublished.term} quiz <ChevronRight size={16}/></a>
+      <a className="edx-exam-primary" href={'/?page=exam-prep&subject=' + encodeURIComponent(lastPublished.subject) + '&term=' + encodeURIComponent(lastPublished.term)} rel="noopener noreferrer">Open published {lastPublished.subject} {lastPublished.term} quiz <ChevronRight size={16}/></a>
       <button type="button" className="edx-exam-secondary" onClick={() => onView?.(lastPublished.subject, lastPublished.term)}>Preview in Admin Panel</button>
     </div>}
     <form className="edx-exam-card edx-exam-form" onSubmit={addOne}><h3>Add an MCQ</h3><div className="edx-exam-form-grid"><CourseSelector value={draft.subject} onChange={(value) => setDraft((v) => ({ ...v, subject: value }))} /><TermSelector includeQuiz value={draft.term} onChange={(value) => setDraft((v) => ({ ...v, term: value }))} /></div>
@@ -224,7 +224,7 @@ function ShareBar({ tab, subject, term }) {
       <button type="button" onClick={copyLink} className="edx-share-bar-btn" aria-label="Copy share link">
         {copied ? <Check size={16} /> : <Link2 size={16} />} {copied ? "Copied!" : "Copy link"}
       </button>
-      <a href={whatsAppUrl} target="_blank" rel="noopener noreferrer" className="edx-share-bar-btn edx-share-bar-wa" aria-label="Share on WhatsApp">
+      <a href={whatsAppUrl} rel="noopener noreferrer" className="edx-share-bar-btn edx-share-bar-wa" aria-label="Share on WhatsApp">
         <MessageCircle size={16} /> WhatsApp
       </a>
     </div>

@@ -98,12 +98,12 @@ import {
 import { MAIN_ITEMS, MOBILE_ITEMS } from './site-navigation.mjs';
 import { APP_PAGES, CONTENT_PAGE_IDS, routeFromLocation, pathForPage, navActivePage } from './app-routes.mjs';
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { 
-  getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, 
-  updateProfile, signOut, setPersistence, browserSessionPersistence, createUserWithEmailAndPassword, 
+import {
+  getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken,
+  updateProfile, signOut, setPersistence, browserSessionPersistence, createUserWithEmailAndPassword,
   signInWithEmailAndPassword, sendEmailVerification
 } from 'firebase/auth';
-import { 
+import {
   getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot,
   serverTimestamp, doc,  increment, deleteDoc, where, updateDoc,
   getDoc, getDocs, getCountFromServer, setDoc, arrayUnion, writeBatch
@@ -144,7 +144,7 @@ console.log("CLOUDINARY ENV:", CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET);
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app); 
+const storage = getStorage(app);
 const appId = "edunexus-live"; // Static App ID for your live site
 
 // --- Constants ---
@@ -205,8 +205,8 @@ const customStyles = `
 const formatDate = (timestamp) => {
   if (!timestamp) return 'Just now';
   const date = timestamp.toDate ? timestamp.toDate() : new Date();
-  return new Intl.DateTimeFormat('en-US', { 
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   }).format(date);
 };
 
@@ -529,7 +529,7 @@ const AdBanner = () => {
 // 2. Announcements
 const Announcements = ({ user }) => {
   const [news, setNews] = useState([]);
-  
+
     useEffect(() => {
     const q = query(
       collection(db, 'artifacts', appId, 'public', 'data', 'announcements'),
@@ -545,7 +545,7 @@ const Announcements = ({ user }) => {
     return () => unsubscribe();
   }, []); // 🔁 user dependency hata di
 
-  
+
   return (
     <div className="bg-indigo-600 text-white text-xs font-bold py-2 overflow-hidden whitespace-nowrap relative z-30">
       <div className="inline-block animate-marquee pl-[100vw]">
@@ -699,7 +699,7 @@ const Forum = ({ user, theme, showToast }) => {
                   {String(p.userName || "Student")}
                 </p>
                 <p className={`text-xs ${theme.textMuted}`}>
-                  
+
                   {p.createdAt?.toDate
                     ? p.createdAt.toDate().toLocaleString()
                     : ""}
@@ -1053,7 +1053,7 @@ const FileItem = ({ file, theme, isAdmin, onDelete }) => {
             // 🔗 Sirf link (Drive etc.) → Visit Drive
             <a
               href={url}
-              target="_blank"
+
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-indigo-500 text-indigo-500 hover:bg-indigo-50 transition-colors"
             >
@@ -1065,7 +1065,7 @@ const FileItem = ({ file, theme, isAdmin, onDelete }) => {
               {/* View (sirf open kare, browser me) */}
               <a
                 href={url}
-                target="_blank"
+
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-indigo-500 text-indigo-500 hover:bg-indigo-50 transition-colors"
               >
@@ -1200,7 +1200,7 @@ You are an expert project mentor. Based on the following skills or interests:
 
 "${techStack}"
 
-Generate 3–5 unique, practical project ideas that a university student can build. 
+Generate 3–5 unique, practical project ideas that a university student can build.
 For each idea, include:
 - Project title
 - 2–3 line description
@@ -1271,7 +1271,7 @@ Return the answer in bullet list.
             </a>
             <a
               href={`https://wa.me/${contactPhone.replace(/\D/g, "")}`}
-              target="_blank"
+
               rel="noreferrer"
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500 hover:text-white transition-colors"
             >
@@ -1394,9 +1394,9 @@ const FlashcardGenerator = ({ theme, showToast }) => {
       const data = JSON.parse(text.replace(/```json|```/g, '').trim());
       if(Array.isArray(data)) { setCards(data); showToast("Flashcards generated!", "success"); }
       else throw new Error("Invalid format");
-    } catch (e) { 
+    } catch (e) {
       console.error(e);
-      showToast("Failed to generate cards.", "error"); 
+      showToast("Failed to generate cards.", "error");
     }
     setLoading(false);
   };
@@ -1473,7 +1473,7 @@ const QuizGenerator = ({ theme, user, showToast }) => {
 
   useEffect(() => {
     if (!quizData || showResult) return;
-    setTimeLeft(90); 
+    setTimeLeft(90);
   }, [currentQ, quizData, showResult]);
 
   useEffect(() => {
@@ -1486,33 +1486,33 @@ const QuizGenerator = ({ theme, user, showToast }) => {
     if (!input.trim()) return;
     const limit = Math.min(Math.max(parseInt(qLimit) || 5, 1), 50);
     setLoading(true); setQuizData(null); setShowResult(false); setCurrentQ(0);
-    
-    const prompt = `Generate a valid JSON array of ${limit} multiple choice questions based on the following text or topic: "${input.substring(0, 2000)}". 
+
+    const prompt = `Generate a valid JSON array of ${limit} multiple choice questions based on the following text or topic: "${input.substring(0, 2000)}".
     Style: Short, conceptual questions similar to Virtual University (VU) exam pattern.
-    Format: [{"id": 1, "q": "Question text?", "options": ["Option A", "Option B", "Option C", "Option D"], "ans": 0, "explanation": "Short summary explanation."}]. 
+    Format: [{"id": 1, "q": "Question text?", "options": ["Option A", "Option B", "Option C", "Option D"], "ans": 0, "explanation": "Short summary explanation."}].
     Return ONLY the raw JSON array. No markdown.`;
-    
+
     try {
       const txt = await callGemini(prompt);
       const cleaned = txt.replace(/```json/g, '').replace(/```/g, '').trim();
       const jsonStart = cleaned.indexOf('[');
       const jsonEnd = cleaned.lastIndexOf(']');
       const jsonString = (jsonStart !== -1 && jsonEnd !== -1) ? cleaned.substring(jsonStart, jsonEnd + 1) : cleaned;
-      
+
       const data = JSON.parse(jsonString);
-      if (Array.isArray(data)) { 
-        setQuizData(data.map(q => ({...q, selected: null}))); 
-        showToast(`Generated ${data.length} Questions!`, "success"); 
+      if (Array.isArray(data)) {
+        setQuizData(data.map(q => ({...q, selected: null})));
+        showToast(`Generated ${data.length} Questions!`, "success");
       }
       else throw new Error("Invalid format");
-    } catch (e) { 
+    } catch (e) {
       console.error("Quiz Error:", e);
-      showToast("AI generation failed. Try simpler text.", "error"); 
+      showToast("AI generation failed. Try simpler text.", "error");
     }
     setLoading(false);
   };
 
-  const handleAnswer = (idx) => { 
+  const handleAnswer = (idx) => {
     if (quizData[currentQ].selected !== null || timeLeft <= 0) return;
     const newData = [...quizData];
     newData[currentQ].selected = idx;
@@ -1561,7 +1561,7 @@ const QuizGenerator = ({ theme, user, showToast }) => {
               const isSelected = quizData[currentQ].selected === idx;
               const isCorrect = idx === quizData[currentQ].ans;
               const showStatus = quizData[currentQ].selected !== null;
-              
+
               let btnClass = `${theme.bg} ${theme.border} ${theme.text}`;
               if (showStatus) {
                 if (isSelected && isCorrect) btnClass = 'bg-green-600/20 border-green-500 text-green-600 dark:text-green-400';
@@ -1649,7 +1649,7 @@ Use concrete topics from supplied text if available; otherwise do not invent a s
 
       const res = await callGemini(prompt);
       const cleaned = String(res || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-      
+
       try {
         const parsed = JSON.parse(cleaned);
         if (Array.isArray(parsed) && parsed.length === totalDays && parsed.every(row => row && ['day', 'topic', 'tasks', 'time'].every(key => typeof row[key] === 'string' && row[key].trim()))) {
@@ -1692,7 +1692,7 @@ Use concrete topics from supplied text if available; otherwise do not invent a s
   const handleCopy = () => {
     if (planData.length === 0) return;
     const text = planData.map(row => `${row.day} | ${row.topic} | ${row.tasks} | ${row.time}`).join('\n');
-    
+
     // Fallback using textarea for clipboard copy in restricted environments
     const textArea = document.createElement("textarea");
     textArea.value = text;
@@ -1824,7 +1824,7 @@ const Feedback = ({ theme, showToast }) => {
       showToast("Please fill in all fields (Name, Email, Message)", "error");
       return;
     }
-    
+
     // Basic email validation regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -2091,7 +2091,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
       <section className="mt-10"><div className="mb-5"><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Workspace</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Everything stays connected</h2></div><div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">{workspaceCards.map((card)=>{const Icon=card.icon;return <button key={card.id} onClick={()=>setPage(card.id)} className={`group rounded-3xl border ${theme.border} ${theme.card} p-5 text-left shadow-sm hover:shadow-xl hover:-translate-y-1`}><div className="flex items-center justify-between"><span className="h-11 w-11 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center"><Icon size={21}/></span><ArrowUpRight size={18} className={`${theme.textMuted} transition-transform group-hover:translate-x-1 group-hover:-translate-y-1`}/></div><h3 className={`mt-5 font-black ${theme.text}`}>{card.title}</h3><p className={`mt-2 text-sm leading-6 ${theme.textMuted}`}>{card.text}</p><span className="mt-4 inline-flex rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{card.meta}</span></button>})}</div></section>
 
       {showSection && (
-        <section className="mt-10 edx-highlights"><div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5"><div><p className="text-xs font-black uppercase tracking-[.2em] text-rose-500">Live feed</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Campus highlights</h2></div><button onClick={()=>refreshDashboard()} className={`inline-flex items-center gap-2 text-sm font-bold ${theme.accent}`}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''}/> Refresh</button></div>{highlights.length===0?<div className={`rounded-3xl border ${theme.border} ${theme.card} p-8 text-center`}><Megaphone className={`mx-auto ${theme.textMuted}`} size={32}/><p className={`mt-3 font-bold ${theme.text}`}>{highlightsLoading ? 'Loading campus highlights…' : highlightsError ? 'Campus highlights are temporarily unavailable.' : 'No new highlights yet.'}</p><p className={`mt-1 text-sm ${theme.textMuted}`}>{highlightsLoading ? 'Fetching the latest updates.' : highlightsError ? 'Please try again shortly.' : 'Your latest campus updates will appear here automatically.'}</p></div>:<div className="edx-highlight-masonry" role="list">{highlights.map((post,index)=>{const IconComponent=ICON_MAP[post.iconName]||Calendar;const CardInner=<div className="flex flex-col">{post.imageUrl&&typeof post.imageUrl==='string'&&/^https?:\/\/[^\s]+$/i.test(post.imageUrl)&&<img src={post.imageUrl} alt="" loading="lazy" className="w-full h-36 object-cover rounded-2xl mb-4" />}<div className="flex items-start justify-between gap-3"><div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${post.color || 'bg-indigo-100 text-indigo-700'}`}><IconComponent size={21}/></div><span className={`text-[10px] font-black uppercase tracking-wider ${theme.textMuted}`}>0{index+1}</span></div><h3 className={`mt-5 font-black text-base md:text-lg ${theme.text}`}>{post.title}</h3><div className="mt-2 flex-1">{renderHighlightDesc(post.desc)}</div>{post.link&&<span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-indigo-500">Visit update <ExternalLink size={13}/></span>}</div>;const classes=`edx-highlight-card group rounded-3xl border ${theme.border} ${theme.card} p-5 shadow-sm hover:shadow-xl hover:-translate-y-1`;const safeLink=typeof post.link==='string' && /^https?:\/\/[^\s]+$/i.test(post.link) ? post.link : '';const isInternalHighlightLink=/^(https?:\/\/edunexus-app\.vercel\.app(\/|$))|^\//i.test(safeLink);return safeLink?<a key={post.id} href={safeLink} {...(isInternalHighlightLink?{rel:"noopener"}:{target:"_blank",rel:"noopener noreferrer nofollow ugc"})} role="listitem" className={classes}>{CardInner}</a>:<div key={post.id} role="listitem" className={classes}>{CardInner}</div>})}</div>}</section>
+        <section className="mt-10 edx-highlights"><div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5"><div><p className="text-xs font-black uppercase tracking-[.2em] text-rose-500">Live feed</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Campus highlights</h2></div><button onClick={()=>refreshDashboard()} className={`inline-flex items-center gap-2 text-sm font-bold ${theme.accent}`}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''}/> Refresh</button></div>{highlights.length===0?<div className={`rounded-3xl border ${theme.border} ${theme.card} p-8 text-center`}><Megaphone className={`mx-auto ${theme.textMuted}`} size={32}/><p className={`mt-3 font-bold ${theme.text}`}>{highlightsLoading ? 'Loading campus highlights…' : highlightsError ? 'Campus highlights are temporarily unavailable.' : 'No new highlights yet.'}</p><p className={`mt-1 text-sm ${theme.textMuted}`}>{highlightsLoading ? 'Fetching the latest updates.' : highlightsError ? 'Please try again shortly.' : 'Your latest campus updates will appear here automatically.'}</p></div>:<div className="edx-highlight-masonry" role="list">{highlights.map((post,index)=>{const IconComponent=ICON_MAP[post.iconName]||Calendar;const CardInner=<div className="flex flex-col">{post.imageUrl&&typeof post.imageUrl==='string'&&/^https?:\/\/[^\s]+$/i.test(post.imageUrl)&&<img src={post.imageUrl} alt="" loading="lazy" className="w-full h-36 object-cover rounded-2xl mb-4" />}<div className="flex items-start justify-between gap-3"><div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${post.color || 'bg-indigo-100 text-indigo-700'}`}><IconComponent size={21}/></div><span className={`text-[10px] font-black uppercase tracking-wider ${theme.textMuted}`}>0{index+1}</span></div><h3 className={`mt-5 font-black text-base md:text-lg ${theme.text}`}>{post.title}</h3><div className="mt-2 flex-1">{renderHighlightDesc(post.desc)}</div>{post.link&&<span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-indigo-500">Visit update <ExternalLink size={13}/></span>}</div>;const classes=`edx-highlight-card group rounded-3xl border ${theme.border} ${theme.card} p-5 shadow-sm hover:shadow-xl hover:-translate-y-1`;const safeLink=typeof post.link==='string' && /^https?:\/\/[^\s]+$/i.test(post.link) ? post.link : '';return safeLink?<a key={post.id} href={safeLink} rel="noopener" role="listitem" className={classes}>{CardInner}</a>:<div key={post.id} role="listitem" className={classes}>{CardInner}</div>})}</div>}</section>
       )}
 
       <section className="mt-10 overflow-hidden rounded-3xl border border-indigo-200/60 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-600 via-violet-600 to-slate-950 p-6 sm:p-8 lg:p-10 text-white shadow-2xl"><div className="grid lg:grid-cols-[1fr_auto] items-center gap-7"><div><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[.18em]"><Sparkles size={14} className="text-yellow-300"/> Your next step</span><h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">Turn today’s study time into real progress.</h2><p className="mt-3 max-w-2xl text-sm sm:text-base leading-7 text-indigo-100">Pick one resource, one practice task and one revision task. EduNexus keeps the workflow simple so you can spend more time learning.</p></div><div className="flex flex-col sm:flex-row lg:flex-col gap-3"><button onClick={()=>setPage('planner')} className="rounded-2xl bg-white px-5 py-3.5 font-black text-slate-950 hover:-translate-y-1">Plan my session</button><button onClick={()=>setPage('aiquiz')} className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3.5 font-black text-white hover:bg-white/15">Practice with AI</button></div></div></section>
@@ -2444,7 +2444,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
           <div className="edx-admin-link-box">
             <h4 className={`font-bold ${theme.text}`}>Google Drive · Free large-file library</h4>
             <p className={`text-sm ${theme.textMuted}`}>For files larger than 45 MiB, upload to Google Drive, set sharing to “Anyone with the link → Viewer” if you have permission, then paste the link below. Previously uploaded Drive and Cloudinary resources stay unchanged.</p>
-            <a href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener noreferrer" className="edx-admin-drive-link">Open Google Drive to upload a file ↗</a>
+            <a href="https://drive.google.com/drive/my-drive" rel="noopener noreferrer" className="edx-admin-drive-link">Open Google Drive to upload a file ↗</a>
             <div className="edx-admin-link-fields">
               <label className={theme.text}>
                 Subject folder
@@ -2502,7 +2502,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
                   <span className={theme.textMuted}>{String(file.subject || 'General')} · {file.sourceType === 'firebase-storage' ? 'Direct upload' : file.isLinkOnly ? 'External link' : 'Legacy file'}</span>
                 </div>
                 <div className="edx-admin-file-actions">
-                  {safeLink && <a href={safeLink} target="_blank" rel="noopener noreferrer" title="Open or download resource"><Download size={16}/> Open / Download</a>}
+                  {safeLink && <a href={safeLink} rel="noopener noreferrer" title="Open or download resource"><Download size={16}/> Open / Download</a>}
                   <button type="button" onClick={() => editing ? setEditingFileId('') : startFileEdit(file)}><Edit3 size={16}/> {editing ? 'Cancel edit' : 'Edit details'}</button>
                   <button type="button" onClick={() => toggleFileActive(file)} title={file.isActive === false ? 'Activate' : 'Disable'}>{file.isActive === false ? <><Eye size={16}/> Activate</> : <><EyeOff size={16}/> Disable</>}</button>
                   <button type="button" className="edx-admin-file-remove" onClick={() => removeFileRecord(file)}><Trash2 size={16}/> Remove</button>
@@ -2533,12 +2533,12 @@ const AcademicTab = ({ theme, user, showToast }) => {
 
 
 
-const AdminPanel = ({ theme, user, showToast, isDark = false }) => { 
+const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
   const { requestConfirm, ConfirmUI } = useConfirm();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [feedbacks, setFeedbacks] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
-  
+
 
   useEffect(() => {
     if (!user) return;
@@ -2807,7 +2807,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                             <input value={hVideo} onChange={e=>setHVideo(e.target.value)} placeholder="Video URL (https://...mp4)" className={`w-full ${theme.input} p-3 rounded-lg`} />
                             {hVideo && <video src={hVideo} className="mt-2 h-20 w-full object-cover rounded-lg" preload="metadata" />}
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Icon</label>
@@ -3918,7 +3918,7 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
             </div>
           </div>
 
-        
+
 
           {/* Buttons */}
           <div className="flex items-center justify-between pt-2">
@@ -4667,7 +4667,7 @@ const ThemeFloatingToggle = ({ isDark, setIsDark }) => {
       type="button"
       onClick={handleToggle}
       className={`
-        fixed 
+        fixed
         top-[88px]    /* Navbar ke thoda neeche */
         right-4
         z-[60]        /* mobile menu se upar */
@@ -4736,11 +4736,11 @@ const PrivacyPageLegacy = ({ theme }) => {
       <p className={theme.text}>
         Google uses the DART cookie to serve interest-based ads. You may opt out of
         personalised advertising by visiting{" "}
-        <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">Google Ads Settings</a>
+        <a href="https://www.google.com/settings/ads" rel="noopener noreferrer" className="text-indigo-500 hover:underline">Google Ads Settings</a>
         {" "}or{" "}
-        <a href="https://www.aboutads.info/choices/" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">aboutads.info</a>.
+        <a href="https://www.aboutads.info/choices/" rel="noopener noreferrer" className="text-indigo-500 hover:underline">aboutads.info</a>.
         You can also manage how Google uses cookies in your{" "}
-        <a href="https://myaccount.google.com/data-and-privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">Google Account privacy settings</a>.
+        <a href="https://myaccount.google.com/data-and-privacy" rel="noopener noreferrer" className="text-indigo-500 hover:underline">Google Account privacy settings</a>.
       </p>
       <p className={theme.text}>
         If you upload files or write posts, they are stored securely in our database and
@@ -5110,7 +5110,7 @@ useEffect(() => {
       </div>
             <a
         href="https://mail.google.com/mail/u/0/?view=cm&fs=1&to=a.m.a63425@gmail.com&su=EduNexus%20Support%20Request"
-        target="_blank"
+
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
       >
@@ -5147,7 +5147,7 @@ useEffect(() => {
           <a
             href="https://github.com/bc878vu"
             aria-label="EduNexus developer on GitHub"
-            target="_blank"
+
             rel="noreferrer"
             className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
           >
@@ -5156,7 +5156,7 @@ useEffect(() => {
           <a
             href="https://pk.linkedin.com/in/asad-amanat-ali-860797416"
             aria-label="Asad Amanat Ali on LinkedIn"
-            target="_blank"
+
             rel="noreferrer"
             className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
           >
@@ -5164,7 +5164,7 @@ useEffect(() => {
           </a>
         </div>
       </div>
-      
+
       {/* Quick links */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold tracking-wide">Quick Links</h3>
@@ -5254,7 +5254,7 @@ useEffect(() => {
             <Mail size={14} />
           <a
           href="https://mail.google.com/mail/u/0/?view=cm&fs=1&to=a.m.a63425@gmail.com&su=EduNexus%20Support%20Request"
-          target="_blank"
+
           rel="noopener noreferrer"
           className="hover:text-indigo-500 transition-colors"
         >

@@ -153,7 +153,7 @@ export default function AdminAcademicReviews({ user }) {
         </select>
       </label>
       {rightsFile && <>
-        <p><a href={String(files.find((file)=>file.id===rightsFile)?.url || '#')} target="_blank" rel="noopener noreferrer">Inspect the original file and its permissions ↗</a></p>
+        <p><a href={String(files.find((file)=>file.id===rightsFile)?.url || '#')} rel="noopener noreferrer">Inspect the original file and its permissions ↗</a></p>
         <label>Verified sharing basis<select value={rightsBasis} onChange={(e)=>setRightsBasis(e.target.value)}><option value="">Choose only after checking the actual document</option><option value="original-work">Original work owned by EduNexus</option><option value="written-permission">Written permission from copyright owner</option><option value="open-license">Licence permits redistribution</option><option value="public-domain">Verified public-domain work</option></select></label>
         <label><input type="checkbox" checked={rightsConfirmed} onChange={(e)=>setRightsConfirmed(e.target.checked)} style={{width:'auto',marginRight:8}}/> I checked the sharing rights of this exact existing resource and can support this declaration.</label>
         <button type="button" disabled={busy || !rightsBasis || !rightsConfirmed} onClick={confirmRights}>Record rights declaration</button>

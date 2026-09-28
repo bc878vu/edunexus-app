@@ -252,7 +252,7 @@ export default function EduBotAssistant() {
 
   return <div className="edx-bot-root">
     <div className="edx-bot-fab">
-      <a href={EDUNEXUS_GROUP} target="_blank" rel="noopener noreferrer"
+      <a href={EDUNEXUS_GROUP} rel="noopener noreferrer"
         className="edx-bot-group-button" aria-label="Open the EduNexus WhatsApp group" title="EduNexus WhatsApp group"><MessageCircle size={25}/></a>
       <button type="button" className="edx-bot-open-button" onClick={() => setOpen(v => !v)}
         aria-expanded={open} aria-controls="edx-bot-chat" aria-label={open ? 'Close EduBot' : 'Open EduBot'}><Bot size={24}/></button>
@@ -268,12 +268,12 @@ export default function EduBotAssistant() {
       <nav className="edx-bot-shortcuts" aria-label="EduNexus quick links">
         <a href="/?page=academic"><BookOpen size={14}/> Academic Hub</a>
         <a href="/?page=exam-prep">Exam Prep</a>
-        <a href={EDUNEXUS_GROUP} target="_blank" rel="noopener noreferrer">WhatsApp <ExternalLink size={13}/></a>
+        <a href={EDUNEXUS_GROUP} rel="noopener noreferrer">WhatsApp <ExternalLink size={13}/></a>
       </nav>
       <div className="edx-bot-conversation" role="log" aria-live="polite" aria-relevant="additions text">
         {messages.map((message, index) => <div key={index} className={'edx-bot-message ' + message.role}>
-          <p>{renderableLinks(message.text, message.approvedUrls || []).map((chunk, part) => chunk.url ? <a key={part} href={chunk.url} target="_blank" rel="noopener noreferrer">{chunk.text}<ExternalLink size={12} aria-hidden="true"/></a> : <React.Fragment key={part}>{chunk.text}</React.Fragment>)}</p>
-          {message.suggestions?.length > 0 && <div className="edx-bot-resources" aria-label="Verified public study resources"><strong>Available public resources</strong>{message.suggestions.map((file, i) => <a key={file.url + i} href={file.url} target="_blank" rel="noopener noreferrer"><BookOpen size={14}/>{file.title || file.subject || 'Study resource'} <ExternalLink size={13}/></a>)}</div>}
+          <p>{renderableLinks(message.text, message.approvedUrls || []).map((chunk, part) => chunk.url ? <a key={part} href={chunk.url} rel="noopener noreferrer">{chunk.text}<ExternalLink size={12} aria-hidden="true"/></a> : <React.Fragment key={part}>{chunk.text}</React.Fragment>)}</p>
+          {message.suggestions?.length > 0 && <div className="edx-bot-resources" aria-label="Verified public study resources"><strong>Available public resources</strong>{message.suggestions.map((file, i) => <a key={file.url + i} href={file.url} rel="noopener noreferrer"><BookOpen size={14}/>{file.title || file.subject || 'Study resource'} <ExternalLink size={13}/></a>)}</div>}
           {message.role === 'ai' && canSpeak && <button type="button" className="edx-bot-speak"
             onClick={() => speakingId === index ? stopSpeech() : speak(message.text, index)}
             title={speakingId === index ? 'Stop this response' : 'Read this response aloud'} aria-label={speakingId === index ? 'Stop this response' : 'Read this response aloud'} aria-pressed={speakingId === index}>

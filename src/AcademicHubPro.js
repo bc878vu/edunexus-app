@@ -448,7 +448,7 @@ function ResourceCard({ file, isAdmin, onDelete, onPreview, onReviews, onDownloa
         <button type="button" className="ah-secondary" disabled={!links.source} onClick={() => onPreview(file)}><BookOpen size={16} /> Preview</button>
         <button type="button" className="ah-secondary" onClick={() => onReviews(file)}><Star size={16} /> Reviews</button>
         <a className="ah-secondary" href={filePublicPath(file)}>File page</a>
-        {links.source ? <a className="ah-primary" href={links.download} download={links.direct ? safeFileName(file) : undefined} target="_blank" rel="noopener noreferrer" onClick={(e) => onDownload(e, file, links)}>{links.kind === "folder" || links.kind === "external-link" ? <ExternalLink size={16} /> : <Download size={16} />}{links.kind === "folder" ? "Open folder" : links.kind === "external-link" ? "Open resource" : "Download"}</a> : <span className="ah-muted">File link unavailable</span>}
+        {links.source ? <a className="ah-primary" href={links.download} download={links.direct ? safeFileName(file) : undefined} rel="noopener noreferrer" onClick={(e) => onDownload(e, file, links)}>{links.kind === "folder" || links.kind === "external-link" ? <ExternalLink size={16} /> : <Download size={16} />}{links.kind === "folder" ? "Open folder" : links.kind === "external-link" ? "Open resource" : "Download"}</a> : <span className="ah-muted">File link unavailable</span>}
         {isAdmin && <button type="button" className="ah-delete" onClick={() => onDelete(file)} aria-label={'Delete ' + title}>Delete</button>}
       </div>
       {downloadStatus && <p className="ah-note" role="status">{downloadStatus}</p>}
@@ -622,20 +622,15 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
 
     {reviewIsAdmin(user, isAdmin) && <React.Suspense fallback={<p className="ah-note" role="status">Opening secure upload workspace…</p>}><AcademicAdminUploader user={user} subjects={subjects} initialSubject={subject} onUploaded={(code) => { setSearch(''); setFormat('all'); openSubject(code); }} /></React.Suspense>}
 
-    {reviewIsAdmin(user, isAdmin) && <div className="ah-admin-tools" style={{margin:'12px 0'}}><button type="button" className="ah-secondary" onClick={() => {
-      requestConfirm({
-        message: 'Recalculate true file counts for all folders? This reads all file records once.',
-        confirmLabel: 'Recalculate',
-        onConfirm: async () => {
-          try {
-            const snap = await getDocs(FILES);
-            const counts = {};
-            snap.docs.forEach((d) => { const k = cut(d.data()?.subject, 50); if (k) counts[k] = (counts[k] || 0) + 1; });
-            await updateDoc(FOLDERS, { fileCounts: counts });
-            if (showToast) showToast('Folder counts recalculated: ' + snap.size + ' files across ' + Object.keys(counts).length + ' folders.', 'success');
-          } catch (e) { if (showToast) showToast('Count recalculation failed: ' + (e?.message || 'error'), 'error'); }
-        },
-      });
+    {reviewIsAdmin(user, isAdmin) && <div className="ah-admin-tools" style={{margin:'12px 0'}}><button type="button" className="ah-secondary" onClick={async () => {
+      if (!window.confirm('Recalculate true file counts for all folders? This reads all file records once.')) return;
+      try {
+        const snap = await getDocs(FILES);
+        const counts = {};
+        snap.docs.forEach((d) => { const k = cut(d.data()?.subject, 50); if (k) counts[k] = (counts[k] || 0) + 1; });
+        await updateDoc(FOLDERS, { fileCounts: counts });
+        if (showToast) showToast('Folder counts recalculated: ' + snap.size + ' files across ' + Object.keys(counts).length + ' folders.', 'success');
+      } catch (e) { if (showToast) showToast('Count recalculation failed: ' + (e?.message || 'error'), 'error'); }
     }}><FolderOpen size={16} /> Recalculate folder counts</button></div>}
 
     <section id="academic-library" className="ah-library" aria-label="Academic resources"><div className="ah-section-heading"><span className="ah-eyebrow">Browse, preview & download</span><h2>Subject resource library</h2><p>Choose a subject, search the loaded resources and open a file directly in the page when preview is supported.</p></div>
@@ -662,4 +657,3 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     <ConfirmUI />
   </div>;
 }
-

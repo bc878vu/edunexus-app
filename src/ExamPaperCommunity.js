@@ -168,7 +168,7 @@ function renderReviewContent(value) {
       parts.push(<RichContent key={'text-'+offset} value={line.slice(offset, match.index)}/>);
       const raw = match[0];
       const url = raw.replace(/[.,;!?)]*$/, '');
-      parts.push(<a key={match.index} href={url} target="_blank" rel="noopener noreferrer nofollow ugc">{url}</a>);
+      parts.push(<a key={match.index} href={url} rel="noopener noreferrer nofollow ugc">{url}</a>);
       parts.push(raw.slice(url.length));
       offset = match.index + raw.length;
     }
@@ -208,8 +208,8 @@ function ReviewCard({ review, user }) {
   return <article className="edx-paper-card">
     <div className="edx-paper-card-head"><div className="edx-paper-course"><GraduationCap size={18} /><strong>{safe(review.subject, 12)}</strong><span>{review.term === 'midterm' ? 'Midterm' : 'Finalterm'}{review.semester ? ' · ' + safe(review.semester, 20) : ''}</span></div><span className="edx-paper-chip">{legacy ? 'Previous paper' : 'Shared experience'}</span></div>
     <div className="edx-paper-card-meta"><span><CalendarDays size={15} /> {formatExamDate(review.examDate)}</span>{review.examTime && <span><Clock3 size={15} /> {formatExamTime(review.examTime)}</span>}<span><Users size={15} /> {safe(review.sharedBy, 60) || 'Student'}</span><span className="edx-paper-difficulty">{safe(review.difficulty, 20) || 'Unrated'}</span></div>
-    <div className="edx-paper-content"><strong><FileText size={17} /> Paper content & preparation advice</strong>{review.topics && <p className="edx-paper-topics">Topics: {safe(review.topics, 400)}</p>}<p>{renderReviewContent(review.summary)}</p>{paperUrl && <a className="edx-paper-file-link" href={paperUrl} target="_blank" rel="noopener noreferrer"><FileText size={16}/> View shared paper ({safe(review.paperName,95) || 'PDF or image'}) <ExternalLink size={14}/></a>}</div>
-    <div className="edx-paper-card-bottom"><span>Shared by a student</span><div className="edx-paper-card-actions"><button type="button" onClick={copy} className="edx-paper-copy"><ClipboardCopy size={16} /> Copy</button><a href={shareLink} target="_blank" rel="noopener noreferrer" className="edx-paper-whatsapp"><Share2 size={16} /> Share on WhatsApp</a></div></div>
+    <div className="edx-paper-content"><strong><FileText size={17} /> Paper content & preparation advice</strong>{review.topics && <p className="edx-paper-topics">Topics: {safe(review.topics, 400)}</p>}<p>{renderReviewContent(review.summary)}</p>{paperUrl && <a className="edx-paper-file-link" href={paperUrl} rel="noopener noreferrer"><FileText size={16}/> View shared paper ({safe(review.paperName,95) || 'PDF or image'}) <ExternalLink size={14}/></a>}</div>
+    <div className="edx-paper-card-bottom"><span>Shared by a student</span><div className="edx-paper-card-actions"><button type="button" onClick={copy} className="edx-paper-copy"><ClipboardCopy size={16} /> Copy</button><a href={shareLink} rel="noopener noreferrer" className="edx-paper-whatsapp"><Share2 size={16} /> Share on WhatsApp</a></div></div>
     <div className="edx-paper-card-secondary"><button type="button" onClick={report} disabled={working}><ShieldAlert size={14} /> Report</button></div>
     {notice && <p className="edx-paper-notice" role="status">{notice}</p>}
   </article>;
@@ -333,7 +333,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
         <label><Search size={17}/><input type="search" value={reviewSearch} onChange={e=>setReviewSearch(e.target.value)} placeholder="Find a subject, topic or keyword…" aria-label="Search paper reviews"/></label>
         <select value={sortBy} onChange={e=>setSortBy(e.target.value)} aria-label="Sort paper reviews"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
       </div>
-      <div className="edx-paper-group"><MessageCircle size={19}/><p>Follow EduNexus for more paper discussions and updates.</p><a href={EDUNEXUS_WHATSAPP_GROUP} target="_blank" rel="noopener noreferrer">Join our WhatsApp group <ExternalLink size={15}/></a></div>
+      <div className="edx-paper-group"><MessageCircle size={19}/><p>Follow EduNexus for more paper discussions and updates.</p><a href={EDUNEXUS_WHATSAPP_GROUP} rel="noopener noreferrer">Join our WhatsApp group <ExternalLink size={15}/></a></div>
       {loading && <div className="edx-paper-skeleton" role="status">Loading student reviews…</div>}
       {errors.map(error => <div key={error.key} className="edx-paper-alert" role="alert">{error.message} <button type="button" onClick={()=>setReloadKey(n=>n+1)}>Retry</button></div>)}
       {!loading && !reviews.length && !errors.length && <div className="edx-paper-empty"><MessageCircle size={28}/><h3>{allSubjects?'No published paper reviews yet':'No reviews match these filters'}</h3><p>{allSubjects?'If you shared a review earlier, check Your earlier submissions above.':'Try All subjects, All exam types, or another keyword.'}</p></div>}

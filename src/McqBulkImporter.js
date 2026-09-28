@@ -196,7 +196,7 @@ export default function McqBulkImporter({ user, onView }) {
       {progress && <p role="status" className="edx-import-note">{progress}</p>}
       {error && <div className="edx-exam-alert edx-import-result" role="alert">{error}</div>}
       {success && <div className="edx-exam-success edx-import-result" role="status"><CheckCircle2 size={18}/>{success}
-        {destination?.subject && destination?.category && <a className="edx-exam-secondary" href={'/?page=exam-prep&subject=' + encodeURIComponent(destination.subject) + '&term=' + encodeURIComponent(destination.category)} target="_blank" rel="noopener noreferrer">Open public {destination.subject} {destination.category}</a>}
+        {destination?.subject && destination?.category && <a className="edx-exam-secondary" href={'/?page=exam-prep&subject=' + encodeURIComponent(destination.subject) + '&term=' + encodeURIComponent(destination.category)} rel="noopener noreferrer">Open public {destination.subject} {destination.category}</a>}
         {destination?.subject && destination?.category && <button type="button" className="edx-exam-secondary"
           onClick={() => onView?.(destination.subject, destination.category)}>View {destination.subject} {destination.category === 'quiz' ? 'Quiz' : destination.category === 'midterm' ? 'Midterm' : 'Finalterm'}</button>}</div>}
       <button type="submit" className="edx-exam-primary edx-import-submit" disabled={busy || !inspection.items?.length || (sourceChecked && verificationSource.trim().length < 12) || (sourceChecked && mustVerify && !verified)}>
