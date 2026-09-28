@@ -828,6 +828,30 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   // A selected subject shows its files immediately and completely — no
   // manual "load more" needed. The unfiltered view keeps client-side paging.
   const displayed = activeCode ? matches : matches.slice(0, visible);
+  // Smart search: whatever the user types, surface the matching subject(s) as
+  // one-tap chips. Opening a subject loads its files server-side (up to 400),
+  // so a search always finds the subject even when its files are not in the
+  // locally loaded batch.
+  const searchSuggestions = useMemo(() => {
+    const q = normalized;
+    if (!q || activeCode) return [];
+    const out = [];
+    const code = extractCourseCode(q.toUpperCase());
+    if (code && codeGroups.has(code)) {
+      const g = codeGroups.get(code);
+      out.push({ code, label: displayFolderName(g.display || code), count: codeFileCount(code) });
+    }
+    if (out.length === 0) {
+      for (const c of mergedCodes) {
+        const label = displayFolderName((codeGroups.get(c) || {}).display || c);
+        if (label.toLowerCase().includes(q) && c.toLowerCase() !== q) {
+          out.push({ code: c, label, count: codeFileCount(c) });
+          if (out.length >= 5) break;
+        }
+      }
+    }
+    return out;
+  }, [normalized, activeCode, codeGroups, mergedCodes]);
   const selected = files.find((f) => f.id === selectedId);
   useEffect(() => { if (selectedId && scroller.current) scroller.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [selectedId]);
   const openSubject = (value) => {
@@ -936,14 +960,15 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
 
     <section id="academic-library" className="ah-library" aria-label="Academic resources"><div className="ah-section-heading"><span className="ah-eyebrow">Browse, preview & download</span><h2>Subject resource library</h2><p>Choose a subject, search the loaded resources and open a file directly in the page when preview is supported.</p></div>
       <div className="ah-stats"><div><strong>{subjectGroups.length}</strong><span>Main folders</span></div><div><strong>{mergedCodes.reduce((n, c) => n + codeFileCount(c), 0)}</strong><span>Total resources</span></div><div><strong>{files.length}</strong><span>Loaded for browsing</span></div></div>
-      <div className="ah-toolbar"><label className="ah-search"><Search size={19} /><span className="ah-visually-hidden">Search resources</span><input value={search} onChange={(e) => { setSearch(e.target.value); setVisible(18); }} placeholder="Search file title, subject, topic or format…" /></label><button type="button" className="ah-secondary" onClick={() => { setSearch(''); setFormat('all'); openSubject(''); setSubjectsExpanded(true); }}><FolderOpen size={17} /> All subjects</button></div>
+      <div className="ah-toolbar"><label className="ah-search"><Search size={19} /><span className="ah-visually-hidden">Search resources</span><input value={search} onChange={(e) => { setSearch(e.target.value); setVisible(18); }} placeholder="Search file title, subject, topic or format…" aria-label="Search resources" />{search && <button type="button" className="ah-clear" aria-label="Clear search" onClick={() => setSearch('')}><X size={16} /></button>}</label><button type="button" className="ah-secondary" onClick={() => { setSearch(''); setFormat('all'); openSubject(''); setSubjectsExpanded(true); }}><FolderOpen size={17} /> All subjects</button></div>
       <div className="ah-filterbar" aria-label="Filter and sort study files"><label>File type <select value={format} onChange={(e) => { setFormat(e.target.value); setVisible(18); }}><option value="all">All formats</option><option value="documents">Documents</option><option value="images">Images</option><option value="links">Other links</option></select></label><label>Sort by <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setVisible(18); }}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">File name A–Z</option></select></label><button type="button" className="ah-secondary" aria-expanded={subjectsExpanded} onClick={() => setSubjectsExpanded((v) => !v)}><FolderOpen size={16} /> {subjectsExpanded ? 'Hide folders' : 'Browse folders'}</button></div>
     {selected && <div className="ah-panel-wrap" ref={scroller}><div className="ah-panel-tabs" role="group" aria-label="Selected file tools"><button type="button" className={panel === 'preview' ? 'active' : ''} onClick={() => setPanel('preview')}><BookOpen size={16} /> Preview</button><button type="button" className={panel === 'reviews' ? 'active' : ''} onClick={() => setPanel('reviews')}><Star size={16} /> Reviews</button><button type="button" onClick={() => setSelectedId('')}><X size={16} /> Close</button></div>{panel === 'preview' ? <ResourcePreview file={selected} links={fileLinks(selected)} onClose={() => setSelectedId('')} /> : <FileReviews file={selected} user={user} isAdmin={isAdmin} />}</div>}
       {error && <p className="ah-message" role="alert">{error}</p>}
       {loading ? <div className="ah-loading" role="status"><div /><div /><div /><p>Loading academic resources…</p></div> :
         <>{subjectsExpanded && !subject && (openGroup ? <div aria-label={openGroup + ' subject folders'}><div className="ah-crumb"><button type="button" className="ah-secondary" onClick={() => openGroupView('')}><ArrowLeft size={15} /> All folders</button><span className="ah-crumb-sep" aria-hidden="true">/</span><strong>{openGroup}</strong></div><div className="ah-subject-grid" aria-label={openGroup + ' subjects'}>{(subjectGroups.find(([p]) => p === openGroup) || ['', []])[1].map((code) => <button key={code} type="button" className="ah-subject" onClick={() => openSubject(code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{displayFolderName((codeGroups.get(code) || {}).display || code)}</strong><small>{(() => { const total = codeFileCount(code); return total + (total === 1 ? ' file' : ' files'); })()}</small></span><ArrowRight size={16} /></button>)}</div></div> : <div className="ah-group-grid" aria-label="Main subject folders">{subjectGroups.map(([prefix, codes]) => { const totalFiles = codes.reduce((n, c) => n + codeFileCount(c), 0); return <button key={prefix} type="button" className="ah-group" onClick={() => openGroupView(prefix)}><span className="ah-group-icon"><Folder size={22} /></span><span><strong>{prefix}</strong><small>{codes.length + (codes.length === 1 ? ' subject' : ' subjects') + ' · ' + totalFiles + (totalFiles === 1 ? ' file' : ' files')}</small></span><ArrowRight size={16} /></button>; })}</div>)}
+          {searchSuggestions.length > 0 && <div className="ah-suggest" role="group" aria-label="Matching subjects"><span className="ah-suggest-label">Subjects found:</span>{searchSuggestions.map((s) => <button key={s.code} type="button" className="ah-suggest-chip" onClick={() => openSubject(s.code)}><BookOpen size={15} /> {s.label} · {s.count + (s.count === 1 ? ' file' : ' files')} <ArrowRight size={14} /></button>)}</div>}
           <div className="ah-results-head"><div><span className="ah-eyebrow">{activeCode ? 'Selected subject' : 'Resource collection'}</span><h3>{(activeCode && displayFolderName((codeGroups.get(activeCode) || {}).display || activeCode)) || 'All available subjects'}</h3><p>{normalized ? 'Search results from currently loaded files' : 'Showing ' + displayed.length + ' of ' + matches.length + ' matching loaded resources'}</p></div>{activeCode && <button className="ah-secondary" type="button" onClick={backToSubjects}><ArrowLeft size={16} /> Back to subjects</button>}</div>
-          {displayed.length ? <div className="ah-resource-grid">{displayed.map((file) => <ResourceCard key={file.id} file={file} isAdmin={isAdmin} onDelete={del} onPreview={(f) => openPanel(f, 'preview')} onReviews={(f) => openPanel(f, 'reviews')} onDownload={download} downloadStatus={downloadStatus[file.id]} />)}</div> : <div className="ah-empty"><FileArchive size={30} /><h3>No matching files in this loaded batch</h3><p>Try another subject or load more resources. You can also check the existing Academic Hub administrator tools for new uploads.</p></div>}
+          {displayed.length ? <div className="ah-resource-grid">{displayed.map((file) => <ResourceCard key={file.id} file={file} isAdmin={isAdmin} onDelete={del} onPreview={(f) => openPanel(f, 'preview')} onReviews={(f) => openPanel(f, 'reviews')} onDownload={download} downloadStatus={downloadStatus[file.id]} />)}</div> : <div className="ah-empty"><FileArchive size={30} /><h3>No matching files in this loaded batch</h3><p>Try a subject chip above, another search, or load more resources. You can also check the existing Academic Hub administrator tools for new uploads.</p>{hasMore && <button className="ah-primary" type="button" disabled={loadingMore} onClick={more}>{loadingMore ? 'Loading more files…' : 'Load more resources'}</button>}</div>}
           {matches.length > displayed.length && <button className="ah-secondary ah-load" type="button" onClick={() => setVisible((n) => n + 18)}>Show more matching files <ArrowRight size={16} /></button>}
           {hasMore && <button className="ah-primary ah-load" type="button" disabled={loadingMore} onClick={more}>{loadingMore ? 'Loading more files…' : 'Load next ' + PAGE_SIZE + ' resources'} <ArrowRight size={16} /></button>}
         </>}
