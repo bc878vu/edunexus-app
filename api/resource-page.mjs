@@ -44,7 +44,7 @@ function cacheSet(key, html) {
   pageCache.set(key, { html, at: Date.now() });
 }
 function fallbackPage() {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Study Resource | EduNexus</title><meta name="robots" content="noindex,follow"><style>${styles}</style></head><body>${navbar}<main><article class="resource"><div class="meta">EduNexus · Academic Hub</div><h1>Study Resource</h1><p>This resource page is temporarily unavailable. Please try again in a little while, or open it directly in the Academic Hub.</p><div class="buttons"><a class="button" href="/?page=academic">Open Academic Hub</a><a class="button secondary" href="/">Back to home</a></div></article></main><footer class="site-footer"><p>© EduNexus · Independent student study resources</p></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Study Resource | EduNexus</title><meta name="description" content="Open this study resource in the EduNexus Academic Hub."><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="Study Resource | EduNexus"><meta property="og:description" content="Open this study resource in the EduNexus Academic Hub."><meta property="og:image" content="${h(SITE + '/logo512.png')}"><meta name="twitter:card" content="summary_large_image"><meta name="robots" content="noindex,follow"><style>${styles}</style></head><body>${navbar}<main><article class="resource"><div class="meta">EduNexus · Academic Hub</div><h1>Study Resource</h1><p>This resource page is temporarily unavailable. Please try again in a little while, or open it directly in the Academic Hub.</p><div class="buttons"><a class="button" href="/?page=academic">Open Academic Hub</a><a class="button secondary" href="/">Back to home</a></div></article></main><footer class="site-footer"><p>© EduNexus · Independent student study resources</p></footer></body></html>`;
 }
 function buildSchema({ name, subject, summary, canonical }) {
   // A downloadable PDF page is a LearningResource, not necessarily a Course,
@@ -64,6 +64,31 @@ function buildSchema({ name, subject, summary, canonical }) {
   };
   return JSON.stringify(schema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 }
+function sharedFallback(req, id) {
+  if (String(req.query?.share || '') !== '1') return null;
+  const clean = (v, max) => String(v || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, max);
+  const name = clean(req.query?.t, 180);
+  if (!name) return null;
+  return { id, name, title: name, subject: clean(req.query?.s, 120) || 'General',
+    description: clean(req.query?.d, 500), ext: 'Study file', isActive: true };
+}
+function sharedPreviewHtml(req, file) {
+  const id = String(file.id || req.query?.id || '');
+  const name = String(file.name || file.title || 'Study resource').slice(0, 180);
+  const subject = String(file.subject || 'General').slice(0, 120);
+  const description = String(file.description || '').trim();
+  const summary = description || ('Preview ' + name + ' for ' + subject + ' in the EduNexus Academic Hub.');
+  const title = name + (name.toLowerCase().includes('edunexus') ? '' : ' | EduNexus');
+  const appUrl = SITE + '/?page=academic&subject=' + encodeURIComponent(subject) + '&file=' + encodeURIComponent(id) + '&panel=preview';
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>' + h(title) + '</title><meta name="description" content="' + h(summary.slice(0,190)) + '">' +
+    '<meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus">' +
+    '<meta property="og:title" content="' + h(title) + '"><meta property="og:description" content="' + h(summary.slice(0,190)) + '">' +
+    '<meta property="og:url" content="' + h(SITE + req.url) + '"><meta property="og:image" content="' + h(SITE + '/logo512.png') + '">' +
+    '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + h(title) + '">' +
+    '<meta name="twitter:description" content="' + h(summary.slice(0,190)) + '"><meta name="twitter:image" content="' + h(SITE + '/logo512.png') + '">' +
+    '<meta http-equiv="refresh" content="0;url=' + h(appUrl) + '"></head><body><p><a href="' + h(appUrl) + '">' + h(name) + '</a></p></body></html>';
+}
 export default async function handler(req, res) {
   if (!['GET', 'HEAD'].includes(req.method)) return res.status(405).end();
   const id = String(req.query?.id || req.query?.file || '');
@@ -81,8 +106,20 @@ export default async function handler(req, res) {
     }
   }
   try {
-    const file = await getPublicFile(id);
+    let file;
+    try { file = await getPublicFile(id); } catch (lookupError) {
+      file = sharedFallback(req, id);
+      if (!file) throw lookupError;
+    }
+    if (!file) file = sharedFallback(req, id);
     if (!file) return res.status(404).send('Resource not found');
+    if (String(req.query?.share || '') === '1') {
+      const html = sharedPreviewHtml(req, file);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+      if (req.method === 'HEAD') return res.status(200).end();
+      return res.status(200).send(html);
+    }
     const name = String(file.name || file.title || 'Study resource').slice(0, 180);
     const subject = String(file.subject || 'General').slice(0, 120);
     const description = String(file.description || '').trim().slice(0, 3500);
