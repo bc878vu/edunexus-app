@@ -1,6 +1,6 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, deleteDoc, doc, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, updateDoc, where } from 'firebase/firestore';
-import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, Folder, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
 import { db, storage } from './firebase-client';
 import { getBlob, ref as storageRef } from 'firebase/storage';
 import './academic-hub-pro.css';
@@ -29,6 +29,14 @@ const cut = (v, n = 300) => String(v == null ? '' : v).trim().slice(0, n);
 // wrap points, so folder names break at word boundaries (never mid-word).
 // The raw code value is untouched — keys, navigation and queries are unaffected.
 const displayFolderName = (code) => String(code || '').replace(/_/g, '_\u200b');
+// Hierarchy helper: main-folder key derived from a subject folder name.
+// "CS101_Introduction_to_Computing" -> "CS", "MGT301" -> "MGT".
+// Purely presentational — the folder list in Firestore is untouched, so no
+// existing folder or file can be missed or deleted by this grouping.
+const subjectPrefix = (code) => {
+  const m = String(code || '').match(/^([A-Z]{2,})/);
+  return m ? m[1] : 'Other';
+};
 const safeHttp = (raw) => {
   if (typeof raw !== 'string' || !raw.trim()) return null;
   try {
@@ -693,6 +701,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const [format, setFormat] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [subjectsExpanded, setSubjectsExpanded] = useState(true);
+  const [openGroup, setOpenGroup] = useState(() => new URLSearchParams(window.location.search).get('group') || '');
   const [subject, setSubject] = useState(() => new URLSearchParams(window.location.search).get('subject') || routeParamsFromPath(window.location.pathname).subject || '');
   const [selectedId, setSelectedId] = useState(() => new URLSearchParams(window.location.search).get('file') || '');
   const [panel, setPanel] = useState(() => new URLSearchParams(window.location.search).get('panel') === 'reviews' ? 'reviews' : 'preview');
@@ -703,7 +712,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const olderPagesLoaded = useRef(false);
 
   useEffect(() => {
-    const onPop = () => { const params = new URLSearchParams(window.location.search); setSubject(params.get('subject') || routeParamsFromPath(window.location.pathname).subject || ''); setSelectedId(params.get('file') || ''); setPanel(params.get('panel') === 'reviews' ? 'reviews' : 'preview'); };
+    const onPop = () => { const params = new URLSearchParams(window.location.search); setSubject(params.get('subject') || routeParamsFromPath(window.location.pathname).subject || ''); setOpenGroup(params.get('group') || ''); setSelectedId(params.get('file') || ''); setPanel(params.get('panel') === 'reviews' ? 'reviews' : 'preview'); };
     window.addEventListener('popstate', onPop);
     const unsubFiles = onSnapshot(query(FILES, orderBy('createdAt', 'desc'), limit(PAGE_SIZE)), (snap) => {
       setLatest(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -749,6 +758,16 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   }, [selectedId, files]);
   const counts = useMemo(() => files.reduce((m, f) => { const key = cut(f.subject, 50); if (key) m[key] = (m[key] || 0) + 1; return m; }, {}), [files]);
   const subjects = useMemo(() => [...new Set([...DEFAULT_SUBJECTS, ...folders, ...Object.keys(counts)].filter(Boolean))].sort((a, b) => a.localeCompare(b)), [folders, counts]);
+  // Main folders: group every subject folder under its code prefix (CS, MGT, ENG, …).
+  const subjectGroups = useMemo(() => {
+    const map = new Map();
+    subjects.forEach((code) => {
+      const p = subjectPrefix(code);
+      if (!map.has(p)) map.set(p, []);
+      map.get(p).push(code);
+    });
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [subjects]);
   const normalized = deferredSearch.trim().toLowerCase();
   const matches = useMemo(() => {
     const result = files.filter((f) => f.isActive !== false
@@ -767,11 +786,34 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const openSubject = (value) => {
     setSubject(value); setVisible(18); setSelectedId('');
     if (value) setSubjectsExpanded(false);
+    setOpenGroup('');
     const url = new URL(window.location.href);
     if (value) url.searchParams.set('subject', value); else url.searchParams.delete('subject');
+    url.searchParams.delete('group');
     url.searchParams.delete('file'); url.searchParams.delete('panel');
     url.searchParams.set('page', 'academic');
     window.history.pushState({ page: 'academic', subject: value }, '', url.pathname + url.search);
+    window.dispatchEvent(new Event('edunexus:navigation'));
+  };
+  // Main-folder navigation: CS -> shows CS101, CS201, … ; '' -> all main folders.
+  const openGroupView = (prefix) => {
+    setOpenGroup(prefix); setSubject(''); setVisible(18); setSelectedId(''); setSubjectsExpanded(true);
+    const url = new URL(window.location.href);
+    if (prefix) url.searchParams.set('group', prefix); else url.searchParams.delete('group');
+    url.searchParams.delete('subject'); url.searchParams.delete('file'); url.searchParams.delete('panel');
+    url.searchParams.set('page', 'academic');
+    window.history.pushState({ page: 'academic', group: prefix }, '', url.pathname + url.search);
+    window.dispatchEvent(new Event('edunexus:navigation'));
+  };
+  // "Back to subjects" from a subject file view returns to its main folder.
+  const backToSubjects = () => {
+    const g = subject ? subjectPrefix(subject) : '';
+    setSubject(''); setVisible(18); setSelectedId(''); setSubjectsExpanded(true); setOpenGroup(g);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('subject'); url.searchParams.delete('file'); url.searchParams.delete('panel');
+    if (g) url.searchParams.set('group', g); else url.searchParams.delete('group');
+    url.searchParams.set('page', 'academic');
+    window.history.pushState({ page: 'academic', group: g }, '', url.pathname + url.search);
     window.dispatchEvent(new Event('edunexus:navigation'));
   };
   const openPanel = (file, nextPanel) => {
@@ -843,14 +885,14 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     }}><FolderOpen size={16} /> Recalculate folder counts</button></div>}
 
     <section id="academic-library" className="ah-library" aria-label="Academic resources"><div className="ah-section-heading"><span className="ah-eyebrow">Browse, preview & download</span><h2>Subject resource library</h2><p>Choose a subject, search the loaded resources and open a file directly in the page when preview is supported.</p></div>
-      <div className="ah-stats"><div><strong>{subjects.length}</strong><span>Subject folders</span></div><div><strong>{(() => { const vals = Object.values(folderCounts); return vals.length ? vals.reduce((a, b) => a + (Number(b) || 0), 0) : files.length; })()}</strong><span>Total resources</span></div><div><strong>{files.length}</strong><span>Loaded for browsing</span></div></div>
+      <div className="ah-stats"><div><strong>{subjectGroups.length}</strong><span>Main folders</span></div><div><strong>{(() => { const vals = Object.values(folderCounts); return vals.length ? vals.reduce((a, b) => a + (Number(b) || 0), 0) : files.length; })()}</strong><span>Total resources</span></div><div><strong>{files.length}</strong><span>Loaded for browsing</span></div></div>
       <div className="ah-toolbar"><label className="ah-search"><Search size={19} /><span className="ah-visually-hidden">Search resources</span><input value={search} onChange={(e) => { setSearch(e.target.value); setVisible(18); }} placeholder="Search file title, subject, topic or format…" /></label><button type="button" className="ah-secondary" onClick={() => { setSearch(''); setFormat('all'); openSubject(''); setSubjectsExpanded(true); }}><FolderOpen size={17} /> All subjects</button></div>
       <div className="ah-filterbar" aria-label="Filter and sort study files"><label>File type <select value={format} onChange={(e) => { setFormat(e.target.value); setVisible(18); }}><option value="all">All formats</option><option value="documents">Documents</option><option value="images">Images</option><option value="links">Other links</option></select></label><label>Sort by <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setVisible(18); }}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">File name A–Z</option></select></label><button type="button" className="ah-secondary" aria-expanded={subjectsExpanded} onClick={() => setSubjectsExpanded((v) => !v)}><FolderOpen size={16} /> {subjectsExpanded ? 'Hide folders' : 'Browse folders'}</button></div>
     {selected && <div className="ah-panel-wrap" ref={scroller}><div className="ah-panel-tabs" role="group" aria-label="Selected file tools"><button type="button" className={panel === 'preview' ? 'active' : ''} onClick={() => setPanel('preview')}><BookOpen size={16} /> Preview</button><button type="button" className={panel === 'reviews' ? 'active' : ''} onClick={() => setPanel('reviews')}><Star size={16} /> Reviews</button><button type="button" onClick={() => setSelectedId('')}><X size={16} /> Close</button></div>{panel === 'preview' ? <ResourcePreview file={selected} links={fileLinks(selected)} onClose={() => setSelectedId('')} /> : <FileReviews file={selected} user={user} isAdmin={isAdmin} />}</div>}
       {error && <p className="ah-message" role="alert">{error}</p>}
       {loading ? <div className="ah-loading" role="status"><div /><div /><div /><p>Loading academic resources…</p></div> :
-        <>{subjectsExpanded && <div className="ah-subject-grid" aria-label="Subject folders">{subjects.map((code) => <button key={code} type="button" className={'ah-subject' + (subject === code ? ' active' : '')} aria-pressed={subject === code} onClick={() => openSubject(code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{displayFolderName(code)}</strong><small>{(() => { const total = folderCounts[code] ?? counts[code] ?? 0; return total + (total === 1 ? ' file' : ' files'); })()}</small></span><ArrowRight size={16} /></button>)}</div>}
-          <div className="ah-results-head"><div><span className="ah-eyebrow">{subject ? 'Selected subject' : 'Resource collection'}</span><h3>{subject || 'All available subjects'}</h3><p>{normalized ? 'Search results from currently loaded files' : 'Showing ' + displayed.length + ' of ' + matches.length + ' matching loaded resources'}</p></div>{subject && <button className="ah-secondary" type="button" onClick={() => openSubject('')}><ArrowLeft size={16} /> Back to subjects</button>}</div>
+        <>{subjectsExpanded && !subject && (openGroup ? <div aria-label={openGroup + ' subject folders'}><div className="ah-crumb"><button type="button" className="ah-secondary" onClick={() => openGroupView('')}><ArrowLeft size={15} /> All folders</button><span className="ah-crumb-sep" aria-hidden="true">/</span><strong>{openGroup}</strong></div><div className="ah-subject-grid" aria-label={openGroup + ' subjects'}>{(subjectGroups.find(([p]) => p === openGroup) || ['', []])[1].map((code) => <button key={code} type="button" className="ah-subject" onClick={() => openSubject(code)}><span className="ah-subject-icon"><BookOpen size={19} /></span><span><strong>{displayFolderName(code)}</strong><small>{(() => { const total = folderCounts[code] ?? counts[code] ?? 0; return total + (total === 1 ? ' file' : ' files'); })()}</small></span><ArrowRight size={16} /></button>)}</div></div> : <div className="ah-group-grid" aria-label="Main subject folders">{subjectGroups.map(([prefix, codes]) => { const totalFiles = codes.reduce((n, c) => n + (folderCounts[c] ?? counts[c] ?? 0), 0); return <button key={prefix} type="button" className="ah-group" onClick={() => openGroupView(prefix)}><span className="ah-group-icon"><Folder size={22} /></span><span><strong>{prefix}</strong><small>{codes.length + (codes.length === 1 ? ' subject' : ' subjects') + ' · ' + totalFiles + (totalFiles === 1 ? ' file' : ' files')}</small></span><ArrowRight size={16} /></button>; })}</div>)}
+          <div className="ah-results-head"><div><span className="ah-eyebrow">{subject ? 'Selected subject' : 'Resource collection'}</span><h3>{subject || 'All available subjects'}</h3><p>{normalized ? 'Search results from currently loaded files' : 'Showing ' + displayed.length + ' of ' + matches.length + ' matching loaded resources'}</p></div>{subject && <button className="ah-secondary" type="button" onClick={backToSubjects}><ArrowLeft size={16} /> Back to subjects</button>}</div>
           {displayed.length ? <div className="ah-resource-grid">{displayed.map((file) => <ResourceCard key={file.id} file={file} isAdmin={isAdmin} onDelete={del} onPreview={(f) => openPanel(f, 'preview')} onReviews={(f) => openPanel(f, 'reviews')} onDownload={download} downloadStatus={downloadStatus[file.id]} />)}</div> : <div className="ah-empty"><FileArchive size={30} /><h3>No matching files in this loaded batch</h3><p>Try another subject or load more resources. You can also check the existing Academic Hub administrator tools for new uploads.</p></div>}
           {matches.length > displayed.length && <button className="ah-secondary ah-load" type="button" onClick={() => setVisible((n) => n + 18)}>Show more matching files <ArrowRight size={16} /></button>}
           {hasMore && <button className="ah-primary ah-load" type="button" disabled={loadingMore} onClick={more}>{loadingMore ? 'Loading more files…' : 'Load next ' + PAGE_SIZE + ' resources'} <ArrowRight size={16} /></button>}

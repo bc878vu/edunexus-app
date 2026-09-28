@@ -14,3 +14,14 @@
 .pdfjs-pagewrap{max-height:70vh;overflow:auto;background:#525659;display:grid;justify-items:center;padding:12px}
 .pdfjs-canvas{max-width:100%;height:auto;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);border-radius:2px}
 @media(max-width:470px){.pdfjs-toolbar{gap:4px;padding:6px}.pdfjs-btn{min-width:30px;height:30px;font-size:.95rem}.pdfjs-pageinput{width:44px;height:30px}}
+.ah-group-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));gap:12px;margin-bottom:30px}
+.ah-group{display:flex;align-items:center;gap:12px;border:1px solid var(--ah-border);border-radius:16px;background:var(--ah-card);text-align:left;padding:16px;color:var(--ah-ink);min-width:0;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.ah-group:hover{transform:translateY(-2px);border-color:#8b8ff7;box-shadow:0 10px 24px -19px #4f46e5}
+.ah-group-icon{display:grid;place-items:center;flex-shrink:0;height:46px;width:46px;border-radius:12px;background:rgba(99,102,241,.12);color:#4f46e5}
+.ah-group>span:nth-child(2){flex:1;min-width:0;display:grid;gap:3px}
+.ah-group strong{font-size:1.02rem;letter-spacing:.03em}
+.ah-group small{font-size:.73rem;color:var(--ah-muted)}
+.ah-group>svg{color:#818cf8;flex-shrink:0}
+.ah-crumb{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.ah-crumb-sep{color:var(--ah-muted)}
+.ah-crumb strong{font-size:1.05rem;letter-spacing:.03em}
