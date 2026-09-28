@@ -58,13 +58,7 @@ const slugForPreview = (value) => String(value || 'study-resource').normalize('N
 // Canonical share/preview URL. Server-rendered resource pages carry each
 // file's own title, description and OG/Twitter metadata; when opened by a
 // person they provide a direct "Preview this file" route into the SPA.
-const filePreviewLink = (f) => {
-  const base = '/vu-notes/file/' + encodeURIComponent(f.id) + '/' + slugForPreview(nameOf(f));
-  const q = new URLSearchParams();
-  q.set('share', '1'); q.set('t', nameOf(f)); q.set('s', cut(f.subject, 80) || 'General');
-  if (f.description) q.set('d', cut(f.description, 300));
-  return base + '?' + q.toString();
-};
+const filePreviewLink = (f) => '/vu-notes/file/' + encodeURIComponent(f.id) + '/' + slugForPreview(nameOf(f));
 const extOf = (f) => {
   const explicit = cut(f.ext, 10).replace(/[^a-z0-9]/gi, '').toUpperCase();
   if (explicit && explicit !== 'LINK') return explicit;
