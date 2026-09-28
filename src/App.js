@@ -3851,19 +3851,26 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
+    // Automation/password-manager fallback: controlled inputs miss programmatic
+    // fills that bypass React onChange, so read the DOM when state is empty.
+    const formEl = e.target;
+    const domEmail = (formEl.querySelector('#admin-login-email') || {}).value || '';
+    const domPassword = (formEl.querySelector('#admin-login-password') || {}).value || '';
+    const emailVal = email.trim() || String(domEmail).trim();
+    const passwordVal = password || String(domPassword);
+    if (!emailVal || !passwordVal) {
       showToast("Email and password required.", "error");
       return;
     }
     setLoading(true);
     adminLoginStarted();
     try {
-      const enteredEmail = email.trim().toLowerCase();
+      const enteredEmail = emailVal.toLowerCase();
       if (enteredEmail !== ADMIN_EMAIL.toLowerCase()) throw new Error("Invalid admin credentials.");
       // Tab-scoped session persistence + email-verification flow live inside
       // the auth adapter's signInAdmin (Firebase branch). Supabase branch
       // uses Supabase's own session + confirmation handling.
-      const appUser = await signInAdmin(enteredEmail, password);
+      const appUser = await signInAdmin(enteredEmail, passwordVal);
       const firebaseUser = appUser.raw;
       if (!grantAdminTab(firebaseUser)) throw new Error("Session storage unavailable. Enable it to open Admin Panel.");
       onLoginSuccess(firebaseUser);
@@ -3918,6 +3925,7 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
               <input
                 id="admin-login-email"
                 name="admin-email"
+                aria-label="Admin Email"
                 type="email"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
                 placeholder="Enter admin Email"
@@ -3938,6 +3946,7 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
               <input
                 id="admin-login-password"
                 name="admin-password"
+                aria-label="Admin Password"
                 type="password"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
                 placeholder="Enter admin password"
