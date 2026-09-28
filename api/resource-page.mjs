@@ -66,7 +66,7 @@ function buildSchema({ name, subject, summary, canonical }) {
 }
 export default async function handler(req, res) {
   if (!['GET', 'HEAD'].includes(req.method)) return res.status(405).end();
-  const id = String(req.query?.id || '');
+  const id = String(req.query?.id || req.query?.file || '');
   const reviewPage = validReviewPage(req.query?.reviews);
   if (!validId(id) || reviewPage === null) return res.status(404).send('Resource not found');
   try {
@@ -76,6 +76,49 @@ export default async function handler(req, res) {
     const subject = String(file.subject || 'General').slice(0, 120);
     const description = String(file.description || '').trim().slice(0, 3500);
     const path = resourcePath(id, name);
+    // Compact OG response for shared preview links (?page=academic&file=ID&panel=preview).
+    // Served to WhatsApp/Facebook/Twitter crawlers via the vercel.json rewrite —
+    // crawlers don't run JS, so the SPA's index.html would only show generic tags.
+    // Folded into this existing function to stay under the Hobby-plan function limit.
+    if (req.query?.ogpreview) {
+      const ogCacheKey = id + ':ogpreview';
+      const buildOgHtml = () => {
+        const ogPage = String(req.query?.page || 'academic');
+        const ogSubject = String(req.query?.subject || '');
+        const ogPanel = String(req.query?.panel || 'preview');
+        let ogAppUrl = SITE + '/?page=' + encodeURIComponent(ogPage);
+        if (ogSubject) ogAppUrl += '&subject=' + encodeURIComponent(ogSubject);
+        ogAppUrl += '&file=' + encodeURIComponent(id);
+        if (ogPanel) ogAppUrl += '&panel=' + encodeURIComponent(ogPanel);
+        const ogSummary = description || ('Preview and download ' + name + ' for ' + subject + ' in the EduNexus Academic Hub.');
+        const ogTitle = name + ' | ' + subject + (name.toLowerCase().includes('edunexus') ? '' : ' | EduNexus');
+        const ogDesc = ogSummary.slice(0, 190);
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+          '<title>' + h(ogTitle) + '</title><meta name="description" content="' + h(ogDesc) + '">' +
+          '<meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus">' +
+          '<meta property="og:title" content="' + h(ogTitle) + '"><meta property="og:description" content="' + h(ogDesc) + '">' +
+          '<meta property="og:url" content="' + h(ogAppUrl) + '"><meta property="og:image" content="' + h(SITE + '/logo512.png') + '">' +
+          '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + h(ogTitle) + '">' +
+          '<meta name="twitter:description" content="' + h(ogDesc) + '"><meta name="twitter:image" content="' + h(SITE + '/logo512.png') + '">' +
+          '<meta http-equiv="refresh" content="0;url=' + h(ogAppUrl) + '"></head>' +
+          '<body><p><a href="' + h(ogAppUrl) + '">' + h(ogTitle) + '</a></p></body></html>';
+      };
+      try {
+        const ogHtml = buildOgHtml();
+        cacheSet(ogCacheKey, ogHtml);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        if (req.method === 'HEAD') return res.status(200).end();
+        return res.status(200).send(ogHtml);
+      } catch (ogErr) {
+        const cachedOg = cacheGet(ogCacheKey);
+        if (cachedOg) {
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          return res.status(200).send(cachedOg);
+        }
+        throw ogErr;
+      }
+    }
     if (req.query?.slug !== slugFor(name)) return res.redirect(301, linkToPage(path, reviewPage));
     const canonical = SITE + linkToPage(path, reviewPage);
     const summary = description || ('Preview and download ' + name + ' for ' + subject + ' in the EduNexus Academic Hub.');
