@@ -61,9 +61,17 @@ const slugForPreview = (value) => String(value || 'study-resource').normalize('N
 // Keep the share URL short. The opaque file id is enough for the server to
 // load the resource and emit its real OG title/description; the short slug is
 // only human-readable and is canonicalized server-side.
-const filePreviewLink = (f) => '/vu-notes/file/' + encodeURIComponent(f.id) + '/' + slugForPreview(
-  extractCourseCode(f.subject || '') || String(f.subject || '').split('_')[0] || 'resource'
-);
+const filePreviewLink = (f) => {
+  // Compact, self-contained WhatsApp/social preview link. Keep only a short
+  // title + description in the query so the server can build OG metadata
+  // without a Firestore read, while avoiding the previous very long URL.
+  const q = new URLSearchParams();
+  q.set('share', '1');
+  q.set('t', cut(nameOf(f).replace(/\s*[|–-]\s*EduNexus\s*$/i, ''), 72));
+  const desc = cut(f.description, 96);
+  if (desc) q.set('d', desc);
+  return '/vu-notes/file/' + encodeURIComponent(f.id) + '?' + q.toString();
+};
 const extOf = (f) => {
   const explicit = cut(f.ext, 10).replace(/[^a-z0-9]/gi, '').toUpperCase();
   if (explicit && explicit !== 'LINK') return explicit;
