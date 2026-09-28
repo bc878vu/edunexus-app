@@ -6,7 +6,7 @@ import { getBlob, ref as storageRef } from 'firebase/storage';
 import './academic-hub-pro.css';
 import './academic-hub-v2.css';
 import { countWords, reviewQualityMessage } from './reviewQuality';
-import { trustedPreviewUrl, previewSandbox } from './academic-preview.mjs';
+import { trustedPreviewUrl, previewSandbox, gviewEmbedUrl } from './academic-preview.mjs';
 import { routeParamsFromPath } from './app-routes.mjs';
 import { useConfirm } from './ConfirmDialog';
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
@@ -156,9 +156,18 @@ function verifyPdfBlob(blob) {
   });
 }
 
+// Android Chrome (and some other mobile browsers) cannot render a PDF from a
+// blob: URL inside an iframe — the frame shows "This content is blocked" —
+// while desktop Chrome renders the same blob fine. On mobile we therefore
+// render PDFs through Google Docs Viewer (HTML), which works everywhere.
+function isMobileBrowser() {
+  return typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+}
+
 function ResourcePreview({ file, links, onClose }) {
   const ext = extOf(file);
   const isImage = links.kind === 'image' || (links.kind === 'firebase' && ['JPG','JPEG','PNG','WEBP'].includes(ext));
+  const isPdf = ext === 'PDF' && (links.kind === 'pdf' || links.kind === 'firebase');
   const supportedFirebase = links.kind === 'firebase' && (isImage || ext === 'PDF')
     && (!Number.isFinite(file.size) || file.size <= 20 * 1024 * 1024);
   // Direct-URL PDFs (Supabase/Cloudinary) are fetched as same-origin blobs:
@@ -170,7 +179,31 @@ function ResourcePreview({ file, links, onClose }) {
     && (!Number.isFinite(file.size) || file.size <= 20 * 1024 * 1024);
   const [localUrl, setLocalUrl] = useState('');
   const [state, setState] = useState('idle');
+  // PDF viewer choice: 'blob' renders fetched bytes in the native viewer
+  // (desktop Chrome), 'gview' renders through Google Docs Viewer as HTML
+  // (mobile default, and the automatic fallback when the blob path fails).
+  const [viewerOverride, setViewerOverride] = useState(null);
+  const mobileDefault = useMemo(isMobileBrowser, []);
+  const pdfMode = isPdf ? (viewerOverride || (mobileDefault ? 'gview' : 'blob')) : 'blob';
+  // Source URL for Google Docs Viewer: the validated direct PDF URL, or the
+  // Firebase Storage download URL for firebase-kind PDFs.
+  const gviewSource = links.kind === 'pdf' ? directPdfUrl
+    : (links.kind === 'firebase' && ext === 'PDF' && /^https:\/\//.test(links.source || '') ? links.source : '');
+  const gviewUrl = pdfMode === 'gview' ? trustedPreviewUrl({ kind: 'gview' }, gviewEmbedUrl(gviewSource), '') : '';
+  const fileKeyRef = useRef('');
   useEffect(() => {
+    const fileKey = links.kind + '|' + links.preview + '|' + (file.storagePath || '');
+    if (fileKeyRef.current !== fileKey) {
+      // New file: drop any viewer choice carried over from the previous one.
+      fileKeyRef.current = fileKey;
+      if (viewerOverride !== null) { setViewerOverride(null); return; }
+    }
+    if (isPdf && pdfMode === 'gview') {
+      // Google Docs Viewer fetches the public PDF itself; nothing to download.
+      if (gviewUrl) { setLocalUrl(''); setState('ready'); }
+      else { setLocalUrl(''); setState('idle'); }
+      return;
+    }
     let loadBlob = null;
     if (supportedFirebase && file.storagePath) {
       loadBlob = getBlob(storageRef(storage, file.storagePath), 20 * 1024 * 1024).then(verifyPdfBlob);
@@ -193,16 +226,18 @@ function ResourcePreview({ file, links, onClose }) {
       objectUrl = URL.createObjectURL(blob);
       setLocalUrl(objectUrl); setState('ready');
     }).catch(() => {
-      if (alive) setState('error');
+      // Blob path failed (network/CORS/verification): fall back to Google Docs
+      // Viewer instead of showing an error.
+      if (alive) setViewerOverride('gview');
     });
     return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [file.storagePath, supportedFirebase, supportedDirectPdf, directPdfUrl]);
+  }, [file.storagePath, supportedFirebase, supportedDirectPdf, directPdfUrl, links.preview, links.kind, links.source, isPdf, pdfMode, gviewUrl, viewerOverride, ext]);
   const displayUrl = localUrl || links.preview;
-  const frameUrl = trustedPreviewUrl(links, links.preview, localUrl);
+  const frameUrl = pdfMode === 'gview' && isPdf ? gviewUrl : trustedPreviewUrl(links, links.preview, localUrl);
   // Until a direct PDF's blob is ready — or if it can't be fetched — keep the
   // blocked cross-origin URL out of the iframe and show the loading/download
   // message instead.
-  const directPdfBlocked = links.kind === 'pdf' && ext === 'PDF' && !/^blob:/.test(localUrl || '');
+  const directPdfBlocked = pdfMode === 'blob' && links.kind === 'pdf' && ext === 'PDF' && !/^blob:/.test(localUrl || '');
   const canEmbed = Boolean(isImage ? displayUrl : frameUrl) && !directPdfBlocked;
   // Chrome's built-in PDF viewer is blocked inside ANY sandboxed iframe —
   // verified live: sandbox="allow-scripts allow-same-origin" still shows "This
@@ -211,14 +246,14 @@ function ResourcePreview({ file, links, onClose }) {
   // (bytes we fetched from an allowlisted host and checked for the %PDF-
   // signature) therefore render without the sandbox attribute. Every other
   // preview kind keeps the sandbox.
-  const isVerifiedPdfBlob = ext === 'PDF' && /^blob:/.test(frameUrl || '');
+  const isVerifiedPdfBlob = pdfMode === 'blob' && ext === 'PDF' && /^blob:/.test(frameUrl || '');
   return <section className="ah-focus" aria-label="Resource preview">
     <div className="ah-between"><div><span className="ah-eyebrow">In-page preview</span><h3>{nameOf(file)}</h3></div><button type="button" className="ah-icon-button" onClick={onClose} aria-label="Close preview"><X size={19} /></button></div>
     {state === 'loading' && <div className="ah-loading" role="status"><div /><p>Preparing a secure in-page preview…</p></div>}
     {canEmbed ? (isImage ? <img className="ah-preview-image" loading="lazy" src={displayUrl} alt={nameOf(file)} /> :
       <iframe className="ah-preview-frame" loading="lazy" title={'Preview of ' + nameOf(file)} src={frameUrl} sandbox={isVerifiedPdfBlob ? undefined : previewSandbox(links.kind)} referrerPolicy="no-referrer" />) :
       state !== 'loading' && <div className="ah-empty"><FileText size={26} /><p>{state === 'error' ? 'The file could not be previewed in this browser (possibly because of Storage CORS settings). Its download link remains available.' : 'Only known PDF and document hosts are previewed inside EduNexus. If the viewer cannot load, use the existing Download button to open the original file.'}</p></div>}
-    <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span></div>
+    <div className="ah-preview-foot"><span>{ext} · {cut(file.subject, 50) || 'General'}</span>{isPdf && gviewSource && <button type="button" onClick={() => setViewerOverride(pdfMode === 'gview' ? 'blob' : 'gview')} style={{ background: 'none', border: 0, padding: 0, color: '#6366f1', fontWeight: 700, cursor: 'pointer', fontSize: 'inherit', fontFamily: 'inherit' }}>{pdfMode === 'gview' ? 'Try native viewer' : 'Try Google viewer'}</button>}</div>
   </section>;
 }
 

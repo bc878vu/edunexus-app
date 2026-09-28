@@ -30,7 +30,24 @@ export function trustedPreviewUrl(links, originalUrl, localUrl = '') {
       !/\/(?:image|raw|video|auto)\/upload\//.test(url.pathname)) return '';
     return url.href;
   }
+  if (kind === 'gview') {
+    // A Google Docs Viewer embed URL we built ourselves via gviewEmbedUrl().
+    return url.hostname === 'docs.google.com' && url.pathname === '/gview'
+      && url.searchParams.get('embedded') === '1' ? url.href : '';
+  }
   return '';
+}
+
+// Builds a Google Docs Viewer embed URL for a direct PDF link. The viewer
+// renders the PDF as HTML, which works on mobile browsers (e.g. Android
+// Chrome) where the native PDF plugin cannot render blob: URLs inside an
+// iframe ("This content is blocked"). The source URL must be plain https.
+export function gviewEmbedUrl(directUrl) {
+  if (!directUrl || typeof directUrl !== 'string') return '';
+  let url;
+  try { url = new URL(directUrl); } catch { return ''; }
+  if (url.protocol !== 'https:' || url.username || url.password) return '';
+  return 'https://docs.google.com/gview?embedded=1&url=' + encodeURIComponent(url.href);
 }
 
 export function previewSandbox(kind) {
