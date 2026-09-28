@@ -35,3 +35,31 @@
 .ah-suggest-label{font-size:.82rem;font-weight:750;color:var(--ah-muted)}.ah-suggest-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #6366f1;background:rgba(99,102,241,.09);color:var(--ah-ink);border-radius:99px;padding:8px 14px;font-size:.84rem;font-weight:750;transition:transform .18s ease,background .18s ease,box-shadow .18s ease}.ah-suggest-chip:hover{background:#4f46e5;border-color:#4f46e5;color:#fff;transform:translateY(-1px);box-shadow:0 8px 18px -12px #4f46e5}.ah-suggest-chip:hover svg{color:#fff}.ah-suggest-chip svg{color:#6366f1;flex-shrink:0}
 
 body.ah-preview-open .edx-free-orb{display:none!important}
+
+/* PDF preview polish: stable top controls + compact responsive mobile layout. */
+.pdfjs-viewer{position:relative;display:flex;flex-direction:column;max-width:100%;height:min(78vh,820px);background:#525659}
+.pdfjs-toolbar{position:relative!important;top:auto!important;z-index:8;flex:0 0 auto;width:100%;min-height:52px;justify-content:flex-start;flex-wrap:nowrap!important;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.pdfjs-toolbar::-webkit-scrollbar{display:none}
+.pdfjs-pagewrap{flex:1 1 auto;height:auto!important;max-height:none!important;min-height:0;overflow:auto!important;padding:12px;touch-action:pan-x pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.pdfjs-hint{flex:0 0 auto;order:-1;background:#323639;padding:5px 10px}
+.pdfjs-page{margin:0 auto 12px}
+@media(max-width:790px){
+ .ah-focus>.ah-between{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+ .ah-focus>.ah-between .ah-icon-button{grid-column:2;grid-row:1;position:relative;margin:0;width:42px;height:42px;padding:0}
+ .ah-focus>.ah-between>div{grid-column:1;grid-row:1;min-width:0}
+ .pdfjs-viewer{height:72svh;border-radius:12px}
+ .pdfjs-toolbar{min-height:48px;padding:6px 8px!important;gap:5px!important}
+ .pdfjs-btn{min-width:38px!important;width:38px;height:38px!important;padding:0!important;flex:0 0 38px}
+ .pdfjs-pageinput{width:52px!important;min-width:52px!important;height:38px!important;flex:0 0 52px}
+ .pdfjs-count{font-size:.82rem}
+ .pdfjs-sep{margin:0 1px}
+ .pdfjs-zoomlabel{min-width:46px!important;font-size:.82rem!important}
+ .pdfjs-pagewrap{padding:8px}
+ .pdfjs-hint{font-size:.7rem;padding:4px 8px}
+}
+@media(max-width:390px){
+ .pdfjs-toolbar{padding:5px 6px!important;gap:3px!important}
+ .pdfjs-btn{min-width:34px!important;width:34px;height:36px!important;flex-basis:34px}
+ .pdfjs-pageinput{width:46px!important;min-width:46px!important;height:36px!important;flex-basis:46px}
+ .pdfjs-zoomlabel{min-width:42px!important}
+}
