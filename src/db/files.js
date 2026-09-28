@@ -121,6 +121,27 @@ export async function listFiles({
   });
 }
 
+/** Fetch files for one or more exact subject aliases without orderBy.
+ * Firebase intentionally avoids the subject+createdAt composite-index requirement.
+ */
+export async function listFilesBySubjects(subjects, { limit: max = 400, activeOnly = true } = {}) {
+  const wanted = [...new Set((subjects || []).map((v) => String(v || '').trim()).filter(Boolean))];
+  if (!wanted.length) return [];
+  if (USE_SUPABASE) {
+    const { data, error } = await supabase.from('files').select('*')
+      .in('subject', wanted).limit(max);
+    if (error) throw error;
+    return (data || []).map(toFile).filter((f) => !activeOnly || f.isActive !== false);
+  }
+  const out = [];
+  for (let i = 0; i < wanted.length && out.length < max; i += 10) {
+    const batch = wanted.slice(i, i + 10);
+    const snap = await getDocs(query(FILES(), where('subject', 'in', batch), limit(Math.min(max - out.length, 400))));
+    out.push(...snap.docs.map(fbItem));
+  }
+  return out.filter((f) => !activeOnly || f.isActive !== false).slice(0, max);
+}
+
 export async function getFile(id) {
   if (USE_SUPABASE) {
     const { data, error } = await supabase.from('files').select('*').eq('id', id).maybeSingle();
