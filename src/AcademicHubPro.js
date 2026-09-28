@@ -58,7 +58,12 @@ const slugForPreview = (value) => String(value || 'study-resource').normalize('N
 // Canonical share/preview URL. Server-rendered resource pages carry each
 // file's own title, description and OG/Twitter metadata; when opened by a
 // person they provide a direct "Preview this file" route into the SPA.
-const filePreviewLink = (f) => '/vu-notes/file/' + encodeURIComponent(f.id) + '/' + slugForPreview(nameOf(f));
+// Keep the share URL short. The opaque file id is enough for the server to
+// load the resource and emit its real OG title/description; the short slug is
+// only human-readable and is canonicalized server-side.
+const filePreviewLink = (f) => '/vu-notes/file/' + encodeURIComponent(f.id) + '/' + slugForPreview(
+  extractCourseCode(f.subject || '') || String(f.subject || '').split('_')[0] || 'resource'
+);
 const extOf = (f) => {
   const explicit = cut(f.ext, 10).replace(/[^a-z0-9]/gi, '').toUpperCase();
   if (explicit && explicit !== 'LINK') return explicit;
