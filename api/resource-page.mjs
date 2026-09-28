@@ -28,6 +28,24 @@ const validReviewPage = (raw) => {
   return Number.isSafeInteger(n) && n <= 1000 ? n : null;
 };
 function linkToPage(path, page) { return path + (page > 1 ? '?reviews=' + page : ''); }
+
+// In-memory cache: survives Firestore quota outages so shared resource links keep working.
+const pageCache = new Map(); // key -> { html, at }
+const CACHE_TTL = 6 * 60 * 60 * 1000;
+const MAX_CACHE = 200;
+function cacheGet(key) {
+  const e = pageCache.get(key);
+  if (!e) return null;
+  if (Date.now() - e.at > CACHE_TTL) { pageCache.delete(key); return null; }
+  return e.html;
+}
+function cacheSet(key, html) {
+  if (pageCache.size >= MAX_CACHE) { const k = pageCache.keys().next().value; pageCache.delete(k); }
+  pageCache.set(key, { html, at: Date.now() });
+}
+function fallbackPage() {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Study Resource | EduNexus</title><meta name="robots" content="noindex,follow"><style>${styles}</style></head><body>${navbar}<main><article class="resource"><div class="meta">EduNexus · Academic Hub</div><h1>Study Resource</h1><p>This resource page is temporarily unavailable. Please try again in a little while, or open it directly in the Academic Hub.</p><div class="buttons"><a class="button" href="/?page=academic">Open Academic Hub</a><a class="button secondary" href="/">Back to home</a></div></article></main><footer class="site-footer"><p>© EduNexus · Independent student study resources</p></footer></body></html>`;
+}
 function buildSchema({ name, subject, summary, canonical }) {
   // A downloadable PDF page is a LearningResource, not necessarily a Course,
   // Book, Product or other Google review-rich-result eligible entity. Google
@@ -110,7 +128,7 @@ export default async function handler(req, res) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', standaloneContentSecurityPolicy);
     if (req.method === 'HEAD') return res.status(200).end();
-    return res.status(200).send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title>
+    const fullHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title>
 <meta name="description" content="${h((reviewPage > 1 ? 'Student reviews page ' + reviewPage + ': ' : '') + summary.slice(0, 155))}"><meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">
 <meta name="google-adsense-account" content="ca-pub-5179042048080611">${standaloneAdScript}<link rel="canonical" href="${h(canonical)}">
 <meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(summary.slice(0, 190))}"><meta property="og:url" content="${h(canonical)}">
@@ -121,9 +139,13 @@ export default async function handler(req, res) {
 ${educationalContext}${relatedLinks}
 <section class="reviews" aria-label="Student reviews"><h2>Student reviews${reviewPage > 1 ? ' — page ' + reviewPage : ''}</h2>
 ${renderedReviews}${pagination}<a href="${h(reviewUrl)}">Read and write reviews in Academic Hub</a></section></main>
-<footer class="site-footer"><p>© EduNexus · Independent student study resources</p><nav aria-label="Footer links"><a href="/?page=academic">Academic Hub</a><a href="/?page=about">About</a><a href="/?page=contact">Contact</a><a href="/?page=privacy">Privacy Policy</a><a href="/?page=terms">Terms of Service</a></nav></footer></body></html>`);
+<footer class="site-footer"><p>© EduNexus · Independent student study resources</p><nav aria-label="Footer links"><a href="/?page=academic">Academic Hub</a><a href="/?page=about">About</a><a href="/?page=contact">Contact</a><a href="/?page=privacy">Privacy Policy</a><a href="/?page=terms">Terms of Service</a></nav></footer></body></html>`;
+    cacheSet(id + ':reviews=' + reviewPage, fullHtml);
+    return res.status(200).send(fullHtml);
   } catch (error) {
     console.error('Resource page lookup failed', error?.message || 'unknown');
-    return res.status(503).send('This resource is temporarily unavailable. Please try again shortly.');
+    const cached = cacheGet(id + ':reviews=' + reviewPage);
+    if (cached) return res.status(200).send(cached);
+    return res.status(503).send(fallbackPage());
   }
 }
