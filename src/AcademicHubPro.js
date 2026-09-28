@@ -216,6 +216,7 @@ function PdfJsPreview({ blob }) {
   const [pageInput, setPageInput] = useState('1');
   const [zoom, setZoom] = useState(1); // 1 = fit width; user zoom is relative to current viewport
   const [viewerWidth, setViewerWidth] = useState(0);
+  const zoomTimerRef = useRef(0);
   const [fitScale, setFitScale] = useState(0);
   const fitScaleRef = useRef(0);
   const [pageAspect, setPageAspect] = useState(1.414); // h/w placeholder ratio
@@ -424,12 +425,13 @@ function PdfJsPreview({ blob }) {
   // effects, no ref timing gap). Stable via useCallback so the pinch effect
   // below always sees the current status/numPages through renderVisiblePages.
   const applyZoom = useCallback((nz) => {
-    const z = Math.min(3, Math.max(0.5, +nz.toFixed(2)));
+    const z = Math.min(4, Math.max(0.5, +nz.toFixed(2)));
     zoomRef.current = z;
     setZoom(z);
-    // Keys include the zoom value, so old renders never collide — just render
-    // visible pages at the new zoom immediately.
-    renderVisiblePages(z);
+    // Debounce expensive high-DPI canvas work while tapping/pinching quickly.
+    // CSS gives instant feedback; PDF.js redraws sharply when interaction settles.
+    clearTimeout(zoomTimerRef.current);
+    zoomTimerRef.current = setTimeout(() => renderVisiblePages(z), 90);
   }, [renderVisiblePages]);
   const changeZoom = (dir) => {
     // Fine control near fit-width, faster steps only at high magnification.
@@ -465,7 +467,7 @@ function PdfJsPreview({ blob }) {
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        const nz = Math.min(3, Math.max(0.5, pinchRef.current.zoom * (d / pinchRef.current.dist)));
+        const nz = Math.min(4, Math.max(0.5, pinchRef.current.zoom * (d / pinchRef.current.dist)));
         applyZoom(+nz.toFixed(2));
       }
     };
@@ -514,10 +516,10 @@ function PdfJsPreview({ blob }) {
         />
         <span className="pdfjs-pagetotal">/ {numPages || '…'}</span>
         <button type="button" className="pdfjs-btn" onClick={() => scrollToPage(pageNum + 1)} disabled={numPages > 0 && pageNum >= numPages} aria-label="Next page">›</button>
-        <span className="pdfjs-sep" />
+        <span className="pdfjs-sep" aria-hidden="true" />
         <button type="button" className="pdfjs-btn" onClick={() => changeZoom(-1)} disabled={zoom <= 0.5} aria-label="Zoom out">−</button>
         <button type="button" className="pdfjs-zoomlabel" onClick={resetZoom} aria-label="Fit page to viewer" title="Fit width">{Math.round(zoom * 100)}%</button>
-        <button type="button" className="pdfjs-btn" onClick={() => changeZoom(1)} disabled={zoom >= 3} aria-label="Zoom in">+</button>
+        <button type="button" className="pdfjs-btn" onClick={() => changeZoom(1)} disabled={zoom >= 4} aria-label="Zoom in">+</button>
       </div>
       <div className="pdfjs-hint">Swipe to scroll pages · Pinch to zoom</div>
       <div className="pdfjs-pagewrap" ref={containerRef}>
