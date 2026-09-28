@@ -233,7 +233,7 @@ export default async function handler(req, res) {
       (hasMore ? '<a rel="next" href="' + h(linkToPage(path, reviewPage + 1)) + '">More reviews →</a>' : '') +
       '</nav>';
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', standaloneContentSecurityPolicy);
     if (req.method === 'HEAD') return res.status(200).end();
