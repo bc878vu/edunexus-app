@@ -12,7 +12,7 @@ const DATA = {
   planner: ["AI Study Planner for University Students | EduNexus", "Build a focused study plan around your subjects, available study time and exam preparation goals.", "AI study planner, university study plan, VU study planner, exam timetable, study schedule, student planner", "WebApplication"],
   cgpa: ["CGPA & GPA Calculator for VU Students | EduNexus", "Calculate an approximate GPA or CGPA with a responsive university calculator and review how credit hours affect performance.", "CGPA calculator, GPA calculator, VU CGPA calculator, Virtual University GPA, 4.0 GPA calculator, university calculator Pakistan", "WebApplication"],
   forum: ["VU Student Discussion Forum | EduNexus", "Ask study questions, discuss university topics and share learning help with the EduNexus student community.", "VU discussion forum, Virtual University students, student questions, university discussion, VU community", "CollectionPage"],
-  portfolio: ["EduNexus Developer Portfolio | Student Technology Project", "Explore the technology and portfolio behind EduNexus, an independent student-focused learning platform.", "EduNexus portfolio, student technology project, web developer portfolio, education technology Pakistan", "ProfilePage"],
+  portfolio: ["Asad Amanat Ali — Software Engineer & Web Developer | Creator of EduNexus", "Portfolio of Asad Amanat Ali, Software Engineer and creator of EduNexus — a student study platform with VU notes, past papers, solved MCQs, quizzes and exam prep tools.", "Asad Amanat Ali, software engineer portfolio Pakistan, web developer portfolio, EduNexus creator, education technology Pakistan, VU study platform developer", "ProfilePage"],
   about: ["About EduNexus | Independent Student Learning Platform", "Learn about EduNexus and its mission to make academic resources and study tools easier for students to access.", "about EduNexus, student learning platform, education portal, study hub", "AboutPage"],
   contact: ["Contact EduNexus | Student Support & Feedback", "Contact EduNexus for study-resource suggestions, corrections, feedback and technical support.", "contact EduNexus, student support, study portal support, feedback", "ContactPage"],
   guides: ["Study Guides for University Students | EduNexus", "Practical study guides covering revision, note taking, past papers, exam preparation and academic planning.", "study guides, university study tips, exam preparation, revision techniques, student guide Pakistan", "CollectionPage"],
@@ -147,7 +147,9 @@ function updateSeo() {
       '@context': 'https://schema.org', '@type': 'ProfilePage', url: canonical,
       mainEntity: {
         '@type': 'Person', name: 'Asad Amanat Ali', url: canonical,
-        description: 'Creator of EduNexus, a student study and exam preparation platform.'
+        jobTitle: 'Software Engineer',
+        description: 'Software Engineer and creator of EduNexus, a student study and exam preparation platform for Virtual University students.',
+        knowsAbout: ['Web Development', 'Software Engineering', 'Education Technology']
       }
     }).replace(/</g, '\\u003c');
   } else if (profile) {

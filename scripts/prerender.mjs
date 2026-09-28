@@ -24,7 +24,7 @@ const MAX_ROUTES = 60;
 // SPA pages that always get a static file, even if the sitemap omits them.
 const FIXED_ROUTES = [
   '/', '/exam-prep', '/vu-notes', '/articles', '/quizzes', '/cgpa-calculator',
-  '/about', '/contact', '/privacy', '/terms', '/forum', '/tutorials'
+  '/about', '/contact', '/privacy', '/terms', '/forum', '/tutorials', '/portfolio'
 ];
 
 const DEFAULT_ROBOTS = 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
@@ -145,6 +145,16 @@ function staticBlock(route, seo, banks) {
     ];
     addLink('/vu-notes', 'All subjects');
     addLink('/exam-prep', 'Exam MCQ banks');
+  } else if (seo.page === 'portfolio') {
+    h1 = 'Asad Amanat Ali — Software Engineer & Web Developer';
+    paragraphs = [
+      'Asad Amanat Ali is a Software Engineer and the creator of EduNexus, an independent student-focused learning platform for Virtual University students.',
+      'EduNexus brings together subject-wise notes and handouts, past papers, solved MCQ banks for midterm and final term exams, quizzes, a CGPA calculator and AI study tools — everything organized for exam preparation in one place.'
+    ];
+    addLink('/', 'Home');
+    addLink('/vu-notes', 'VU notes & handouts');
+    addLink('/exam-prep', 'Exam MCQ banks');
+    addLink('/articles', 'Study guides & articles');
   } else {
     h1 = seo.title.split('|')[0].trim();
     paragraphs = [seo.description];
@@ -208,11 +218,25 @@ function renderRoute(template, route, seo, banks, robots) {
     '<meta name="twitter:image" content="' + esc(SITE + '/logo512.png') + '"/>');
   // Exactly one JSON-LD block per page: drop the template's static blocks.
   html = html.replace(/<script\s+type="application\/ld\+json">[\s\S]*?<\/script>/g, '');
-  const jsonLd = JSON.stringify({
+  let jsonLd = JSON.stringify({
     '@context': 'https://schema.org', '@type': seo.schemaType,
     name: seo.title.split('|')[0].trim(), url: seo.canonical, description: seo.description,
     isPartOf: { '@type': 'WebSite', name: 'EduNexus', url: SITE }
   }).replace(/</g, '\\u003c');
+  // Portfolio page: full ProfilePage + Person structured data for the profile.
+  if (seo.page === 'portfolio') {
+    jsonLd = JSON.stringify({
+      '@context': 'https://schema.org', '@type': 'ProfilePage',
+      name: seo.title.split('|')[0].trim(), url: seo.canonical, description: seo.description,
+      mainEntity: {
+        '@type': 'Person', name: 'Asad Amanat Ali', url: seo.canonical,
+        jobTitle: 'Software Engineer',
+        description: 'Software Engineer and creator of EduNexus, a student study and exam preparation platform for Virtual University students.',
+        knowsAbout: ['Web Development', 'Software Engineering', 'Education Technology']
+      },
+      isPartOf: { '@type': 'WebSite', name: 'EduNexus', url: SITE }
+    }).replace(/</g, '\\u003c');
+  }
   html = html.replace('</head>', '<script type="application/ld+json">' + jsonLd + '</script></head>');
   // Static content inside #root: crawlers read it, the SPA replaces it on load.
   const block = staticBlock(route, seo, banks);
