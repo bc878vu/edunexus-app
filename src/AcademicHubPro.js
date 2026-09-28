@@ -173,13 +173,21 @@ function isMobileBrowser() {
 // back to parsing on the main thread, which is fine for a preview.
 function PdfJsPreview({ blob }) {
   const containerRef = useRef(null);
-  const [pdfStatus, setPdfStatus] = useState('loading');
-  const [pageCount, setPageCount] = useState(0);
+  const canvasRef = useRef(null);
+  const pdfDocRef = useRef(null);
+  const renderTaskRef = useRef(null);
+  const [status, setStatus] = useState('loading'); // loading | ready | error
+  const [numPages, setNumPages] = useState(0);
+  const [pageNum, setPageNum] = useState(1);
+  const [pageInput, setPageInput] = useState('1');
+  const [zoom, setZoom] = useState(1); // multiplier over fit-width
+  const [fitScale, setFitScale] = useState(0);
+  const [rendering, setRendering] = useState(false);
+
+  // Load the PDF once; keep the document in a ref.
   useEffect(() => {
     let cancelled = false;
-    let pdfDoc = null;
-    setPdfStatus('loading'); setPageCount(0);
-    if (containerRef.current) containerRef.current.innerHTML = '';
+    setStatus('loading'); setNumPages(0); setPageNum(1); setPageInput('1'); setZoom(1);
     (async () => {
       try {
         const pdfjsLib = await import('pdfjs-dist');
@@ -227,48 +235,97 @@ function PdfJsPreview({ blob }) {
         }
         const data = new Uint8Array(await blob.arrayBuffer());
         if (cancelled) return;
-        pdfDoc = await pdfjsLib.getDocument({ data }).promise;
+        const pdfDoc = await pdfjsLib.getDocument({ data }).promise;
         if (cancelled) { try { pdfDoc.destroy(); } catch (e) {} return; }
-        setPageCount(pdfDoc.numPages);
-        setPdfStatus('ready');
-        const container = containerRef.current;
-        for (let n = 1; n <= pdfDoc.numPages; n++) {
-          if (cancelled) break;
-          const page = await pdfDoc.getPage(n);
-          if (cancelled) break;
-          const viewport = page.getViewport({ scale: 1.6 });
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.floor(viewport.width);
-          canvas.height = Math.floor(viewport.height);
-          canvas.style.width = '100%';
-          canvas.style.height = 'auto';
-          canvas.style.display = 'block';
-          canvas.style.background = '#fff';
-          const wrap = document.createElement('div');
-          wrap.style.margin = '0 auto 12px';
-          wrap.style.maxWidth = '100%';
-          wrap.style.boxShadow = '0 2px 10px rgba(20,30,60,.12)';
-          wrap.style.borderRadius = '6px';
-          wrap.style.overflow = 'hidden';
-          wrap.appendChild(canvas);
-          if (container) container.appendChild(wrap);
-          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-          await new Promise((r) => setTimeout(r, 0));
-        }
+        pdfDocRef.current = pdfDoc;
+        setNumPages(pdfDoc.numPages);
+        // Fit-width scale from page 1.
+        const page = await pdfDoc.getPage(1);
+        if (cancelled) return;
+        const availW = containerRef.current ? containerRef.current.clientWidth - 24 : 360;
+        const fs = Math.max(availW / page.getViewport({ scale: 1 }).width, 0.2);
+        setFitScale(fs);
+        setStatus('ready');
       } catch (err) {
-        if (!cancelled) setPdfStatus('error');
+        if (!cancelled) setStatus('error');
       }
     })();
-    return () => { cancelled = true; if (pdfDoc) { try { pdfDoc.destroy(); } catch (e) {} } };
+    return () => {
+      cancelled = true;
+      if (renderTaskRef.current) { try { renderTaskRef.current.cancel(); } catch (e) {} }
+      if (pdfDocRef.current) { try { pdfDocRef.current.destroy(); } catch (e) {} pdfDocRef.current = null; }
+    };
   }, [blob]);
-  if (pdfStatus === 'error') {
+
+  // Render the current page whenever page / zoom / fit changes.
+  useEffect(() => {
+    if (status !== 'ready' || !pdfDocRef.current || fitScale <= 0) return;
+    let cancelled = false;
+    (async () => {
+      setRendering(true);
+      try {
+        if (renderTaskRef.current) { try { renderTaskRef.current.cancel(); } catch (e) {} renderTaskRef.current = null; }
+        const page = await pdfDocRef.current.getPage(pageNum);
+        if (cancelled) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const viewport = page.getViewport({ scale: fitScale * zoom * dpr });
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        const task = page.render({ canvasContext: canvas.getContext('2d'), viewport });
+        renderTaskRef.current = task;
+        await task.promise;
+      } catch (err) {
+        // Ignore cancellations; a fresh render is already queued.
+      }
+      if (!cancelled) setRendering(false);
+    })();
+    return () => { cancelled = true; };
+  }, [status, pageNum, zoom, fitScale]);
+
+  const goToPage = (n) => {
+    const clamped = Math.min(Math.max(1, n || 1), numPages || 1);
+    setPageNum(clamped);
+    setPageInput(String(clamped));
+    if (containerRef.current) containerRef.current.scrollTop = 0;
+  };
+  const changeZoom = (dir) => {
+    setZoom((z) => Math.min(3, Math.max(0.5, +(z * (dir > 0 ? 1.25 : 0.8)).toFixed(2))));
+  };
+
+  if (status === 'error') {
     return <div className="ah-empty"><FileText size={26} /><p>This PDF could not be rendered in the preview. Please use the Download button to open the original file.</p></div>;
   }
   return (
     <div>
-      {pdfStatus === 'loading' && <div className="ah-loading" role="status"><div /><p>Rendering PDF pages…</p></div>}
-      {pageCount > 0 && <p className="ah-muted" style={{ margin: '0 0 8px' }}>{pageCount} pages</p>}
-      <div ref={containerRef} style={{ maxHeight: '70vh', overflowY: 'auto', background: '#f1f4fb', borderRadius: '12px', padding: '12px' }} />
+      {status === 'loading' && <div className="ah-loading" role="status"><div /><p>Loading PDF…</p></div>}
+      {status === 'ready' && (
+        <div className="pdfjs-viewer">
+          <div className="pdfjs-toolbar" role="toolbar" aria-label="PDF viewer controls">
+            <button type="button" className="pdfjs-btn" onClick={() => goToPage(pageNum - 1)} disabled={pageNum <= 1} aria-label="Previous page">‹</button>
+            <input
+              className="pdfjs-pageinput"
+              value={pageInput}
+              inputMode="numeric"
+              aria-label="Page number"
+              onChange={(e) => setPageInput(e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={() => goToPage(parseInt(pageInput, 10))}
+              onKeyDown={(e) => { if (e.key === 'Enter') goToPage(parseInt(pageInput, 10)); }}
+            />
+            <span className="pdfjs-count">/ {numPages}</span>
+            <button type="button" className="pdfjs-btn" onClick={() => goToPage(pageNum + 1)} disabled={pageNum >= numPages} aria-label="Next page">›</button>
+            <span className="pdfjs-sep" />
+            <button type="button" className="pdfjs-btn" onClick={() => changeZoom(-1)} disabled={zoom <= 0.5} aria-label="Zoom out">−</button>
+            <span className="pdfjs-zoomlabel">{Math.round(zoom * 100)}%</span>
+            <button type="button" className="pdfjs-btn" onClick={() => changeZoom(1)} disabled={zoom >= 3} aria-label="Zoom in">+</button>
+            {rendering && <span className="pdfjs-rendering" aria-hidden="true" />}
+          </div>
+          <div ref={containerRef} className="pdfjs-pagewrap">
+            <canvas ref={canvasRef} className="pdfjs-canvas" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
