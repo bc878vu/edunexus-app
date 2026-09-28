@@ -189,15 +189,27 @@ function isMobileBrowser() {
 // Design: continuous vertical scroll through ALL pages (touch-friendly),
 // lazy rendering via IntersectionObserver (safe for 300+ page PDFs),
 // pinch-to-zoom on touch devices, and memory cleanup for far-off pages.
+// Self-contained in-page PDF renderer (PDF.js). Unlike the blob: iframe it
+// does not need the browser's native PDF plugin, and unlike Google Docs
+// Viewer it does not need docs.google.com to be reachable — the PDF bytes we
+// already fetched are rendered to canvas.
+// Design: continuous vertical scroll through ALL pages (touch-friendly),
+// lazy rendering via IntersectionObserver (safe for 300+ page PDFs),
+// pinch-to-zoom + zoom buttons on touch devices.
+// Robustness rules (learned from live testing):
+// - zoom is passed EXPLICITLY to renderPage — never read from a ref that a
+//   separate effect syncs (that race made canvases explode to 7000px+).
+// - NEVER blank a rendered canvas (no width=0 tricks): if a cleanup clears a
+//   page the observer will not re-fire for an already-intersecting element,
+//   leaving it blank forever. Memory is bounded by lazy rendering instead:
+//   only pages near the viewport are ever rendered.
 function PdfJsPreview({ blob }) {
   const containerRef = useRef(null);
   const pdfDocRef = useRef(null);
   const pageWrapRefs = useRef({});   // pageNum -> wrapper div
   const canvasRefs = useRef({});     // pageNum -> canvas
   const renderedRef = useRef(new Set()); // "page|zoom" keys already rendered
-  const zoomRef = useRef(1);
   const pinchRef = useRef(null);
-  const lastCleanupRef = useRef(0);
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [numPages, setNumPages] = useState(0);
   const [pageNum, setPageNum] = useState(1); // nearest visible page
@@ -205,14 +217,14 @@ function PdfJsPreview({ blob }) {
   const [zoom, setZoom] = useState(1); // multiplier over fit-width
   const [fitScale, setFitScale] = useState(0);
   const [pageAspect, setPageAspect] = useState(1.414); // h/w placeholder ratio
-
-  // Keep zoomRef in sync for use inside observers/handlers.
-  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  // Mirror zoom in a ref ONLY for the pinch gesture (touch handlers are
+  // registered once); every render path takes zoom as an explicit argument.
+  const zoomRef = useRef(1);
 
   // Load the PDF once; keep the document in a ref.
   useEffect(() => {
     let cancelled = false;
-    setStatus('loading'); setNumPages(0); setPageNum(1); setPageInput('1'); setZoom(1);
+    setStatus('loading'); setNumPages(0); setPageNum(1); setPageInput('1'); setZoom(1); zoomRef.current = 1;
     renderedRef.current.clear(); pageWrapRefs.current = {}; canvasRefs.current = {};
     (async () => {
       try {
@@ -268,8 +280,9 @@ function PdfJsPreview({ blob }) {
         // Fit-width scale + aspect ratio from page 1 (used for placeholders).
         const page = await pdfDoc.getPage(1);
         if (cancelled) return;
-        const availW = containerRef.current ? containerRef.current.clientWidth - 24 : 360;
         const v1 = page.getViewport({ scale: 1 });
+        const el = containerRef.current;
+        const availW = el ? Math.max(el.clientWidth - 24, 200) : 360;
         setFitScale(Math.max(availW / v1.width, 0.2));
         setPageAspect(v1.height / v1.width);
         setStatus('ready');
@@ -283,24 +296,22 @@ function PdfJsPreview({ blob }) {
     };
   }, [blob]);
 
-  // If the container width was measured before layout settled (pages render
-  // too small), recompute the fit scale when it resizes. Changing fitScale
-  // re-renders visible pages through the existing observer effect.
+  // Recompute fit-width scale when the container width changes (layout
+  // settling, rotation). Does NOT depend on zoom — zoom multiplies on top.
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || status !== 'ready') return;
-    let raf = 0;
-    let cancelled = false;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let cancelled = false; let raf = 0;
     const recompute = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        if (cancelled) return;
-        const pdfDoc = pdfDocRef.current;
-        if (!pdfDoc || !el.clientWidth) return;
-        pdfDoc.getPage(1).then((page) => {
+        if (cancelled || !pdfDocRef.current || !containerRef.current) return;
+        const w = containerRef.current.clientWidth - 24;
+        if (w <= 0) return;
+        pdfDocRef.current.getPage(1).then((page) => {
           if (cancelled) return;
           const v1 = page.getViewport({ scale: 1 });
-          const ns = Math.max((el.clientWidth - 24) / v1.width, 0.2);
+          const ns = Math.max(w / v1.width, 0.2);
           setFitScale((prev) => (Math.abs(prev - ns) > 0.02 ? ns : prev));
         }).catch(() => {});
       });
@@ -311,55 +322,73 @@ function PdfJsPreview({ blob }) {
     return () => { cancelled = true; ro.disconnect(); clearTimeout(t); cancelAnimationFrame(raf); };
   }, [status]);
 
-  // Render one page into its canvas at the current zoom.
-  const renderPage = useCallback(async (n) => {
+  // Render one page into its canvas. zoomV is ALWAYS passed explicitly by the
+  // caller — this function never guesses the zoom from a ref.
+  const renderPage = useCallback(async (n, zoomV) => {
     const pdfDoc = pdfDocRef.current;
-    if (!pdfDoc || !fitScale) return;
-    const key = n + '|' + zoomRef.current.toFixed(2);
+    const canvas = canvasRefs.current[n];
+    if (!pdfDoc || !canvas || !fitScale || !zoomV) return;
+    const z = Math.min(3, Math.max(0.5, +zoomV.toFixed(2)));
+    const key = n + '|' + z.toFixed(2);
     if (renderedRef.current.has(key)) return;
+    renderedRef.current.add(key);
     try {
       const page = await pdfDoc.getPage(n);
-      const canvas = canvasRefs.current[n];
-      if (!canvas) return;
-      renderedRef.current.add(key);
+      const live = canvasRefs.current[n];
+      if (!live) { renderedRef.current.delete(key); return; }
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const scale = fitScale * zoomRef.current;
+      const scale = fitScale * z;
       // Backing store at DPR for sharpness; CSS size set explicitly so zoom
-      // visibly magnifies the page (this was the old max-width:100% bug).
+      // visibly magnifies the page inside the fixed viewer frame.
       const viewport = page.getViewport({ scale: scale * dpr });
       const css = page.getViewport({ scale });
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-      canvas.style.width = Math.floor(css.width) + 'px';
-      canvas.style.height = Math.floor(css.height) + 'px';
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      live.width = Math.floor(viewport.width);
+      live.height = Math.floor(viewport.height);
+      live.style.width = Math.floor(css.width) + 'px';
+      live.style.height = Math.floor(css.height) + 'px';
+      await page.render({ canvasContext: live.getContext('2d'), viewport }).promise;
     } catch (err) {
       renderedRef.current.delete(key);
     }
   }, [fitScale]);
 
+  // Render the pages currently near the viewport (used after zoom changes and
+  // on first ready). Walks the wrappers and renders those intersecting the
+  // container plus a small margin — no full-document render.
+  const renderVisiblePages = useCallback((zoomV) => {
+    const el = containerRef.current;
+    if (!el || status !== 'ready') return;
+    const cTop = el.getBoundingClientRect().top;
+    const vh = el.clientHeight || 600;
+    for (let i = 1; i <= numPages; i++) {
+      const w = pageWrapRefs.current[i];
+      if (!w) continue;
+      const r = w.getBoundingClientRect();
+      // Within 1.5 viewports above/below the visible area.
+      if (r.bottom > cTop - vh * 1.5 && r.top < cTop + vh * 2.5) {
+        renderPage(i, zoomV);
+      }
+    }
+  }, [status, numPages, renderPage]);
+
   // Lazy rendering: observe page wrappers, render when near the viewport.
+  // The observer callback closes over the CURRENT zoom (effect re-runs when
+  // zoom changes), so no ref race is possible.
   useEffect(() => {
     if (status !== 'ready' || !containerRef.current) return;
-    renderedRef.current.clear();
+    const z = zoom;
     const obs = new IntersectionObserver((entries) => {
       entries.forEach((en) => {
-        if (en.isIntersecting) renderPage(Number(en.target.dataset.page));
+        if (en.isIntersecting) renderPage(Number(en.target.dataset.page), z);
       });
     }, { root: containerRef.current, rootMargin: '900px 0px' });
     Object.values(pageWrapRefs.current).forEach((el) => el && obs.observe(el));
-    // Refs are populated only after the ready render commits. Render visible
-    // pages on the next frame as well as through IntersectionObserver; this
-    // avoids the mobile blank-page race seen on long PDFs.
-    const raf = requestAnimationFrame(() => {
-      Object.values(pageWrapRefs.current).forEach((el) => el && obs.observe(el));
-      renderPage(pageNum || 1);
-      renderPage(1);
-    });
-    return () => { cancelAnimationFrame(raf); obs.disconnect(); };
-  }, [status, numPages, zoom, fitScale, renderPage]);
+    // Render what is visible right now at the current zoom.
+    renderVisiblePages(z);
+    return () => obs.disconnect();
+  }, [status, numPages, zoom, renderPage, renderVisiblePages]);
 
-  // Scroll handler: track nearest page + free memory of far-off pages.
+  // Scroll handler: track nearest visible page for the toolbar indicator.
   useEffect(() => {
     const el = containerRef.current;
     if (!el || status !== 'ready') return;
@@ -368,7 +397,6 @@ function PdfJsPreview({ blob }) {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const cTop = el.getBoundingClientRect().top;
-        const vh = el.clientHeight || 600;
         for (let i = 1; i <= numPages; i++) {
           const w = pageWrapRefs.current[i];
           if (!w) continue;
@@ -378,30 +406,31 @@ function PdfJsPreview({ blob }) {
             break;
           }
         }
-        // Memory cleanup (throttled): clear canvases >3 viewports away.
-        const now = Date.now();
-        if (now - lastCleanupRef.current > 800) {
-          lastCleanupRef.current = now;
-          for (let i = 1; i <= numPages; i++) {
-            const w = pageWrapRefs.current[i];
-            const c = canvasRefs.current[i];
-            if (!w || !c || !c.width) continue;
-            const r = w.getBoundingClientRect();
-            if (r.bottom < cTop - vh * 5 || r.top > cTop + vh * 6) {
-              c.width = 0; c.height = 0;
-              c.style.width = ''; c.style.height = '';
-              // Allow re-render when scrolled back into range.
-              renderedRef.current.forEach((k) => { if (k.startsWith(i + '|')) renderedRef.current.delete(k); });
-            }
-          }
-        }
       });
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => { el.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
   }, [status, numPages, pageNum]);
 
-  // Pinch-to-zoom on touch devices.
+  // Single place that changes zoom: updates state + ref together, then
+  // re-renders the visible pages at the EXACT new value (no waiting for
+  // effects, no ref timing gap). Stable via useCallback so the pinch effect
+  // below always sees the current status/numPages through renderVisiblePages.
+  const applyZoom = useCallback((nz) => {
+    const z = Math.min(3, Math.max(0.5, +nz.toFixed(2)));
+    zoomRef.current = z;
+    setZoom(z);
+    // Keys include the zoom value, so old renders never collide — just render
+    // visible pages at the new zoom immediately.
+    renderVisiblePages(z);
+  }, [renderVisiblePages]);
+  const changeZoom = (dir) => {
+    applyZoom(zoomRef.current * (dir > 0 ? 1.25 : 0.8));
+  };
+
+  // Pinch-to-zoom on touch devices. One-finger scrolling stays native
+  // (touch-action: pan-x pan-y on the container); we only intercept two
+  // fingers, and only while pinching.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -422,7 +451,7 @@ function PdfJsPreview({ blob }) {
           e.touches[0].clientY - e.touches[1].clientY
         );
         const nz = Math.min(3, Math.max(0.5, pinchRef.current.zoom * (d / pinchRef.current.dist)));
-        setZoom(+nz.toFixed(2));
+        applyZoom(+nz.toFixed(2));
       }
     };
     const onTouchEnd = (e) => { if (e.touches.length < 2) pinchRef.current = null; };
@@ -436,7 +465,7 @@ function PdfJsPreview({ blob }) {
       el.removeEventListener('touchend', onTouchEnd);
       el.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, []);
+  }, [applyZoom]);
 
   const scrollToPage = (n) => {
     const clamped = Math.min(Math.max(1, n || 1), numPages || 1);
@@ -444,56 +473,59 @@ function PdfJsPreview({ blob }) {
     if (w && containerRef.current) containerRef.current.scrollTop = Math.max(w.offsetTop - 12, 0);
     setPageNum(clamped); setPageInput(String(clamped));
   };
-  const changeZoom = (dir) => {
-    setZoom((z) => Math.min(3, Math.max(0.5, +(z * (dir > 0 ? 1.25 : 0.8)).toFixed(2))));
-  };
 
   if (status === 'error') {
-    return <div className="ah-empty"><FileText size={26} /><p>This PDF could not be rendered in the preview. Please use the Download button to open the original file.</p></div>;
+    return (
+      <div className="pdfjs-fallback">
+        <p>This PDF could not be rendered in the browser.</p>
+        <button type="button" className="pdfjs-btn" onClick={() => {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob); a.download = 'document.pdf'; a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }}>Download PDF</button>
+      </div>
+    );
   }
-  // Placeholder pages keep their shape via aspect-ratio until rendered.
+
   return (
-    <div>
-      {status === 'loading' && <div className="ah-loading" role="status"><div /><p>Loading PDF…</p></div>}
-      {status === 'ready' && (
-        <div className="pdfjs-viewer">
-          <div className="pdfjs-toolbar" role="toolbar" aria-label="PDF viewer controls">
-            <button type="button" className="pdfjs-btn" onClick={() => scrollToPage(pageNum - 1)} disabled={pageNum <= 1} aria-label="Previous page">‹</button>
-            <input
-              className="pdfjs-pageinput"
-              value={pageInput}
-              inputMode="numeric"
-              aria-label="Page number"
-              onChange={(e) => setPageInput(e.target.value.replace(/[^0-9]/g, ''))}
-              onBlur={() => scrollToPage(parseInt(pageInput, 10))}
-              onKeyDown={(e) => { if (e.key === 'Enter') scrollToPage(parseInt(pageInput, 10)); }}
+    <div className="pdfjs-viewer">
+      <div className="pdfjs-toolbar" role="toolbar" aria-label="PDF controls">
+        <button type="button" className="pdfjs-btn" onClick={() => scrollToPage(pageNum - 1)} disabled={pageNum <= 1} aria-label="Previous page">‹</button>
+        <input
+          className="pdfjs-pageinput" value={pageInput} aria-label="Page number"
+          onChange={(e) => setPageInput(e.target.value.replace(/[^0-9]/g, ''))}
+          onBlur={() => { const n = parseInt(pageInput, 10); if (n >= 1 && n <= numPages) scrollToPage(n); else setPageInput(String(pageNum)); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { const n = parseInt(pageInput, 10); if (n >= 1 && n <= numPages) scrollToPage(n); else setPageInput(String(pageNum)); e.target.blur(); } }}
+        />
+        <span className="pdfjs-pagetotal">/ {numPages || '…'}</span>
+        <button type="button" className="pdfjs-btn" onClick={() => scrollToPage(pageNum + 1)} disabled={numPages > 0 && pageNum >= numPages} aria-label="Next page">›</button>
+        <span className="pdfjs-sep" />
+        <button type="button" className="pdfjs-btn" onClick={() => changeZoom(-1)} disabled={zoom <= 0.5} aria-label="Zoom out">−</button>
+        <span className="pdfjs-zoomlabel">{Math.round(zoom * 100)}%</span>
+        <button type="button" className="pdfjs-btn" onClick={() => changeZoom(1)} disabled={zoom >= 3} aria-label="Zoom in">+</button>
+      </div>
+      <div className="pdfjs-hint">Swipe to scroll pages · Pinch to zoom</div>
+      <div className="pdfjs-pagewrap" ref={containerRef}>
+        {status === 'loading' && <div className="pdfjs-loading">Loading PDF…</div>}
+        {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
+          <div
+            key={n}
+            className="pdfjs-page"
+            data-page={n}
+            ref={(el) => { if (el) pageWrapRefs.current[n] = el; }}
+            style={{ aspectRatio: `1 / ${pageAspect}` }}
+          >
+            <canvas
+              className="pdfjs-canvas"
+              ref={(el) => { if (el) canvasRefs.current[n] = el; }}
             />
-            <span className="pdfjs-count">/ {numPages}</span>
-            <button type="button" className="pdfjs-btn" onClick={() => scrollToPage(pageNum + 1)} disabled={pageNum >= numPages} aria-label="Next page">›</button>
-            <span className="pdfjs-sep" />
-            <button type="button" className="pdfjs-btn" onClick={() => changeZoom(-1)} disabled={zoom <= 0.5} aria-label="Zoom out">−</button>
-            <span className="pdfjs-zoomlabel">{Math.round(zoom * 100)}%</span>
-            <button type="button" className="pdfjs-btn" onClick={() => changeZoom(1)} disabled={zoom >= 3} aria-label="Zoom in">+</button>
           </div>
-          <div ref={containerRef} className="pdfjs-pagewrap">
-            {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
-              <div
-                key={n}
-                data-page={n}
-                ref={(el) => { if (el) pageWrapRefs.current[n] = el; }}
-                className="pdfjs-page"
-                style={{ aspectRatio: '1 / ' + pageAspect }}
-              >
-                <canvas ref={(el) => { if (el) canvasRefs.current[n] = el; }} className="pdfjs-canvas" />
-              </div>
-            ))}
-          </div>
-          <div className="pdfjs-hint">Swipe to scroll pages · Pinch to zoom</div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }
+
 
 function ResourcePreview({ file, links, onClose }) {
   const ext = extOf(file);

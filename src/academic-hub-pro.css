@@ -14,7 +14,8 @@
 .pdfjs-pagewrap{max-height:70vh;overflow:auto;background:#525659;padding:12px;touch-action:pan-x pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .pdfjs-page{position:relative;margin:0 auto 12px;background:#e8e8e8;border-radius:2px;box-shadow:0 2px 12px rgba(0,0,0,.35);overflow:hidden;width:max-content;max-width:none;min-width:min(100%,240px)}
 .pdfjs-canvas{display:block;background:#fff;max-width:none}
-@media(max-width:470px){.pdfjs-toolbar{gap:4px;padding:6px}.pdfjs-btn{min-width:30px;height:30px;font-size:.95rem}.pdfjs-pageinput{width:44px;height:30px}}
+@media(max-width:470px){.pdfjs-toolbar{gap:4px;padding:6px}.pdfjs-btn{min-width:30px;height:30px;font-size:.95rem}
+@media(max-width:640px){.pdfjs-btn{min-width:44px;height:44px;font-size:1.15rem}.pdfjs-pageinput{height:44px;font-size:16px;min-width:52px}.pdfjs-toolbar{gap:8px;padding:10px 12px}.pdfjs-zoomlabel{font-size:14px;min-width:56px}}.pdfjs-pageinput{width:44px;height:30px}}
 .pdfjs-hint{text-align:center;font-size:.75rem;color:#aab0c0;background:#323639;padding:6px 10px}
 .ah-group-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));gap:12px;margin-bottom:30px}
 .ah-group{display:flex;align-items:center;gap:12px;border:1px solid var(--ah-border);border-radius:16px;background:var(--ah-card);text-align:left;padding:16px;color:var(--ah-ink);min-width:0;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
@@ -34,17 +35,3 @@
 .ah-suggest-label{font-size:.82rem;font-weight:750;color:var(--ah-muted)}.ah-suggest-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #6366f1;background:rgba(99,102,241,.09);color:var(--ah-ink);border-radius:99px;padding:8px 14px;font-size:.84rem;font-weight:750;transition:transform .18s ease,background .18s ease,box-shadow .18s ease}.ah-suggest-chip:hover{background:#4f46e5;border-color:#4f46e5;color:#fff;transform:translateY(-1px);box-shadow:0 8px 18px -12px #4f46e5}.ah-suggest-chip:hover svg{color:#fff}.ah-suggest-chip svg{color:#6366f1;flex-shrink:0}
 
 body.ah-preview-open .edx-free-orb{display:none!important}
-
-/* Academic file-page PDF viewport: keep zoom/scroll inside the viewer, never the page. */
-.ah-focus{max-width:100%;min-width:0}
-.pdfjs-viewer{width:100%;max-width:100%;min-width:0;contain:layout paint}
-.pdfjs-toolbar{position:sticky;top:0;z-index:4;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.pdfjs-pagewrap{width:100%;max-width:100%;height:min(72vh,760px);max-height:none;overflow:auto;touch-action:pan-x pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable}
-.pdfjs-page{flex:none}
-@media(max-width:790px){
-  .ah-focus{padding:16px 12px;overflow:hidden}
-  .ah-focus h3{font-size:clamp(1.05rem,5vw,1.35rem)}
-  .pdfjs-pagewrap{height:68svh;padding:8px;overflow:auto}
-  .pdfjs-toolbar{padding:6px;gap:4px}
-  .pdfjs-hint{position:sticky;bottom:0}
-}
