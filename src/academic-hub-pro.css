@@ -12,7 +12,7 @@
 .pdfjs-rendering{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;animation:pdfjs-spin .7s linear infinite;margin-left:auto}
 @keyframes pdfjs-spin{to{transform:rotate(360deg)}}
 .pdfjs-pagewrap{max-height:70vh;overflow:auto;background:#525659;padding:12px;touch-action:pan-x pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-.pdfjs-page{position:relative;margin:0 auto 12px;background:#e8e8e8;border-radius:2px;box-shadow:0 2px 12px rgba(0,0,0,.35);overflow:hidden;max-width:100%}
+.pdfjs-page{position:relative;margin:0 auto 12px;background:#e8e8e8;border-radius:2px;box-shadow:0 2px 12px rgba(0,0,0,.35);overflow:hidden;width:max-content;max-width:none;min-width:min(100%,240px)}
 .pdfjs-canvas{display:block;background:#fff;max-width:none}
 @media(max-width:470px){.pdfjs-toolbar{gap:4px;padding:6px}.pdfjs-btn{min-width:30px;height:30px;font-size:.95rem}.pdfjs-pageinput{width:44px;height:30px}}
 .pdfjs-hint{text-align:center;font-size:.75rem;color:#aab0c0;background:#323639;padding:6px 10px}
