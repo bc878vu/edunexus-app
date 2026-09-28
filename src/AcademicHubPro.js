@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, Folder, FolderOpen, GraduationCap, Search, ShieldCheck, Star, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, FileText, Folder, FolderOpen, GraduationCap, Link, Search, ShieldCheck, Star, X } from 'lucide-react';
 import { storage } from './firebase-client';
 import { getBlob, ref as storageRef } from 'firebase/storage';
 import { USE_SUPABASE, supabase } from './supabase-client';
@@ -51,9 +51,12 @@ const safeHttp = (raw) => {
   } catch (_) { return null; }
 };
 const nameOf = (f) => cut(f.name || f.title || 'Untitled resource', 170);
-const filePublicPath = (f) => '/vu-notes/file/' + encodeURIComponent(f.id) + '/' +
-  (String(f.name || f.title || 'study-resource').normalize('NFKD').toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'study-resource');
+// Every file link is a preview link: it opens the Academic Hub with the file's
+// preview panel directly, so shared links land on the preview.
+const filePreviewLink = (f) => '/?page=academic'
+  + '&subject=' + encodeURIComponent(f.subject || '')
+  + '&file=' + encodeURIComponent(f.id)
+  + '&panel=preview';
 const extOf = (f) => {
   const explicit = cut(f.ext, 10).replace(/[^a-z0-9]/gi, '').toUpperCase();
   if (explicit && explicit !== 'LINK') return explicit;
@@ -684,9 +687,28 @@ function FileCardRating({ fileId, ratingAverage, ratingCount }) {
 // fresh inline callbacks each render, so the comparator only watches the
 // data props — all four callbacks are closure-safe (they read stable setters
 // and props only, never changing render state).
+const copyPreviewLink = (file, setCopied) => {
+  const url = window.location.origin + filePreviewLink(file);
+  const done = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(done).catch(() => fallbackCopy(url, done));
+  } else {
+    fallbackCopy(url, done);
+  }
+};
+const fallbackCopy = (text, done) => {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta); done();
+  } catch (_) { /* clipboard unavailable */ }
+};
+
 const ResourceCard = React.memo(function ResourceCard({ file, isAdmin, onDelete, onPreview, onReviews, onDownload, downloadStatus }) {
   const links = fileLinks(file);
   const title = nameOf(file);
+  const [copied, setCopied] = useState(false);
   return <article className="ah-resource">
     <div className="ah-file-icon"><FileText size={22} /></div>
     <div className="ah-resource-content"><div className="ah-between ah-file-top"><h3>{title}</h3><span className="ah-chip">{extOf(file)}</span></div>
@@ -696,7 +718,8 @@ const ResourceCard = React.memo(function ResourceCard({ file, isAdmin, onDelete,
       <div className="ah-actions">
         <button type="button" className="ah-secondary" disabled={!links.source} onClick={() => onPreview(file)}><BookOpen size={16} /> Preview</button>
         <button type="button" className="ah-secondary" onClick={() => onReviews(file)}><Star size={16} /> Reviews</button>
-        <a className="ah-secondary" href={filePublicPath(file)}>File page</a>
+        <a className="ah-secondary" href={filePreviewLink(file)}><Link size={16} /> Preview link</a>
+        <button type="button" className="ah-secondary" onClick={() => copyPreviewLink(file, setCopied)}>{copied ? 'Copied!' : 'Copy link'}</button>
         {links.source ? <a className="ah-primary" href={links.download} download={links.direct ? safeFileName(file) : undefined} rel="noopener noreferrer" onClick={(e) => onDownload(e, file, links)}>{links.kind === "folder" || links.kind === "external-link" ? <ExternalLink size={16} /> : <Download size={16} />}{links.kind === "folder" ? "Open folder" : links.kind === "external-link" ? "Open resource" : "Download"}</a> : <span className="ah-muted">File link unavailable</span>}
         {isAdmin && <button type="button" className="ah-delete" onClick={() => onDelete(file)} aria-label={'Delete ' + title}>Delete</button>}
       </div>
