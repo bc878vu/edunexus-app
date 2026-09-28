@@ -283,6 +283,34 @@ function PdfJsPreview({ blob }) {
     };
   }, [blob]);
 
+  // If the container width was measured before layout settled (pages render
+  // too small), recompute the fit scale when it resizes. Changing fitScale
+  // re-renders visible pages through the existing observer effect.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || status !== 'ready') return;
+    let raf = 0;
+    let cancelled = false;
+    const recompute = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (cancelled) return;
+        const pdfDoc = pdfDocRef.current;
+        if (!pdfDoc || !el.clientWidth) return;
+        pdfDoc.getPage(1).then((page) => {
+          if (cancelled) return;
+          const v1 = page.getViewport({ scale: 1 });
+          const ns = Math.max((el.clientWidth - 24) / v1.width, 0.2);
+          setFitScale((prev) => (Math.abs(prev - ns) > 0.02 ? ns : prev));
+        }).catch(() => {});
+      });
+    };
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    const t = setTimeout(recompute, 350);
+    return () => { cancelled = true; ro.disconnect(); clearTimeout(t); cancelAnimationFrame(raf); };
+  }, [status]);
+
   // Render one page into its canvas at the current zoom.
   const renderPage = useCallback(async (n) => {
     const pdfDoc = pdfDocRef.current;
@@ -1057,6 +1085,12 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     return out;
   }, [normalized, activeCode, codeGroups, mergedCodes]);
   const selected = files.find((f) => f.id === selectedId);
+  // Hide the floating promo orbs while the preview panel is open so they
+  // never overlap the PDF viewer (proper layout on mobile).
+  useEffect(() => {
+    document.body.classList.toggle('ah-preview-open', !!selected);
+    return () => document.body.classList.remove('ah-preview-open');
+  }, [selected]);
   useEffect(() => { if (selectedId && scroller.current) scroller.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [selectedId]);
   const openSubject = (value) => {
     setSubject(value); setVisible(18); setSelectedId('');
