@@ -57,7 +57,7 @@ test('admin workspace requires explicit panel context and a verified active admi
 
   grantAdminTab(admin);
   render(<ExamPrepHub user={admin} initialTab="admin" adminWorkspace />);
-  expect(screen.getByRole('button', { name: 'Admin tools' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Admin tools/ })).toBeTruthy();
   expect(screen.getByText('Exam content management')).toBeTruthy();
 });
 
@@ -76,11 +76,11 @@ test('Each public view has its own layout and the MCQ catalogue is shown only on
   render(<ExamPrepHub user={null}/>);
   await waitFor(() => expect(screen.getByText('Public exam practice')).toBeTruthy());
   expect(screen.getByRole('region', { name: 'Published quiz and exam categories' })).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Paper Reviews' }));
+  fireEvent.click(screen.getByRole('button', { name: /Paper Reviews/ }));
   await waitFor(() => expect(screen.getByText('Student paper reviews')).toBeTruthy());
   expect(screen.queryByRole('region', { name: 'Published quiz and exam categories' })).toBeNull();
   expect(screen.queryByText('Practice smarter. Prepare with confidence.')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Study Files' }));
+  fireEvent.click(screen.getByRole('button', { name: /Study Files/ }));
   await waitFor(() => expect(screen.getByText('Find the material you need.')).toBeTruthy());
   expect(screen.queryByRole('region', { name: 'Published quiz and exam categories' })).toBeNull();
   expect(screen.queryByText('Student paper reviews')).toBeNull();
