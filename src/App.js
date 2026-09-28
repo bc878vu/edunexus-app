@@ -2096,6 +2096,8 @@ const AcademicTab = ({ theme, user, showToast }) => {
   const [subjects, setSubjects] = useState(DEFAULT_FOLDERS);
   const [selSubject, setSelSubject] = useState("CS101");
   const [files, setFiles] = useState([]);
+  const [deleteById, setDeleteById] = useState('');
+  const [deletingById, setDeletingById] = useState(false);
 
   const [editingFolder, setEditingFolder] = useState(null);
   const [editingName, setEditingName] = useState("");
@@ -2245,6 +2247,33 @@ const AcademicTab = ({ theme, user, showToast }) => {
           showToast('Resource listing removed. Original file retained.', 'success');
         } catch (_) {
           showToast('Could not remove this resource listing.', 'error');
+        }
+      },
+    });
+  };
+  // Delete a file record directly by its ID. Used when the file list cannot
+  // be loaded (e.g. Firestore quota) but the record ID is known, e.g. to
+  // remove an accidental duplicate upload.
+  const handleDeleteById = () => {
+    const id = String(deleteById || '').trim();
+    if (!id) {
+      showToast('Enter a file record ID first.', 'error');
+      return;
+    }
+    requestConfirm({
+      message: 'Permanently delete the file record with ID "' + id + '"? This cannot be undone. The original file on its external host will not be deleted.',
+      confirmLabel: 'Delete record',
+      danger: true,
+      onConfirm: async () => {
+        setDeletingById(true);
+        try {
+          await deleteFile(id);
+          setDeleteById('');
+          showToast('File record deleted.', 'success');
+        } catch (err) {
+          showToast('Could not delete record: ' + String(err && err.message || 'unknown error'), 'error');
+        } finally {
+          setDeletingById(false);
         }
       },
     });
@@ -2487,6 +2516,16 @@ const AcademicTab = ({ theme, user, showToast }) => {
         {visibleFiles.length > fileVisible && <button type="button" className="edx-admin-load-more" onClick={() => setFileVisible((value) => value + 20)}>
           Load more files ({visibleFiles.length - fileVisible} remaining)
         </button>}
+        <div className="edx-admin-link-box" style={{marginTop:16}}>
+          <h4 className={`font-bold ${theme.text}`}>Delete file by record ID</h4>
+          <p className={`text-sm ${theme.textMuted}`}>Removes one file record directly when the list above cannot load it (e.g. during quota limits). Find the record ID from the public file URL or Recent Activity. This cannot be undone.</p>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:8}}>
+            <input value={deleteById} onChange={(e) => setDeleteById(e.target.value)} placeholder="e.g. cbXibBj5DFFqvgEk6k0F" className={`${theme.input} p-3 rounded-xl`} style={{flex:'1 1 220px'}} aria-label="File record ID to delete" />
+            <button type="button" onClick={handleDeleteById} disabled={deletingById || !String(deleteById || '').trim()} className="edx-admin-file-remove" style={{padding:'10px 18px',borderRadius:12}}>
+              {deletingById ? 'Deleting…' : 'Delete record'}
+            </button>
+          </div>
+        </div>
       </section>
       <ConfirmUI />
     </div>
