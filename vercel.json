@@ -54,6 +54,21 @@
   ],
   "rewrites": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "file"
+        },
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(whatsapp|facebookexternalhit|twitterbot|linkedinbot|telegrambot|slackbot|discordbot|pinterest|facebot|embedly|quora link preview).*"
+        }
+      ],
+      "destination": "/api/og-preview"
+    },
+    {
       "source": "/learning/:code/:slug",
       "destination": "/api/learning-page?code=:code&slug=:slug"
     },
