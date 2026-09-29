@@ -188,3 +188,22 @@
   .edx-practice-active-bank{grid-template-columns:auto minmax(0,1fr)}
   .edx-practice-active-count{grid-column:1/-1;width:max-content;margin-left:54px}
 }
+
+/* Workspace density + hierarchy polish */
+.edx-practice-toolbar{gap:18px}
+.edx-practice-toolbar>.edx-practice-active-bank{width:100%;grid-template-columns:auto minmax(0,1fr) auto}
+.edx-practice-active-bank{padding:16px 18px}
+.edx-practice-setup{align-items:end}
+.edx-practice-search-field{margin-top:2px}
+.edx-practice-toolbar-right{padding-top:2px}
+@media(min-width:900px){
+ .edx-practice-active-bank strong{font-size:1.06rem}
+ .edx-practice-active-count{padding:8px 13px}
+}
+@media(max-width:700px){
+ .edx-practice-toolbar{padding:18px!important}
+ .edx-practice-setup{grid-template-columns:minmax(0,1fr)!important}
+ .edx-practice-start{width:100%}
+ .edx-practice-toolbar-right{align-items:stretch}
+ .edx-practice-toolbar-right .edx-exam-primary{width:100%;justify-content:center}
+}
