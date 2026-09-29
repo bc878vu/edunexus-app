@@ -41,7 +41,13 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
   // likedNow: the Supabase branch returns likedBy: [] on reads (likes live in
   // article_likes), so flip the heart locally on a successful toggle.
   const [likedNow, setLikedNow] = useState(false);
+  const [likeCount, setLikeCount] = useState(Number(art.likes) || 0);
   const hasLiked = likedNow || art.likedBy?.includes(user?.uid);
+
+  useEffect(() => {
+    setLikeCount(Number(art.likes) || 0);
+    setLikedNow(false);
+  }, [art.id, art.likes]);
 
   const handleLike = async () => {
     if (!user) {
@@ -56,6 +62,7 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
         return;
       }
       setLikedNow(true);
+      setLikeCount(count => count + 1);
       showToast("Liked!", "success");
     } catch (e) {
       showToast("Could not like", "error");
@@ -192,7 +199,7 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
             }`}
           >
             <Heart size={18} className={hasLiked ? "fill-current" : ""} />
-            <span>{art.likes || 0}</span>
+            <span>{likeCount}</span>
             <span className="hidden sm:inline">Like</span>
           </button>
 
