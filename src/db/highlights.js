@@ -29,13 +29,12 @@ const HIGHLIGHT_SPEC = {
   isActive: 'is_active',
   createdAt: { col: 'created_at', ts: true },
   updatedAt: { col: 'updated_at', ts: true },
-  // TODO(schema): plan §1 has no columns for the card-display fields
-  // iconName, color, imageUrl, videoUrl. They are dropped on the Supabase
-  // branch until the table is extended (e.g. an `extra` jsonb column).
-  iconName: null,
-  color: null,
-  imageUrl: null,
-  videoUrl: null,
+  // Rich card fields are stored in the Supabase highlights table. Keep the
+  // Firestore field names stable so existing highlights continue to render.
+  iconName: 'icon_name',
+  color: 'color',
+  imageUrl: 'image_url',
+  videoUrl: 'video_url',
 };
 const HIGHLIGHT_REV = invertSpec(HIGHLIGHT_SPEC);
 const toHighlightRow = (data) => toRow(data, HIGHLIGHT_SPEC);
