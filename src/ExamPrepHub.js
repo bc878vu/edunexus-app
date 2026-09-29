@@ -166,7 +166,7 @@ function AdminTools({ user, onView }) {
   return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Exam content management</h2><p>Only publish original or properly licensed questions and completed-exam guidance.</p></div><ShieldCheck size={28} /></div>
     {message && <p role="status" className="edx-exam-alert">{message}</p>}
     {lastPublished && <div className="edx-exam-publish-actions">
-      <a className="edx-exam-primary" href={'/?page=exam-prep&subject=' + encodeURIComponent(lastPublished.subject) + '&term=' + encodeURIComponent(lastPublished.term)} target="_blank" rel="noopener noreferrer">Open published {lastPublished.subject} {lastPublished.term} quiz <ChevronRight size={16}/></a>
+      <a className="edx-exam-primary" href={(lastPublished.term === 'midterm' || lastPublished.term === 'finalterm') ? '/exam-prep/' + encodeURIComponent(lastPublished.subject) + '/' + (lastPublished.term === 'midterm' ? 'Midterm' : 'Finalterm') : '/exam-prep?subject=' + encodeURIComponent(lastPublished.subject) + '&term=quiz'} target="_blank" rel="noopener noreferrer">Open published {lastPublished.subject} {lastPublished.term} quiz <ChevronRight size={16}/></a>
       <button type="button" className="edx-exam-secondary" onClick={() => onView?.(lastPublished.subject, lastPublished.term)}>Preview in Admin Panel</button>
     </div>}
     <form className="edx-exam-card edx-exam-form" onSubmit={addOne}><h3>Add an MCQ</h3><div className="edx-exam-form-grid"><CourseSelector value={draft.subject} onChange={(value) => setDraft((v) => ({ ...v, subject: value }))} /><TermSelector includeQuiz value={draft.term} onChange={(value) => setDraft((v) => ({ ...v, term: value }))} /></div>
@@ -208,7 +208,9 @@ function ShareBar({ tab, subject, term }) {
   const [copied, setCopied] = React.useState(false);
   const tabLabel = tab === "mcqs" ? "MCQ Bank" : tab === "reviews" ? "Paper Reviews" : "Study Files";
   const termLabel = term === "quiz" ? "Quiz" : term === "midterm" ? "Midterm" : "Finalterm";
-  const shareUrl = "https://edunexus.dpdns.org/?page=exam-prep&section=" + tab + "&subject=" + encodeURIComponent(subject) + "&term=" + encodeURIComponent(term);
+  const shareUrl = (term === "midterm" || term === "finalterm")
+    ? "https://edunexus.dpdns.org/exam-prep/" + encodeURIComponent(subject) + "/" + (term === "midterm" ? "Midterm" : "Finalterm") + (tab === "mcqs" ? "" : "?section=" + encodeURIComponent(tab))
+    : "https://edunexus.dpdns.org/exam-prep?section=" + encodeURIComponent(tab) + "&subject=" + encodeURIComponent(subject) + "&term=quiz";
   const shareText = subject + " " + termLabel + " " + tabLabel + " on EduNexus";
   const copyLink = async () => {
     try {
