@@ -54,8 +54,8 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
   // article_likes), so flip the heart locally on a successful toggle.
   const [likedNow, setLikedNow] = useState(false);
   const [likeCount, setLikeCount] = useState(Number(art.likes) || 0);
-  // Supabase uid for RLS (see page-level session prep below).
-  const uid = user?.uid || sessionUid || null;
+  // Supabase session uid FIRST: the adapter rejects when userId !== session.user.id.
+  const uid = sessionUid || user?.uid || null;
   const [likedDb, setLikedDb] = useState(false);
   useEffect(() => {
     if (!art.id || !uid) return;

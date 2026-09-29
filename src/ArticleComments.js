@@ -12,7 +12,7 @@ export default function ArticleComments({ articleId, user, sessionUid, isAdmin, 
   // but the app's `user` prop comes from Firebase auth only. The page prepares
   // a Supabase (anon) session and passes its uid down; fall back to the
   // Firebase uid only when no session exists.
-  const uid = user?.uid || sessionUid || null;
+  const uid = sessionUid || user?.uid || null;
 
   useEffect(() => {
     if (!articleId) return;
