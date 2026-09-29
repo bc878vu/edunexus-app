@@ -14,7 +14,6 @@ import {
 } from './_common.js';
 import { subscribeTable, subscribeRow } from './realtime.js';
 import { increment, arrayUnion } from 'firebase/firestore';
-import { auth } from '../firebase-client.js';
 
 const ARTICLES = () => col('articles');
 // Firestore subcollection reference (Firebase branch only).
@@ -161,17 +160,18 @@ export async function deleteArticle(id) {
  */
 export async function toggleLike(articleId, userId) {
   if (!articleId || !userId) throw new Error('articleId and userId are required');
-  const current = auth.currentUser;
-  if (!current || current.uid !== userId) throw new Error('Authenticated user required');
-  const token = await current.getIdToken();
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  const session = sessionData?.session;
+  if (!session?.access_token || session.user?.id !== userId) throw new Error('Authenticated Supabase session required');
   const { data, error } = await supabase.functions.invoke('article-social', {
-    headers: { Authorization: 'Bearer ' + token },
+    headers: { Authorization: 'Bearer ' + session.access_token },
     body: { action: 'like', articleId },
   });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
   clearCachedPrefix(CACHE_PREFIX);
-  return { liked: !!data?.liked, likes: Number(data?.likes) || undefined };
+  return { liked: !!data?.liked, alreadyLiked: !!data?.alreadyLiked, likes: Number(data?.likes) || 0 };
 }
 
 /** Whether userId already liked articleId (drives the hasLiked UI state). */
@@ -227,21 +227,18 @@ export async function addComment(articleId, { userId, userName, text }) {
   clearCachedPrefix(COMMENT_PREFIX + articleId);
   const cleanText = String(text || '').trim();
   if (!cleanText) throw new Error('Comment text is required');
-  const current = auth.currentUser;
-  if (!current || current.uid !== userId) throw new Error('Authenticated user required');
-  const token = await current.getIdToken();
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  const session = sessionData?.session;
+  if (!session?.access_token || session.user?.id !== userId) throw new Error('Authenticated Supabase session required');
   const { data, error } = await supabase.functions.invoke('article-social', {
-    headers: { Authorization: 'Bearer ' + token },
-    body: {
-      action: 'comment',
-      articleId,
-      userName: userName || 'Student',
-      text: cleanText.slice(0, 1000),
-    },
+    headers: { Authorization: 'Bearer ' + session.access_token },
+    body: { action: 'comment', articleId, userName: userName || 'Student', text: cleanText.slice(0, 1000) },
   });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
-  return data?.id;
+  clearCachedPrefix(COMMENT_PREFIX + articleId);
+  return data?.comment || { id: data?.id };
 }
 
 export async function updateComment(articleId, commentId, data) {
