@@ -313,6 +313,7 @@ const Navbar = ({
   setPage,
   user,
   isAdmin,
+  adminSessionActive,
   theme,
   toggleMenu,
   isMenuOpen,
@@ -391,10 +392,15 @@ const Navbar = ({
 
           {/* Right side desktop */}
           <div className="hidden xl:flex items-center gap-3 shrink-0">
-            {isAdmin && (
-              <span className="text-[11px] px-2 py-1 rounded-full border border-emerald-400/70 text-emerald-300 bg-emerald-500/10">
+            {adminSessionActive && (
+              <button
+                type="button"
+                onClick={() => handleNavClick("admin")}
+                className="text-[11px] px-2 py-1 rounded-full border border-emerald-400/70 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
+                title="Open Admin Panel"
+              >
                 Admin mode
-              </span>
+              </button>
             )}
             {user && (
               <span className="text-xs text-slate-200">
@@ -4840,7 +4846,8 @@ const App = () => {
   const [toast, setToast] = useState(null);
   const { isDark, setIsDark, theme } = useTheme();
   const currentYear = new Date().getFullYear();
-  const adminAuthorized = isAdminMode && page === 'admin' && adminPanelAccess(user);
+  const adminSessionActive = verifiedAdmin(user) && adminTabIsActive(user) && adminSessionAlive();
+  const adminAuthorized = adminSessionActive && page === 'admin' && adminPanelAccess(user);
 
   /// ✅ saare pages ki list (routing + URL ke liye)
 const PAGES = APP_PAGES;
@@ -5051,6 +5058,7 @@ useEffect(() => {
   setPage={navigate}
   user={user}
   isAdmin={adminAuthorized}
+  adminSessionActive={adminSessionActive}
   theme={theme}
   toggleMenu={() => setIsMenuOpen(!isMenuOpen)}
   isMenuOpen={isMenuOpen}
