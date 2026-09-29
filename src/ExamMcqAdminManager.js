@@ -14,6 +14,8 @@ const PATH = ['artifacts','edunexus-live','public','data','examMcqs'];
 const COURSE = /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/;
 const clean = value => String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);
 const SOURCE_TAG = '[EduNexus admin verified] Admin review source: ';
+// All subjects known to have MCQ banks (used by the one-click catalog rebuild).
+const ALL_KNOWN_SUBJECTS = ["BIO202","BT101","BT401","CS101","CS201","CS202","CS205","CS301","CS302","CS304","CS311","CS401","CS402","CS403","CS408","CS411","CS435","CS502","CS504","CS508","CS510","CS511","CS601","CS603","CS604","CS609","CS610","CS611","CS614","CS615","CS619","CS620","CS625","CS636","ECO401","EDU406","ENG101","ENG201","ENG301","ETH202","HRM613","ISL201","ISL202","IT430","MCM301","MGT101","MGT201","MGT211","MGT301","MGT501","MGT502","MGT503","MGT611","MTH101","MTH202","MTH501","MTH601","PAK301","PHY101","PSY404","STA301","STA630","VU001"];
 const fromRecord = q => ({
   subject:q.subject, term:categoryOf(q), quizSet:quizSetOf(q), question:q.question,
   options:[...q.options], answer:q.answer, explanation:explanationForStudent(q),
@@ -38,6 +40,18 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
   const [deletingAll, setDeletingAll] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [rebuilding, setRebuilding] = useState(false);
+  const rebuildCatalog = async () => {
+    if (rebuilding || busy) return;
+    const ok = await requestConfirm('Rebuild the public MCQ catalog for all ' + ALL_KNOWN_SUBJECTS.length + ' subjects? This recounts every subject from the database.');
+    if (!ok) return;
+    setRebuilding(true); setError(''); setMessage('Rebuilding catalog…');
+    try {
+      await refreshExamCatalogCounts(ALL_KNOWN_SUBJECTS);
+      setMessage('Catalog rebuilt for ' + ALL_KNOWN_SUBJECTS.length + ' subjects. The public Exam Prep page updates automatically.');
+    } catch (e) { setError(errorText(e)); }
+    finally { setRebuilding(false); }
+  };
 
   useEffect(() => {
     if (!adminPanelAccess(user) || !COURSE.test(subject)) { setRecords([]); setLoading(false); return; }
@@ -307,7 +321,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
   };
   return <section className="edx-exam-card edx-exam-form edx-admin-mcqs" aria-label="Manage published MCQs">
     <div className="edx-exam-between"><div><h3>Manage published questions</h3>
-      <p>Edit the question, choices, answer, subject, Quiz set or exam category; delete one question or a complete tracked JSON upload after confirmation.</p></div><ShieldCheck size={24}/></div>
+      <p>Edit the question, choices, answer, subject, Quiz set or exam category; delete one question or a complete tracked JSON upload after confirmation.</p></div><div style={{display:'flex',gap:8,alignItems:'center'}}><button type="button" className="edx-exam-secondary" disabled={busy || rebuilding} onClick={rebuildCatalog} title="Recount all subjects and refresh the public Exam Prep catalog">{rebuilding ? 'Rebuilding…' : 'Rebuild catalog'}</button><ShieldCheck size={24}/></div></div>
     <div className="edx-exam-form-grid">
       <label className="edx-exam-field">Subject code<input value={subject} maxLength={12} disabled={busy}
         onChange={e=>setSubject(clean(e.target.value))} placeholder="CS620"/></label>
