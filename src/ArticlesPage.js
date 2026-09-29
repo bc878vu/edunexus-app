@@ -62,7 +62,7 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
         return;
       }
       setLikedNow(true);
-      setLikeCount(count => count + 1);
+      setLikeCount(Number.isFinite(Number(res?.likes)) && Number(res.likes) > 0 ? Number(res.likes) : count => count + 1);
       showToast("Liked!", "success");
     } catch (e) {
       showToast("Could not like", "error");
