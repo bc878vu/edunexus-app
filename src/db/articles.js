@@ -14,6 +14,7 @@ import {
 } from './_common.js';
 import { subscribeTable, subscribeRow } from './realtime.js';
 import { increment, arrayUnion } from 'firebase/firestore';
+import { auth } from '../firebase-client.js';
 
 const ARTICLES = () => col('articles');
 // Firestore subcollection reference (Firebase branch only).
@@ -160,19 +161,17 @@ export async function deleteArticle(id) {
  */
 export async function toggleLike(articleId, userId) {
   if (!articleId || !userId) throw new Error('articleId and userId are required');
-  // Social actions use Firebase Auth identities. Supabase is the catalogue
-  // backend, but its RLS cannot validate a Firebase UID (auth.uid() belongs to
-  // Supabase Auth), which caused every production like to be rejected.
-  // Keep the authenticated interaction on Firestore where rules can verify
-  // request.auth.uid, then let the UI update optimistically.
-  const ref = doc(ARTICLES(), articleId);
-  const snap = await getDoc(ref);
-  if (snap.exists() && Array.isArray(snap.data().likedBy) && snap.data().likedBy.includes(userId)) {
-    return { liked: false };
-  }
-  await updateDoc(ref, { likes: increment(1), likedBy: arrayUnion(userId) });
+  const current = auth.currentUser;
+  if (!current || current.uid !== userId) throw new Error('Authenticated user required');
+  const token = await current.getIdToken();
+  const { data, error } = await supabase.functions.invoke('article-social', {
+    headers: { Authorization: 'Bearer ' + token },
+    body: { action: 'like', articleId },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
   clearCachedPrefix(CACHE_PREFIX);
-  return { liked: true };
+  return { liked: !!data?.liked, likes: Number(data?.likes) || undefined };
 }
 
 /** Whether userId already liked articleId (drives the hasLiked UI state). */
@@ -226,13 +225,23 @@ export async function listComments(articleId) {
 
 export async function addComment(articleId, { userId, userName, text }) {
   clearCachedPrefix(COMMENT_PREFIX + articleId);
-  if (!String(text || '').trim()) throw new Error('Comment text is required');
-  if (!userId) throw new Error('userId is required');
-  const ref = await addDoc(commentCol(articleId), {
-    userId, userName: userName || 'Student', text: String(text).slice(0, 1000),
-    createdAt: serverTimestamp(),
+  const cleanText = String(text || '').trim();
+  if (!cleanText) throw new Error('Comment text is required');
+  const current = auth.currentUser;
+  if (!current || current.uid !== userId) throw new Error('Authenticated user required');
+  const token = await current.getIdToken();
+  const { data, error } = await supabase.functions.invoke('article-social', {
+    headers: { Authorization: 'Bearer ' + token },
+    body: {
+      action: 'comment',
+      articleId,
+      userName: userName || 'Student',
+      text: cleanText.slice(0, 1000),
+    },
   });
-  return ref.id;
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data?.id;
 }
 
 export async function updateComment(articleId, commentId, data) {
