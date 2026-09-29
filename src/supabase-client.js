@@ -22,9 +22,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   realtime: { params: { eventsPerSecond: 5 } },
 });
 
-// Backend selector: 'firebase' (current) | 'supabase' (migration target).
-// Set REACT_APP_DATA_BACKEND=supabase on the Vercel preview deployment.
-export const DATA_BACKEND = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_DATA_BACKEND) || 'firebase';
+// Backend selector: Supabase is the production/default backend after migration.
+// Set REACT_APP_DATA_BACKEND=firebase only for an intentional legacy rollback.
+export const DATA_BACKEND = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_DATA_BACKEND) || 'supabase';
 export const USE_SUPABASE = DATA_BACKEND === 'supabase';
 
 export default supabase;
