@@ -200,7 +200,7 @@ function ShareBar({ tab, subject, term }) {
   const [copied, setCopied] = React.useState(false);
   const tabLabel = tab === "mcqs" ? "MCQ Bank" : tab === "reviews" ? "Paper Reviews" : "Study Files";
   const termLabel = term === "quiz" ? "Quiz" : term === "midterm" ? "Midterm" : "Finalterm";
-  const shareUrl = "https://edunexus.dpdns.org/?page=exam-prep&section=" + tab + "&subject=" + encodeURIComponent(subject) + "&term=" + encodeURIComponent(term);
+  const shareUrl = "https://edunexus-app.vercel.app/?page=exam-prep&section=" + tab + "&subject=" + encodeURIComponent(subject) + "&term=" + encodeURIComponent(term);
   const shareText = subject + " " + termLabel + " " + tabLabel + " on EduNexus";
   const copyLink = async () => {
     try {
