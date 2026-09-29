@@ -28,6 +28,16 @@ const articlePublicPath = (article) => {
   return '/articles/read/' + encodeURIComponent(id) + '/' + slug;
 };
 
+const articleSharePath = (article) => {
+  const path = articlePublicPath(article);
+  const params = new URLSearchParams({
+    share: '1',
+    t: String(article.title || 'EduNexus Article').slice(0, 180),
+    d: getExcerpt(article.content, 155),
+  });
+  return path + '?' + params.toString();
+};
+
 // Excerpt + plain-text helpers (shared sanitizer understands the stored HTML)
 const getExcerpt = (content, maxLen = 280) => articleExcerpt(content, maxLen);
 const stripHtml = (html) => articlePlainText(html);
@@ -86,7 +96,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
     const shareData = {
       title: art.title,
       text: getExcerpt(art.content, 100),
-      url: window.location.origin + articlePublicPath(art),
+      url: window.location.origin + articleSharePath(art),
     };
     if (navigator.share) {
       try {
@@ -95,7 +105,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
       } catch (err) {}
     } else {
       try {
-        await navigator.clipboard.writeText(`${art.title}\n${window.location.origin + articlePublicPath(art)}`);
+        await navigator.clipboard.writeText(`${art.title}\n${window.location.origin + articleSharePath(art)}`);
         showToast("Link copied to clipboard!", "success");
       } catch (err) {
         showToast("Failed to copy link", "error");
