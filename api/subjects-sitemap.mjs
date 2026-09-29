@@ -37,6 +37,6 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   if (req.method === 'HEAD') return res.status(200).end();
-  const urls = SUBJECTS.map((code) => SITE + '/?page=academic&subject=' + encodeURIComponent(code));
+  const urls = SUBJECTS.map((code) => SITE + '/academic/' + encodeURIComponent(code));
   return res.status(200).send(buildXml(urls));
 }
