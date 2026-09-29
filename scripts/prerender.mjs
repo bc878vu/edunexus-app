@@ -16,6 +16,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { SITE, canonicalPath, displaySubjectName } from '../src/site-seo.mjs';
 import { routeFromLocation, routeParamsFromPath } from '../src/app-routes.mjs';
 import { SEO_PAGE_DATA } from '../src/SEO.js';
+import { SUBJECTS } from '../api/subjects-sitemap.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(SCRIPT_DIR, '..');
@@ -65,26 +66,6 @@ function routesFromSitemap(root) {
   return routes;
 }
 
-async function fetchXmlRoutes(pathname) {
-  try {
-    const response = await fetch(SITE + pathname, { headers: { accept: 'application/xml' } });
-    if (!response.ok) return [];
-    const xml = await response.text();
-    const routes = [];
-    for (const match of xml.matchAll(/<loc>([^<]+)<\/loc>/g)) {
-      const loc = match[1].replace(/&amp;/g, '&').trim();
-      try {
-        const url = new URL(loc);
-        if (url.origin !== SITE) continue;
-        routes.push({ pathname: url.pathname.replace(/\/$/, '') || '/', search: url.search || '' });
-      } catch (_) { /* ignore malformed sitemap entries */ }
-    }
-    return routes;
-  } catch (_) {
-    return [];
-  }
-}
-
 async function collectRoutes(root) {
   const seen = new Set();
   const routes = [];
@@ -97,11 +78,10 @@ async function collectRoutes(root) {
   for (const pathname of FIXED_ROUTES) push(pathname);
   for (const route of routesFromSitemap(root)) push(route.pathname, route.search);
 
-  // Dynamic sitemaps contain the high-intent subject and MCQ-bank landing
-  // pages that are not available in public/sitemap.xml at build time.
-  for (const sitemap of ['/subjects-sitemap.xml']) {
-    for (const route of await fetchXmlRoutes(sitemap)) push(route.pathname, route.search);
-  }
+  // Subject pages are a local build-time catalog, not a network dependency.
+  // This guarantees static HTML for every subject even if the production
+  // domain or serverless sitemap is temporarily unavailable during deploy.
+  for (const subject of SUBJECTS) push('/academic/' + encodeURIComponent(subject));
   return routes;
 }
 
