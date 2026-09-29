@@ -4,6 +4,6 @@ Disallow: /login
 Disallow: /dashboard
 Allow: /
 
-Sitemap: https://edunexus.dpdns.org/sitemap.xml
-Sitemap: https://edunexus.dpdns.org/resource-sitemap.xml
-Sitemap: https://edunexus.dpdns.org/articles-sitemap.xml
+Sitemap: https://edunexus-app.vercel.app/sitemap.xml
+Sitemap: https://edunexus-app.vercel.app/resource-sitemap.xml
+Sitemap: https://edunexus-app.vercel.app/articles-sitemap.xml
