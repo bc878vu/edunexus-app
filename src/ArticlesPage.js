@@ -45,7 +45,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
   const [likedNow, setLikedNow] = useState(false);
   const [likeCount, setLikeCount] = useState(Number(art.likes) || 0);
   // Supabase uid for RLS (see page-level session prep below).
-  const uid = sessionUid || user?.uid || null;
+  const uid = user?.uid || sessionUid || null;
   const [likedDb, setLikedDb] = useState(false);
   useEffect(() => {
     if (!art.id || !uid) return;
