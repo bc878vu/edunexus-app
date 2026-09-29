@@ -160,28 +160,19 @@ export async function deleteArticle(id) {
  */
 export async function toggleLike(articleId, userId) {
   if (!articleId || !userId) throw new Error('articleId and userId are required');
-  return withFallback(
-    async () => {
-      const { error } = await supabase.from('article_likes')
-        .insert({ article_id: articleId, user_id: userId });
-      if (error) {
-        // 23505 = already liked (PK article_id+user_id); treat as a no-op.
-        if (error.code === '23505') return { liked: false };
-        throw error;
-      }
-      clearCachedPrefix(CACHE_PREFIX);
-      return { liked: true };
-    },
-    async () => {
-      await updateDoc(doc(ARTICLES(), articleId), {
-        likes: increment(1),
-        likedBy: arrayUnion(userId),
-      });
-      clearCachedPrefix(CACHE_PREFIX);
-      return { liked: true };
-    },
-    { cacheKeys: ['articles_'] }
-  );
+  // Social actions use Firebase Auth identities. Supabase is the catalogue
+  // backend, but its RLS cannot validate a Firebase UID (auth.uid() belongs to
+  // Supabase Auth), which caused every production like to be rejected.
+  // Keep the authenticated interaction on Firestore where rules can verify
+  // request.auth.uid, then let the UI update optimistically.
+  const ref = doc(ARTICLES(), articleId);
+  const snap = await getDoc(ref);
+  if (snap.exists() && Array.isArray(snap.data().likedBy) && snap.data().likedBy.includes(userId)) {
+    return { liked: false };
+  }
+  await updateDoc(ref, { likes: increment(1), likedBy: arrayUnion(userId) });
+  clearCachedPrefix(CACHE_PREFIX);
+  return { liked: true };
 }
 
 /** Whether userId already liked articleId (drives the hasLiked UI state). */
@@ -226,29 +217,12 @@ export async function listComments(articleId) {
 export async function addComment(articleId, { userId, userName, text }) {
   clearCachedPrefix(COMMENT_PREFIX + articleId);
   if (!String(text || '').trim()) throw new Error('Comment text is required');
-  return withFallback(
-    async () => {
-      const id = newId();
-      const { error } = await supabase.from('article_comments').insert({
-        id,
-        article_id: articleId,
-        user_id: userId,
-        user_name: userName || 'Student',
-        text: String(text).slice(0, 1000),
-        created_at: nowIso(),
-      });
-      if (error) throw error;
-      return id;
-    },
-    async () => {
-      const ref = await addDoc(commentCol(articleId), {
-        userId, userName: userName || 'Student', text: String(text).slice(0, 1000),
-        createdAt: serverTimestamp(),
-      });
-      return ref.id;
-    },
-    { cacheKeys: ['article_comments_'] }
-  );
+  if (!userId) throw new Error('userId is required');
+  const ref = await addDoc(commentCol(articleId), {
+    userId, userName: userName || 'Student', text: String(text).slice(0, 1000),
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
 }
 
 export async function updateComment(articleId, commentId, data) {
