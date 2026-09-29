@@ -31,7 +31,7 @@ function linkToPage(path, page) { return path + (page > 1 ? '?reviews=' + page :
 
 // In-memory cache: survives Firestore quota outages so shared resource links keep working.
 const pageCache = new Map(); // key -> { html, at }
-const CACHE_TTL = 6 * 60 * 60 * 1000;
+const CACHE_TTL = 60 * 60 * 1000;
 const MAX_CACHE = 200;
 function cacheGet(key) {
   const e = pageCache.get(key);
@@ -98,6 +98,7 @@ function sharedPreviewHtml(req, file) {
     '<meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus">' +
     '<meta property="og:title" content="' + h(title) + '"><meta property="og:description" content="' + h(summary.slice(0,190)) + '">' +
     '<meta property="og:url" content="' + h(SITE + req.url) + '"><meta property="og:image" content="' + h(SITE + '/logo512.png') + '">' +
+    '<meta property="og:image:secure_url" content="' + h(SITE + '/logo512.png') + '"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512"><meta property="og:image:alt" content="' + h(name + ' — EduNexus') + '">' +
     '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + h(title) + '">' +
     '<meta name="twitter:description" content="' + h(summary.slice(0,190)) + '"><meta name="twitter:image" content="' + h(SITE + '/logo512.png') + '">' +
     '<meta http-equiv="refresh" content="0;url=' + h(appUrl) + '"></head><body><p><a href="' + h(appUrl) + '">' + h(name) + '</a></p></body></html>';
@@ -134,7 +135,7 @@ export default async function handler(req, res) {
     if (compactShare || String(req.query?.share || '') === '1') {
       const html = sharedPreviewHtml(req, file);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+      res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
       if (req.method === 'HEAD') return res.status(200).end();
       return res.status(200).send(html);
     }
@@ -233,7 +234,7 @@ export default async function handler(req, res) {
       (hasMore ? '<a rel="next" href="' + h(linkToPage(path, reviewPage + 1)) + '">More reviews →</a>' : '') +
       '</nav>';
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+    res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', standaloneContentSecurityPolicy);
     if (req.method === 'HEAD') return res.status(200).end();
