@@ -74,6 +74,10 @@
       "destination": "/api/resource-sitemap"
     },
     {
+      "source": "/vu-notes/file/:id",
+      "destination": "/index.html"
+    },
+    {
       "source": "/vu-notes/file/:id/:slug",
       "destination": "/api/resource-page?id=:id&slug=:slug"
     },

@@ -42,6 +42,12 @@ export function routeParamsFromPath(pathname) {
   if (parts[0] === 'academic' && parts[1]) {
     return { page: 'academic', subject: parts[1].slice(0, 80), term: '' };
   }
+  // /vu-notes/file/<id> e.g. /vu-notes/file/abc123?share=1 — the "Copy link"
+  // share URL. Opens the Academic Hub with that file's preview, the same as
+  // ?page=academic&file=<id>.
+  if (parts[0] === 'vu-notes' && parts[1] === 'file' && parts[2]) {
+    return { page: 'academic', subject: '', term: '', fileId: parts[2].slice(0, 80) };
+  }
   // /exam-prep/<subject>/<term> e.g. /exam-prep/CS609/Finalterm
   if (parts[0] === 'exam-prep' && parts[1] && parts[2]) {
     return { page: 'exam-prep', subject: parts[1].slice(0, 24), term: parts[2].slice(0, 24) };

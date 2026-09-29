@@ -1005,7 +1005,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   const [subjectsExpanded, setSubjectsExpanded] = useState(true);
   const [openGroup, setOpenGroup] = useState(() => new URLSearchParams(window.location.search).get('group') || '');
   const [subject, setSubject] = useState(() => new URLSearchParams(window.location.search).get('subject') || routeParamsFromPath(window.location.pathname).subject || '');
-  const [selectedId, setSelectedId] = useState(() => new URLSearchParams(window.location.search).get('file') || '');
+  const [selectedId, setSelectedId] = useState(() => new URLSearchParams(window.location.search).get('file') || routeParamsFromPath(window.location.pathname).fileId || '');
   const [panel, setPanel] = useState(() => new URLSearchParams(window.location.search).get('panel') === 'reviews' ? 'reviews' : 'preview');
   const [downloadStatus, setDownloadStatus] = useState({});
   const [visible, setVisible] = useState(18);
