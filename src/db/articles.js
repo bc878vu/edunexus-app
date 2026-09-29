@@ -199,19 +199,29 @@ export async function hasLiked(articleId, userId) {
 export async function listComments(articleId) {
   const key = COMMENT_PREFIX + articleId;
   return cachedList(key, async () => {
-    return withFallback(
-      async () => {
-        const { data, error } = await supabase.from('article_comments').select('*')
-          .eq('article_id', articleId).order('created_at', { ascending: true });
-        if (error) throw error;
-        return (data || []).map(toComment);
-      },
-      async () => {
-        const snap = await getDocs(query(commentCol(articleId), orderBy('createdAt', 'asc')));
-        return snap.docs.map(fbItem);
-      },
-      { cacheKeys: ['article_comments_'] }
-    );});
+    // During the data migration older comments can live in Supabase while new
+    // Firebase-authenticated comments live in Firestore. Read both stores and
+    // merge them so neither generation disappears from the article UI.
+    let sbItems = [];
+    try {
+      const { data, error } = await supabase.from('article_comments').select('*')
+        .eq('article_id', articleId).order('created_at', { ascending: true });
+      if (error) throw error;
+      sbItems = (data || []).map(row => ({ ...toComment(row), _backend: 'supabase' }));
+    } catch (_) { /* Firestore comments can still load below. */ }
+    let fbItems = [];
+    try {
+      const snap = await getDocs(query(commentCol(articleId), orderBy('createdAt', 'asc')));
+      fbItems = snap.docs.map(s => ({ ...fbItem(s), _backend: 'firebase' }));
+    } catch (_) { /* Preserve any Supabase comments already loaded. */ }
+    const merged = new Map();
+    [...sbItems, ...fbItems].forEach(item => merged.set(String(item.id), item));
+    return [...merged.values()].sort((a, b) => {
+      const av = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : Date.parse(a.createdAt || 0) || 0;
+      const bv = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : Date.parse(b.createdAt || 0) || 0;
+      return av - bv;
+    });
+  });
 }
 
 export async function addComment(articleId, { userId, userName, text }) {
