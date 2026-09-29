@@ -31,7 +31,11 @@ export default function AdminContentManager({ user: adminUser = null }) {
   const [form, setForm] = useState({ title: "", category: "VU Tutorials", url: "", description: "", type: "link", file: null });
   const { requestConfirm, ConfirmUI } = useConfirm();
 
-  useEffect(() => onAuthChange(setAuthUser), []);\n  // The parent Admin Panel already owns the authenticated normalized user.\n  // Prefer it so a Supabase auth-state callback cannot temporarily hide an\n  // otherwise valid tab-scoped admin session during provider migration.\n  const user = adminUser || authUser;
+  useEffect(() => onAuthChange(setAuthUser), []);
+  // The parent Admin Panel already owns the authenticated normalized user.
+  // Prefer it so a Supabase auth-state callback cannot temporarily hide an
+  // otherwise valid tab-scoped admin session during provider migration.
+  const user = adminUser || authUser;
   useEffect(() => {
     let alive = true;
     const refresh = async () => {
