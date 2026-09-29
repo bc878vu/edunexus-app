@@ -179,3 +179,24 @@ body.ah-preview-open .edx-free-orb{display:none!important}
   .ah-search-submit{width:100%}
   .ah-folder-actions{grid-template-columns:1fr}
 }
+
+/* Resource reviews — compact professional composer */
+.ah-review-compose{border:1px solid rgba(99,102,241,.2);border-radius:18px;padding:20px;background:linear-gradient(145deg,rgba(99,102,241,.055),var(--ah-card) 55%);box-shadow:0 18px 40px -36px rgba(79,70,229,.7)}
+.ah-review-compose-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.ah-review-compose-head h4{margin:4px 0 0;font-size:1.08rem}
+.ah-review-compose-head>svg{color:#6366f1}
+.ah-review-compose-grid{display:grid;grid-template-columns:minmax(150px,.35fr) minmax(0,1fr);gap:14px;align-items:start}
+.ah-review-comment textarea{min-height:126px}
+.ah-review-form-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ah-review-form-foot>span{font-size:.76rem;color:var(--ah-muted);font-weight:700}
+.ah-review-session,.ah-review-owned{display:flex;align-items:center;gap:12px;border:1px solid var(--ah-border);border-radius:16px;padding:15px 17px;background:var(--ah-bg)}
+.ah-review-session>svg,.ah-review-owned>svg{color:#6366f1;flex:0 0 auto}
+.ah-review-session>div,.ah-review-owned>div{display:grid;gap:2px;flex:1;min-width:0}
+.ah-review-session strong,.ah-review-owned strong{color:var(--ah-ink);font-size:.88rem}
+.ah-review-session span,.ah-review-owned span{color:var(--ah-muted);font-size:.77rem}
+@media(max-width:650px){
+ .ah-review-compose-grid{grid-template-columns:1fr}
+ .ah-review-session{align-items:flex-start;flex-wrap:wrap}
+ .ah-review-session .ah-primary{width:100%}
+ .ah-review-form-foot .ah-primary{width:100%}
+}
