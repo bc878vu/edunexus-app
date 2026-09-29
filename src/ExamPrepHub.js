@@ -6,6 +6,7 @@ import { validateMcq } from "./examMcqImport";
 import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, publishedExamCatalog } from "./examCatalog";
 import { routeParamsFromPath } from "./app-routes.mjs";
 import { adminPanelAccess } from './adminSession';
+import { listFiles, subscribeFiles } from './db/files';
 
 import "./exam-prep-hub.css";
 const ExamPaperCommunity = React.lazy(() => import("./ExamPaperCommunity"));
@@ -65,18 +66,24 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
   useEffect(() => {
-    if (!validCourse(subject)) { setFiles([]); setLoading(false); return; }
+    if (!validCourse(subject)) { setFiles([]); setLoading(false); setError(''); return; }
     let live = true;
-    setLoading(true); setError('');
-    const unsubscribe = onSnapshot(query(col("files"), where("subject", "==", subject), limit(100)),
-      (snapshot) => {
+    let unsubscribe = () => {};
+    const load = async () => {
+      setLoading(true); setError('');
+      try {
+        const result = await listFiles({ subject, limit: 100, activeOnly: true });
         if (!live) return;
-        setFiles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
-          .filter((f) => safeUrl(f.url || f.downloadUrl || f.fileUrl)));
-        setLoading(false);
-      },
-      () => { if (live) { setError('Study files could not load. Please try again.'); setLoading(false); } });
-    return () => { live = false; unsubscribe(); };
+        setFiles((result?.items || []).filter((f) => safeUrl(f.url || f.downloadUrl || f.fileUrl)));
+      } catch (err) {
+        if (live) setError(databaseReadError(err, 'Study files'));
+      } finally {
+        if (live) setLoading(false);
+      }
+    };
+    void load();
+    unsubscribe = subscribeFiles({ subject, limit: 100, onInvalidate: () => { if (live) void load(); } });
+    return () => { live = false; try { unsubscribe?.(); } catch (_) {} };
   }, [subject]);
   const visible = useMemo(() => files.filter(file =>
     [file.name, file.title, file.description, file.ext].some(value =>
