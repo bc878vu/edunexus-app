@@ -3,11 +3,16 @@ import { listComments, addComment, deleteComment, subscribeComments } from './db
 import { MessageCircle, Send, Trash2 } from 'lucide-react';
 
 // Facebook-style comments for articles
-export default function ArticleComments({ articleId, user, isAdmin, theme, showToast }) {
+export default function ArticleComments({ articleId, user, sessionUid, isAdmin, theme, showToast }) {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [posting, setPosting] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  // Supabase RLS requires user_id == auth.uid() (the Supabase session uid),
+  // but the app's `user` prop comes from Firebase auth only. The page prepares
+  // a Supabase (anon) session and passes its uid down; fall back to the
+  // Firebase uid only when no session exists.
+  const uid = sessionUid || user?.uid || null;
 
   useEffect(() => {
     if (!articleId) return;
@@ -35,7 +40,7 @@ export default function ArticleComments({ articleId, user, isAdmin, theme, showT
     setPosting(true);
     try {
       await addComment(articleId, {
-        userId: user.uid,
+        userId: uid,
         userName: user.displayName || user.email?.split('@')[0] || 'Student',
         text: text.slice(0, 1000),
       });
@@ -50,7 +55,7 @@ export default function ArticleComments({ articleId, user, isAdmin, theme, showT
 
   const handleDelete = async (comment) => {
     if (!user) return;
-    const canDelete = isAdmin || comment.userId === user.uid;
+    const canDelete = isAdmin || comment.userId === uid;
     if (!canDelete) return;
     try {
       await deleteComment(articleId, comment.id);
@@ -98,7 +103,7 @@ export default function ArticleComments({ articleId, user, isAdmin, theme, showT
                 </div>
                 <div className="flex items-center gap-3 mt-1 ml-1">
                   <span className={`text-[11px] ${theme.textMuted}`}>{formatTime(c.createdAt)}</span>
-                  {(isAdmin || (user && c.userId === user.uid)) && (
+                  {(isAdmin || (uid && c.userId === uid)) && (
                     <button
                       onClick={() => handleDelete(c)}
                       className="text-[11px] text-red-500 hover:underline font-semibold flex items-center gap-1"

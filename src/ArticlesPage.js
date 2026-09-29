@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { listArticles, toggleLike, subscribeArticles } from './db/articles';
+import { listArticles, toggleLike, subscribeArticles, hasLiked as dbHasLiked } from './db/articles';
+import { ensureAnon } from './db/auth';
 import { Heart, BookOpen, Share2, MessageCircle, ChevronDown, ChevronUp, Clock, Maximize2, X } from 'lucide-react';
 import { sanitizeArticleHtml, articlePlainText, articleExcerpt } from './article-sanitize.mjs';
 import ArticleComments, { useCommentCount } from './ArticleComments';
@@ -7,7 +8,8 @@ import ArticleComments, { useCommentCount } from './ArticleComments';
 // Local date formatter (matches App.js formatDate)
 const formatDate = (timestamp) => {
   if (!timestamp) return 'Just now';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date();
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return 'Just now';
   return new Intl.DateTimeFormat('en-US', {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   }).format(date);
@@ -31,7 +33,7 @@ const getExcerpt = (content, maxLen = 280) => articleExcerpt(content, maxLen);
 const stripHtml = (html) => articlePlainText(html);
 
 // Single article card with excerpt, expand, like, share, comments
-const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
+const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) => {
   const [expanded, setExpanded] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -42,7 +44,18 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
   // article_likes), so flip the heart locally on a successful toggle.
   const [likedNow, setLikedNow] = useState(false);
   const [likeCount, setLikeCount] = useState(Number(art.likes) || 0);
-  const hasLiked = likedNow || art.likedBy?.includes(user?.uid);
+  // Supabase uid for RLS (see page-level session prep below).
+  const uid = sessionUid || user?.uid || null;
+  const [likedDb, setLikedDb] = useState(false);
+  useEffect(() => {
+    if (!art.id || !uid) return;
+    let alive = true;
+    (async () => {
+      try { const v = await dbHasLiked(art.id, uid); if (alive) setLikedDb(v); } catch (_) {}
+    })();
+    return () => { alive = false; };
+  }, [art.id, uid]);
+  const hasLiked = likedNow || likedDb || art.likedBy?.includes(user?.uid);
 
   useEffect(() => {
     setLikeCount(Number(art.likes) || 0);
@@ -56,7 +69,7 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
     }
     if (hasLiked) return;
     try {
-      const res = await toggleLike(art.id, user.uid);
+      const res = await toggleLike(art.id, uid);
       if (res && res.liked === false) {
         showToast("Already liked", "error");
         return;
@@ -239,6 +252,7 @@ const ArticleCard = ({ art, idx, user, isAdmin, theme, showToast }) => {
           <ArticleComments
             articleId={art.id}
             user={user}
+            sessionUid={sessionUid}
             isAdmin={isAdmin}
             theme={theme}
             showToast={showToast}
@@ -260,6 +274,17 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
     }
   });
   const [loading, setLoading] = useState(articles.length === 0);
+  // One Supabase (anon) session per page view. Article likes/comments write
+  // user_id == auth.uid() per RLS, but `user` comes from Firebase auth only,
+  // so the raw Firebase uid would be rejected. Thread the Supabase uid down.
+  const [sessionUid, setSessionUid] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try { const sUser = await ensureAnon(); if (alive && sUser?.uid) setSessionUid(sUser.uid); } catch (_) {}
+    })();
+    return () => { alive = false; };
+  }, []);
   const [visibleCount, setVisibleCount] = useState(10);
 
   useEffect(() => {
@@ -349,6 +374,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
               art={art}
               idx={idx}
               user={user}
+              sessionUid={sessionUid}
               isAdmin={isAdmin}
               theme={theme}
               showToast={showToast}
