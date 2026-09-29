@@ -3871,9 +3871,12 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
       // the auth adapter's signInAdmin (Firebase branch). Supabase branch
       // uses Supabase's own session + confirmation handling.
       const appUser = await signInAdmin(enteredEmail, passwordVal);
-      const firebaseUser = appUser.raw;
-      if (!grantAdminTab(firebaseUser)) throw new Error("Session storage unavailable. Enable it to open Admin Panel.");
-      onLoginSuccess(firebaseUser);
+      // signInAdmin returns one normalized user shape for both Firebase and
+      // Supabase. Admin session checks must use that normalized shape because
+      // a raw Supabase user has id/email_confirmed_at rather than the
+      // Firebase-specific uid/emailVerified fields.
+      if (!grantAdminTab(appUser)) throw new Error("Session storage unavailable. Enable it to open Admin Panel.");
+      onLoginSuccess(appUser);
       setPage("admin");
       showToast("Admin mode enabled. Session stays active for 30 minutes of inactivity.", "success");
       onClose();
