@@ -233,6 +233,7 @@ export function subscribeReviews(fileId, { status = 'approved', onInvalidate }) 
     return subscribeTable({
       table: 'file_reviews',
       filter: `file_id=eq.${fileId}`,
+      tag: status, // 'approved' | 'all' | 'pending' — each purpose gets its own realtime channel
       onInvalidate: invalidate,
     });
   }

@@ -8,6 +8,15 @@
 import { onSnapshot } from 'firebase/firestore';
 import { supabase, USE_SUPABASE } from './_common.js';
 
+// Every subscribeTable call gets its own realtime channel instance.
+// Supabase reuses channel objects by topic name and throws
+// ("cannot add postgres_changes callbacks ... after subscribe()") if .on()
+// is called on an already-subscribed channel. Two subscriptions to the same
+// table+filter (e.g. file_reviews approved + all + pending in FileReviews)
+// or a re-subscribe after an effect re-run would otherwise collide on the
+// same channel name and crash the whole React tree (blank page).
+let channelSeq = 0;
+
 /**
  * Subscribe to table changes.
  * - table: Postgres table name (also used for the channel name).
@@ -17,12 +26,14 @@ import { supabase, USE_SUPABASE } from './_common.js';
  * - firebaseQuery: the Firestore Query to onSnapshot on the Firebase branch.
  * Returns an unsubscribe function.
  */
-export function subscribeTable({ table, filter, onInvalidate, firebaseQuery }) {
+export function subscribeTable({ table, filter, tag, onInvalidate, firebaseQuery }) {
   const fire = () => { try { onInvalidate(); } catch (_) {} };
   if (USE_SUPABASE) {
     const suffix = filter ? '-' + String(filter).replace(/[^A-Za-z0-9_=-]/g, '').slice(0, 60) : '';
+    const tagSuffix = tag ? '-' + String(tag).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24) : '';
+    channelSeq += 1;
     const channel = supabase
-      .channel(`db-${table}${suffix}`)
+      .channel(`db-${table}${suffix}${tagSuffix}-${channelSeq}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) },
