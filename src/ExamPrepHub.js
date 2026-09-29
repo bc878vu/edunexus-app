@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, BookOpen, MessageCircle, ArrowDownUp, Share2, Link2, Check } from "lucide-react";
-import { db } from "./firebase-client";\nimport { USE_SUPABASE, supabase } from "./supabase-client";
+import { db } from "./firebase-client";
+import { USE_SUPABASE, supabase } from "./supabase-client";
 import { validateMcq } from "./examMcqImport";
 import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, firstAvailableExam, publishedExamCatalog } from "./examCatalog";
 import { routeParamsFromPath } from "./app-routes.mjs";
@@ -257,7 +258,8 @@ function ShareBar({ tab, subject, term }) {
       document.body.removeChild(ta);
     }
   };
-  const whatsAppUrl = "https://wa.me/?text=" + encodeURIComponent(shareText + "\n" + shareUrl);
+  const whatsAppUrl = "https://wa.me/?text=" + encodeURIComponent(shareText + "
+" + shareUrl);
   return (
     <div className="edx-share-bar" role="group" aria-label={"Share this " + tabLabel}>
       <span className="edx-share-bar-label"><Share2 size={15} /> Share this {tabLabel}</span>
