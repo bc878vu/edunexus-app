@@ -9,6 +9,7 @@ import { enforceSingleDashboardQueryForm, restoreDashboardQueryCards } from './d
 import './firebase-client';
 import { useConfirm } from './ConfirmDialog';
 import { unwrapNestedHeadings } from './article-sanitize.mjs';
+import { uploadToSignedObject } from './signedObjectUpload';
 import './admin-academic-upload.css';
 import './portfolio.css';
 import {
@@ -2066,7 +2067,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
       <section className="mt-10"><div className="mb-5"><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Workspace</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Everything stays connected</h2></div><div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">{workspaceCards.map((card)=>{const Icon=card.icon;return <button key={card.id} onClick={()=>setPage(card.id)} className={`group rounded-3xl border ${theme.border} ${theme.card} p-5 text-left shadow-sm hover:shadow-xl hover:-translate-y-1`}><div className="flex items-center justify-between"><span className="h-11 w-11 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center"><Icon size={21}/></span><ArrowUpRight size={18} className={`${theme.textMuted} transition-transform group-hover:translate-x-1 group-hover:-translate-y-1`}/></div><h3 className={`mt-5 font-black ${theme.text}`}>{card.title}</h3><p className={`mt-2 text-sm leading-6 ${theme.textMuted}`}>{card.text}</p><span className="mt-4 inline-flex rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{card.meta}</span></button>})}</div></section>
 
       {showSection && (
-        <section className="mt-10 edx-highlights"><div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5"><div><p className="text-xs font-black uppercase tracking-[.2em] text-rose-500">Live feed</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Campus highlights</h2><p className={`mt-1 text-sm ${theme.textMuted}`}>Latest resources, guides and campus updates — open any card to preview its destination.</p></div><button onClick={()=>{loadHighlights();refreshDashboard();}} className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold ${theme.border} ${theme.accent}`}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''}/> Refresh</button></div>{highlights.length===0?<div className={`rounded-3xl border ${theme.border} ${theme.card} p-8 text-center`}><Megaphone className={`mx-auto ${theme.textMuted}`} size={32}/><p className={`mt-3 font-bold ${theme.text}`}>{highlightsLoading ? 'Loading campus highlights…' : highlightsError ? 'Campus highlights are temporarily unavailable.' : 'No new highlights yet.'}</p><p className={`mt-1 text-sm ${theme.textMuted}`}>{highlightsLoading ? 'Fetching the latest updates.' : highlightsError ? 'Please try again shortly.' : 'Your latest campus updates will appear here automatically.'}</p></div>:<div className="edx-highlight-masonry" role="list">{highlights.map((post,index)=>{const IconComponent=ICON_MAP[post.iconName]||Calendar;const rawLink=post.link||post.linkUrl||'';const safeLink=typeof rawLink==='string'&&/^https?:\/\/[^\s]+$/i.test(rawLink)?rawLink:'';const safeImage=typeof post.imageUrl==='string'&&/^https?:\/\/[^\s]+$/i.test(post.imageUrl)?post.imageUrl:'';const isInternal=safeLink&&/^(?:https?:\/\/)?(?:www\.)?(?:edunexus\.dpdns\.org|edunexus-app\.vercel\.app)(?:\/|$)/i.test(safeLink);const openInternal=(e)=>{if(!isInternal)return;e.preventDefault();try{const u=new URL(safeLink);window.history.pushState({},'',u.pathname+u.search+u.hash);window.dispatchEvent(new Event('edunexus:navigation'));window.scrollTo({top:0,behavior:'smooth'});}catch(_){window.location.assign(safeLink);}};const CardInner=<div className="flex flex-col"><div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-indigo-100 via-violet-50 to-slate-100 dark:from-slate-800 dark:via-indigo-950/50 dark:to-slate-900">{safeImage?<img src={safeImage} alt={post.title?post.title+' preview':'Highlight preview'} loading="lazy" referrerPolicy="no-referrer" onError={(e)=>{e.currentTarget.style.display='none';}} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"/>:<div className="absolute inset-0 flex items-center justify-center"><div className={`flex h-16 w-16 items-center justify-center rounded-3xl shadow-sm ${post.color||'bg-indigo-100 text-indigo-700'}`}><IconComponent size={30}/></div></div>}<div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/40 to-transparent"/>{safeLink&&<span className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-slate-950/85 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur">{isInternal?'Preview':'Open'} {isInternal?<ArrowRight size={13}/>:<ExternalLink size={13}/>}</span>}</div><div className="flex flex-1 flex-col p-5"><div className="flex items-start gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${post.color||'bg-indigo-100 text-indigo-700'}`}><IconComponent size={19}/></div><h3 className={`pt-1 text-base font-black leading-snug md:text-lg ${theme.text}`}>{post.title}</h3></div><div className="mt-3 flex-1">{renderHighlightDesc(post.desc)}</div>{safeLink?<span className="mt-5 inline-flex w-fit items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition group-hover:bg-indigo-700">{isInternal?'Preview resource':'Open resource'} {isInternal?<ArrowRight size={15}/>:<ExternalLink size={15}/>}</span>:<span className={`mt-5 text-xs font-semibold ${theme.textMuted}`}>Update only · no link added</span>}</div></div>;const cardCls=`edx-highlight-card group overflow-hidden rounded-3xl border ${theme.border} ${theme.card} shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${safeLink?'cursor-pointer':''}`;return safeLink?<a key={post.id} href={safeLink} target={isInternal?'_self':'_blank'} rel="noopener noreferrer" role="listitem" aria-label={(isInternal?'Preview: ':'Open: ')+(post.title||'highlight')} onClick={openInternal} className={cardCls}>{CardInner}</a>:<div key={post.id} role="listitem" className={cardCls}>{CardInner}</div>;})}</div>}</section>
+        <section className="mt-10 edx-highlights"><div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5"><div><p className="text-xs font-black uppercase tracking-[.2em] text-rose-500">Live feed</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Campus highlights</h2></div><button onClick={()=>refreshDashboard()} className={`inline-flex items-center gap-2 text-sm font-bold ${theme.accent}`}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''}/> Refresh</button></div>{highlights.length===0?<div className={`rounded-3xl border ${theme.border} ${theme.card} p-8 text-center`}><Megaphone className={`mx-auto ${theme.textMuted}`} size={32}/><p className={`mt-3 font-bold ${theme.text}`}>{highlightsLoading ? 'Loading campus highlights…' : highlightsError ? 'Campus highlights are temporarily unavailable.' : 'No new highlights yet.'}</p><p className={`mt-1 text-sm ${theme.textMuted}`}>{highlightsLoading ? 'Fetching the latest updates.' : highlightsError ? 'Please try again shortly.' : 'Your latest campus updates will appear here automatically.'}</p></div>:<div className="edx-highlight-masonry" role="list">{highlights.map((post,index)=>{const IconComponent=ICON_MAP[post.iconName]||Calendar;const rawLink=post.link||post.linkUrl||'';const safeLink=typeof rawLink==='string'&&/^https?:\/\/[^\s]+$/i.test(rawLink)?rawLink:'';const safeImage=typeof post.imageUrl==='string'&&/^https?:\/\/[^\s]+$/i.test(post.imageUrl)?post.imageUrl:'';const isInternal=safeLink&&/^(?:https?:\/\/)?(?:www\.)?(?:edunexus\.dpdns\.org|edunexus-app\.vercel\.app)(?:\/|$)/i.test(safeLink);const openInternal=(e)=>{if(!isInternal)return;e.preventDefault();try{const u=new URL(safeLink);window.history.pushState({},'',u.pathname+u.search+u.hash);window.dispatchEvent(new Event('edunexus:navigation'));window.scrollTo({top:0,behavior:'smooth'});}catch(_){window.location.assign(safeLink);}};const CardInner=<div className="flex flex-col"><div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-indigo-100 via-violet-50 to-slate-100 dark:from-slate-800 dark:via-indigo-950/50 dark:to-slate-900">{safeImage?<img src={safeImage} alt={post.title?post.title+' preview':'Highlight preview'} loading="lazy" referrerPolicy="no-referrer" onError={(e)=>{e.currentTarget.style.display='none';}} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"/>:<div className="absolute inset-0 flex items-center justify-center"><div className={`flex h-16 w-16 items-center justify-center rounded-3xl shadow-sm ${post.color||'bg-indigo-100 text-indigo-700'}`}><IconComponent size={30}/></div></div>}<div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/40 to-transparent"/>{safeLink&&<span className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-slate-950/85 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur">{isInternal?'Preview':'Open'} {isInternal?<ArrowRight size={13}/>:<ExternalLink size={13}/>}</span>}</div><div className="flex flex-1 flex-col p-5"><div className="flex items-start gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${post.color||'bg-indigo-100 text-indigo-700'}`}><IconComponent size={19}/></div><h3 className={`pt-1 text-base font-black leading-snug md:text-lg ${theme.text}`}>{post.title}</h3></div><div className="mt-3 flex-1">{renderHighlightDesc(post.desc)}</div>{safeLink?<span className="mt-5 inline-flex w-fit items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition group-hover:bg-indigo-700">{isInternal?'Preview resource':'Open resource'} {isInternal?<ArrowRight size={15}/>:<ExternalLink size={15}/>}</span>:<span className={`mt-5 text-xs font-semibold ${theme.textMuted}`}>Update only · no link added</span>}</div></div>;const cardCls=`edx-highlight-card group overflow-hidden rounded-3xl border ${theme.border} ${theme.card} shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${safeLink?'cursor-pointer':''}`;return safeLink?<a key={post.id} href={safeLink} target={isInternal?'_self':'_blank'} rel="noopener noreferrer" role="listitem" aria-label={(isInternal?'Preview: ':'Open: ')+(post.title||'highlight')} onClick={openInternal} className={cardCls}>{CardInner}</a>:<div key={post.id} role="listitem" className={cardCls}>{CardInner}</div>;})}</div>}</section>
       )}
 
       <section className="mt-10 overflow-hidden rounded-3xl border border-indigo-200/60 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-600 via-violet-600 to-slate-950 p-6 sm:p-8 lg:p-10 text-white shadow-2xl"><div className="grid lg:grid-cols-[1fr_auto] items-center gap-7"><div><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[.18em]"><Sparkles size={14} className="text-yellow-300"/> Your next step</span><h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">Turn today’s study time into real progress.</h2><p className="mt-3 max-w-2xl text-sm sm:text-base leading-7 text-indigo-100">Pick one resource, one practice task and one revision task. EduNexus keeps the workflow simple so you can spend more time learning.</p></div><div className="flex flex-col sm:flex-row lg:flex-col gap-3"><button onClick={()=>setPage('planner')} className="rounded-2xl bg-white px-5 py-3.5 font-black text-slate-950 hover:-translate-y-1">Plan my session</button><button onClick={()=>setPage('aiquiz')} className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3.5 font-black text-white hover:bg-white/15">Practice with AI</button></div></div></section>
@@ -2914,6 +2915,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const [fontFamily, setFontFamily] = useState('inherit');
     const [fontSize, setFontSize] = useState('16');
     const editorRef = React.useRef(null);
+    const coverFileRef = React.useRef(null); // freshly-picked cover file, uploaded on publish
 
     useEffect(() => {
       let alive = true;
@@ -2988,6 +2990,13 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       }
       // Never persist headings that wrap whole blocks (paste artifact).
       const htmlContent = unwrapNestedHeadings(editorRef.current?.innerHTML || content);
+      let finalImageUrl = imageUrl;
+      try {
+        finalImageUrl = await uploadCoverIfNeeded();
+      } catch (err) {
+        showToast('Cover image upload failed: ' + (err?.message || 'unknown error') + ' — article not published.', 'error');
+        return;
+      }
       // TODO(schema): keywords/hiddenLinks/isActive/rightsConfirmed/
       // originalContentConfirmed/likedBy have no columns in plan §1 (the
       // articles adapter already documents this) — they persist on Firebase
@@ -2995,7 +3004,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       const articleData = {
         title: title.trim(),
         content: htmlContent,
-        imageUrl,
+        imageUrl: finalImageUrl,
         keywords: keywords.trim(),
         hiddenLinks: hiddenLinks.trim(),
         isActive,
@@ -3016,7 +3025,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     };
 
     const resetForm = () => {
-      setEditId(null); setTitle(''); setContent(''); setImageUrl('');
+      setEditId(null); setTitle(''); setContent(''); setImageUrl(''); coverFileRef.current = null;
       setKeywords(''); setHiddenLinks(''); setIsActive(true);
       setOriginalConfirmed(false); setFontFamily('inherit'); setFontSize('16');
       if (editorRef.current) editorRef.current.innerHTML = '';
@@ -3027,7 +3036,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       setTitle(art.title || '');
       const cleanBody = unwrapNestedHeadings(art.content || '');
       setContent(cleanBody);
-      setImageUrl(art.imageUrl || '');
+      setImageUrl(art.imageUrl || ''); coverFileRef.current = null;
       setKeywords(art.keywords || '');
       setHiddenLinks(art.hiddenLinks || '');
       setIsActive(art.isActive !== false);
@@ -3059,10 +3068,34 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       const file = e.target.files[0];
       if (file) {
         if (file.size > 1000000) { showToast("File too large (Max 1MB)", "error"); return; }
+        coverFileRef.current = file;
         const reader = new FileReader();
         reader.onloadend = () => { setImageUrl(reader.result); };
         reader.readAsDataURL(file);
       }
+    };
+    // Upload a freshly-picked cover to public storage so link previews (og:image)
+    // get a real https URL. data: URLs can never render in WhatsApp/Facebook previews.
+    const uploadCoverIfNeeded = async () => {
+      const file = coverFileRef.current;
+      if (!file) return imageUrl;
+      showToast('Uploading cover image…', 'info');
+      const idToken = await user.getIdToken(true);
+      const signRes = await fetch('https://cprpndovdfnkvekewstv.supabase.co/functions/v1/edunexus-sign-upload', {
+        method: 'POST',
+        headers: { authorization: 'Bearer ' + idToken, 'content-type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, size: file.size, contentType: file.type }),
+      });
+      const signed = await signRes.json().catch(() => ({}));
+      if (!signRes.ok || !signed.uploadUrl || !signed.path) {
+        throw new Error(signed.error || 'Cover upload authorization failed (HTTP ' + signRes.status + ').');
+      }
+      await uploadToSignedObject(file, signed, () => {}, null);
+      const publicUrl = 'https://cprpndovdfnkvekewstv.supabase.co/storage/v1/object/public/edunexus-public-files/' +
+        String(signed.path).split('/').map(encodeURIComponent).join('/');
+      coverFileRef.current = null;
+      setImageUrl(publicUrl);
+      return publicUrl;
     };
 
     const toolbarBtn = "p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm min-w-[32px] text-center";
@@ -3079,7 +3112,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           <div className="mb-3">
             <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Cover Image</label>
             <div className="flex gap-2 mb-2">
-              <input value={imageUrl} onChange={e=>setImageUrl(e.target.value)} placeholder="Image URL (or upload below)" className={`flex-1 ${theme.input} p-2 rounded-lg`} />
+              <input value={imageUrl} onChange={e=>{ coverFileRef.current = null; setImageUrl(e.target.value); }} placeholder="Image URL (or upload below)" className={`flex-1 ${theme.input} p-2 rounded-lg`} />
             </div>
             <div className="relative group cursor-pointer bg-slate-100 dark:bg-slate-800 border border-dashed border-slate-300 rounded-lg p-2 text-center hover:bg-slate-200">
               <input type="file" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
