@@ -98,7 +98,9 @@ export default function AdminPinnedAds({ showToast }) {
       };
       if (editingId) {
         await updatePinnedAd(editingId, payload);
-        setAds((items) => items.map((item) => item.id === editingId ? { ...item, ...payload } : item));\n        window.dispatchEvent(new Event("edunexus:pinned-ads-changed"));\n        if (showToast) showToast("Ad updated.", "success");
+        setAds((items) => items.map((item) => item.id === editingId ? { ...item, ...payload } : item));
+        window.dispatchEvent(new Event("edunexus:pinned-ads-changed"));
+        if (showToast) showToast("Ad updated.", "success");
       } else {
         await createPinnedAd({ ...payload, createdAt: new Date() });
         if (showToast) showToast("Ad created.", "success");
@@ -131,7 +133,11 @@ export default function AdminPinnedAds({ showToast }) {
 
   const toggleActive = async (ad) => {
     try {
-      const nextActive = !(ad.isActive !== false);\n      await setPinnedAdActive(ad.id, nextActive);\n      setAds((items) => items.map((item) => item.id === ad.id ? { ...item, isActive: nextActive, updatedAt: new Date() } : item));\n      window.dispatchEvent(new Event("edunexus:pinned-ads-changed"));\n      if (showToast) showToast(nextActive ? "Ad enabled." : "Ad disabled.", "success");
+      const nextActive = !(ad.isActive !== false);
+      await setPinnedAdActive(ad.id, nextActive);
+      setAds((items) => items.map((item) => item.id === ad.id ? { ...item, isActive: nextActive, updatedAt: new Date() } : item));
+      window.dispatchEvent(new Event("edunexus:pinned-ads-changed"));
+      if (showToast) showToast(nextActive ? "Ad enabled." : "Ad disabled.", "success");
     } catch (err) {
       console.error("Pinned ad toggle failed:", err);
       if (showToast) showToast("Could not update the ad.", "error");
