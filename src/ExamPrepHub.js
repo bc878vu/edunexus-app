@@ -95,7 +95,8 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
   return <div className="edx-study-page">
     <section className="edx-study-hero"><span className="edx-exam-eyebrow"><BookOpen size={15}/> Your study library</span>
       <h1>Find the material you need.</h1>
-      <p>Browse handouts, notes and shared resources for your subject.</p></section>
+      <p>Enter your subject code, search the library and open handouts, notes and shared study resources in seconds.</p>
+      <div className="edx-study-hero-points"><span><Search size={15}/> Search by subject</span><span><FileText size={15}/> Notes & handouts</span><span><BookOpen size={15}/> Study-ready resources</span></div></section>
     <div className="edx-study-controls">
       <CourseSelector value={subject} onChange={onSubjectChange} subjects={subjects}/>
       <label className="edx-exam-field">Find a file <span className="edx-study-search"><Search size={17}/><input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search title or file type…"/></span></label>
@@ -104,14 +105,14 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
       </select></label>
     </div>
     <section className="edx-exam-card edx-study-results" aria-live="polite">
-      <div className="edx-exam-between"><h2>{subject} study files</h2><span className="edx-exam-pill">{visible.length} {visible.length === 1 ? 'file' : 'files'}</span></div>
+      <div className="edx-exam-between edx-study-results-head"><div><span className="edx-exam-eyebrow">Resource library</span><h2>{subject} study files</h2><p>{search ? 'Showing files matching your search.' : 'Open a resource below or refine the subject and search above.'}</p></div><span className="edx-exam-pill">{visible.length} {visible.length === 1 ? 'file' : 'files'}</span></div>
       {loading && <p role="status">Loading study files…</p>}
       {error && <p role="alert">{error}</p>}
       {!loading && !error && !visible.length && <div className="edx-study-empty"><FileText size={26}/><h3>{search ? 'No matching files' : 'No files shared for this subject yet'}</h3><p>{search ? 'Try another search or clear the search box.' : 'Browse the Academic Hub to find resources for other subjects.'}</p>{search && <button type="button" className="edx-exam-secondary" onClick={()=>setSearch('')}>Clear search</button>}</div>}
       {!loading && !!visible.length && <div className="edx-study-grid">{visible.map(file =>
         <article className="edx-study-file" key={file.id}><div className="edx-study-icon"><FileText size={21}/></div>
-          <div><strong>{safe(file.name || file.title,120) || 'Study resource'}</strong><small>{safe(file.ext,10).toUpperCase() || 'RESOURCE'} · {subject}</small></div>
-          <a className="edx-exam-secondary" target="_blank" rel="noopener noreferrer" href={safeUrl(file.url || file.downloadUrl || file.fileUrl)}>Open <ChevronRight size={16}/></a>
+          <div><strong>{safe(file.name || file.title,120) || 'Study resource'}</strong><small>{safe(file.ext,10).toUpperCase() || 'RESOURCE'} · {subject}</small>{file.description && <p>{safe(file.description,140)}</p>}</div>
+          <a className="edx-exam-secondary" target="_blank" rel="noopener noreferrer" href={safeUrl(file.url || file.downloadUrl || file.fileUrl)}>Open resource <ChevronRight size={16}/></a>
         </article>)}</div>}
       <a className="edx-exam-secondary edx-study-browse" href="/?page=academic">Browse all study material <ChevronRight size={16}/></a>
     </section>
