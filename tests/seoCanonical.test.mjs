@@ -59,7 +59,7 @@ test('all static sitemap and robots URLs use the same canonical origin', () => {
   for (const url of urls) assert.equal(new URL(url).origin, SITE, url);
   assert.ok(urls.includes(SITE + '/portfolio'));
   assert.match(sitemap, /edunexus\.dpdns\.org/);
-  assert.doesNotMatch(sitemap, /edunexus\.dpdns\.org/);
+  assert.doesNotMatch(sitemap, /edunexus-app\.vercel\.app/);
   assert.match(robots, /Sitemap: https:\/\/edunexus\.dpdns\.org\/sitemap\.xml/);
   assert.match(index, /property="og:url" content="https:\/\/edunexus\.dpdns\.org\/"/);
 });
