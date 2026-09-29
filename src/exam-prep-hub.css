@@ -421,3 +421,21 @@
 @media (prefers-reduced-motion: reduce) {
   .edx-search-card, .edx-search-card * { animation: none !important; transition: none !important; }
 }
+
+/* Search-first Exam Prep empty state */
+.edx-search-welcome {
+  display:flex;
+  align-items:center;
+  gap:16px;
+  min-height:120px;
+  margin-top:4px;
+  padding:clamp(20px,4vw,30px);
+  border-style:dashed;
+  background:linear-gradient(135deg,rgba(99,102,241,.055),var(--ex-card));
+}
+.edx-search-welcome > svg { flex:0 0 auto; color:#6366f1; }
+.edx-search-welcome h3 { margin:0 0 6px; font-size:1.05rem; }
+.edx-search-welcome p { margin:0; color:var(--ex-muted); line-height:1.65; }
+@media (max-width:620px) {
+  .edx-search-welcome { align-items:flex-start; }
+}
