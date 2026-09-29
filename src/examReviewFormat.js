@@ -1,5 +1,3 @@
-import { SUPABASE_URL } from './supabase-client';
-
 export const EXAM_REVIEW_URL = 'https://edunexus-app.vercel.app/?page=exam-prep';
 export const EDUNEXUS_WHATSAPP_GROUP = 'https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW';
 
@@ -15,21 +13,13 @@ export const formatExamTime = (value) => {
   return String(hour % 12 || 12) + ':' + match[2] + (hour >= 12 ? ' PM' : ' AM');
 };
 
-// Only link to a hosted paper file in the EduNexus Firebase Storage bucket
-// or (after migration) the project's own Supabase Storage host.
-const SUPABASE_HOST = (() => { try { return new URL(SUPABASE_URL).hostname; } catch (_) { return ''; } })();
+// Only link to a hosted paper file in the EduNexus Firebase Storage bucket.
 export const safePaperUrl = (review) => {
   if (!String(review?.paperPath || '').startsWith('exam-papers/')) return '';
   try {
     const url = new URL(review?.paperUrl || '');
-    if (url.protocol !== 'https:') return '';
-    // Legacy Firebase-hosted papers.
-    if (url.hostname === 'firebasestorage.googleapis.com' &&
-      url.pathname.startsWith('/v0/b/edunexus-live-e0b84.firebasestorage.app/o/')) return url.href;
-    // Supabase-hosted papers (public or signed object URLs on our project).
-    if (SUPABASE_HOST && url.hostname === SUPABASE_HOST &&
-      url.pathname.startsWith('/storage/v1/object/')) return url.href;
-    return '';
+    return url.protocol === 'https:' && url.hostname === 'firebasestorage.googleapis.com' &&
+      url.pathname.startsWith('/v0/b/edunexus-live-e0b84.firebasestorage.app/o/') ? url.href : '';
   } catch (_) { return ''; }
 };
 

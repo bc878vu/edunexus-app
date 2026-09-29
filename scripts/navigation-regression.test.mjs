@@ -80,7 +80,7 @@ test('pretty parameterized routes resolve and ?page= keeps precedence', () => {
 });
 
 test('canonical URLs use the pretty path forms', () => {
-  assert.equal(SITE, 'https://edunexus.dpdns.org');
+  assert.equal(SITE, 'https://edunexus-app.vercel.app');
   assert.equal(canonicalPath('exam-prep', '?subject=CS609&term=Finalterm'), '/exam-prep/CS609/Finalterm');
   assert.equal(canonicalPath('exam-prep', '?subject=cs101&term=midterm'), '/exam-prep/CS101/Midterm');
   assert.equal(canonicalPath('exam-prep', ''), '/exam-prep');
@@ -97,10 +97,10 @@ test('canonical URLs use the pretty path forms', () => {
 
 test('sitemap advertises the pretty canonical URLs', () => {
   const sitemap = readFileSync('public/sitemap.xml', 'utf8');
-  assert.match(sitemap, /<loc>https:\/\/edunexus\.dpdns\.org\/exam-prep\/CS609\/Finalterm<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/edunexus\.dpdns\.org\/exam-prep<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/edunexus-app\.vercel\.app\/exam-prep\/CS609\/Finalterm<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/edunexus-app\.vercel\.app\/exam-prep<\/loc>/);
   assert.doesNotMatch(sitemap, /\?page=exam-prep/);
-  assert.doesNotMatch(sitemap, /edunexus-app\.vercel\.app/);
+  assert.doesNotMatch(sitemap, /edunexus\.dpdns\.org/);
 });
 
 test('guides and tutorials render inside the shared App main and footer', () => {
@@ -153,10 +153,10 @@ test('prerender writes per-route static HTML from the sitemap without touching t
   writeFileSync(join(stub, 'build', 'index.html'), template, 'utf8');
   writeFileSync(join(stub, 'public', 'sitemap.xml'),
     '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-    + '<url><loc>https://edunexus.dpdns.org/</loc></url>'
-    + '<url><loc>https://edunexus.dpdns.org/exam-prep/CS609/Finalterm</loc></url>'
-    + '<url><loc>https://edunexus.dpdns.org/academic/CS609_System_Programming</loc></url>'
-    + '<url><loc>https://edunexus.dpdns.org/learning/cs101/some-slug</loc></url>'
+    + '<url><loc>https://edunexus-app.vercel.app/</loc></url>'
+    + '<url><loc>https://edunexus-app.vercel.app/exam-prep/CS609/Finalterm</loc></url>'
+    + '<url><loc>https://edunexus-app.vercel.app/academic/CS609_System_Programming</loc></url>'
+    + '<url><loc>https://edunexus-app.vercel.app/learning/cs101/some-slug</loc></url>'
     + '</urlset>', 'utf8');
 
   const { written, routes } = await prerender(stub);
@@ -167,7 +167,7 @@ test('prerender writes per-route static HTML from the sitemap without touching t
 
   const bankHtml = readFileSync(join(stub, 'build', 'exam-prep', 'CS609', 'Finalterm', 'index.html'), 'utf8');
   assert.match(bankHtml, /<title>CS609 Final Term Solved MCQs \| EduNexus<\/title>/);
-  assert.match(bankHtml, /<link rel="canonical" href="https:\/\/edunexus\.dpdns\.org\/exam-prep\/CS609\/Finalterm"\/>/);
+  assert.match(bankHtml, /<link rel="canonical" href="https:\/\/edunexus-app\.vercel\.app\/exam-prep\/CS609\/Finalterm"\/>/);
   assert.match(bankHtml, /<div id="root"><main class="edx-prerender-static"/);
   assert.match(bankHtml, /<h1[^>]*>CS609 Final Term Solved MCQs<\/h1>/);
   assert.equal((bankHtml.match(/<script type="application\/ld\+json">/g) || []).length, 1);
@@ -175,10 +175,10 @@ test('prerender writes per-route static HTML from the sitemap without touching t
 
   const academicHtml = readFileSync(join(stub, 'build', 'academic', 'CS609_System_Programming', 'index.html'), 'utf8');
   assert.match(academicHtml, /<title>CS609 SYSTEM PROGRAMMING Notes, Handouts &amp; Past Papers \| EduNexus<\/title>/);
-  assert.match(academicHtml, /<link rel="canonical" href="https:\/\/edunexus\.dpdns\.org\/academic\/CS609_System_Programming"\/>/);
+  assert.match(academicHtml, /<link rel="canonical" href="https:\/\/edunexus-app\.vercel\.app\/academic\/CS609_System_Programming"\/>/);
 
   const homeHtml = readFileSync(join(stub, 'build', 'index.html'), 'utf8');
-  assert.match(homeHtml, /<link rel="canonical" href="https:\/\/edunexus\.dpdns\.org\/"\/>/);
+  assert.match(homeHtml, /<link rel="canonical" href="https:\/\/edunexus-app\.vercel\.app\/"\/>/);
   assert.doesNotMatch(homeHtml, /old\.example/);
   assert.ok(existsSync(join(stub, 'build', 'exam-prep', 'index.html')));
 

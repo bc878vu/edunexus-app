@@ -1,8 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
-import { addMcq, listMcqs, subscribeMcqs } from "./db/examMcqs";
-import { listSubmissions, approveSubmission, rejectSubmission } from "./db/examReviews";
-import { getMetaDoc, subscribeMetaDoc } from "./db/files";
+import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, BookOpen, MessageCircle, ArrowDownUp, Share2, Link2, Check } from "lucide-react";
 import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
@@ -23,11 +20,7 @@ const safe = (value, max = 3000) => String(value || "").trim().slice(0, max);
 const courseCode = (value) => safe(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
 const validCourse = (value) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(value);
 const isAdmin = (user) => adminPanelAccess(user);
-const dateValue = (value) => {
-  if (value && typeof value.toMillis === "function") return value.toMillis();
-  const t = value ? Date.parse(String(value)) : NaN;
-  return Number.isFinite(t) ? t : 0;
-};
+const dateValue = (value) => value && typeof value.toMillis === "function" ? value.toMillis() : 0;
 const shuffle = (items) => {
   const result = items.slice();
   for (let i = result.length - 1; i > 0; i -= 1) {
@@ -111,7 +104,7 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
       {!loading && !!visible.length && <div className="edx-study-grid">{visible.map(file =>
         <article className="edx-study-file" key={file.id}><div className="edx-study-icon"><FileText size={21}/></div>
           <div><strong>{safe(file.name || file.title,120) || 'Study resource'}</strong><small>{safe(file.ext,10).toUpperCase() || 'RESOURCE'} · {subject}</small></div>
-          <a className="edx-exam-secondary" rel="noopener noreferrer" href={safeUrl(file.url || file.downloadUrl || file.fileUrl)}>Open <ChevronRight size={16}/></a>
+          <a className="edx-exam-secondary" target="_blank" rel="noopener noreferrer" href={safeUrl(file.url || file.downloadUrl || file.fileUrl)}>Open <ChevronRight size={16}/></a>
         </article>)}</div>}
       <a className="edx-exam-secondary edx-study-browse" href="/?page=academic">Browse all study material <ChevronRight size={16}/></a>
     </section>
@@ -128,8 +121,8 @@ function AdminTools({ user, onView }) {
   const reload = async () => {
     if (!isAdmin(user)) return;
     try {
-      const items = await listSubmissions({ limit: 100 });
-      setPending(items.sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt)));
+      const snapshot = await getDocs(query(col("examReviewSubmissions"), limit(100)));
+      setPending(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt)));
     } catch (_) { setMessage("Cannot load submissions. Deploy and check Firestore rules."); }
   };
   useEffect(() => { if (isAdmin(user)) void reload(); }, [user]);
@@ -139,21 +132,25 @@ function AdminTools({ user, onView }) {
     const validated = validateMcq(item);
     const note = ' [EduNexus admin verified] Admin review source: ' + source;
     if (validated.explanation.length + note.length > 1000) throw new Error('Explanation and verification source together must be within 1000 characters.');
-    return { ...validated, explanation:validated.explanation + note, createdAt:new Date() };
+    return { ...validated, explanation:validated.explanation + note, createdAt:serverTimestamp() };
   };
   const addOne = async (event) => {
     event.preventDefault();
     if (!isAdmin(user)) { setMessage("Admin session expired. Please log in again."); return; }
     setBusy(true); setMessage("");
-    try { const published = normalize(draft); await addMcq(published); setLastPublished({subject:published.subject, term:draft.term}); setDraft({ ...EMPTY_MCQ, subject: draft.subject, term: draft.term }); setMessage("MCQ published successfully. The public practice page updates automatically; use the link below to open the exact subject and exam type."); }
+    try { const published = normalize(draft); await addDoc(col("examMcqs"), published); setLastPublished({subject:published.subject, term:draft.term}); setDraft({ ...EMPTY_MCQ, subject: draft.subject, term: draft.term }); setMessage("MCQ published successfully. The public practice page updates automatically; use the link below to open the exact subject and exam type."); }
     catch (error) { setMessage(error.message || "MCQ could not be published."); } finally { setBusy(false); }
   };
   const moderate = async (review, approve) => {
     if (!isAdmin(user)) { setMessage("Admin session expired. Please log in again."); return; }
     setBusy(true); setMessage("");
     try {
-      if (approve) await approveSubmission(review.id);
-      else await rejectSubmission(review.id);
+      const batch = writeBatch(db);
+      if (approve) {
+        batch.set(doc(col("examReviews"), review.id), { subject: review.subject, term: review.term, examDate: review.examDate, difficulty: review.difficulty, topics: safe(review.topics, 400), summary: safe(review.summary, 1500), createdAt: serverTimestamp() });
+      }
+      batch.update(doc(col("examReviewSubmissions"), review.id), { status: approve ? "approved" : "rejected", moderatedAt: serverTimestamp() });
+      await batch.commit();
       setPending((prev) => prev.filter((r) => r.id !== review.id)); setMessage(approve ? "Review approved and published." : "Review rejected.");
     } catch (_) { setMessage("Moderation failed. Check deployed security rules and try again."); } finally { setBusy(false); }
   };
@@ -161,7 +158,7 @@ function AdminTools({ user, onView }) {
   return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Exam content management</h2><p>Only publish original or properly licensed questions and completed-exam guidance.</p></div><ShieldCheck size={28} /></div>
     {message && <p role="status" className="edx-exam-alert">{message}</p>}
     {lastPublished && <div className="edx-exam-publish-actions">
-      <a className="edx-exam-primary" href={'/?page=exam-prep&subject=' + encodeURIComponent(lastPublished.subject) + '&term=' + encodeURIComponent(lastPublished.term)} rel="noopener noreferrer">Open published {lastPublished.subject} {lastPublished.term} quiz <ChevronRight size={16}/></a>
+      <a className="edx-exam-primary" href={'/?page=exam-prep&subject=' + encodeURIComponent(lastPublished.subject) + '&term=' + encodeURIComponent(lastPublished.term)} target="_blank" rel="noopener noreferrer">Open published {lastPublished.subject} {lastPublished.term} quiz <ChevronRight size={16}/></a>
       <button type="button" className="edx-exam-secondary" onClick={() => onView?.(lastPublished.subject, lastPublished.term)}>Preview in Admin Panel</button>
     </div>}
     <form className="edx-exam-card edx-exam-form" onSubmit={addOne}><h3>Add an MCQ</h3><div className="edx-exam-form-grid"><CourseSelector value={draft.subject} onChange={(value) => setDraft((v) => ({ ...v, subject: value }))} /><TermSelector includeQuiz value={draft.term} onChange={(value) => setDraft((v) => ({ ...v, term: value }))} /></div>
@@ -227,7 +224,7 @@ function ShareBar({ tab, subject, term }) {
       <button type="button" onClick={copyLink} className="edx-share-bar-btn" aria-label="Copy share link">
         {copied ? <Check size={16} /> : <Link2 size={16} />} {copied ? "Copied!" : "Copy link"}
       </button>
-      <a href={whatsAppUrl} rel="noopener noreferrer" className="edx-share-bar-btn edx-share-bar-wa" aria-label="Share on WhatsApp">
+      <a href={whatsAppUrl} target="_blank" rel="noopener noreferrer" className="edx-share-bar-btn edx-share-bar-wa" aria-label="Share on WhatsApp">
         <MessageCircle size={16} /> WhatsApp
       </a>
     </div>
@@ -298,46 +295,33 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
         userPickedFilter.current = true;
       }
     };
-    // Legacy fallback: scan the first EXAM_SUBJECT_LIMIT questions. Kept for
+    // Legacy fallback: scan the first EXAM_SUBJECT_LIMIT documents. Kept for
     // deployments where the denormalized counts document has never been
     // written (or cannot be read); nothing about its behaviour changed.
     const startLegacyCatalog = () => {
       if (legacyUnsub) return;
-      let live = true;
-      const load = async () => {
-        try {
-          const items = await listMcqs({ limit: EXAM_SUBJECT_LIMIT, activeOnly: false });
-          if (live) applyCatalog(publishedExamCatalog(items), false);
-        } catch (error) {
-          if (!live) return;
-          setCatalogLoading(false);
-          setCatalogError(error?.code === 'permission-denied'
-            ? 'Published question catalogue is blocked by Firestore read rules.'
-            : 'Could not load the published course catalogue. Refresh to try again.');
-        }
-      };
-      load();
-      const unsubscribe = subscribeMcqs({ onInvalidate: load });
-      legacyUnsub = () => { live = false; unsubscribe(); };
+      const source = query(col('examMcqs'), limit(EXAM_SUBJECT_LIMIT));
+      legacyUnsub = onSnapshot(source, snapshot => {
+        applyCatalog(publishedExamCatalog(snapshot.docs), false);
+      }, error => {
+        setCatalogLoading(false);
+        setCatalogError(error?.code === 'permission-denied'
+          ? 'Published question catalogue is blocked by Firestore read rules.'
+          : 'Could not load the published course catalogue. Refresh to try again.');
+      });
     };
     const stopLegacyCatalog = () => { if (legacyUnsub) { legacyUnsub(); legacyUnsub = null; } };
     // Fast path: the admin import/manage tools maintain exact per-subject
     // counts in one document (see src/examCatalogCounts.js).
-    let metaLive = true;
-    const loadCatalogDoc = async () => {
-      try {
-        const data = await getMetaDoc('examCatalog');
-        if (!metaLive) return;
-        // Defensive: a missing counts document means the counts have never
-        // been written (or cannot be read) — use the legacy scan.
-        if (!data) { startLegacyCatalog(); return; }
-        stopLegacyCatalog();
-        applyCatalog(catalogFromCounts(data), true);
-      } catch (_) { if (metaLive) startLegacyCatalog(); }
-    };
-    loadCatalogDoc();
-    const unsubscribe = subscribeMetaDoc('examCatalog', { onInvalidate: loadCatalogDoc });
-    return () => { metaLive = false; stopLegacyCatalog(); unsubscribe(); };
+    const unsubscribe = onSnapshot(doc(db, ...ROOT, 'meta', 'examCatalog'), snapshot => {
+      // Defensive: a non-document snapshot (or a snapshot without exists())
+      // means the counts doc is unavailable — use the legacy scan.
+      const hasCounts = !!snapshot && typeof snapshot.exists === 'function' && snapshot.exists();
+      if (!hasCounts) { startLegacyCatalog(); return; }
+      stopLegacyCatalog();
+      applyCatalog(catalogFromCounts(snapshot.data()), true);
+    }, () => { startLegacyCatalog(); });
+    return () => { stopLegacyCatalog(); unsubscribe(); };
   }, [adminWorkspace, tab]);
   const selectSubject = value => { userPickedFilter.current = true; setSubject(courseCode(value)); };
   const selectTerm = value => { userPickedFilter.current = true; setTerm(value); };

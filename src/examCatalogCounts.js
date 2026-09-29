@@ -12,12 +12,13 @@
 // deployed yet), that subject keeps its previous counts and the error is
 // swallowed: ExamPrepHub falls back to the legacy document scan while the
 // counts document is missing or stale.
-import { countMcqs } from './db/examMcqs';
-import { setMetaDoc } from './db/files';
+import { collection, count, doc, getCountFromServer, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { db } from './firebase-client';
 import { EXAM_CATEGORIES } from './examCatalog';
 
 export const EXAM_CATALOG_DOC = ['artifacts', 'edunexus-live', 'public', 'data', 'meta', 'examCatalog'];
 const COURSE = /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/;
+const MCQS = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'examMcqs');
 
 export async function refreshExamCatalogCounts(subjects) {
   const list = [...new Set((Array.isArray(subjects) ? subjects : [subjects])
@@ -30,16 +31,14 @@ export async function refreshExamCatalogCounts(subjects) {
     let complete = true;
     for (const category of EXAM_CATEGORIES) {
       try {
-        counts[category] = await countMcqs(subject, category);
+        const snapshot = await getCountFromServer(
+          query(MCQS, where('subject', '==', subject), where('term', '==', category)));
+        counts[category] = Number(snapshot.data().count) || 0;
       } catch (_) { complete = false; break; }
     }
     if (complete) updates[subject] = counts;
   }
   if (!Object.keys(updates).length) return;
-  // NOTE: updatedAt is a client-generated ISO string rather than Firestore's
-  // serverTimestamp() sentinel: setMetaDoc stores the payload verbatim as
-  // JSONB on the Supabase branch, and no reader consumes updatedAt as a
-  // Firestore Timestamp, so this keeps both backends clean.
-  await setMetaDoc('examCatalog',
-    { bySubject: updates, updatedAt: new Date().toISOString() }, { merge: true });
+  await setDoc(doc(db, ...EXAM_CATALOG_DOC),
+    { bySubject: updates, updatedAt: serverTimestamp() }, { merge: true });
 }
