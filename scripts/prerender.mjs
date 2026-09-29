@@ -161,12 +161,72 @@ function staticBlock(route, seo, banks) {
   const linkHtml = links.length
     ? '<nav aria-label="Related pages"><p>Related: ' + links.join(' · ') + '</p></nav>'
     : '';
-  return '<main class="edx-prerender-static" style="max-width:900px;margin:0 auto;padding:48px 20px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a;line-height:1.7">'
-    + '<p style="margin:0 0 8px"><a href="/" style="font-weight:700;color:#4f46e5;text-decoration:none">EduNexus</a></p>'
-    + '<h1 style="font-size:2rem;line-height:1.25;margin:0 0 16px">' + escapeHtml(h1) + '</h1>'
-    + paragraphs.map((p) => '<p style="margin:0 0 12px">' + escapeHtml(p) + '</p>').join('')
-    + linkHtml
-    + '</main>';
+  const css = '<style>'
+    + '.edx-boot{min-height:100vh;min-height:100dvh;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;'
+    + 'background:linear-gradient(135deg,#312e81 0%,#4f46e5 38%,#7c3aed 72%,#2563eb 100%);color:#fff;'
+    + 'display:flex;flex-direction:column;align-items:center;overflow-x:hidden}'
+    + '.edx-boot-top{width:100%;max-width:1120px;display:flex;align-items:center;justify-content:space-between;'
+    + 'padding:18px 24px;box-sizing:border-box}'
+    + '.edx-boot-logo{font-weight:800;font-size:1.35rem;letter-spacing:.02em;color:#fff;text-decoration:none;'
+    + 'display:flex;align-items:center;gap:10px}'
+    + '.edx-boot-logo-mark{width:38px;height:38px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;'
+    + 'background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);font-size:1.25rem;'
+    + 'box-shadow:0 8px 24px rgba(0,0,0,.25);backdrop-filter:blur(6px)}'
+    + '.edx-boot-pill{font-size:.8rem;padding:8px 16px;border-radius:999px;color:#eef2ff;text-decoration:none;'
+    + 'background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(6px)}'
+    + '.edx-boot-hero{text-align:center;padding:56px 24px 30px;max-width:760px;box-sizing:border-box;animation:edxFadeUp .7s ease both}'
+    + '.edx-boot-kicker{display:inline-block;font-size:.78rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;'
+    + 'color:#e0e7ff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);'
+    + 'padding:7px 16px;border-radius:999px;margin-bottom:18px;backdrop-filter:blur(6px)}'
+    + '.edx-boot h1{font-size:clamp(1.7rem,4.5vw,2.9rem);line-height:1.18;margin:0 0 14px;font-weight:800;letter-spacing:-.01em;'
+    + 'text-shadow:0 2px 18px rgba(0,0,0,.25)}'
+    + '.edx-boot-desc{margin:0 auto 26px;max-width:620px;color:#e0e7ff;font-size:1.02rem;line-height:1.65}'
+    + '.edx-boot-loader{display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0 8px}'
+    + '.edx-spinner{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.25);'
+    + 'border-top-color:#fff;animation:edxSpin 0.9s linear infinite;box-shadow:0 0 24px rgba(255,255,255,.25)}'
+    + '.edx-boot-loadtext{font-size:.95rem;color:#eef2ff;font-weight:600;letter-spacing:.04em}'
+    + '.edx-dots::after{content:"";animation:edxDots 1.4s steps(4) infinite}'
+    + '.edx-boot-grid{width:100%;max-width:1120px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));'
+    + 'gap:16px;padding:26px 24px 10px;box-sizing:border-box;animation:edxFadeUp .7s .15s ease both}'
+    + '.edx-sk{border-radius:18px;padding:18px 14px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);'
+    + 'backdrop-filter:blur(8px);box-shadow:0 10px 30px rgba(0,0,0,.18);min-height:118px;position:relative;overflow:hidden}'
+    + '.edx-sk::after{content:"";position:absolute;inset:0;'
+    + 'background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.22) 50%,transparent 80%);'
+    + 'animation:edxShimmer 1.8s ease-in-out infinite;transform:translateX(-100%)}'
+    + '.edx-sk-ic{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.22);margin-bottom:12px}'
+    + '.edx-sk-t{height:13px;border-radius:7px;background:rgba(255,255,255,.28);margin-bottom:8px;width:85%}'
+    + '.edx-sk-s{height:10px;border-radius:6px;background:rgba(255,255,255,.18);width:60%}'
+    + '.edx-boot-seo{width:100%;max-width:1120px;margin-top:auto;padding:30px 24px 26px;box-sizing:border-box;'
+    + 'color:#c7d2fe;font-size:.86rem;line-height:1.7;animation:edxFadeUp .7s .3s ease both}'
+    + '.edx-boot-seo p{margin:0 0 10px;max-width:820px}'
+    + '.edx-boot-seo nav p{margin:14px 0 0}'
+    + '.edx-boot-seo a{color:#eef2ff;text-decoration:none;border-bottom:1px dotted rgba(255,255,255,.5)}'
+    + '.edx-boot-seo a:hover{color:#fff;border-bottom-style:solid}'
+    + '@keyframes edxSpin{to{transform:rotate(360deg)}}'
+    + '@keyframes edxShimmer{60%,100%{transform:translateX(100%)}}'
+    + '@keyframes edxDots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}'
+    + '@keyframes edxFadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}'
+    + '@media (max-width:560px){.edx-boot-hero{padding:40px 18px 22px}.edx-boot-grid{grid-template-columns:repeat(2,1fr);gap:12px;padding:18px 16px 6px}.edx-boot-top{padding:14px 16px}}'
+    + '@media (prefers-color-scheme:dark){.edx-boot{background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 45%,#5b21b6 80%,#1d4ed8 100%)}}'
+    + '</style>';
+  const skeletons = [0, 1, 2, 3, 4, 5]
+    .map(() => '<div class="edx-sk" aria-hidden="true"><div class="edx-sk-ic"></div><div class="edx-sk-t"></div><div class="edx-sk-s"></div></div>')
+    .join('');
+  const seoParas = paragraphs.map((p) => '<p>' + escapeHtml(p) + '</p>').join('');
+  return '<main class="edx-prerender-static" style="margin:0">'
+    + css
+    + '<div class="edx-boot">'
+    + '<div class="edx-boot-top"><a class="edx-boot-logo" href="/"><span class="edx-boot-logo-mark">🎓</span>EduNexus</a>'
+    + '<a class="edx-boot-pill" href="/vu-notes">Browse library</a></div>'
+    + '<section class="edx-boot-hero"><span class="edx-boot-kicker">Virtual University Study Hub</span>'
+    + '<h1>' + escapeHtml(h1) + '</h1>'
+    + '<p class="edx-boot-desc">' + escapeHtml(paragraphs[0] || '') + '</p>'
+    + '<div class="edx-boot-loader"><div class="edx-spinner" role="status" aria-label="Loading"></div>'
+    + '<span class="edx-boot-loadtext">Loading your study hub<span class="edx-dots"></span></span></div>'
+    + '</section>'
+    + '<div class="edx-boot-grid">' + skeletons + '</div>'
+    + '<div class="edx-boot-seo">' + seoParas + linkHtml + '</div>'
+    + '</div></main>';
 }
 
 // ---- template transform -------------------------------------------------------
