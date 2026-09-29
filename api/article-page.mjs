@@ -5,7 +5,7 @@ import { getPublicArticle, articlePath, escapeHtml as h, slugFor, SITE, validId 
 import { sanitizeArticleHtml, articlePlainText } from '../src/article-sanitize.mjs';
 
 // Bump when the article HTML rendering changes, so old cached pages refresh.
-const RENDER_VERSION = 'v5-article-cover-preview';
+const RENDER_VERSION = 'v6-coverurl-fix';
 
 // In-memory cache: survives Firestore quota outages so shared article links keep working.
 const pageCache = new Map(); // id -> { html, at }
@@ -61,7 +61,7 @@ export default async function handler(req,res){
     // one-sentence entry as a substantial indexable article.
     const indexable=plainText.length>=450;
     // Open Graph image for rich link previews (WhatsApp/Facebook/Twitter).
-    const rawImage=String(article.cover_url ?? article.imageUrl ?? '').trim();
+    const rawImage=String(article.coverUrl ?? article.cover_url ?? article.imageUrl ?? '').trim();
     // Social crawlers need a publicly fetchable HTTP(S) image. Prefer the
     // article cover everywhere; normalize our legacy Vercel asset URLs to the
     // canonical domain. Inline data URLs are not usable as og:image.
