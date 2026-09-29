@@ -101,7 +101,7 @@ function AdminAnswerReview({ question, onUpdated }) {
   </details>;
 }
 
-export default function ExamMcqPractice({ user, subject, term, onSubjectChange, onTermChange, categoryCounts = {}, subjects = [] }) {
+export default function ExamMcqPractice({ user, subject, term, onSubjectChange, onTermChange, onBankLoaded, categoryCounts = {}, subjects = [] }) {
   const { requestConfirm, ConfirmUI } = useConfirm();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -180,6 +180,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       else setQuizSets([]);
       const ordered = term === 'quiz' && quizSet !== 'all' ? all.filter(q => quizSetOf(q) === quizSet) : all;
       setQuestions(ordered);
+      onBankLoaded?.(subject, term, ordered.length);
       setLimited(cached.docs.length >= QUESTION_LIMIT);
       setLoadError('');
       setLoading(false); setRestoring(false);
@@ -200,6 +201,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       else setQuizSets([]);
       const ordered = term === 'quiz' && quizSet !== 'all' ? all.filter(q => quizSetOf(q) === quizSet) : all;
       setQuestions(ordered);
+      onBankLoaded?.(subject, term, ordered.length);
       setLimited(items.length >= QUESTION_LIMIT);
       setLoadError('');
       if (initialized) return; // Preserve in-progress choices when new MCQs publish.
@@ -255,7 +257,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       }
       sessionRef.current++;
     };
-  }, [subject, term, quizSet, refresh, user?.uid, recordKey, cloudProgressId, eligible]);
+  }, [subject, term, quizSet, refresh, user?.uid, recordKey, cloudProgressId, eligible, onBankLoaded]);
 
   const save = useCallback((nextAnswers, nextId, nextFinished, nextAttempt = null) => {
     if (restoring || !actualQuestions.length) return;
