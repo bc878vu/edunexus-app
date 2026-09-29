@@ -40,28 +40,41 @@ async function countFromFirebase(subject, category) {
   return Number(snapshot.data().count) || 0;
 }
 
-export async function refreshExamCatalogCounts(subjects) {
+export async function refreshExamCatalogCounts(subjects, opts = {}) {
+  // When requirePrimary is true (full catalogue rebuild), the Firebase
+  // fallback is disabled: writing fallback counts would publish a stale
+  // catalogue (e.g. only the 12 legacy Firebase subjects). Subjects whose
+  // primary counts fail keep their previous values, and if the primary
+  // store failed for every subject the rebuild aborts loudly instead of
+  // persisting wrong data.
+  const requirePrimary = !!(opts && opts.requirePrimary);
   const list = [...new Set((Array.isArray(subjects) ? subjects : [subjects])
     .map((value) => String(value || '').trim().toUpperCase())
     .filter((value) => COURSE.test(value)))];
   if (!list.length) return;
   const updates = {};
+  let primaryOk = 0;
   for (const subject of list) {
     const counts = {};
     let complete = true;
+    let usedPrimary = true;
     for (const category of EXAM_CATEGORIES) {
       try {
         // Count the primary source (Supabase); fall back to Firebase counts
-        // only when Supabase is unreachable.
+        // only when Supabase is unreachable and the caller allows it.
         try {
           counts[category] = await countFromSupabase(subject, category);
-        } catch (_) {
+        } catch (primaryError) {
+          if (requirePrimary) throw primaryError;
+          usedPrimary = false;
           counts[category] = await countFromFirebase(subject, category);
         }
       } catch (_) { complete = false; break; }
     }
-    if (complete) updates[subject] = counts;
+    if (complete) { updates[subject] = counts; if (usedPrimary) primaryOk++; }
   }
+  if (requirePrimary && primaryOk === 0)
+    throw new Error('Supabase is unreachable. The catalogue was not rebuilt; check your connection and try again.');
   if (!Object.keys(updates).length) return;
   await setDoc(doc(db, ...EXAM_CATALOG_DOC),
     { bySubject: updates, updatedAt: serverTimestamp() }, { merge: true });

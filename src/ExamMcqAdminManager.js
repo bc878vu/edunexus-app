@@ -47,7 +47,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     if (!ok) return;
     setRebuilding(true); setError(''); setMessage('Rebuilding catalog…');
     try {
-      await refreshExamCatalogCounts(ALL_KNOWN_SUBJECTS);
+      await refreshExamCatalogCounts(ALL_KNOWN_SUBJECTS, { requirePrimary: true });
       setMessage('Catalog rebuilt for ' + ALL_KNOWN_SUBJECTS.length + ' subjects. The public Exam Prep page updates automatically.');
     } catch (e) { setError(errorText(e)); }
     finally { setRebuilding(false); }
