@@ -75,18 +75,7 @@
     },
     {
       "source": "/vu-notes/file/:id",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": "(?i).*(whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare).*"
-        }
-      ],
       "destination": "/api/resource-page?id=:id"
-    },
-    {
-      "source": "/vu-notes/file/:id",
-      "destination": "/index.html"
     },
     {
       "source": "/vu-notes/file/:id/:slug",
