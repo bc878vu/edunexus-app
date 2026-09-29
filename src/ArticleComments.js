@@ -27,7 +27,11 @@ export default function ArticleComments({ articleId, user, sessionUid, isAdmin, 
     };
     refresh();
     const unsub = subscribeComments(articleId, { onInvalidate: refresh });
-    return () => { alive = false; unsub(); };
+    const onChanged = (event) => {
+      if (!event?.detail?.articleId || event.detail.articleId === articleId) refresh();
+    };
+    window.addEventListener('edunexus:article-comment-changed', onChanged);
+    return () => { alive = false; unsub(); window.removeEventListener('edunexus:article-comment-changed', onChanged); };
   }, [articleId]);
 
   const handlePost = async () => {
@@ -39,11 +43,15 @@ export default function ArticleComments({ articleId, user, sessionUid, isAdmin, 
     }
     setPosting(true);
     try {
-      await addComment(articleId, {
+      const saved = await addComment(articleId, {
         userId: uid,
         userName: user.displayName || user.email?.split('@')[0] || 'Student',
         text: text.slice(0, 1000),
       });
+      if (saved?.id) {
+        setComments(prev => prev.some(item => item.id === saved.id) ? prev : [...prev, saved]);
+        window.dispatchEvent(new CustomEvent('edunexus:article-comment-changed', { detail: { articleId } }));
+      }
       setNewComment('');
       showToast('Comment posted', 'success');
     } catch (e) {
