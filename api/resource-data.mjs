@@ -7,9 +7,10 @@ const ROOT = 'artifacts/edunexus-live/public/data/files';
 const ENDPOINT = 'https://firestore.googleapis.com/v1/projects/' + PROJECT + '/databases/(default)/documents/';
 
 // ===== Supabase/PostgREST backend (feature-flagged; default stays Firestore) =====
-const USE_SUPABASE = process.env.DATA_BACKEND === 'supabase';
+// Supabase is the primary backend (matches the client app). Set DATA_BACKEND=firestore to force the legacy path.
+const USE_SUPABASE = process.env.DATA_BACKEND !== 'firestore';
 const SUPABASE_URL = 'https://cprpndovdfnkvekewstv.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'PASTE_FULL_PUBLISHABLE_KEY_HERE';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_mEibYO_BunfJGJm66fZHhw_hHxWL8TC'; // publishable key (public by design; also shipped in the client bundle)
 const POSTGREST = SUPABASE_URL + '/rest/v1';
 const postgrestHeaders = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY };
 // PostgREST rows are snake_case; convert to the camelCase shape the SEO pages expect.

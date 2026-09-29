@@ -21,9 +21,11 @@ function cacheSet(id, html) {
   if (pageCache.size >= MAX_CACHE) { const k = pageCache.keys().next().value; pageCache.delete(k); }
   pageCache.set(RENDER_VERSION + ':' + id, { html, at: Date.now() });
 }
-function fallbackPage(title) {
+function fallbackPage(title, social) {
   const safe = h(title || 'EduNexus Article');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safe} | EduNexus Articles</title><meta name="robots" content="noindex,follow"><style>${styles}</style></head><body>${renderNavbar('articles')}<main><article class="resource"><div class="meta">EduNexus · Articles</div><h1>${safe}</h1><p>This article is temporarily unavailable. Please try again in a little while, or browse the latest articles below.</p><div class="buttons"><a class="button" href="/?page=articles">Browse articles</a><a class="button secondary" href="/">Back to home</a></div></article></main><footer class="site-footer"><p>© EduNexus · Student study resources</p></footer></body></html>`;
+  const sTitle = h(((social && social.title) || '').trim() || safe);
+  const sDesc = h(((social && social.description) || '').trim() || 'Read this article on EduNexus.');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safe} | EduNexus Articles</title><meta name="robots" content="noindex,follow"><meta property="og:title" content="${sTitle} | EduNexus"><meta property="og:description" content="${sDesc}"><meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus"><meta name="twitter:card" content="summary"><meta name="twitter:title" content="${sTitle} | EduNexus"><meta name="twitter:description" content="${sDesc}"><style>${styles}</style></head><body>${renderNavbar('articles')}<main><article class="resource"><div class="meta">EduNexus · Articles</div><h1>${safe}</h1><p>This article is temporarily unavailable. Please try again in a little while, or browse the latest articles below.</p><div class="buttons"><a class="button" href="/?page=articles">Browse articles</a><a class="button secondary" href="/">Back to home</a></div></article></main><footer class="site-footer"><p>© EduNexus · Student study resources</p></footer></body></html>`;
 }
 
 export default async function handler(req,res){
@@ -35,11 +37,13 @@ export default async function handler(req,res){
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Content-Security-Policy', standaloneContentSecurityPolicy);
   if(req.method==='HEAD')return res.status(200).end();
+  const cachedFirst = cacheGet(id);
+  if (cachedFirst) return res.status(200).send(cachedFirst);
   try{
     const article=await getPublicArticle(id);
     if(!article || !String(article.title||'').trim())return res.status(404).send('Article not found');
     const title=String(article.title).trim().slice(0,200);
-    const rawText=String(article.content||'').trim().slice(0,120000);
+    const rawText=String(article.body ?? article.content ?? '').trim().slice(0,120000);
     const bodyHtml=sanitizeArticleHtml(rawText);
     const plainText=articlePlainText(rawText);
     const path=articlePath(id,title);
@@ -48,12 +52,13 @@ export default async function handler(req,res){
     const sharedTitle=String(req.query?.t||'').replace(/\s+/g,' ').trim().slice(0,180);
     const sharedDescription=String(req.query?.d||'').replace(/\s+/g,' ').trim().slice(0,200);
     const socialTitle=sharedTitle || title;
-    const description=sharedDescription || plainText.replace(/\s+/g,' ').slice(0,155) || 'Article from the EduNexus student learning platform.';
+    const excerpt=String(article.excerpt||'').replace(/\s+/g,' ').trim().slice(0,155);
+    const description=sharedDescription || excerpt || plainText.replace(/\s+/g,' ').slice(0,155) || 'Article from the EduNexus student learning platform.';
     // Keep historical articles accessible without misrepresenting an empty or
     // one-sentence entry as a substantial indexable article.
     const indexable=plainText.length>=450;
     // Open Graph image for rich link previews (WhatsApp/Facebook/Twitter).
-    const rawImage=String(article.imageUrl||'').trim();
+    const rawImage=String(article.cover_url ?? article.imageUrl ?? '').trim();
     const ogImage=/^https?:\/\//i.test(rawImage) ? rawImage
       : rawImage ? SITE + (rawImage.startsWith('/') ? rawImage : '/' + rawImage)
       : SITE + '/logo512.png';
@@ -71,6 +76,8 @@ export default async function handler(req,res){
     console.error('Public article lookup failed',error?.message||'unknown');
     const cached = cacheGet(id);
     if (cached) return res.status(200).send(cached);
-    return res.status(503).send(fallbackPage('Article'));
+    const fbTitle=String(req.query?.t||'').replace(/\s+/g,' ').trim().slice(0,180);
+    const fbDesc=String(req.query?.d||'').replace(/\s+/g,' ').trim().slice(0,200);
+    return res.status(200).send(fallbackPage('Article',{title:fbTitle,description:fbDesc}));
   }
 }
