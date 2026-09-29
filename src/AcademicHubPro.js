@@ -1214,11 +1214,17 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     if (value) setSubjectsExpanded(false);
     setOpenGroup('');
     const url = new URL(window.location.href);
-    if (value) url.searchParams.set('subject', value); else url.searchParams.delete('subject');
     url.searchParams.delete('group');
     url.searchParams.delete('file'); url.searchParams.delete('panel');
-    url.searchParams.set('page', 'academic');
-    window.history.pushState({ page: 'academic', subject: value }, '', url.pathname + url.search);
+    if (value) {
+      // Use the same clean URL that the sitemap/canonical layer advertises.
+      // Real href-style paths make subject pages easier for crawlers to
+      // discover and prevent duplicate ?page=academic&subject= variants.
+      const clean = String(value).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+      window.history.pushState({ page: 'academic', subject: value }, '', '/academic/' + encodeURIComponent(clean));
+    } else {
+      window.history.pushState({ page: 'academic', subject: '' }, '', '/vu-notes');
+    }
     window.dispatchEvent(new Event('edunexus:navigation'));
   };
   // Main-folder navigation: CS -> shows CS101, CS201, … ; '' -> all main folders.
