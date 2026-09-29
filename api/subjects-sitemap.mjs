@@ -5,7 +5,7 @@ import { SITE, escapeHtml } from './resource-data.mjs';
 // always gets a full sitemap even during quota outages.
 // Subject URLs use the course code — the Academic Hub resolves it to the
 // merged subject card via extractCourseCode().
-const SUBJECTS = [
+export const SUBJECTS = [
   // Semester 1
   'CS101', 'ENG101', 'MTH101', 'PAK301', 'PHY101', 'VU001', 'ECO401', 'MGT211',
   // Semester 2
