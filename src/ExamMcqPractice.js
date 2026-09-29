@@ -377,10 +377,11 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       <p>Choose your question count and original or random order. Your selected questions and progress stay saved in this browser.</p>
     </div><BookOpen size={28}/></div>
     <div className="edx-exam-card edx-practice-toolbar">
-      <label className="edx-exam-field">Subject category
-        <select value={subject} onChange={(e) => onSubjectChange(e.target.value)}>
-          {[...new Set([subject, ...subjects])].filter(Boolean).map(code => <option key={code} value={code}>{code}</option>)}
-        </select></label>
+      <div className="edx-practice-active-bank" aria-label="Active practice bank">
+        <div className="edx-practice-active-icon"><BookOpen size={20} aria-hidden="true" /></div>
+        <div><span>Active practice bank</span><strong>{subject} · {CATEGORY_NAMES[term] || term}</strong></div>
+        <span className="edx-practice-active-count">{loading || restoring ? 'Loading…' : questions.length + ' MCQs'}</span>
+      </div>
       {term === 'quiz' && quizSets.length > 1 && <label className="edx-exam-field">Quiz set
         <select value={quizSet} onChange={e=>setQuizSet(e.target.value)}>
           <option value="all">All quizzes ({quizSets.length} sets)</option>
