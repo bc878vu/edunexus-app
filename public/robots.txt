@@ -5,5 +5,6 @@ Disallow: /dashboard
 Allow: /
 
 Sitemap: https://edunexus.dpdns.org/sitemap.xml
+Sitemap: https://edunexus.dpdns.org/subjects-sitemap.xml
 Sitemap: https://edunexus.dpdns.org/resource-sitemap.xml
 Sitemap: https://edunexus.dpdns.org/articles-sitemap.xml
