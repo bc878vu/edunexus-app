@@ -154,7 +154,7 @@ function AdminTools({ user, onView }) {
       const published = normalize(draft);
       if (USE_SUPABASE) {
         const row = {
-          id: (globalThis.crypto?.randomUUID?.() || (Date.now() + "-" + Math.random().toString(36).slice(2))),
+          id: (window.crypto?.randomUUID?.() || (Date.now() + "-" + Math.random().toString(36).slice(2))),
           subject: published.subject, term: published.term, question: published.question,
           options: published.options, answer: published.answer, explanation: published.explanation,
           is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
