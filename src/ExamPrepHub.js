@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, BookOpen, MessageCircle, ArrowDownUp, Share2, Link2, Check } from "lucide-react";
 import { db } from "./firebase-client";
-import { USE_SUPABASE, supabase } from "./supabase-client";
 import { validateMcq } from "./examMcqImport";
 import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, firstAvailableExam, publishedExamCatalog } from "./examCatalog";
 import { routeParamsFromPath } from "./app-routes.mjs";
@@ -122,20 +121,9 @@ function AdminTools({ user, onView }) {
   const reload = async () => {
     if (!isAdmin(user)) return;
     try {
-      if (USE_SUPABASE) {
-        const { data, error } = await supabase.from("exam_review_submissions").select("*")
-          .order("created_at", { ascending: false }).limit(100);
-        if (error) throw error;
-        setPending((data || []).map((row) => ({
-          id: row.id, userId: row.user_id, subject: row.subject, term: row.term,
-          examDate: row.exam_date, difficulty: row.difficulty, topics: row.topics,
-          summary: row.summary, status: row.status, createdAt: row.created_at,
-        })));
-      } else {
-        const snapshot = await getDocs(query(col("examReviewSubmissions"), limit(100)));
-        setPending(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt)));
-      }
-    } catch (error) { setMessage(error?.message || "Cannot load review submissions."); }
+      const snapshot = await getDocs(query(col("examReviewSubmissions"), limit(100)));
+      setPending(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt)));
+    } catch (_) { setMessage("Cannot load submissions. Deploy and check Firestore rules."); }
   };
   useEffect(() => { if (isAdmin(user)) void reload(); }, [user]);
   const normalize = (item) => {
@@ -150,49 +138,19 @@ function AdminTools({ user, onView }) {
     event.preventDefault();
     if (!isAdmin(user)) { setMessage("Admin session expired. Please log in again."); return; }
     setBusy(true); setMessage("");
-    try {
-      const published = normalize(draft);
-      if (USE_SUPABASE) {
-        const row = {
-          id: (window.crypto?.randomUUID?.() || (Date.now() + "-" + Math.random().toString(36).slice(2))),
-          subject: published.subject, term: published.term, question: published.question,
-          options: published.options, answer: published.answer, explanation: published.explanation,
-          is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-        };
-        const { error } = await supabase.from("exam_mcqs").insert(row);
-        if (error) throw error;
-      } else {
-        await addDoc(col("examMcqs"), published);
-      }
-      setLastPublished({subject:published.subject, term:draft.term}); setDraft({ ...EMPTY_MCQ, subject: draft.subject, term: draft.term }); setMessage("MCQ published successfully. The public practice page updates automatically; use the link below to open the exact subject and exam type."); }
+    try { const published = normalize(draft); await addDoc(col("examMcqs"), published); setLastPublished({subject:published.subject, term:draft.term}); setDraft({ ...EMPTY_MCQ, subject: draft.subject, term: draft.term }); setMessage("MCQ published successfully. The public practice page updates automatically; use the link below to open the exact subject and exam type."); }
     catch (error) { setMessage(error.message || "MCQ could not be published."); } finally { setBusy(false); }
   };
   const moderate = async (review, approve) => {
     if (!isAdmin(user)) { setMessage("Admin session expired. Please log in again."); return; }
     setBusy(true); setMessage("");
     try {
-      if (USE_SUPABASE) {
-        if (approve) {
-          const { error: publishError } = await supabase.from("exam_reviews").upsert({
-            id: review.id, user_id: review.userId || user?.uid || null,
-            subject: review.subject, term: review.term, exam_date: review.examDate || null,
-            difficulty: review.difficulty, topics: safe(review.topics, 400),
-            summary: safe(review.summary, 1500), created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
-          if (publishError) throw publishError;
-        }
-        const { error: moderateError } = await supabase.from("exam_review_submissions")
-          .update({ status: approve ? "approved" : "rejected" }).eq("id", review.id);
-        if (moderateError) throw moderateError;
-      } else {
-        const batch = writeBatch(db);
-        if (approve) {
-          batch.set(doc(col("examReviews"), review.id), { subject: review.subject, term: review.term, examDate: review.examDate, difficulty: review.difficulty, topics: safe(review.topics, 400), summary: safe(review.summary, 1500), createdAt: serverTimestamp() });
-        }
-        batch.update(doc(col("examReviewSubmissions"), review.id), { status: approve ? "approved" : "rejected", moderatedAt: serverTimestamp() });
-        await batch.commit();
+      const batch = writeBatch(db);
+      if (approve) {
+        batch.set(doc(col("examReviews"), review.id), { subject: review.subject, term: review.term, examDate: review.examDate, difficulty: review.difficulty, topics: safe(review.topics, 400), summary: safe(review.summary, 1500), createdAt: serverTimestamp() });
       }
+      batch.update(doc(col("examReviewSubmissions"), review.id), { status: approve ? "approved" : "rejected", moderatedAt: serverTimestamp() });
+      await batch.commit();
       setPending((prev) => prev.filter((r) => r.id !== review.id)); setMessage(approve ? "Review approved and published." : "Review rejected.");
     } catch (_) { setMessage("Moderation failed. Check deployed security rules and try again."); } finally { setBusy(false); }
   };
