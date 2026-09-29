@@ -9,6 +9,7 @@ import {
   supabase, USE_SUPABASE, db,
   nowIso, newId, toRow, fromRow, invertSpec, fbItem,
   cachedList, clearCached, clearCachedPrefix,
+  withFallback,
 } from './_common.js';
 import { subscribeTable } from './realtime.js';
 
@@ -36,68 +37,91 @@ const toAd = (row) => fromRow(row, AD_REV);
 export async function listPinnedAds({ limit: max = 50 } = {}) {
   const key = CACHE_PREFIX + 'all|' + max;
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from('pinned_ads').select('*')
-        .order('created_at', { ascending: false }).limit(max);
-      if (error) throw error;
-      return (data || []).map(toAd);
-    }
-    const snap = await getDocs(query(PINNED_ADS(), orderBy('createdAt', 'desc'), limit(max)));
-    return snap.docs.map(fbItem);
-  });
+    return withFallback(
+      async () => {
+        const { data, error } = await supabase.from('pinned_ads').select('*')
+          .order('created_at', { ascending: false }).limit(max);
+        if (error) throw error;
+        return (data || []).map(toAd);
+      },
+      async () => {
+        const snap = await getDocs(query(PINNED_ADS(), orderBy('createdAt', 'desc'), limit(max)));
+        return snap.docs.map(fbItem);
+      },
+      { cacheKeys: ['pinned_ads_'] }
+    );});
 }
 
 export async function getPinnedAd(id) {
   const key = CACHE_PREFIX + 'one|' + id;
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from('pinned_ads').select('*').eq('id', id).maybeSingle();
-      if (error) throw error;
-      return toAd(data);
-    }
-    const snap = await getDoc(doc(PINNED_ADS(), id));
-    return snap.exists() ? fbItem(snap) : null;
-  });
+    return withFallback(
+      async () => {
+        const { data, error } = await supabase.from('pinned_ads').select('*').eq('id', id).maybeSingle();
+        if (error) throw error;
+        return toAd(data);
+      },
+      async () => {
+        const snap = await getDoc(doc(PINNED_ADS(), id));
+        return snap.exists() ? fbItem(snap) : null;
+      },
+      { cacheKeys: ['pinned_ads_'] }
+    );});
 }
 
 export async function createPinnedAd(data) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const id = data.id || newId();
-    const row = { id, ...toAdRow(data) };
-    if (row.is_active === undefined) row.is_active = true;
-    if (!row.created_at) row.created_at = nowIso();
-    const { error } = await supabase.from('pinned_ads').insert(row);
-    if (error) throw error;
-    return id;
-  }
-  const { id: _drop, ...rest } = data;
-  const ref = await addDoc(PINNED_ADS(), { ...rest });
-  return ref.id;
+  return withFallback(
+    async () => {
+      const id = data.id || newId();
+      const row = { id, ...toAdRow(data) };
+      if (row.is_active === undefined) row.is_active = true;
+      if (!row.created_at) row.created_at = nowIso();
+      const { error } = await supabase.from('pinned_ads').insert(row);
+      if (error) throw error;
+      return id;
+    },
+    async () => {
+      const { id: _drop, ...rest } = data;
+      const ref = await addDoc(PINNED_ADS(), { ...rest });
+      return ref.id;
+    },
+    { cacheKeys: ['pinned_ads_'] }
+  );
 }
 
 export async function updatePinnedAd(id, data) {
   clearCachedPrefix(CACHE_PREFIX);
   clearCached(CACHE_PREFIX + 'one|' + id);
-  if (USE_SUPABASE) {
-    const row = toAdRow(data);
-    row.updated_at = nowIso();
-    const { error } = await supabase.from('pinned_ads').update(row).eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  const { id: _drop, ...rest } = data;
-  await updateDoc(doc(PINNED_ADS(), id), { ...rest });
+  return withFallback(
+    async () => {
+      const row = toAdRow(data);
+      row.updated_at = nowIso();
+      const { error } = await supabase.from('pinned_ads').update(row).eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      const { id: _drop, ...rest } = data;
+      await updateDoc(doc(PINNED_ADS(), id), { ...rest });
+    },
+    { cacheKeys: ['pinned_ads_'] }
+  );
 }
 
 export async function removePinnedAd(id) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('pinned_ads').delete().eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  await deleteDoc(doc(PINNED_ADS(), id));
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('pinned_ads').delete().eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await deleteDoc(doc(PINNED_ADS(), id));
+    },
+    { cacheKeys: ['pinned_ads_'] }
+  );
 }
 
 export async function setPinnedAdActive(id, active) {

@@ -10,6 +10,7 @@ import {
   supabase, USE_SUPABASE, db,
   nowIso, newId, toRow, fromRow, invertSpec, fbItem,
   cachedList, clearCachedPrefix,
+  withFallback,
 } from './_common.js';
 import { subscribeTable, subscribeRow } from './realtime.js';
 import { increment, arrayUnion } from 'firebase/firestore';
@@ -65,66 +66,90 @@ const toComment = (row) => fromRow(row, COMMENT_REV, (out, r) => { out.articleId
 export async function listArticles({ limit: max = 100 } = {}) {
   const key = CACHE_PREFIX + 'all|' + max;
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from('articles').select('*')
-        .order('created_at', { ascending: false }).limit(max);
-      if (error) throw error;
-      return (data || []).map(toArticle);
-    }
-    const snap = await getDocs(query(ARTICLES(), orderBy('createdAt', 'desc'), limit(max)));
-    return snap.docs.map(fbItem);
-  });
+    return withFallback(
+      async () => {
+        const { data, error } = await supabase.from('articles').select('*')
+          .order('created_at', { ascending: false }).limit(max);
+        if (error) throw error;
+        return (data || []).map(toArticle);
+      },
+      async () => {
+        const snap = await getDocs(query(ARTICLES(), orderBy('createdAt', 'desc'), limit(max)));
+        return snap.docs.map(fbItem);
+      },
+      { cacheKeys: ['articles_'] }
+    );});
 }
 
 export async function getArticle(id) {
-  if (USE_SUPABASE) {
-    const { data, error } = await supabase.from('articles').select('*').eq('id', id).maybeSingle();
-    if (error) throw error;
-    return toArticle(data);
-  }
-  const snap = await getDoc(doc(ARTICLES(), id));
-  return snap.exists() ? fbItem(snap) : null;
+  return withFallback(
+    async () => {
+      const { data, error } = await supabase.from('articles').select('*').eq('id', id).maybeSingle();
+      if (error) throw error;
+      return toArticle(data);
+    },
+    async () => {
+      const snap = await getDoc(doc(ARTICLES(), id));
+      return snap.exists() ? fbItem(snap) : null;
+    },
+    { cacheKeys: ['articles_'] }
+  );
 }
 
 export async function createArticle(data) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const id = data.id || newId();
-    const row = { id, ...toArticleRow(data) };
-    if (row.likes === undefined) row.likes = 0;
-    if (!row.author) row.author = 'EduNexus';
-    if (!row.created_at) row.created_at = nowIso();
-    const { error } = await supabase.from('articles').insert(row);
-    if (error) throw error;
-    return id;
-  }
-  const { id: _drop, ...rest } = data;
-  const ref = _drop ? doc(ARTICLES(), _drop) : await addDoc(ARTICLES(), { ...rest });
-  if (_drop) await setDoc(ref, { ...rest });
-  return ref.id;
+  return withFallback(
+    async () => {
+      const id = data.id || newId();
+      const row = { id, ...toArticleRow(data) };
+      if (row.likes === undefined) row.likes = 0;
+      if (!row.author) row.author = 'EduNexus';
+      if (!row.created_at) row.created_at = nowIso();
+      const { error } = await supabase.from('articles').insert(row);
+      if (error) throw error;
+      return id;
+    },
+    async () => {
+      const { id: _drop, ...rest } = data;
+      const ref = _drop ? doc(ARTICLES(), _drop) : await addDoc(ARTICLES(), { ...rest });
+      if (_drop) await setDoc(ref, { ...rest });
+      return ref.id;
+    },
+    { cacheKeys: ['articles_'] }
+  );
 }
 
 export async function updateArticle(id, data) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const row = toArticleRow(data);
-    row.updated_at = nowIso();
-    const { error } = await supabase.from('articles').update(row).eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  const { id: _drop, ...rest } = data;
-  await updateDoc(doc(ARTICLES(), id), { ...rest });
+  return withFallback(
+    async () => {
+      const row = toArticleRow(data);
+      row.updated_at = nowIso();
+      const { error } = await supabase.from('articles').update(row).eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      const { id: _drop, ...rest } = data;
+      await updateDoc(doc(ARTICLES(), id), { ...rest });
+    },
+    { cacheKeys: ['articles_'] }
+  );
 }
 
 export async function deleteArticle(id) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('articles').delete().eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  await deleteDoc(doc(ARTICLES(), id));
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('articles').delete().eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await deleteDoc(doc(ARTICLES(), id));
+    },
+    { cacheKeys: ['articles_'] }
+  );
 }
 
 /**
@@ -135,37 +160,47 @@ export async function deleteArticle(id) {
  */
 export async function toggleLike(articleId, userId) {
   if (!articleId || !userId) throw new Error('articleId and userId are required');
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('article_likes')
-      .insert({ article_id: articleId, user_id: userId });
-    if (error) {
-      // 23505 = already liked (PK article_id+user_id); treat as a no-op.
-      if (error.code === '23505') return { liked: false };
-      throw error;
-    }
-    clearCachedPrefix(CACHE_PREFIX);
-    return { liked: true };
-  }
-  await updateDoc(doc(ARTICLES(), articleId), {
-    likes: increment(1),
-    likedBy: arrayUnion(userId),
-  });
-  clearCachedPrefix(CACHE_PREFIX);
-  return { liked: true };
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('article_likes')
+        .insert({ article_id: articleId, user_id: userId });
+      if (error) {
+        // 23505 = already liked (PK article_id+user_id); treat as a no-op.
+        if (error.code === '23505') return { liked: false };
+        throw error;
+      }
+      clearCachedPrefix(CACHE_PREFIX);
+      return { liked: true };
+    },
+    async () => {
+      await updateDoc(doc(ARTICLES(), articleId), {
+        likes: increment(1),
+        likedBy: arrayUnion(userId),
+      });
+      clearCachedPrefix(CACHE_PREFIX);
+      return { liked: true };
+    },
+    { cacheKeys: ['articles_'] }
+  );
 }
 
 /** Whether userId already liked articleId (drives the hasLiked UI state). */
 export async function hasLiked(articleId, userId) {
   if (!articleId || !userId) return false;
-  if (USE_SUPABASE) {
-    const { data, error } = await supabase.from('article_likes').select('article_id')
-      .eq('article_id', articleId).eq('user_id', userId).maybeSingle();
-    if (error) throw error;
-    return !!data;
-  }
-  const snap = await getDoc(doc(ARTICLES(), articleId));
-  const likedBy = snap.exists() ? snap.data().likedBy : null;
-  return Array.isArray(likedBy) && likedBy.includes(userId);
+  return withFallback(
+    async () => {
+      const { data, error } = await supabase.from('article_likes').select('article_id')
+        .eq('article_id', articleId).eq('user_id', userId).maybeSingle();
+      if (error) throw error;
+      return !!data;
+    },
+    async () => {
+      const snap = await getDoc(doc(ARTICLES(), articleId));
+      const likedBy = snap.exists() ? snap.data().likedBy : null;
+      return Array.isArray(likedBy) && likedBy.includes(userId);
+    },
+    { cacheKeys: ['articles_'] }
+  );
 }
 
 // ---- comments ----
@@ -173,60 +208,79 @@ export async function hasLiked(articleId, userId) {
 export async function listComments(articleId) {
   const key = COMMENT_PREFIX + articleId;
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from('article_comments').select('*')
-        .eq('article_id', articleId).order('created_at', { ascending: true });
-      if (error) throw error;
-      return (data || []).map(toComment);
-    }
-    const snap = await getDocs(query(commentCol(articleId), orderBy('createdAt', 'asc')));
-    return snap.docs.map(fbItem);
-  });
+    return withFallback(
+      async () => {
+        const { data, error } = await supabase.from('article_comments').select('*')
+          .eq('article_id', articleId).order('created_at', { ascending: true });
+        if (error) throw error;
+        return (data || []).map(toComment);
+      },
+      async () => {
+        const snap = await getDocs(query(commentCol(articleId), orderBy('createdAt', 'asc')));
+        return snap.docs.map(fbItem);
+      },
+      { cacheKeys: ['article_comments_'] }
+    );});
 }
 
 export async function addComment(articleId, { userId, userName, text }) {
   clearCachedPrefix(COMMENT_PREFIX + articleId);
   if (!String(text || '').trim()) throw new Error('Comment text is required');
-  if (USE_SUPABASE) {
-    const id = newId();
-    const { error } = await supabase.from('article_comments').insert({
-      id,
-      article_id: articleId,
-      user_id: userId,
-      user_name: userName || 'Student',
-      text: String(text).slice(0, 1000),
-      created_at: nowIso(),
-    });
-    if (error) throw error;
-    return id;
-  }
-  const ref = await addDoc(commentCol(articleId), {
-    userId, userName: userName || 'Student', text: String(text).slice(0, 1000),
-    createdAt: serverTimestamp(),
-  });
-  return ref.id;
+  return withFallback(
+    async () => {
+      const id = newId();
+      const { error } = await supabase.from('article_comments').insert({
+        id,
+        article_id: articleId,
+        user_id: userId,
+        user_name: userName || 'Student',
+        text: String(text).slice(0, 1000),
+        created_at: nowIso(),
+      });
+      if (error) throw error;
+      return id;
+    },
+    async () => {
+      const ref = await addDoc(commentCol(articleId), {
+        userId, userName: userName || 'Student', text: String(text).slice(0, 1000),
+        createdAt: serverTimestamp(),
+      });
+      return ref.id;
+    },
+    { cacheKeys: ['article_comments_'] }
+  );
 }
 
 export async function updateComment(articleId, commentId, data) {
   clearCachedPrefix(COMMENT_PREFIX + articleId);
-  if (USE_SUPABASE) {
-    const row = toCommentRow(data);
-    row.updated_at = nowIso();
-    const { error } = await supabase.from('article_comments').update(row).eq('id', commentId);
-    if (error) throw error;
-    return;
-  }
-  await updateDoc(commentDoc(articleId, commentId), { ...data });
+  return withFallback(
+    async () => {
+      const row = toCommentRow(data);
+      row.updated_at = nowIso();
+      const { error } = await supabase.from('article_comments').update(row).eq('id', commentId);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await updateDoc(commentDoc(articleId, commentId), { ...data });
+    },
+    { cacheKeys: ['article_comments_'] }
+  );
 }
 
 export async function deleteComment(articleId, commentId) {
   clearCachedPrefix(COMMENT_PREFIX + articleId);
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('article_comments').delete().eq('id', commentId);
-    if (error) throw error;
-    return;
-  }
-  await deleteDoc(commentDoc(articleId, commentId));
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('article_comments').delete().eq('id', commentId);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await deleteDoc(commentDoc(articleId, commentId));
+    },
+    { cacheKeys: ['article_comments_'] }
+  );
 }
 
 // ---- realtime (onInvalidate only, per plan §7) ----
@@ -259,11 +313,16 @@ export function subscribeComments(articleId, { onInvalidate }) {
 
 /** Exact count of articles (dashboard stats). */
 export async function countArticles() {
-  if (USE_SUPABASE) {
-    const { count, error } = await supabase.from('articles').select('id', { count: 'exact', head: true });
-    if (error) throw error;
-    return Number(count) || 0;
-  }
-  const snap = await getCountFromServer(query(ARTICLES()));
-  return Number(snap.data().count) || 0;
+  return withFallback(
+    async () => {
+      const { count, error } = await supabase.from('articles').select('id', { count: 'exact', head: true });
+      if (error) throw error;
+      return Number(count) || 0;
+    },
+    async () => {
+      const snap = await getCountFromServer(query(ARTICLES()));
+      return Number(snap.data().count) || 0;
+    },
+    { cacheKeys: ['articles_'] }
+  );
 }

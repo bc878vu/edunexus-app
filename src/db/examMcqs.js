@@ -9,6 +9,7 @@ import {
   supabase, USE_SUPABASE, db,
   nowIso, newId, toRow, fromRow, invertSpec, fbItem,
   cachedList, clearCachedPrefix,
+  withFallback,
 } from './_common.js';
 import { subscribeTable } from './realtime.js';
 
@@ -38,70 +39,87 @@ const mcqCacheKey = (parts) => CACHE_PREFIX + parts.join('|');
 export async function listMcqs({ subject, term, limit: max = 1000, activeOnly = true } = {}) {
   const key = mcqCacheKey(['list', subject || '-', term || '-', max, activeOnly ? 'a' : 'all']);
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      let q = supabase.from('exam_mcqs').select('*');
-      if (subject) q = q.eq('subject', subject);
-      if (term) q = q.eq('term', term);
-      if (activeOnly) q = q.eq('is_active', true);
-      const { data, error } = await q.order('created_at', { ascending: false }).limit(max);
-      if (error) throw error;
-      return (data || []).map(toMcq);
-    }
-    const parts = [];
-    if (subject) parts.push(where('subject', '==', subject));
-    if (term) parts.push(where('term', '==', term));
-    parts.push(limit(max));
-    const snap = await getDocs(query(MCQS(), ...parts));
-    let items = snap.docs.map(fbItem);
-    if (activeOnly) items = items.filter((m) => m.isActive !== false);
-    return items;
-  });
+    return withFallback(
+      async () => {
+        let q = supabase.from('exam_mcqs').select('*');
+        if (subject) q = q.eq('subject', subject);
+        if (term) q = q.eq('term', term);
+        if (activeOnly) q = q.eq('is_active', true);
+        const { data, error } = await q.order('created_at', { ascending: false }).limit(max);
+        if (error) throw error;
+        return (data || []).map(toMcq);
+      },
+      async () => {
+        const parts = [];
+        if (subject) parts.push(where('subject', '==', subject));
+        if (term) parts.push(where('term', '==', term));
+        parts.push(limit(max));
+        const snap = await getDocs(query(MCQS(), ...parts));
+        let items = snap.docs.map(fbItem);
+        if (activeOnly) items = items.filter((m) => m.isActive !== false);
+        return items;
+      },
+      { cacheKeys: ['exam_mcqs_'] }
+    );});
 }
 
 /** MCQs of one import batch (ExamMcqAdminManager "delete whole file" flow). */
 export async function listMcqsByBatch(batchId, { limit: max = 1000 } = {}) {
   const key = mcqCacheKey(['batch', batchId, max]);
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from('exam_mcqs').select('*')
-        .eq('import_batch_id', batchId).limit(max);
-      if (error) throw error;
-      return (data || []).map(toMcq);
-    }
-    const snap = await getDocs(query(MCQS(), where('importBatchId', '==', batchId), limit(max)));
-    return snap.docs.map(fbItem);
-  });
+    return withFallback(
+      async () => {
+        const { data, error } = await supabase.from('exam_mcqs').select('*')
+          .eq('import_batch_id', batchId).limit(max);
+        if (error) throw error;
+        return (data || []).map(toMcq);
+      },
+      async () => {
+        const snap = await getDocs(query(MCQS(), where('importBatchId', '==', batchId), limit(max)));
+        return snap.docs.map(fbItem);
+      },
+      { cacheKeys: ['exam_mcqs_'] }
+    );});
 }
 
 /** MCQs of one source file within a subject (legacy importer grouping). */
 export async function listMcqsBySource(subject, fileName, { limit: max = 1000 } = {}) {
   const key = mcqCacheKey(['source', subject, fileName, max]);
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from('exam_mcqs').select('*')
-        .eq('subject', subject).eq('source_file_name', fileName).limit(max);
-      if (error) throw error;
-      return (data || []).map(toMcq);
-    }
-    const snap = await getDocs(query(
-      MCQS(), where('subject', '==', subject), where('sourceFileName', '==', fileName), limit(max)));
-    return snap.docs.map(fbItem);
-  });
+    return withFallback(
+      async () => {
+        const { data, error } = await supabase.from('exam_mcqs').select('*')
+          .eq('subject', subject).eq('source_file_name', fileName).limit(max);
+        if (error) throw error;
+        return (data || []).map(toMcq);
+      },
+      async () => {
+        const snap = await getDocs(query(
+          MCQS(), where('subject', '==', subject), where('sourceFileName', '==', fileName), limit(max)));
+        return snap.docs.map(fbItem);
+      },
+      { cacheKeys: ['exam_mcqs_'] }
+    );});
 }
 
 /** Publish a single MCQ (ExamPrepHub "Add an MCQ"). Returns the id. */
 export async function addMcq(data) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const id = data.id || newId();
-    const row = { id, ...toMcqRow(data) };
-    if (!row.created_at) row.created_at = nowIso();
-    const { error } = await supabase.from('exam_mcqs').insert(row);
-    if (error) throw error;
-    return id;
-  }
-  const ref = await addDoc(MCQS(), { ...data });
-  return ref.id;
+  return withFallback(
+    async () => {
+      const id = data.id || newId();
+      const row = { id, ...toMcqRow(data) };
+      if (!row.created_at) row.created_at = nowIso();
+      const { error } = await supabase.from('exam_mcqs').insert(row);
+      if (error) throw error;
+      return id;
+    },
+    async () => {
+      const ref = await addDoc(MCQS(), { ...data });
+      return ref.id;
+    },
+    { cacheKeys: ['exam_mcqs_'] }
+  );
 }
 
 /**
@@ -113,101 +131,126 @@ export async function addMcqBatch(rows, { chunkSize = 500 } = {}) {
   clearCachedPrefix(CACHE_PREFIX);
   const list = Array.isArray(rows) ? rows : [];
   const ids = [];
-  if (USE_SUPABASE) {
-    for (let i = 0; i < list.length; i += chunkSize) {
-      const chunk = list.slice(i, i + chunkSize).map((r) => {
-        const id = r.id || newId();
-        ids.push(id);
-        const row = { id, ...toMcqRow(r) };
-        if (!row.created_at) row.created_at = nowIso();
-        return row;
-      });
-      const { error } = await supabase.from('exam_mcqs').insert(chunk);
-      if (error) throw error;
-    }
-    return { inserted: list.length, ids };
-  }
-  // Firebase branch: writeBatch, verbatim shape.
-  for (let i = 0; i < list.length; i += chunkSize) {
-    const batch = writeBatch(db);
-    list.slice(i, i + chunkSize).forEach((r) => {
-      const ref = r.id ? doc(MCQS(), r.id) : doc(col('examMcqs'));
-      const { id: _drop, ...rest } = r;
-      batch.set(ref, { ...rest });
-      ids.push(ref.id);
-    });
-    await batch.commit();
-  }
-  return { inserted: list.length, ids };
+  return withFallback(
+    async () => {
+      for (let i = 0; i < list.length; i += chunkSize) {
+        const chunk = list.slice(i, i + chunkSize).map((r) => {
+          const id = r.id || newId();
+          ids.push(id);
+          const row = { id, ...toMcqRow(r) };
+          if (!row.created_at) row.created_at = nowIso();
+          return row;
+        });
+        const { error } = await supabase.from('exam_mcqs').insert(chunk);
+        if (error) throw error;
+      }
+      return { inserted: list.length, ids };
+    },
+    async () => {
+      // Firebase branch: writeBatch, verbatim shape.
+      for (let i = 0; i < list.length; i += chunkSize) {
+        const batch = writeBatch(db);
+        list.slice(i, i + chunkSize).forEach((r) => {
+          const ref = r.id ? doc(MCQS(), r.id) : doc(col('examMcqs'));
+          const { id: _drop, ...rest } = r;
+          batch.set(ref, { ...rest });
+          ids.push(ref.id);
+        });
+        await batch.commit();
+      }
+      return { inserted: list.length, ids };
+    },
+    { cacheKeys: ['exam_mcqs_'] }
+  );
 }
 
 export async function deleteMcqs(ids, { chunkSize = 450 } = {}) {
   clearCachedPrefix(CACHE_PREFIX);
   const list = Array.isArray(ids) ? ids : [];
-  if (USE_SUPABASE) {
-    for (let i = 0; i < list.length; i += chunkSize) {
-      const { error } = await supabase.from('exam_mcqs').delete().in('id', list.slice(i, i + chunkSize));
-      if (error) throw error;
-    }
-    return;
-  }
-  const firestoreDb = db;
-  for (let i = 0; i < list.length; i += chunkSize) {
-    const batch = writeBatch(firestoreDb);
-    list.slice(i, i + chunkSize).forEach((id) => batch.delete(doc(MCQS(), id)));
-    await batch.commit();
-  }
+  return withFallback(
+    async () => {
+      for (let i = 0; i < list.length; i += chunkSize) {
+        const { error } = await supabase.from('exam_mcqs').delete().in('id', list.slice(i, i + chunkSize));
+        if (error) throw error;
+      }
+      return;
+    },
+    async () => {
+      const firestoreDb = db;
+      for (let i = 0; i < list.length; i += chunkSize) {
+        const batch = writeBatch(firestoreDb);
+        list.slice(i, i + chunkSize).forEach((id) => batch.delete(doc(MCQS(), id)));
+        await batch.commit();
+      }
+    },
+    { cacheKeys: ['exam_mcqs_'] }
+  );
 }
 
 export async function updateMcq(id, data) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const row = toMcqRow(data);
-    row.updated_at = nowIso();
-    const { error } = await supabase.from('exam_mcqs').update(row).eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  await updateDoc(doc(MCQS(), id), { ...data });
+  return withFallback(
+    async () => {
+      const row = toMcqRow(data);
+      row.updated_at = nowIso();
+      const { error } = await supabase.from('exam_mcqs').update(row).eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await updateDoc(doc(MCQS(), id), { ...data });
+    },
+    { cacheKeys: ['exam_mcqs_'] }
+  );
 }
 
 /** Exact count for a subject/term (examCatalogCounts). */
 export async function countMcqs(subject, term) {
-  if (USE_SUPABASE) {
-    let q = supabase.from('exam_mcqs').select('id', { count: 'exact', head: true });
-    if (subject) q = q.eq('subject', subject);
-    if (term) q = q.eq('term', term);
-    const { count, error } = await q;
-    if (error) throw error;
-    return Number(count) || 0;
-  }
-  const parts = [];
-  if (subject) parts.push(where('subject', '==', subject));
-  if (term) parts.push(where('term', '==', term));
-  const snap = await getCountFromServer(query(MCQS(), ...parts));
-  return Number(snap.data().count) || 0;
+  return withFallback(
+    async () => {
+      let q = supabase.from('exam_mcqs').select('id', { count: 'exact', head: true });
+      if (subject) q = q.eq('subject', subject);
+      if (term) q = q.eq('term', term);
+      const { count, error } = await q;
+      if (error) throw error;
+      return Number(count) || 0;
+    },
+    async () => {
+      const parts = [];
+      if (subject) parts.push(where('subject', '==', subject));
+      if (term) parts.push(where('term', '==', term));
+      const snap = await getCountFromServer(query(MCQS(), ...parts));
+      return Number(snap.data().count) || 0;
+    },
+    { cacheKeys: ['exam_mcqs_'] }
+  );
 }
 
 /** Activate/disable MCQs in chunks (ExamMcqAdminManager toggle flow). */
 export async function setMcqActive(ids, active, { chunkSize = 450 } = {}) {
   clearCachedPrefix(CACHE_PREFIX);
   const list = Array.isArray(ids) ? ids : [];
-  if (USE_SUPABASE) {
-    for (let i = 0; i < list.length; i += chunkSize) {
-      const { error } = await supabase.from('exam_mcqs')
-        .update({ is_active: !!active, updated_at: nowIso() })
-        .in('id', list.slice(i, i + chunkSize));
-      if (error) throw error;
-    }
-    return;
-  }
-  const firestoreDb = db;
-  for (let i = 0; i < list.length; i += chunkSize) {
-    const batch = writeBatch(firestoreDb);
-    list.slice(i, i + chunkSize).forEach((id) =>
-      batch.update(doc(MCQS(), id), { isActive: !!active, updatedAt: serverTimestamp() }));
-    await batch.commit();
-  }
+  return withFallback(
+    async () => {
+      for (let i = 0; i < list.length; i += chunkSize) {
+        const { error } = await supabase.from('exam_mcqs')
+          .update({ is_active: !!active, updated_at: nowIso() })
+          .in('id', list.slice(i, i + chunkSize));
+        if (error) throw error;
+      }
+      return;
+    },
+    async () => {
+      const firestoreDb = db;
+      for (let i = 0; i < list.length; i += chunkSize) {
+        const batch = writeBatch(firestoreDb);
+        list.slice(i, i + chunkSize).forEach((id) =>
+          batch.update(doc(MCQS(), id), { isActive: !!active, updatedAt: serverTimestamp() }));
+        await batch.commit();
+      }
+    },
+    { cacheKeys: ['exam_mcqs_'] }
+  );
 }
 
 export function subscribeMcqs({ subject, onInvalidate }) {

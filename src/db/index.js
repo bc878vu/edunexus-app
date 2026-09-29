@@ -20,5 +20,6 @@ export * from './feedback.js';
 export * from './examReviews.js';
 export * from './examProgress.js';
 export * from './userProfiles.js';
+export * from './siteProfile.js';
 // realtime.js is internal (subscribe helpers used by the modules above).
 // _common.js is internal (shared Firestore/Supabase plumbing).

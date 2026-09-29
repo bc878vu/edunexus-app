@@ -12,6 +12,7 @@ import {
   supabase, USE_SUPABASE, db,
   nowIso, newId, toRow, fromRow, invertSpec, fbItem,
   cachedList, clearCached, clearCachedPrefix,
+  withFallback,
 } from './_common.js';
 import { subscribeTable } from './realtime.js';
 
@@ -46,74 +47,97 @@ const toFeedback = (row) => fromRow(row, FEEDBACK_REV, (out, r) => {
 export async function listFeedback({ limit: max = 50, category } = {}) {
   const key = CACHE_PREFIX + (category || 'all') + '|' + max;
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      let q = supabase.from('feedback').select('*');
-      if (category) q = q.eq('category', category);
-      const { data, error } = await q.order('created_at', { ascending: false }).limit(max);
-      if (error) throw error;
-      return (data || []).map(toFeedback);
-    }
-    const parts = [];
-    if (category) parts.push(where('category', '==', category));
-    parts.push(orderBy('createdAt', 'desc'), limit(max));
-    const snap = await getDocs(query(FEEDBACK(), ...parts));
-    return snap.docs.map(fbItem);
-  });
+    return withFallback(
+      async () => {
+        let q = supabase.from('feedback').select('*');
+        if (category) q = q.eq('category', category);
+        const { data, error } = await q.order('created_at', { ascending: false }).limit(max);
+        if (error) throw error;
+        return (data || []).map(toFeedback);
+      },
+      async () => {
+        const parts = [];
+        if (category) parts.push(where('category', '==', category));
+        parts.push(orderBy('createdAt', 'desc'), limit(max));
+        const snap = await getDocs(query(FEEDBACK(), ...parts));
+        return snap.docs.map(fbItem);
+      },
+      { cacheKeys: ['feedback_'] }
+    );});
 }
 
 export async function getFeedback(id) {
   const key = CACHE_PREFIX + 'one|' + id;
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from('feedback').select('*').eq('id', id).maybeSingle();
-      if (error) throw error;
-      return toFeedback(data);
-    }
-    const snap = await getDoc(doc(FEEDBACK(), id));
-    return snap.exists() ? fbItem(snap) : null;
-  });
+    return withFallback(
+      async () => {
+        const { data, error } = await supabase.from('feedback').select('*').eq('id', id).maybeSingle();
+        if (error) throw error;
+        return toFeedback(data);
+      },
+      async () => {
+        const snap = await getDoc(doc(FEEDBACK(), id));
+        return snap.exists() ? fbItem(snap) : null;
+      },
+      { cacheKeys: ['feedback_'] }
+    );});
 }
 
 /** Contact form + report flows. Returns the id. */
 export async function createFeedback(data) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const id = data.id || newId();
-    const row = { id, ...toFeedbackRow(data) };
-    if (!row.created_at) row.created_at = nowIso();
-    const { error } = await supabase.from('feedback').insert(row);
-    if (error) throw error;
-    return id;
-  }
-  const { id: _drop, ...rest } = data;
-  const ref = await addDoc(FEEDBACK(), { ...rest });
-  return ref.id;
+  return withFallback(
+    async () => {
+      const id = data.id || newId();
+      const row = { id, ...toFeedbackRow(data) };
+      if (!row.created_at) row.created_at = nowIso();
+      const { error } = await supabase.from('feedback').insert(row);
+      if (error) throw error;
+      return id;
+    },
+    async () => {
+      const { id: _drop, ...rest } = data;
+      const ref = await addDoc(FEEDBACK(), { ...rest });
+      return ref.id;
+    },
+    { cacheKeys: ['feedback_'] }
+  );
 }
 
 export async function updateFeedback(id, data) {
   clearCachedPrefix(CACHE_PREFIX);
   clearCached(CACHE_PREFIX + 'one|' + id);
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('feedback').update(toFeedbackRow(data)).eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  const { id: _drop, ...rest } = data;
-  await updateDoc(doc(FEEDBACK(), id), { ...rest });
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('feedback').update(toFeedbackRow(data)).eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      const { id: _drop, ...rest } = data;
+      await updateDoc(doc(FEEDBACK(), id), { ...rest });
+    },
+    { cacheKeys: ['feedback_'] }
+  );
 }
 
 /** Admin: mark a message read/unread (App.js inbox uses read:true + readAt). */
 export async function markFeedbackRead(id, read = true) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('feedback')
-      .update({ is_read: !!read }).eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  await updateDoc(doc(FEEDBACK(), id), read
-    ? { read: true, readAt: serverTimestamp() }
-    : { read: false, readAt: null });
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('feedback')
+        .update({ is_read: !!read }).eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await updateDoc(doc(FEEDBACK(), id), read
+        ? { read: true, readAt: serverTimestamp() }
+        : { read: false, readAt: null });
+    },
+    { cacheKeys: ['feedback_'] }
+  );
 }
 
 /** Admin: mark every id in the list as read (App.js "Mark all read"). */
@@ -121,25 +145,35 @@ export async function markAllFeedbackRead(ids) {
   clearCachedPrefix(CACHE_PREFIX);
   const list = Array.isArray(ids) ? ids : [];
   if (!list.length) return;
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('feedback')
-      .update({ is_read: true }).in('id', list);
-    if (error) throw error;
-    return;
-  }
-  const batch = writeBatch(db);
-  list.forEach((id) => batch.update(doc(FEEDBACK(), id), { read: true, readAt: serverTimestamp() }));
-  await batch.commit();
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('feedback')
+        .update({ is_read: true }).in('id', list);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      const batch = writeBatch(db);
+      list.forEach((id) => batch.update(doc(FEEDBACK(), id), { read: true, readAt: serverTimestamp() }));
+      await batch.commit();
+    },
+    { cacheKeys: ['feedback_'] }
+  );
 }
 
 export async function deleteFeedback(id) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('feedback').delete().eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  await deleteDoc(doc(FEEDBACK(), id));
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('feedback').delete().eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await deleteDoc(doc(FEEDBACK(), id));
+    },
+    { cacheKeys: ['feedback_'] }
+  );
 }
 
 export function subscribeFeedback({ onInvalidate }) {

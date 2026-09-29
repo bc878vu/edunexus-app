@@ -146,3 +146,89 @@ export async function cachedList(key, fetcher, ttl = CACHE_TTL.CATALOG) {
   setCached(key, data, ttl);
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// Supabase-primary / Firebase-fallback (sequential, never parallel).
+//
+// Every db/* adapter function wraps its two backend branches with
+// withFallback(sbFn, fbFn). Supabase is ALWAYS tried first. Firebase is ONLY
+// touched when Supabase throws a retriable backend error (network, 5xx,
+// connection loss, quota). Validation errors (4xx) never trigger fallback.
+// ---------------------------------------------------------------------------
+
+let _backendDegraded = false;
+let _degradedSince = null;
+let _degradedReason = '';
+
+/** True when the last Supabase call failed and we are serving from Firebase. */
+export function isBackendDegraded() { return _backendDegraded; }
+export function getDegradedInfo() {
+  return { degraded: _backendDegraded, since: _degradedSince, reason: _degradedReason };
+}
+
+function markDegraded(reason) {
+  if (!_backendDegraded) {
+    _backendDegraded = true;
+    _degradedSince = nowIso();
+    _degradedReason = String(reason || 'unknown').slice(0, 300);
+    try { console.warn('[db] Supabase backend degraded, using Firebase fallback:', _degradedReason); } catch (_) {}
+  }
+}
+
+function markRecovered() {
+  if (_backendDegraded) {
+    _backendDegraded = false;
+    _degradedSince = null;
+    _degradedReason = '';
+    try { console.info('[db] Supabase backend recovered.'); } catch (_) {}
+  }
+}
+
+/**
+ * Decide whether a Supabase error should trigger Firebase fallback.
+ * Fallback triggers: network failures, 5xx, connection errors, quota/rate-limit.
+ * No fallback: 4xx validation errors, RLS denials, successful empty results.
+ */
+export function isRetriableBackendError(err) {
+  if (!err) return false;
+  const msg = String((err && err.message) || err).toLowerCase();
+  const code = String((err && (err.code || err.status || err.statusCode)) || '').toLowerCase();
+
+  // Explicit non-retriable: validation / permission / not-found style errors.
+  if (/^4\d\d$/.test(code)) {
+    // 429 (rate limit) and 408 (timeout) ARE retriable even though 4xx.
+    if (code === '429' || code === '408') return true;
+    return false;
+  }
+  if (/rls|row-level|permission denied|42501|unauthorized|jwt|invalid api key/i.test(msg + ' ' + code)) return false;
+
+  // Retriable: network / connection / server / quota signals.
+  if (/network|fetch failed|failed to fetch|econn|etimedout|timeout|5\d\d|pgrst|connection|socket|dns|quota|exceeded|rate limit|too many requests|service unavailable|bad gateway|gateway timeout/i.test(msg + ' ' + code)) return true;
+
+  // Unknown errors: do NOT fallback (safer to surface than to silently switch).
+  return false;
+}
+
+/**
+ * Run supabaseFn(); on retriable backend failure, clear relevant cache prefixes
+ * and run firebaseFn() instead. Sequential — Firebase is never queried unless
+ * Supabase actually failed.
+ *
+ * options.cacheKeys: string[] — cache prefixes to bust on fallback so we never
+ * serve cross-backend stale data.
+ */
+export async function withFallback(supabaseFn, firebaseFn, options = {}) {
+  try {
+    const result = await supabaseFn();
+    markRecovered();
+    return result;
+  } catch (sbErr) {
+    if (!isRetriableBackendError(sbErr)) throw sbErr;
+    markDegraded((sbErr && sbErr.message) || sbErr);
+    const keys = options.cacheKeys || [];
+    for (const k of keys) {
+      try { clearCachedPrefix(k); } catch (_) {}
+    }
+    return firebaseFn();
+  }
+}

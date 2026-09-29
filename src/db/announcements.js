@@ -12,6 +12,7 @@ import {
   supabase, USE_SUPABASE, db,
   nowIso, newId, toRow, fromRow, invertSpec, fbItem,
   cachedList, clearCached, clearCachedPrefix,
+  withFallback,
 } from './_common.js';
 import { subscribeTable } from './realtime.js';
 
@@ -37,71 +38,94 @@ const toAnnouncement = (row) => fromRow(row, ANNOUNCEMENT_REV, (out, r) => {
 export async function listAnnouncements({ activeOnly = true, limit: max = 50 } = {}) {
   const key = CACHE_PREFIX + (activeOnly ? 'active' : 'all') + '|' + max;
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      let q = supabase.from('announcements').select('*');
-      if (activeOnly) q = q.eq('is_active', true);
-      const { data, error } = await q.order('created_at', { ascending: false }).limit(max);
-      if (error) throw error;
-      return (data || []).map(toAnnouncement);
-    }
-    const snap = await getDocs(query(ANNOUNCEMENTS(), orderBy('createdAt', 'desc'), limit(max)));
-    let items = snap.docs.map(fbItem);
-    if (activeOnly) items = items.filter((a) => a.isActive !== false);
-    return items;
-  });
+    return withFallback(
+      async () => {
+        let q = supabase.from('announcements').select('*');
+        if (activeOnly) q = q.eq('is_active', true);
+        const { data, error } = await q.order('created_at', { ascending: false }).limit(max);
+        if (error) throw error;
+        return (data || []).map(toAnnouncement);
+      },
+      async () => {
+        const snap = await getDocs(query(ANNOUNCEMENTS(), orderBy('createdAt', 'desc'), limit(max)));
+        let items = snap.docs.map(fbItem);
+        if (activeOnly) items = items.filter((a) => a.isActive !== false);
+        return items;
+      },
+      { cacheKeys: ['announcements_'] }
+    );});
 }
 
 export async function getAnnouncement(id) {
   const key = CACHE_PREFIX + 'one|' + id;
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from('announcements').select('*').eq('id', id).maybeSingle();
-      if (error) throw error;
-      return toAnnouncement(data);
-    }
-    const snap = await getDoc(doc(ANNOUNCEMENTS(), id));
-    return snap.exists() ? fbItem(snap) : null;
-  });
+    return withFallback(
+      async () => {
+        const { data, error } = await supabase.from('announcements').select('*').eq('id', id).maybeSingle();
+        if (error) throw error;
+        return toAnnouncement(data);
+      },
+      async () => {
+        const snap = await getDoc(doc(ANNOUNCEMENTS(), id));
+        return snap.exists() ? fbItem(snap) : null;
+      },
+      { cacheKeys: ['announcements_'] }
+    );});
 }
 
 export async function createAnnouncement(data) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const id = data.id || newId();
-    const row = { id, ...toAnnouncementRow(data) };
-    if (row.is_active === undefined) row.is_active = true;
-    if (!row.created_at) row.created_at = nowIso();
-    const { error } = await supabase.from('announcements').insert(row);
-    if (error) throw error;
-    return id;
-  }
-  const { id: _drop, ...rest } = data;
-  const ref = await addDoc(ANNOUNCEMENTS(), { ...rest });
-  return ref.id;
+  return withFallback(
+    async () => {
+      const id = data.id || newId();
+      const row = { id, ...toAnnouncementRow(data) };
+      if (row.is_active === undefined) row.is_active = true;
+      if (!row.created_at) row.created_at = nowIso();
+      const { error } = await supabase.from('announcements').insert(row);
+      if (error) throw error;
+      return id;
+    },
+    async () => {
+      const { id: _drop, ...rest } = data;
+      const ref = await addDoc(ANNOUNCEMENTS(), { ...rest });
+      return ref.id;
+    },
+    { cacheKeys: ['announcements_'] }
+  );
 }
 
 export async function updateAnnouncement(id, data) {
   clearCachedPrefix(CACHE_PREFIX);
   clearCached(CACHE_PREFIX + 'one|' + id);
-  if (USE_SUPABASE) {
-    const row = toAnnouncementRow(data);
-    row.updated_at = nowIso();
-    const { error } = await supabase.from('announcements').update(row).eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  const { id: _drop, ...rest } = data;
-  await updateDoc(doc(ANNOUNCEMENTS(), id), { ...rest });
+  return withFallback(
+    async () => {
+      const row = toAnnouncementRow(data);
+      row.updated_at = nowIso();
+      const { error } = await supabase.from('announcements').update(row).eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      const { id: _drop, ...rest } = data;
+      await updateDoc(doc(ANNOUNCEMENTS(), id), { ...rest });
+    },
+    { cacheKeys: ['announcements_'] }
+  );
 }
 
 export async function removeAnnouncement(id) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('announcements').delete().eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  await deleteDoc(doc(ANNOUNCEMENTS(), id));
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('announcements').delete().eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await deleteDoc(doc(ANNOUNCEMENTS(), id));
+    },
+    { cacheKeys: ['announcements_'] }
+  );
 }
 
 export async function setAnnouncementActive(id, active) {

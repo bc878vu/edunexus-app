@@ -12,6 +12,7 @@ import {
   supabase, USE_SUPABASE, db,
   nowIso, newId, toRow, fromRow, invertSpec, fbItem,
   cachedList, clearCachedPrefix,
+  withFallback,
 } from './_common.js';
 import { subscribeTable } from './realtime.js';
 
@@ -55,136 +56,180 @@ const toReport = (row) => fromRow(row, REPORT_REV, (out, r) => { out.discussionI
 export async function listDiscussions({ includeHidden = false, limit: max = 200 } = {}) {
   const key = CACHE_PREFIX + (includeHidden ? 'all' : 'public') + '|' + max;
   return cachedList(key, async () => {
-    if (USE_SUPABASE) {
-      let q = supabase.from('discussions').select('*');
-      if (!includeHidden) q = q.eq('is_active', true);
-      const { data, error } = await q.order('created_at', { ascending: false }).limit(max);
-      if (error) throw error;
-      return (data || []).map(toDiscussion);
-    }
-    const snap = await getDocs(query(DISCUSSIONS(), orderBy('createdAt', 'desc'), limit(max)));
-    let items = snap.docs.map(fbItem);
-    if (!includeHidden) items = items.filter((p) => p.isActive !== false);
-    return items;
-  });
+    return withFallback(
+      async () => {
+        let q = supabase.from('discussions').select('*');
+        if (!includeHidden) q = q.eq('is_active', true);
+        const { data, error } = await q.order('created_at', { ascending: false }).limit(max);
+        if (error) throw error;
+        return (data || []).map(toDiscussion);
+      },
+      async () => {
+        const snap = await getDocs(query(DISCUSSIONS(), orderBy('createdAt', 'desc'), limit(max)));
+        let items = snap.docs.map(fbItem);
+        if (!includeHidden) items = items.filter((p) => p.isActive !== false);
+        return items;
+      },
+      { cacheKeys: ['discussions_'] }
+    );});
 }
 
 /** Post a discussion. Returns the id. */
 export async function addDiscussion({ userId, userName, content }) {
   if (!String(content || '').trim()) throw new Error('Discussion content is required');
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const id = newId();
-    const { error } = await supabase.from('discussions').insert({
-      id,
-      body: String(content).trim(),
-      user_id: userId || null,
-      user_name: userName || 'Student',
-      created_at: nowIso(),
-    });
-    if (error) throw error;
-    return id;
-  }
-  const ref = await addDoc(DISCUSSIONS(), {
-    content: String(content).trim(),
-    createdAt: serverTimestamp(),
-    userId: userId || null,
-    userName: userName || 'Student',
-    userEmail: '', // Do not reveal account email in public posts.
-  });
-  return ref.id;
+  return withFallback(
+    async () => {
+      const id = newId();
+      const { error } = await supabase.from('discussions').insert({
+        id,
+        body: String(content).trim(),
+        user_id: userId || null,
+        user_name: userName || 'Student',
+        created_at: nowIso(),
+      });
+      if (error) throw error;
+      return id;
+    },
+    async () => {
+      const ref = await addDoc(DISCUSSIONS(), {
+        content: String(content).trim(),
+        createdAt: serverTimestamp(),
+        userId: userId || null,
+        userName: userName || 'Student',
+        userEmail: '', // Do not reveal account email in public posts.
+      });
+      return ref.id;
+    },
+    { cacheKeys: ['discussions_'] }
+  );
 }
 
 export async function updateDiscussion(id, data) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const row = toDiscussionRow(data);
-    row.updated_at = nowIso();
-    const { error } = await supabase.from('discussions').update(row).eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  await updateDoc(doc(DISCUSSIONS(), id), { ...data });
+  return withFallback(
+    async () => {
+      const row = toDiscussionRow(data);
+      row.updated_at = nowIso();
+      const { error } = await supabase.from('discussions').update(row).eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await updateDoc(doc(DISCUSSIONS(), id), { ...data });
+    },
+    { cacheKeys: ['discussions_'] }
+  );
 }
 
 export async function deleteDiscussion(id) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('discussions').delete().eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  await deleteDoc(doc(DISCUSSIONS(), id));
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('discussions').delete().eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await deleteDoc(doc(DISCUSSIONS(), id));
+    },
+    { cacheKeys: ['discussions_'] }
+  );
 }
 
 /** Admin: pin/unpin a post to the top. */
 export async function setPinned(id, pinned) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('discussions')
-      .update({ pinned: !!pinned, updated_at: nowIso() }).eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  await updateDoc(doc(DISCUSSIONS(), id), { pinned: !!pinned, updatedAt: serverTimestamp() });
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('discussions')
+        .update({ pinned: !!pinned, updated_at: nowIso() }).eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await updateDoc(doc(DISCUSSIONS(), id), { pinned: !!pinned, updatedAt: serverTimestamp() });
+    },
+    { cacheKeys: ['discussions_'] }
+  );
 }
 
 /** Admin: save or clear the admin reply. Empty text clears it. */
 export async function setAdminReply(id, text) {
   clearCachedPrefix(CACHE_PREFIX);
   const reply = String(text || '').trim();
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('discussions').update({
-      admin_reply: reply || null,
-      // adminReplyAt has no Postgres column (write-only in Firestore); updated_at carries the change.
-      updated_at: nowIso(),
-    }).eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  if (!reply) {
-    await updateDoc(doc(DISCUSSIONS(), id), { adminReply: '', adminReplyAt: null });
-    return;
-  }
-  await updateDoc(doc(DISCUSSIONS(), id), { adminReply: reply, adminReplyAt: serverTimestamp() });
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('discussions').update({
+        admin_reply: reply || null,
+        // adminReplyAt has no Postgres column (write-only in Firestore); updated_at carries the change.
+        updated_at: nowIso(),
+      }).eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      if (!reply) {
+        await updateDoc(doc(DISCUSSIONS(), id), { adminReply: '', adminReplyAt: null });
+        return;
+      }
+      await updateDoc(doc(DISCUSSIONS(), id), { adminReply: reply, adminReplyAt: serverTimestamp() });
+    },
+    { cacheKeys: ['discussions_'] }
+  );
 }
 
 /** Admin: hide/show a post. */
 export async function setDiscussionActive(id, active) {
   clearCachedPrefix(CACHE_PREFIX);
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('discussions')
-      .update({ is_active: !!active, updated_at: nowIso() }).eq('id', id);
-    if (error) throw error;
-    return;
-  }
-  await updateDoc(doc(DISCUSSIONS(), id), { isActive: !!active, updatedAt: serverTimestamp() });
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('discussions')
+        .update({ is_active: !!active, updated_at: nowIso() }).eq('id', id);
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await updateDoc(doc(DISCUSSIONS(), id), { isActive: !!active, updatedAt: serverTimestamp() });
+    },
+    { cacheKeys: ['discussions_'] }
+  );
 }
 
 /** Private report on a post (one per reporter; doc id == reporter uid). */
 export async function reportDiscussion(id, reporterUid, reason) {
-  if (USE_SUPABASE) {
-    const { error } = await supabase.from('discussion_reports').upsert({
-      discussion_id: id, reporter_uid: reporterUid, reason, created_at: nowIso(),
-    }, { onConflict: 'discussion_id,reporter_uid' });
-    if (error) throw error;
-    return;
-  }
-  await setDoc(doc(reportCol(id), reporterUid), {
-    reporterUid, reason, createdAt: serverTimestamp(),
-  });
+  return withFallback(
+    async () => {
+      const { error } = await supabase.from('discussion_reports').upsert({
+        discussion_id: id, reporter_uid: reporterUid, reason, created_at: nowIso(),
+      }, { onConflict: 'discussion_id,reporter_uid' });
+      if (error) throw error;
+      return;
+    },
+    async () => {
+      await setDoc(doc(reportCol(id), reporterUid), {
+        reporterUid, reason, createdAt: serverTimestamp(),
+      });
+    },
+    { cacheKeys: ['discussions_'] }
+  );
 }
 
 /** Admin: list private reports on a post. */
 export async function listDiscussionReports(id) {
-  if (USE_SUPABASE) {
-    const { data, error } = await supabase.from('discussion_reports').select('*')
-      .eq('discussion_id', id).order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data || []).map(toReport);
-  }
-  const snap = await getDocs(reportCol(id));
-  return snap.docs.map((s) => ({ id: s.id, ...s.data() }));
+  return withFallback(
+    async () => {
+      const { data, error } = await supabase.from('discussion_reports').select('*')
+        .eq('discussion_id', id).order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map(toReport);
+    },
+    async () => {
+      const snap = await getDocs(reportCol(id));
+      return snap.docs.map((s) => ({ id: s.id, ...s.data() }));
+    },
+    { cacheKeys: ['discussions_'] }
+  );
 }
 
 export function subscribeDiscussions({ includeHidden = false, onInvalidate }) {
@@ -198,11 +243,16 @@ export function subscribeDiscussions({ includeHidden = false, onInvalidate }) {
 
 /** Exact count of discussions (dashboard stats). */
 export async function countDiscussions() {
-  if (USE_SUPABASE) {
-    const { count, error } = await supabase.from('discussions').select('id', { count: 'exact', head: true });
-    if (error) throw error;
-    return Number(count) || 0;
-  }
-  const snap = await getCountFromServer(query(DISCUSSIONS()));
-  return Number(snap.data().count) || 0;
+  return withFallback(
+    async () => {
+      const { count, error } = await supabase.from('discussions').select('id', { count: 'exact', head: true });
+      if (error) throw error;
+      return Number(count) || 0;
+    },
+    async () => {
+      const snap = await getCountFromServer(query(DISCUSSIONS()));
+      return Number(snap.data().count) || 0;
+    },
+    { cacheKeys: ['discussions_'] }
+  );
 }
