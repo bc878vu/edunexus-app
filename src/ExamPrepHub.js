@@ -258,8 +258,7 @@ function ShareBar({ tab, subject, term }) {
       document.body.removeChild(ta);
     }
   };
-  const whatsAppUrl = "https://wa.me/?text=" + encodeURIComponent(shareText + "
-" + shareUrl);
+  const whatsAppUrl = "https://wa.me/?text=" + encodeURIComponent(shareText + "\n" + shareUrl);
   return (
     <div className="edx-share-bar" role="group" aria-label={"Share this " + tabLabel}>
       <span className="edx-share-bar-label"><Share2 size={15} /> Share this {tabLabel}</span>
