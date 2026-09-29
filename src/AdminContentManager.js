@@ -17,10 +17,10 @@ const DEFAULT_BUTTONS = [
   { label: "Live Projects", href: "/live-projects", enabled: true }
 ];
 
-export default function AdminContentManager() {
+export default function AdminContentManager({ user: adminUser = null }) {
   // Embedded as the "Tutorials" tab inside the Admin Panel (?page=admin), which
   // already gates admin access — no pathname-based route gating here.
-  const [user, setUser] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
   const [buttons, setButtons] = useState(DEFAULT_BUTTONS);
   const [pinned, setPinned] = useState(true);
   const [tutorials, setTutorials] = useState([]);
@@ -31,7 +31,7 @@ export default function AdminContentManager() {
   const [form, setForm] = useState({ title: "", category: "VU Tutorials", url: "", description: "", type: "link", file: null });
   const { requestConfirm, ConfirmUI } = useConfirm();
 
-  useEffect(() => onAuthChange(setUser), []);
+  useEffect(() => onAuthChange(setAuthUser), []);\n  // The parent Admin Panel already owns the authenticated normalized user.\n  // Prefer it so a Supabase auth-state callback cannot temporarily hide an\n  // otherwise valid tab-scoped admin session during provider migration.\n  const user = adminUser || authUser;
   useEffect(() => {
     let alive = true;
     const refresh = async () => {
