@@ -11,6 +11,7 @@ import { countWords, reviewQualityMessage } from './reviewQuality';
 import { trustedPreviewUrl, previewSandbox, gviewEmbedUrl } from './academic-preview.mjs';
 import { routeParamsFromPath } from './app-routes.mjs';
 import { useConfirm } from './ConfirmDialog';
+import { ensureAnon } from './db/auth';
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
 
 const DEFAULT_SUBJECTS = ['PHY101', 'CS101', 'MGT101', 'ENG101', 'CS201', 'MTH101', 'ISL201', 'PAK301'];
@@ -690,7 +691,17 @@ function FileReviews({ file, user, isAdmin }) {
   const [reported, setReported] = useState({});
   const { requestConfirm, ConfirmUI } = useConfirm();
   const [reportResults, setReportResults] = useState({});
+  const [reviewSessionBusy, setReviewSessionBusy] = useState(false);
   const admin = reviewIsAdmin(user, isAdmin);
+
+  const prepareReviewSession = async () => {
+    if (user?.uid || reviewSessionBusy) return;
+    setReviewSessionBusy(true); setStatus('');
+    try { await ensureAnon(); }
+    catch (_) { setStatus('The review form could not start. Please refresh the page and try again.'); }
+    finally { setReviewSessionBusy(false); }
+  };
+  useEffect(() => { if (!user?.uid) void prepareReviewSession(); }, [user?.uid]);
 
   useEffect(() => {
     let alive = true;
@@ -823,11 +834,11 @@ function FileReviews({ file, user, isAdmin }) {
   const average = items.length ? (items.reduce((sum, r) => sum + Number(r.rating || 0), 0) / items.length).toFixed(1) : '';
   return <section className="ah-focus" aria-label="Resource reviews">
     <div className="ah-between"><div><span className="ah-eyebrow">Student resource reviews</span><h3>Read and review: {nameOf(file)}</h3></div><span className="ah-chip"><Star size={14} /> {average || 'New'} · {items.length} published</span></div>
-    <p>Share your own experience with this study material. User-submitted reviews appear immediately and do not represent an official examination guarantee.</p>
-    {status && <div role="status" className="ah-message">{status}</div>}
+     {status && <div role="status" className="ah-message">{status}</div>}
     {loading ? <p>Loading reviews…</p> : items.length ? <div className="ah-review-list">{items.map((r) => <article className="ah-review" key={r.id}><div className="ah-between"><strong>Student review {r.editedAt ? '· edited by admin' : ''}</strong><span className="ah-stars" aria-label={r.rating + ' out of 5 stars'}>{'★'.repeat(Math.max(0, Math.min(5, r.rating || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, r.rating || 0)))}</span></div><p>{String(r.comment || '')}</p><div className="ah-actions">{user?.uid && user.uid !== r.id && !admin && <button type="button" className="ah-secondary" disabled={busy || reported[r.id]} onClick={() => reportReview(r)}>{reported[r.id] ? 'Reported' : 'Report review'}</button>}{admin && <button type="button" className="ah-secondary" disabled={busy} onClick={() => inspectReports(r)}>Check reports</button>}</div>{admin && reportResults[r.id] && <p className="ah-note" role="status">{reportResults[r.id].length ? reportResults[r.id].length + ' report(s): ' + reportResults[r.id].map((item) => item.reason).join(', ') : 'No reports on this review.'}</p>}{admin && <div className="ah-actions"><button type="button" className="ah-secondary" disabled={busy} onClick={() => startEdit(r)}>Edit</button><button type="button" className="ah-delete" disabled={busy} onClick={() => remove(r)}>Delete</button></div>}{admin && editing === r.id && <div className="ah-review-form"><label>Rating<select value={editRating} onChange={(e) => setEditRating(Number(e.target.value))}>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n} / 5</option>)}</select></label><label>Review text<textarea rows={6} maxLength={50000} value={editText} onChange={(e) => setEditText(e.target.value)} /></label><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy || editText.trim().length < 20} onClick={() => saveEdit(r)}>Save edit</button><button type="button" className="ah-secondary" onClick={() => setEditing(null)}>Cancel</button></div></div>}</article>)}</div> : <div className="ah-empty">No published reviews yet. Be the first to share thoughtful feedback.</div>}
-    {user?.uid ? (mine ? null :
-      <form className="ah-review-form" onSubmit={publish}><h4>Share your experience</h4><label>Rating<select value={rating} onChange={(e) => setRating(Number(e.target.value))}><option value={5}>5 — Excellent</option><option value={4}>4 — Helpful</option><option value={3}>3 — Average</option><option value={2}>2 — Needs improvement</option><option value={1}>1 — Not helpful</option></select></label><label>Written review<textarea required rows={5} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Write your review of this file…" /></label><p className="ah-note">Up to 50 words. Reviews publish automatically. Please share genuine feedback, without personal data or active exam content.</p><button type="submit" className="ah-primary" disabled={busy || !comment.trim() || countWords(comment) > 50}>{busy ? 'Publishing…' : 'Publish review'}</button></form>) : <p className="ah-note">Sign in to leave a review.</p>}
+    {user?.uid ? (mine ? <div className="ah-review-owned"><CheckCircle size={18}/><div><strong>Your review is published</strong><span>You can see it in the reviews above.</span></div></div> :
+      <form className="ah-review-form ah-review-compose" onSubmit={publish}><div className="ah-review-compose-head"><div><span className="ah-eyebrow">Write a review</span><h4>Share your experience</h4></div><MessageCircle size={22}/></div><div className="ah-review-compose-grid"><label>Rating<select value={rating} onChange={(e) => setRating(Number(e.target.value))}><option value={5}>5 — Excellent</option><option value={4}>4 — Helpful</option><option value={3}>3 — Average</option><option value={2}>2 — Needs improvement</option><option value={1}>1 — Not helpful</option></select></label><label className="ah-review-comment">Written review<textarea required rows={5} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="What was useful about this study file?" /></label></div><div className="ah-review-form-foot"><span>{countWords(comment)} / 50 words</span><button type="submit" className="ah-primary" disabled={busy || comment.trim().length < 20 || countWords(comment) > 50}>{busy ? 'Publishing…' : 'Publish review'}</button></div></form>) :
+      <div className="ah-review-session"><MessageCircle size={22}/><div><strong>Write a review</strong><span>{reviewSessionBusy ? 'Preparing your review form…' : 'Start a visitor session to share your feedback.'}</span></div><button type="button" className="ah-primary" disabled={reviewSessionBusy} onClick={prepareReviewSession}>{reviewSessionBusy ? 'Preparing…' : 'Write a review'}</button></div>}
     {admin && pending.length > 0 && <div className="ah-review-queue"><h4><ShieldCheck size={17} /> Earlier unpublished reviews ({pending.length})</h4>{pending.map((r) => <article key={r.id} className="ah-review"><strong>{r.rating} / 5 · Student review</strong><p>{String(r.comment || '')}</p><div className="ah-actions"><button type="button" className="ah-primary" disabled={busy} onClick={() => moderate(r)}>Publish earlier review</button><button type="button" className="ah-delete" disabled={busy} onClick={() => remove(r)}>Delete</button></div></article>)}</div>}
     <ConfirmUI />
   </section>;
