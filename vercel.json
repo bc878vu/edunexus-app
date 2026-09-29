@@ -66,6 +66,10 @@
       "destination": "/api/article-sitemap"
     },
     {
+      "source": "/subjects-sitemap.xml",
+      "destination": "/api/subjects-sitemap"
+    },
+    {
       "source": "/resource-sitemap.xml",
       "destination": "/api/resource-sitemap"
     },
