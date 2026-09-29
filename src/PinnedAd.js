@@ -28,6 +28,8 @@ export default function PinnedAd() {
       }
     };
     void load();
+    const onAdminChange = () => void load();
+    window.addEventListener("edunexus:pinned-ads-changed", onAdminChange);
     let unsubscribe = () => {};
     try {
       const maybe = subscribePinnedAds({ onInvalidate: () => void load() });
@@ -35,6 +37,7 @@ export default function PinnedAd() {
     } catch (_) {}
     return () => {
       alive = false;
+      window.removeEventListener("edunexus:pinned-ads-changed", onAdminChange);
       try { unsubscribe(); } catch (_) {}
     };
   }, []);
