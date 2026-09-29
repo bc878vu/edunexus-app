@@ -96,7 +96,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
     const shareData = {
       title: art.title,
       text: getExcerpt(art.content, 100),
-      url: window.location.origin + articleSharePath(art),
+      url: 'https://edunexus.dpdns.org' + articleSharePath(art),
     };
     if (navigator.share) {
       try {
@@ -105,7 +105,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
       } catch (err) {}
     } else {
       try {
-        await navigator.clipboard.writeText(`${art.title}\n${window.location.origin + articleSharePath(art)}`);
+        await navigator.clipboard.writeText(`${art.title}\n${'https://edunexus.dpdns.org' + articleSharePath(art)}`);
         showToast("Link copied to clipboard!", "success");
       } catch (err) {
         showToast("Failed to copy link", "error");
