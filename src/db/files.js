@@ -196,6 +196,33 @@ export async function deleteFile(id) {
   );
 }
 
+/** List files across multiple subjects (batch). */
+export async function listFilesBySubjects(subjects, { limit: max = 400, activeOnly = true } = {}) {
+  const wanted = [...new Set((subjects || []).map((v) => String(v || '').trim()).filter(Boolean))];
+  if (!wanted.length) return [];
+  const key = CACHE_PREFIX + 'bysubjects|' + wanted.slice().sort().join(',') + '|' + max;
+  return cachedList(key, async () => {
+    return withFallback(
+      async () => {
+        const { data, error } = await supabase.from('files').select('*')
+          .in('subject', wanted).limit(max);
+        if (error) throw error;
+        return (data || []).map(toFile).filter((f) => !activeOnly || f.isActive !== false);
+      },
+      async () => {
+        const out = [];
+        for (let i = 0; i < wanted.length && out.length < max; i += 10) {
+          const batch = wanted.slice(i, i + 10);
+          const snap = await getDocs(query(FILES(), where('subject', 'in', batch), limit(Math.min(max - out.length, 400))));
+          out.push(...snap.docs.map(fbItem));
+        }
+        return out.filter((f) => !activeOnly || f.isActive !== false).slice(0, max);
+      },
+      { cacheKeys: [CACHE_PREFIX] }
+    );
+  });
+}
+
 /** Server-side search (plan §10.1). Firebase branch: filter the latest batch client-side (today's behavior). */
 export async function searchFiles(q, { limit: max = 20 } = {}) {
   const needle = String(q || '').trim().toLowerCase();
