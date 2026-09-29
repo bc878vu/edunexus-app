@@ -8,7 +8,7 @@ import { SITE as SERVER_SITE } from '../api/resource-data.mjs';
 const text = (file) => readFileSync(new URL('../' + file, import.meta.url), 'utf8');
 
 test('one canonical origin is shared by client, SSR and static metadata', () => {
-  assert.equal(SITE, 'https://edunexus-app.vercel.app');
+  assert.equal(SITE, 'https://edunexus.dpdns.org');
   assert.equal(SERVER_SITE, SITE);
   const seo = text('src/SEO.js');
   const app = text('src/App.js');
@@ -58,10 +58,10 @@ test('all static sitemap and robots URLs use the same canonical origin', () => {
   assert.ok(urls.length > 15);
   for (const url of urls) assert.equal(new URL(url).origin, SITE, url);
   assert.ok(urls.includes(SITE + '/portfolio'));
-  assert.match(sitemap, /edunexus-app\.vercel\.app/);
+  assert.match(sitemap, /edunexus\.dpdns\.org/);
   assert.doesNotMatch(sitemap, /edunexus\.dpdns\.org/);
-  assert.match(robots, /Sitemap: https:\/\/edunexus-app\.vercel\.app\/sitemap\.xml/);
-  assert.match(index, /property="og:url" content="https:\/\/edunexus-app\.vercel\.app\/"/);
+  assert.match(robots, /Sitemap: https:\/\/edunexus\.dpdns\.org\/sitemap\.xml/);
+  assert.match(index, /property="og:url" content="https:\/\/edunexus\.dpdns\.org\/"/);
 });
 
 test('all friendly canonical routes can be opened directly on Vercel', () => {
