@@ -348,6 +348,9 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   const [catalog, setCatalog] = useState({ subjects: [], bySubject: {}, total:0 });
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
+  // Runtime counts override stale denormalized catalogue values after a bank
+  // has actually loaded, so the selector always reflects what students see.
+  const [runtimeCounts, setRuntimeCounts] = useState({});
   const userPickedFilter = useRef(false);
   const subjectRef = useRef(subject);
   const termRef = useRef(term);
@@ -422,13 +425,21 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     termRef.current = value;
     if (searchedSubject) setSearchStatus("found");
   };
-  const searchCounts = catalog.bySubject[searchedSubject || subject] || { quiz: 0, midterm: 0, finalterm: 0 };
+  const countSubject = searchedSubject || subject;
+  const catalogCounts = catalog.bySubject[countSubject] || { quiz: 0, midterm: 0, finalterm: 0 };
+  const searchCounts = { ...catalogCounts, ...(runtimeCounts[countSubject] || {}) };
+  const handleBankLoaded = React.useCallback((code, examTerm, count) => {
+    setRuntimeCounts(prev => {
+      if (prev[code]?.[examTerm] === count) return prev;
+      return { ...prev, [code]: { ...(prev[code] || {}), [examTerm]: count } };
+    });
+  }, []);
   useEffect(() => {
     if (!validCourse(subject) || !EXAM_CATEGORIES.includes(term)) return;
     try { window.localStorage.setItem('edunexus:exam:last-selection:v1', JSON.stringify({ subject, term })); }
     catch (_) {}
   }, [subject, term]);
-  const availableCounts = catalog.bySubject[subject] || { quiz: 0, midterm: 0, finalterm: 0 };
+  const availableCounts = { ...(catalog.bySubject[subject] || { quiz: 0, midterm: 0, finalterm: 0 }), ...(runtimeCounts[subject] || {}) };
   const catalogSubjects = [...new Set([...catalog.subjects, ...SUBJECTS, subject])].filter(Boolean);
 
   const changeTab = (next) => {
@@ -444,7 +455,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
       {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
     </nav>
     {((tab === "mcqs" && searchedSubject) || tab === "reviews") && <ShareBar tab={tab} subject={subject} term={term} />}
-    {tab === "mcqs" && searchedSubject && searchStatus === "found" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={[searchedSubject]} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm}/></React.Suspense>}
+    {tab === "mcqs" && searchedSubject && searchStatus === "found" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={[searchedSubject]} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm} onBankLoaded={handleBankLoaded}/></React.Suspense>}
     {tab === "mcqs" && !searchedSubject && <section className="edx-exam-card edx-search-welcome" aria-live="polite"><Search size={30} aria-hidden="true" /><div><h3>Find your subject to begin</h3><p>Enter your subject code above, choose Quiz, Midterm or Finalterm, then press Search. Your selected practice bank will open here.</p></div></section>}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} onSubjectChange={selectSubject} subjects={catalogSubjects} />}
