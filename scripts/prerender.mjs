@@ -19,7 +19,7 @@ import { SEO_PAGE_DATA } from '../src/SEO.js';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(SCRIPT_DIR, '..');
-const MAX_ROUTES = 60;
+const MAX_ROUTES = 500;
 
 // SPA pages that always get a static file, even if the sitemap omits them.
 const FIXED_ROUTES = [
@@ -65,7 +65,27 @@ function routesFromSitemap(root) {
   return routes;
 }
 
-function collectRoutes(root) {
+async function fetchXmlRoutes(pathname) {
+  try {
+    const response = await fetch(SITE + pathname, { headers: { accept: 'application/xml' } });
+    if (!response.ok) return [];
+    const xml = await response.text();
+    const routes = [];
+    for (const match of xml.matchAll(/<loc>([^<]+)<\/loc>/g)) {
+      const loc = match[1].replace(/&amp;/g, '&').trim();
+      try {
+        const url = new URL(loc);
+        if (url.origin !== SITE) continue;
+        routes.push({ pathname: url.pathname.replace(/\/$/, '') || '/', search: url.search || '' });
+      } catch (_) { /* ignore malformed sitemap entries */ }
+    }
+    return routes;
+  } catch (_) {
+    return [];
+  }
+}
+
+async function collectRoutes(root) {
   const seen = new Set();
   const routes = [];
   const push = (pathname, search = '') => {
@@ -76,6 +96,12 @@ function collectRoutes(root) {
   };
   for (const pathname of FIXED_ROUTES) push(pathname);
   for (const route of routesFromSitemap(root)) push(route.pathname, route.search);
+
+  // Dynamic sitemaps contain the high-intent subject and MCQ-bank landing
+  // pages that are not available in public/sitemap.xml at build time.
+  for (const sitemap of ['/subjects-sitemap.xml']) {
+    for (const route of await fetchXmlRoutes(sitemap)) push(route.pathname, route.search);
+  }
   return routes;
 }
 
@@ -382,7 +408,7 @@ export async function prerender(rootDir) {
   const robotsMatch = template.match(/<meta\s+name="robots"\s+content="([^"]*)"/);
   const robots = robotsMatch ? robotsMatch[1] : DEFAULT_ROBOTS;
 
-  const routes = collectRoutes(root);
+  const routes = await collectRoutes(root);
   const withSeo = routes.map((route) => ({ route, seo: routeSeo(route) }));
   const banks = withSeo.filter((entry) => entry.seo.bank);
 
