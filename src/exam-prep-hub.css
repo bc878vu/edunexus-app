@@ -271,3 +271,153 @@
   .edx-exam-tabs button { padding: 10px 8px; font-size: .85rem; }
   .edx-exam-tabs button small { display: none; }
 }
+
+/* ============ PRACTICE SEARCH CARD (search-first subject finder) ============ */
+.edx-search-card {
+  display: grid;
+  gap: 18px;
+  padding: clamp(22px, 4vw, 36px);
+  border-radius: 26px;
+  border: 1px solid rgba(148,163,184,.16);
+  background: linear-gradient(135deg, rgba(99,102,241,.08), var(--ex-card) 55%);
+  box-shadow: 0 8px 30px -12px rgba(99,102,241,.18);
+  min-width: 0;
+  animation: edx-exam-enter .28s ease-out both;
+}
+.edx-search-head { display: grid; gap: 10px; max-width: 640px; }
+.edx-search-head h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.6vw, 1.9rem);
+  font-weight: 800;
+  letter-spacing: -.025em;
+  line-height: 1.2;
+}
+.edx-search-head p {
+  margin: 0;
+  color: var(--ex-muted);
+  font-size: .94rem;
+  line-height: 1.7;
+}
+.edx-search-head p strong { color: var(--ex-ink); }
+.edx-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: stretch;
+}
+.edx-search-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ex-card);
+  border: 2px solid var(--ex-line);
+  border-radius: 16px;
+  padding: 0 16px;
+  min-height: 58px;
+  color: var(--ex-muted);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.edx-search-input:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99,102,241,.15);
+  color: #6366f1;
+}
+.edx-search-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent;
+  color: var(--ex-ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 14px 0;
+  text-transform: uppercase;
+}
+.edx-search-input input::placeholder {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: var(--ex-muted);
+  opacity: .75;
+}
+.edx-search-btn {
+  min-height: 58px;
+  padding: 0 30px !important;
+  font-size: 1rem !important;
+  border-radius: 16px !important;
+  white-space: nowrap;
+}
+.edx-search-terms {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.edx-search-terms button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 2px solid var(--ex-line);
+  background: var(--ex-card);
+  color: var(--ex-ink);
+  font-weight: 800;
+  font-size: .95rem;
+  transition: all .2s ease;
+  min-height: 56px;
+}
+.edx-search-terms button:hover { border-color: #818cf8; transform: translateY(-1px); }
+.edx-search-terms button.active {
+  border-color: #6366f1;
+  background: rgba(99,102,241,.12);
+  box-shadow: 0 0 0 1px rgba(99,102,241,.25) inset, 0 6px 18px -8px rgba(99,102,241,.45);
+}
+.edx-search-term-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(99,102,241,.12);
+  color: #4f46e5;
+  font-size: .8rem;
+  font-weight: 800;
+}
+.edx-search-terms button.active .edx-search-term-count { background: #4f46e5; color: #fff; }
+.dark .edx-search-term-count, .edx-exam-dark .edx-search-term-count { color: #c7d2fe; }
+.dark .edx-search-terms button.active .edx-search-term-count,
+.edx-exam-dark .edx-search-terms button.active .edx-search-term-count { background: #6366f1; color: #fff; }
+.edx-search-empty {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px dashed var(--ex-line);
+  background: rgba(148,163,184,.06);
+}
+.edx-search-empty > svg { color: #818cf8; flex-shrink: 0; margin-top: 2px; }
+.edx-search-empty h3 { margin: 0 0 6px; font-size: 1rem; }
+.edx-search-empty p { margin: 0; color: var(--ex-muted); font-size: .87rem; line-height: 1.6; }
+.edx-search-found {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.edx-search-found strong { font-weight: 800; }
+@media (max-width: 620px) {
+  .edx-search-row { grid-template-columns: minmax(0, 1fr); }
+  .edx-search-btn { width: 100%; justify-content: center; }
+  .edx-search-terms { grid-template-columns: minmax(0, 1fr); }
+  .edx-search-terms button { min-height: 52px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .edx-search-card, .edx-search-card * { animation: none !important; transition: none !important; }
+}

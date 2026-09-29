@@ -200,7 +200,7 @@ function ShareBar({ tab, subject, term }) {
   const [copied, setCopied] = React.useState(false);
   const tabLabel = tab === "mcqs" ? "MCQ Bank" : tab === "reviews" ? "Paper Reviews" : "Study Files";
   const termLabel = term === "quiz" ? "Quiz" : term === "midterm" ? "Midterm" : "Finalterm";
-  const shareUrl = "https://edunexus-app.vercel.app/?page=exam-prep&section=" + tab + "&subject=" + encodeURIComponent(subject) + "&term=" + encodeURIComponent(term);
+  const shareUrl = "https://edunexus.dpdns.org/?page=exam-prep&section=" + tab + "&subject=" + encodeURIComponent(subject) + "&term=" + encodeURIComponent(term);
   const shareText = subject + " " + termLabel + " " + tabLabel + " on EduNexus";
   const copyLink = async () => {
     try {
@@ -228,6 +228,72 @@ function ShareBar({ tab, subject, term }) {
         <MessageCircle size={16} /> WhatsApp
       </a>
     </div>
+  );
+}
+
+// PracticeSearchCard: search-first subject finder for the MCQ Bank.
+// Replaces the old subject-pill catalogue: the user types a subject code,
+// picks Quiz / Midterm / Finalterm, hits Search, and only that subject's
+// bank loads below. Friendly guidance is built into the card itself.
+function PracticeSearchCard({ searchText, onSearchTextChange, term, onTermChange, onSearch, counts, subjects, status, searchedSubject, loading }) {
+  const listId = React.useId();
+  const termLabel = term === "quiz" ? "Quiz" : term === "midterm" ? "Midterm" : "Finalterm";
+  const termOptions = [
+    { id: "quiz", label: "Quiz" },
+    { id: "midterm", label: "Midterm" },
+    { id: "finalterm", label: "Finalterm" },
+  ];
+  return (
+    <section className="edx-search-card" aria-label="Find your subject and start practicing">
+      <div className="edx-search-head">
+        <span className="edx-exam-eyebrow"><Search size={14} /> Find your practice bank</span>
+        <h2>Search your subject, start practicing</h2>
+        <p>Type your <strong>subject code</strong> below (for example <strong>CS101</strong>), pick <strong>Quiz</strong>, <strong>Midterm</strong> or <strong>Finalterm</strong>, then hit <strong>Search</strong> — you will get the most important &amp; repeated MCQs for that paper, ready to practice right below.</p>
+      </div>
+      <div className="edx-search-row">
+        <label className="edx-search-input" aria-label="Subject code">
+          <Search size={18} aria-hidden="true" />
+          <input
+            list={listId}
+            value={searchText}
+            onChange={(event) => onSearchTextChange(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+            onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); onSearch(); } }}
+            placeholder="Type subject code… e.g. CS101"
+            maxLength={12}
+            autoComplete="off"
+          />
+          <datalist id={listId}>{subjects.map((s) => <option value={s} key={s} />)}</datalist>
+        </label>
+        <button type="button" className="edx-exam-primary edx-search-btn" onClick={onSearch}>
+          <Search size={17} aria-hidden="true" /> Search
+        </button>
+      </div>
+      <div className="edx-search-terms" role="group" aria-label="Choose Quiz, Midterm or Finalterm">
+        {termOptions.map(({ id, label }) => (
+          <button key={id} type="button" className={term === id ? "active" : ""} onClick={() => onTermChange(id)} aria-pressed={term === id}>
+            <span className="edx-search-term-label">{label}</span>
+            <span className="edx-search-term-count">{loading ? "…" : (counts[id] || 0)}</span>
+          </button>
+        ))}
+      </div>
+      {status === "invalid" && (
+        <p className="edx-exam-alert" role="alert">Please type a valid subject code first — something like <strong>CS101</strong>, <strong>MGT201</strong> or <strong>ENG301</strong>.</p>
+      )}
+      {status === "empty" && searchedSubject && (
+        <div className="edx-search-empty" role="status">
+          <Search size={26} aria-hidden="true" />
+          <div>
+            <h3>No {termLabel} questions published for {searchedSubject} yet</h3>
+            <p>Try another subject code above, or switch between Quiz / Midterm / Finalterm — the counts on each button show what is available.</p>
+          </div>
+        </div>
+      )}
+      {status === "found" && searchedSubject && (
+        <p className="edx-exam-success edx-search-found" role="status">
+          <Check size={15} aria-hidden="true" /> Showing <strong>{searchedSubject} · {termLabel}</strong> — {counts[term] || 0} most important &amp; repeated MCQs ready below. Good luck!
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -269,12 +335,13 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   const [choice] = useState(initialChoice);
   const [subject, setSubject] = useState(choice.subject);
   const [term, setTerm] = useState(choice.term);
+  // Search-first UI state: the text field is independent until Search is hit.
+  const [searchText, setSearchText] = useState(choice.subject);
+  const [searchStatus, setSearchStatus] = useState(null); // null | 'invalid' | 'empty' | 'found'
+  const [searchedSubject, setSearchedSubject] = useState("");
   const [catalog, setCatalog] = useState({ subjects: [], bySubject: {}, total:0 });
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
-  // True while the catalogue comes from the denormalized meta/examCatalog
-  // document (exact totals); false while the legacy document scan is in use.
-  const [catalogExact, setCatalogExact] = useState(false);
   const userPickedFilter = useRef(false);
   const subjectRef = useRef(subject);
   const termRef = useRef(term);
@@ -282,8 +349,8 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   useEffect(() => {
     if (adminWorkspace && tab === 'admin') { setCatalogLoading(false); return; }
     let legacyUnsub = null;
-    const applyCatalog = (next, exact) => {
-      setCatalog(next); setCatalogLoading(false); setCatalogError(''); setCatalogExact(exact);
+    const applyCatalog = (next) => {
+      setCatalog(next); setCatalogLoading(false); setCatalogError('');
       // On first visit, choose a combination that actually contains published
       // questions; never silently override a user's later manual choice.
       if (!userPickedFilter.current && next.total) {
@@ -302,7 +369,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
       if (legacyUnsub) return;
       const source = query(col('examMcqs'), limit(EXAM_SUBJECT_LIMIT));
       legacyUnsub = onSnapshot(source, snapshot => {
-        applyCatalog(publishedExamCatalog(snapshot.docs), false);
+        applyCatalog(publishedExamCatalog(snapshot.docs));
       }, error => {
         setCatalogLoading(false);
         setCatalogError(error?.code === 'permission-denied'
@@ -319,12 +386,40 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
       const hasCounts = !!snapshot && typeof snapshot.exists === 'function' && snapshot.exists();
       if (!hasCounts) { startLegacyCatalog(); return; }
       stopLegacyCatalog();
-      applyCatalog(catalogFromCounts(snapshot.data()), true);
+      applyCatalog(catalogFromCounts(snapshot.data()));
     }, () => { startLegacyCatalog(); });
     return () => { stopLegacyCatalog(); unsubscribe(); };
   }, [adminWorkspace, tab]);
   const selectSubject = value => { userPickedFilter.current = true; setSubject(courseCode(value)); };
   const selectTerm = value => { userPickedFilter.current = true; setTerm(value); };
+  // Search button: validate the typed code, then load exactly that subject.
+  const runSubjectSearch = (nextTerm) => {
+    const code = courseCode(searchText);
+    if (!validCourse(code)) { setSearchStatus("invalid"); return; }
+    const activeTerm = nextTerm || termRef.current;
+    userPickedFilter.current = true;
+    setSubject(code);
+    setSearchText(code);
+    setSearchedSubject(code);
+    const c = catalog.bySubject[code];
+    const n = c ? (c[activeTerm] || 0) : 0;
+    setSearchStatus(n > 0 ? "found" : "empty");
+    window.setTimeout(() => {
+      const el = document.querySelector("#edx-exam-hub .edx-practice-toolbar") || document.querySelector("#edx-exam-hub .edx-exam-tabs");
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  };
+  // Term pills inside the search card: switch term, re-evaluate the last search.
+  const handleSearchTerm = (value) => {
+    selectTerm(value);
+    termRef.current = value;
+    if (searchedSubject) {
+      const c = catalog.bySubject[searchedSubject];
+      const n = c ? (c[value] || 0) : 0;
+      setSearchStatus(n > 0 ? "found" : "empty");
+    }
+  };
+  const searchCounts = catalog.bySubject[searchedSubject || subject] || { quiz: 0, midterm: 0, finalterm: 0 };
   useEffect(() => {
     if (!validCourse(subject) || !EXAM_CATEGORIES.includes(term)) return;
     try { window.localStorage.setItem('edunexus:exam:last-selection:v1', JSON.stringify({ subject, term })); }
@@ -339,19 +434,9 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     setTab(next);
   };
   return <div className={"edx-exam" + (isDark ? " edx-exam-dark" : "")} id="edx-exam-hub">
-    {tab === "mcqs" && <><section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><GraduationCap size={14} /> MCQ Bank</span><h1>Practice smarter. Prepare with confidence.</h1><p>Choose a subject, set your question count and practise at your own pace.</p><div className="edx-exam-hero-links"><button onClick={() => document.querySelector('.edx-practice-toolbar')?.scrollIntoView({behavior:'smooth',block:'start'})}>Start practising <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
-    <div className="edx-exam-controls"><CourseSelector value={subject} onChange={selectSubject} subjects={catalogSubjects} /><TermSelector value={term} onChange={selectTerm} includeQuiz /></div></>}
-    {tab === "mcqs" && !adminWorkspace && <section className="edx-exam-catalog" aria-label="Published quiz and exam categories">
-      <div className="edx-exam-catalog-head"><strong>Published practice</strong><span>{catalogLoading ? 'Checking published questions…' : catalog.total ? catalog.total + (catalogExact ? '' : '+') + ' questions across ' + catalog.subjects.length + ' subject(s)' : (catalogExact ? 'No published questions yet' : 'No published questions detected in the first ' + EXAM_SUBJECT_LIMIT + ' records')}</span></div>
-      {!!catalog.subjects.length && <div className="edx-exam-catalog-subjects" role="group" aria-label="Available subject categories">
-        {catalog.subjects.map(code => <button type="button" key={code} onClick={() => { userPickedFilter.current = true; setSubject(code); const best = firstAvailableExam(catalog, code, term); if (best) setTerm(best.term); }} className={subject === code ? 'active' : ''}>{code}</button>)}
-      </div>}
-      <div className="edx-exam-catalog-categories" role="group" aria-label="Exam type and published question counts">
-        {EXAM_CATEGORIES.map(category => <button type="button" key={category} className={term === category ? 'active' : ''} onClick={() => selectTerm(category)}>{category === 'quiz' ? 'Quiz' : category === 'midterm' ? 'Midterm' : 'Finalterm'} <span>{availableCounts[category] || 0}</span></button>)}
-      </div>
-      {catalogError && <p className="edx-exam-alert" role="alert">{catalogError} You can still type a subject code and retry the practice view.</p>}
-      {!catalogExact && catalog.total >= EXAM_SUBJECT_LIMIT && <p className="edx-exam-catalog-note">The subject catalogue shows the first {EXAM_SUBJECT_LIMIT} published records. Enter another subject code manually if it is not listed.</p>}
-    </section>}
+    {tab === "mcqs" && <><section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><GraduationCap size={14} /> MCQ Bank</span><h1>Practice smarter. Prepare with confidence.</h1><p>Type your subject code in the search box below, pick Quiz, Midterm or Finalterm, and hit Search — practice the most important &amp; repeated MCQs for your paper.</p><div className="edx-exam-hero-links"><button onClick={() => { const el = document.querySelector(".edx-search-card"); if (el) el.scrollIntoView({behavior:"smooth",block:"start"}); }}>Find my subject <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
+    {!adminWorkspace && <PracticeSearchCard searchText={searchText} onSearchTextChange={setSearchText} term={term} onTermChange={handleSearchTerm} onSearch={() => runSubjectSearch()} counts={searchCounts} subjects={catalogSubjects} status={searchStatus} searchedSubject={searchedSubject} loading={catalogLoading} />}
+    {catalogError && <p className="edx-exam-alert" role="alert">{catalogError}</p>}</>}
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
       {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
     </nav>
