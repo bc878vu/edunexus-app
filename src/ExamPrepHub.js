@@ -3,7 +3,7 @@ import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimes
 import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, BookOpen, MessageCircle, ArrowDownUp, Share2, Link2, Check } from "lucide-react";
 import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
-import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, firstAvailableExam, publishedExamCatalog } from "./examCatalog";
+import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, publishedExamCatalog } from "./examCatalog";
 import { routeParamsFromPath } from "./app-routes.mjs";
 import { adminPanelAccess } from './adminSession';
 
@@ -328,17 +328,19 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
       const pathParams = routeParamsFromPath(window.location.pathname);
       const code = courseCode(params.get('subject') || pathParams.subject || stored?.subject || '');
       const category = (params.get('term') || pathParams.term || stored?.term || '').toLowerCase();
+      const explicitSubject = courseCode(params.get('subject') || pathParams.subject || '');
       return { subject: validCourse(code) ? code : 'CS101',
-        term: EXAM_CATEGORIES.includes(category) ? category : 'finalterm' };
-    } catch (_) { return { subject:'CS101', term:'finalterm' }; }
+        term: EXAM_CATEGORIES.includes(category) ? category : 'finalterm',
+        explicit: validCourse(explicitSubject) };
+    } catch (_) { return { subject:'CS101', term:'finalterm', explicit:false }; }
   };
   const [choice] = useState(initialChoice);
   const [subject, setSubject] = useState(choice.subject);
   const [term, setTerm] = useState(choice.term);
   // Search-first UI state: the text field is independent until Search is hit.
-  const [searchText, setSearchText] = useState(choice.subject);
+  const [searchText, setSearchText] = useState(choice.explicit ? choice.subject : "");
   const [searchStatus, setSearchStatus] = useState(null); // null | 'invalid' | 'empty' | 'found'
-  const [searchedSubject, setSearchedSubject] = useState("");
+  const [searchedSubject, setSearchedSubject] = useState(choice.explicit ? choice.subject : "");
   const [catalog, setCatalog] = useState({ subjects: [], bySubject: {}, total:0 });
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
@@ -351,14 +353,11 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     let legacyUnsub = null;
     const applyCatalog = (next) => {
       setCatalog(next); setCatalogLoading(false); setCatalogError('');
-      // On first visit, choose a combination that actually contains published
-      // questions; never silently override a user's later manual choice.
-      if (!userPickedFilter.current && next.total) {
-        const available = firstAvailableExam(next, subjectRef.current, termRef.current);
-        if (available) {
-          subjectRef.current = available.subject; termRef.current = available.term;
-          setSubject(available.subject); setTerm(available.term);
-        }
+      // Search-first UX: never auto-select a published subject on page load.
+      // Deep links still keep their explicit subject/term; normal visits wait for Search.
+      if (choice.explicit && !userPickedFilter.current) {
+        const counts = next.bySubject[subjectRef.current];
+        setSearchStatus(counts && (counts[termRef.current] || 0) > 0 ? "found" : "empty");
         userPickedFilter.current = true;
       }
     };
@@ -440,8 +439,9 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
       {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
     </nav>
-    {(tab === "mcqs" || tab === "reviews") && <ShareBar tab={tab} subject={subject} term={term} />}
-    {tab === "mcqs" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={catalogSubjects} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm}/></React.Suspense>}
+    {((tab === "mcqs" && searchedSubject) || tab === "reviews") && <ShareBar tab={tab} subject={subject} term={term} />}
+    {tab === "mcqs" && searchedSubject && searchStatus === "found" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={[searchedSubject]} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm}/></React.Suspense>}
+    {tab === "mcqs" && !searchedSubject && <section className="edx-exam-card edx-search-welcome" aria-live="polite"><Search size={30} aria-hidden="true" /><div><h3>Find your subject to begin</h3><p>Enter your subject code above, choose Quiz, Midterm or Finalterm, then press Search. Your selected practice bank will open here.</p></div></section>}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} onSubjectChange={selectSubject} subjects={catalogSubjects} />}
     {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { selectSubject(code); selectTerm(examType); setTab("mcqs"); }} />}
