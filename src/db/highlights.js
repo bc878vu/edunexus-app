@@ -29,17 +29,30 @@ const HIGHLIGHT_SPEC = {
   isActive: 'is_active',
   createdAt: { col: 'created_at', ts: true },
   updatedAt: { col: 'updated_at', ts: true },
-  // Rich card fields are stored in the Supabase highlights table. Keep the
-  // Firestore field names stable so existing highlights continue to render.
-  iconName: 'icon_name',
-  color: 'color',
-  imageUrl: 'image_url',
-  videoUrl: 'video_url',
+  // Rich presentation fields live inside the existing `extra` JSONB column
+  // on Supabase; Firestore keeps its existing top-level fields.
+  iconName: null,
+  color: null,
+  imageUrl: null,
+  videoUrl: null,
 };
 const HIGHLIGHT_REV = invertSpec(HIGHLIGHT_SPEC);
-const toHighlightRow = (data) => toRow(data, HIGHLIGHT_SPEC);
+const toHighlightRow = (data) => {
+  const row = toRow(data, HIGHLIGHT_SPEC);
+  const rich = {};
+  ['iconName', 'color', 'imageUrl', 'videoUrl'].forEach((key) => {
+    if (data[key] !== undefined) rich[key] = data[key] || '';
+  });
+  if (Object.keys(rich).length) row.extra = { ...(data.extra || {}), ...rich };
+  return row;
+};
 const toHighlight = (row) => fromRow(row, HIGHLIGHT_REV, (out, r) => {
   out.desc = r.text ?? out.desc;
+  const extra = r.extra && typeof r.extra === 'object' ? r.extra : {};
+  out.iconName = extra.iconName || out.iconName || '';
+  out.color = extra.color || out.color || '';
+  out.imageUrl = extra.imageUrl || out.imageUrl || '';
+  out.videoUrl = extra.videoUrl || out.videoUrl || '';
 });
 
 export async function listHighlights({ activeOnly = true, limit: max = 100 } = {}) {
@@ -108,6 +121,10 @@ export async function updateHighlight(id, data) {
   return withFallback(
     async () => {
       const row = toHighlightRow(data);
+      if (row.extra) {
+        const { data: current } = await supabase.from('highlights').select('extra').eq('id', id).maybeSingle();
+        row.extra = { ...(current?.extra || {}), ...row.extra };
+      }
       row.updated_at = nowIso();
       const { error } = await supabase.from('highlights').update(row).eq('id', id);
       if (error) throw error;
