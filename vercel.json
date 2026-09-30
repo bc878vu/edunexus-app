@@ -54,6 +54,28 @@
   ],
   "rewrites": [
     {
+      "source": "/portfolio",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Ww]hats[Aa]pp|[Ff]acebookexternalhit|[Ff]acebookcatalog|[Tt]witterbot|[Ll]inkedin[Bb]ot|[Tt]elegrambot|[Dd]iscordbot|[Ss]lackbot|[Ss]kypeuripreview|[Gg]ooglebot|[Bb]ingbot|[Pp]interest|[Ee]mbedly|[Qq]uora|[Vv]k[Ss]hare).*"
+        }
+      ],
+      "destination": "/api/resource-page?ogpage=portfolio"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "page",
+          "value": "portfolio"
+        }
+      ],
+      "destination": "/api/resource-page?ogpage=portfolio"
+    },
+    {
       "source": "/learning/:code/:slug",
       "destination": "/api/learning-page?code=:code&slug=:slug"
     },

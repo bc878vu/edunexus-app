@@ -49,6 +49,24 @@ function buildSchema({ name, subject, summary, canonical }) {
 export default async function handler(req, res) {
   if (!['GET', 'HEAD'].includes(req.method)) return res.status(405).end();
 
+  // Portfolio share links (?page=portfolio and /portfolio): crawlers get a
+  // server-rendered portfolio preview. vercel.json routes crawler user-agents
+  // here; direct browser hits get a 302 to the portfolio page (loop-free:
+  // the function never 302s to a URL that rewrites back to itself).
+  if (String(req.query?.ogpage || '') === 'portfolio') {
+    const ua = String(req.headers['user-agent'] || '').toLowerCase();
+    const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
+    const appUrl = SITE + '/portfolio';
+    if (!isCrawler) return res.redirect(302, appUrl);
+    const title = 'Asad Amanat Ali — Software Engineer & Web Developer | Creator of EduNexus';
+    const desc = 'Asad Amanat Ali — Software Engineer & Web Developer from Pakistan and creator of EduNexus. Explore my projects, skills, and experience.';
+    const image = SITE + '/portfolio-og.jpg?v=2';
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><meta name="robots" content="noindex,follow"><meta property="og:type" content="profile"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><p><a href="${h(appUrl)}">${h(title)}</a></p></body></html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(html);
+  }
+
   // Exam-prep share links: /exam-prep/CS101/midterm/mcqs (via vercel.json rewrite).
   // Crawlers (WhatsApp etc.) get server-rendered OG tags so the preview shows the
   // subject's MCQ bank / paper reviews. Browsers get a 302 to the SPA URL.
