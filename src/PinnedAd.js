@@ -6,6 +6,7 @@ import {
   PINNED_AD_VERSION_KEY,
   PINNED_AD_CHANGED_EVENT,
   readPinnedAdVersion,
+  resolveVideoUrl,
 } from "./pinnedAdSync";
 import "./pinned-ad.css";
 
@@ -170,6 +171,9 @@ export default function PinnedAd() {
   const type = mediaTypeOf(ad);
   const sizeCls = SIZE_CLASS[ad.size] || SIZE_CLASS.medium;
   const posCls = POSITION_CLASS[ad.position] || POSITION_CLASS["bottom-left"];
+  // Transparent migration: the expired Muse-hosted URL resolves to the
+  // self-hosted copy so the player never shows "Unable to play media."
+  const videoSrc = resolveVideoUrl(ad.videoUrl);
 
   const renderMedia = (withControls) => {
     if (type === "image" && ad.imageUrl) {
@@ -196,7 +200,7 @@ export default function PinnedAd() {
     return (
       <video
         className="edx-pa-media"
-        src={ad.videoUrl}
+        src={videoSrc}
         poster={ad.thumbnailUrl || undefined}
         autoPlay
         muted

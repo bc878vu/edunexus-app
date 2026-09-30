@@ -29,3 +29,19 @@ export function bumpPinnedAdVersion() {
     window.dispatchEvent(new CustomEvent(PINNED_AD_CHANGED_EVENT));
   } catch (_) {}
 }
+
+// The Muse-hosted tutorial video expired (HTTP 404 since 2026-09-29).
+// Any pinned ad still pointing at it is transparently served from the
+// self-hosted copy at /pinned-ad-video.mp4 until the admin updates the URL
+// in Admin -> Pinned Ads. Matches the exact dead URL only, so future admin
+// URLs are never affected.
+export const LEGACY_DEAD_VIDEO_URL =
+  "https://muse.ai/files/1398753889980931/1700667110999272/uw8t07qjugukwny3pekh6efm/edunexus-tutorial-no-intro.mp4";
+export const SELF_HOSTED_VIDEO_URL = "/pinned-ad-video.mp4";
+
+export function resolveVideoUrl(url) {
+  if (typeof url === "string" && url.trim() === LEGACY_DEAD_VIDEO_URL) {
+    return SELF_HOSTED_VIDEO_URL;
+  }
+  return url;
+}
