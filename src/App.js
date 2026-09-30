@@ -5002,7 +5002,7 @@ const NAV_ITEMS = PAGES;
     const unsub = onAuthChange(account => {
       if (!active || logoutInProgress.current) return;
       try {
-        console.log('[ADMIN-DEBUG] onAuthChange:', JSON.stringify({
+        const info = JSON.stringify({
           email: account && account.email,
           emailVerified: account && account.emailVerified,
           isAnonymous: account && account.isAnonymous,
@@ -5010,7 +5010,11 @@ const NAV_ITEMS = PAGES;
           verifiedAdmin: verifiedAdmin(account),
           loginPending: isAdminLoginPending(),
           tabActive: account ? adminTabIsActive(account) : null,
-        }));
+        });
+        console.log('[ADMIN-DEBUG] onAuthChange:', info);
+        // TEMP DEBUG: mirror to DOM
+        const dbg0 = document.getElementById('admin-debug-log');
+        if (dbg0) { dbg0.textContent += '\n[AUTH-EVENT] ' + info; }
       } catch (_) {}
       if (verifiedAdmin(account)) {
         if (isAdminLoginPending()) return;
@@ -5122,7 +5126,20 @@ useEffect(() => {
 
 
   const handleLogoutAdmin = async ({ redirect = true, broadcast = true } = {}) => {
-    try { console.log('[ADMIN-DEBUG] handleLogoutAdmin called, stack:', new Error().stack); } catch (_) {}
+    try {
+      const stack = new Error().stack || '';
+      console.log('[ADMIN-DEBUG] handleLogoutAdmin called, stack:', stack);
+      // TEMP DEBUG: mirror to DOM so automation without console access can read it
+      const dbg = document.getElementById('admin-debug-log');
+      if (dbg) { dbg.textContent += '\n[LOGOUT-CALL] ' + stack.split('\n').slice(1, 4).join(' | '); }
+      else {
+        const d = document.createElement('pre');
+        d.id = 'admin-debug-log';
+        d.style.cssText = 'position:fixed;bottom:0;left:0;z-index:99999;background:#000;color:#0f0;font-size:10px;max-height:40vh;overflow:auto;padding:8px;white-space:pre-wrap;';
+        d.textContent = '[LOGOUT-CALL] ' + stack.split('\n').slice(1, 4).join(' | ');
+        document.body.appendChild(d);
+      }
+    } catch (_) {}
     if (logoutInProgress.current) return;
     logoutInProgress.current = true;
     isAdminRef.current = false;
