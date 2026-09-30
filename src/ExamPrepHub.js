@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, limit, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, BookOpen, MessageCircle, ArrowDownUp, Share2, Link2, Check } from "lucide-react";
 import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
@@ -68,15 +68,29 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
     if (!validCourse(subject)) { setFiles([]); setLoading(false); return; }
     let live = true;
     setLoading(true); setError('');
-    const unsubscribe = onSnapshot(query(col("files"), where("subject", "==", subject), limit(100)),
-      (snapshot) => {
+    // Quota fix 2026-09-30: one-time cached fetch per subject (30 min) instead
+    // of a live listener. Study files change rarely.
+    (async () => {
+      try {
+        const key = "edx-studyfiles-" + subject;
+        const cached = JSON.parse(localStorage.getItem(key) || "null");
+        if (cached && Date.now() - cached.ts < 1800000 && Array.isArray(cached.items)) {
+          if (!live) return;
+          setFiles(cached.items.filter((f) => safeUrl(f.url || f.downloadUrl || f.fileUrl)));
+          setLoading(false);
+          return;
+        }
+        const snapshot = await getDocs(query(col("files"), where("subject", "==", subject), limit(100)));
+        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), items })); } catch (_) {}
         if (!live) return;
-        setFiles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
-          .filter((f) => safeUrl(f.url || f.downloadUrl || f.fileUrl)));
+        setFiles(items.filter((f) => safeUrl(f.url || f.downloadUrl || f.fileUrl)));
         setLoading(false);
-      },
-      () => { if (live) { setError('Study files could not load. Please try again.'); setLoading(false); } });
-    return () => { live = false; unsubscribe(); };
+      } catch (_) {
+        if (live) { setError('Study files could not load. Please try again.'); setLoading(false); }
+      }
+    })();
+    return () => { live = false; };
   }, [subject]);
   const visible = useMemo(() => files.filter(file =>
     [file.name, file.title, file.description, file.ext].some(value =>
@@ -371,30 +385,43 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     // Legacy fallback: scan the first EXAM_SUBJECT_LIMIT documents. Kept for
     // deployments where the denormalized counts document has never been
     // written (or cannot be read); nothing about its behaviour changed.
-    const startLegacyCatalog = () => {
-      if (legacyUnsub) return;
-      const source = query(col('examMcqs'), limit(EXAM_SUBJECT_LIMIT));
-      legacyUnsub = onSnapshot(source, snapshot => {
-        applyCatalog(publishedExamCatalog(snapshot.docs));
-      }, error => {
+    // Quota fix 2026-09-30: one-time cached fetch instead of live listeners.
+    // Catalogue counts are display-only badges (never gate real data).
+    const CATALOG_CACHE = "edx-exam-catalog-cache-v1";
+    let live = true;
+    (async () => {
+      try {
+        const cached = JSON.parse(localStorage.getItem(CATALOG_CACHE) || "null");
+        if (cached && Date.now() - cached.ts < 600000 && cached.catalog) {
+          if (live) applyCatalog(cached.catalog);
+          return;
+        }
+      } catch (_) {}
+      try {
+        const snapshot = await getDoc(doc(db, ...ROOT, 'meta', 'examCatalog'));
+        const hasCounts = !!snapshot && typeof snapshot.exists === 'function' && snapshot.exists();
+        if (!live) return;
+        if (!hasCounts) {
+          // Legacy fallback: single scan (no persistent listener).
+          const legacy = await getDocs(query(col('examMcqs'), limit(EXAM_SUBJECT_LIMIT)));
+          if (!live) return;
+          const catalog = publishedExamCatalog(legacy.docs);
+          applyCatalog(catalog);
+          try { localStorage.setItem(CATALOG_CACHE, JSON.stringify({ ts: Date.now(), catalog })); } catch (_) {}
+          return;
+        }
+        const catalog = catalogFromCounts(snapshot.data());
+        applyCatalog(catalog);
+        try { localStorage.setItem(CATALOG_CACHE, JSON.stringify({ ts: Date.now(), catalog })); } catch (_) {}
+      } catch (error) {
+        if (!live) return;
         setCatalogLoading(false);
         setCatalogError(error?.code === 'permission-denied'
           ? 'Published question catalogue is blocked by Firestore read rules.'
           : 'Could not load the published course catalogue. Refresh to try again.');
-      });
-    };
-    const stopLegacyCatalog = () => { if (legacyUnsub) { legacyUnsub(); legacyUnsub = null; } };
-    // Fast path: the admin import/manage tools maintain exact per-subject
-    // counts in one document (see src/examCatalogCounts.js).
-    const unsubscribe = onSnapshot(doc(db, ...ROOT, 'meta', 'examCatalog'), snapshot => {
-      // Defensive: a non-document snapshot (or a snapshot without exists())
-      // means the counts doc is unavailable — use the legacy scan.
-      const hasCounts = !!snapshot && typeof snapshot.exists === 'function' && snapshot.exists();
-      if (!hasCounts) { startLegacyCatalog(); return; }
-      stopLegacyCatalog();
-      applyCatalog(catalogFromCounts(snapshot.data()));
-    }, () => { startLegacyCatalog(); });
-    return () => { stopLegacyCatalog(); unsubscribe(); };
+      }
+    })();
+    return () => { live = false; };
   }, [adminWorkspace, tab]);
   const selectSubject = value => { userPickedFilter.current = true; setSubject(courseCode(value)); };
   const selectTerm = value => { userPickedFilter.current = true; setTerm(value); };
