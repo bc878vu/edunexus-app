@@ -41,16 +41,20 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [rebuilding, setRebuilding] = useState(false);
-  const rebuildCatalog = async () => {
+  const rebuildCatalog = () => {
     if (rebuilding || busy) return;
-    const ok = await requestConfirm('Rebuild the public MCQ catalog for all ' + ALL_KNOWN_SUBJECTS.length + ' subjects? This recounts every subject from the database.');
-    if (!ok) return;
-    setRebuilding(true); setError(''); setMessage('Rebuilding catalog…');
-    try {
-      await refreshExamCatalogCounts(ALL_KNOWN_SUBJECTS, { requirePrimary: true });
-      setMessage('Catalog rebuilt for ' + ALL_KNOWN_SUBJECTS.length + ' subjects. The public Exam Prep page updates automatically.');
-    } catch (e) { setError(errorText(e)); }
-    finally { setRebuilding(false); }
+    requestConfirm({
+      message: 'Rebuild the public MCQ catalog for all ' + ALL_KNOWN_SUBJECTS.length + ' subjects? This recounts every subject from the database.',
+      confirmLabel: 'Rebuild',
+      onConfirm: async () => {
+        setRebuilding(true); setError(''); setMessage('Rebuilding catalog…');
+        try {
+          await refreshExamCatalogCounts(ALL_KNOWN_SUBJECTS, { requirePrimary: true });
+          setMessage('Catalog rebuilt for ' + ALL_KNOWN_SUBJECTS.length + ' subjects. The public Exam Prep page updates automatically.');
+        } catch (e) { setError(errorText(e)); }
+        finally { setRebuilding(false); }
+      },
+    });
   };
 
   useEffect(() => {
