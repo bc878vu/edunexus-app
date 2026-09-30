@@ -88,7 +88,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
     const shareData = {
       title: art.title,
       text: getExcerpt(art.content, 100),
-      url: 'https://edunexus.dpdns.org' + articleSharePath(art),
+      url: window.location.origin + articleSharePath(art),
     };
     if (navigator.share) {
       try {
@@ -97,7 +97,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
       } catch (err) {}
     } else {
       try {
-        await navigator.clipboard.writeText(`${art.title}\n${'https://edunexus.dpdns.org' + articleSharePath(art)}`);
+        await navigator.clipboard.writeText(`${art.title}\n${window.location.origin + articleSharePath(art)}`);
         showToast("Link copied to clipboard!", "success");
       } catch (err) {
         showToast("Failed to copy link", "error");
@@ -110,23 +110,17 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
       className={`${theme.card} rounded-2xl border ${theme.border} overflow-hidden hover:shadow-2xl transition-all duration-300 group animate-fade-in`}
       style={{ animationDelay: `${Math.min(idx * 80, 400)}ms` }}
     >
-      {/* Cover image - full image visible, frame filled without empty side space */}
+      {/* Cover image - fill the full card width; fullscreen keeps the complete original available */}
       {art.imageUrl && (
-        <div className="relative h-48 sm:h-52 md:h-56 overflow-hidden bg-slate-900">
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 scale-110 bg-cover bg-center blur-xl opacity-55"
-            style={{ backgroundImage: `url("${optimizeImageUrl(art.imageUrl)}")` }}
-          />
-          <div aria-hidden="true" className="absolute inset-0 bg-black/10" />
+        <div className="relative h-56 sm:h-64 md:h-80 overflow-hidden bg-slate-900">
           <img
             src={optimizeImageUrl(art.imageUrl)}
             alt={art.title}
             loading={idx === 0 ? "eager" : "lazy"}
-            fetchpriority={idx === 0 ? "high" : "low"}
+            fetchPriority={idx === 0 ? "high" : "low"}
             decoding="async"
             onClick={() => setLightboxOpen(true)}
-            className="relative z-10 w-full h-full object-contain cursor-zoom-in hover:opacity-95 transition-opacity"
+            className="w-full h-full object-cover object-center cursor-zoom-in hover:opacity-95 transition-opacity"
             style={{ display: 'block' }}
           />
           <button
