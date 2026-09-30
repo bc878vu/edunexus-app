@@ -110,6 +110,25 @@ export default async function handler(req, res) {
     return res.status(200).send(html);
   }
 
+  // Academic subject pages: /academic/CS101 (via a crawler-gated vercel.json
+  // rewrite). Crawlers get a subject-specific preview; normal browsers get a
+  // 302 to the SPA subject page (loop-free: the rewrite only fires for crawlers).
+  if (ogPage === 'academicsubject') {
+    const rawSubj = String(req.query?.subject || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80) || 'VU';
+    const pretty = rawSubj.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'VU';
+    const appUrl = SITE + '/academic/' + encodeURIComponent(rawSubj);
+    const ua = String(req.headers['user-agent'] || '').toLowerCase();
+    const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
+    if (!isCrawler) return res.redirect(302, appUrl);
+    const title = pretty + ' Notes, Handouts & Past Papers | EduNexus';
+    const desc = 'Browse ' + pretty + ' study resources on EduNexus Academic Hub — notes, handouts, course files and past papers shared by VU students.';
+    const image = SITE + '/logo512.png';
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><meta name="robots" content="noindex,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><p><a href="${h(appUrl)}">${h(title)}</a></p></body></html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(html);
+  }
+
   // Exam-prep share links: /exam-prep/CS101/midterm/mcqs (via vercel.json rewrite).
   // Crawlers (WhatsApp etc.) get server-rendered OG tags so the preview shows the
   // subject's MCQ bank / paper reviews. Browsers get a 302 to the SPA URL.
