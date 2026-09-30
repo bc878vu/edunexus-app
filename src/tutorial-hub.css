@@ -12,3 +12,9 @@
 .edux-tutorial-bg{position:absolute;inset:0}
 .edux-tutorial-modal{inset:0;z-index:100}
 @media(max-width:639px){.edux-tutorial-overlay,.edux-tutorial-bg{top:auto}.edux-tutorial-modal{top:0}}
+
+/* One global navbar only: tutorials stay in App flow and cannot replace it. */
+.edux-tutorial-overlay{position:relative!important;inset:auto!important;z-index:auto!important;overflow:visible!important;width:100%;min-height:0}
+.edux-tutorial-bg{position:absolute!important;inset:0!important}
+.edux-tutorial-nav{display:none!important}
+.edux-tutorial-modal{z-index:100}

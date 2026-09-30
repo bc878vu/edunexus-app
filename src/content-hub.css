@@ -10,3 +10,8 @@
 .edux-content-overlay{position:relative;inset:auto;z-index:auto;overflow:visible;width:100%;min-height:0}
 .edux-content-bg{position:absolute;inset:0}
 @media(max-width:639px){.edux-content-overlay,.edux-content-bg{top:auto}}
+
+/* One global navbar only: content modules stay in App flow and cannot cover it. */
+.edux-content-overlay{position:relative!important;inset:auto!important;z-index:auto!important;overflow:visible!important;width:100%;min-height:0}
+.edux-content-bg{position:absolute!important;inset:0!important}
+.edux-content-nav{display:none!important}

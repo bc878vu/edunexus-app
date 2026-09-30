@@ -333,6 +333,8 @@ const Navbar = ({
     <>
       {/* 🔹 Top header / navbar */}
       <header
+        id="edunexus-main-navbar"
+        data-edunexus-main-nav="true"
         className="
           sticky top-0 z-50
           border-b border-slate-800

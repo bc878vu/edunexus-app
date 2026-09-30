@@ -3,7 +3,7 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage
 import { serverTimestamp } from 'firebase/firestore';
 import { storage } from './firebase-client';
 import { USE_SUPABASE, supabase } from './supabase-client';
-import { ArrowLeft, ExternalLink, Film, Link2, Play, Plus, ShieldCheck, Upload, X } from 'lucide-react';
+import { ExternalLink, Link2, Play, Plus, ShieldCheck, Upload, X } from 'lucide-react';
 import './tutorial-hub.css';
 import { youtubeId, safeYouTubeId } from './youtube-video.mjs';
 import { onAuthChange } from './db/auth';
@@ -152,27 +152,14 @@ export default function TutorialHub() {
     }
   };
 
-  const goHome = () => {
-    window.history.pushState({}, '', '/');
-    window.dispatchEvent(new Event('edunexus:navigation'));
-  };
+
 
   if (route !== 'tutorials') return null;
 
   return (
     <div className='edux-tutorial-overlay'>
       <div className='edux-tutorial-bg' />
-      <header className='edux-tutorial-nav'>
-        <button className='edux-tutorial-brand' onClick={goHome}>
-          <Film size={21} /><span>EduNexus Tutorials</span>
-        </button>
-        <div className='edux-tutorial-navlinks'>
-          <a href='/study-guides'>Study Guides</a>
-          <a href='/student-resources'>Resources</a>
-          <a href='/vu-notes'>Academic Hub</a>
-        </div>
-        <button className='edux-tutorial-back' onClick={goHome}><ArrowLeft size={15} /> Back to app</button>
-      </header>
+      
       <div className='edux-tutorial-main'>
         <section className='edux-tutorial-hero'>
           <span className='edux-tutorial-pill'>VIDEO LEARNING</span>
