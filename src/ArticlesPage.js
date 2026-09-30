@@ -15,10 +15,18 @@ const formatDate = (timestamp) => {
   }).format(date);
 };
 
-// Cloudinary image optimize helper
-const optimizeImageUrl = (url) => {
+// Responsive Cloudinary delivery keeps article covers sharp without shipping
+// the full original to every device. Non-Cloudinary images remain untouched.
+const optimizeImageUrl = (url, width = 1400) => {
   if (!url || !url.includes("/upload/")) return url;
-  return url.replace("/upload/", "/upload/f_auto,q_auto,w_800/");
+  return url.replace("/upload/", `/upload/f_auto,q_auto:good,c_limit,w_${width},dpr_auto/`);
+};
+
+const articleImageSrcSet = (url) => {
+  if (!url || !url.includes("/upload/")) return undefined;
+  return [640, 960, 1400, 1800]
+    .map((width) => `${optimizeImageUrl(url, width)} ${width}w`)
+    .join(", ");
 };
 
 const articlePublicPath = (article) => {
@@ -112,18 +120,20 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
     >
       {/* Cover image - premium full-frame treatment; original remains available in fullscreen */}
       {art.imageUrl && (
-        <div className="relative h-52 sm:h-60 md:h-72 overflow-hidden bg-slate-950 isolate">
+        <div className="relative aspect-[16/8.8] min-h-[210px] max-h-[330px] overflow-hidden bg-slate-950 isolate shadow-inner">
           <img
-            src={optimizeImageUrl(art.imageUrl)}
+            src={optimizeImageUrl(art.imageUrl, 1400)}
+            srcSet={articleImageSrcSet(art.imageUrl)}
+            sizes="(max-width: 767px) 100vw, 760px"
             alt={art.title}
             loading={idx === 0 ? "eager" : "lazy"}
             fetchPriority={idx === 0 ? "high" : "low"}
             decoding="async"
             onClick={() => setLightboxOpen(true)}
-            className="w-full h-full object-cover object-[center_30%] cursor-zoom-in transition-[transform,filter,opacity] duration-700 ease-out group-hover:scale-[1.035] group-hover:saturate-[1.04]"
+            className="w-full h-full object-cover object-[center_28%] cursor-zoom-in transition-[transform,filter,opacity] duration-700 ease-out group-hover:scale-[1.035] group-hover:saturate-[1.05] group-hover:contrast-[1.02]"
             style={{ display: 'block' }}
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/35 via-transparent to-black/5" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-black/10" />
           <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5" />
           <button
             onClick={() => setLightboxOpen(true)}
@@ -151,7 +161,9 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
             <X size={20} />
           </button>
           <img
-            src={art.imageUrl}
+            src={optimizeImageUrl(art.imageUrl, 2000)}
+            srcSet={articleImageSrcSet(art.imageUrl)}
+            sizes="96vw"
             alt={art.title}
             className="max-w-[96vw] max-h-[90vh] object-contain rounded-2xl shadow-2xl ring-1 ring-white/10 bg-slate-950"
             onClick={(e) => e.stopPropagation()}
