@@ -343,12 +343,12 @@ const Navbar = ({
           text-white
         "
       >
-        <div className="max-w-[1450px] mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+        <div className="max-w-[1450px] mx-auto px-4 py-2.5 flex items-center justify-between gap-3 xl:grid xl:grid-cols-[minmax(240px,1fr)_auto_minmax(240px,1fr)]">
           {/* Brand */}
           <a
             href="/"
             onClick={(e) => { e.preventDefault(); handleNavClick("home"); }}
-            className="flex items-center gap-3 group shrink-0"
+            className="flex items-center gap-3 group shrink-0 xl:justify-self-start"
           >
             <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-lg">
               <GraduationCap className="h-6 w-6" />
@@ -371,7 +371,7 @@ const Navbar = ({
           </a>
 
           {/* Desktop links (PC HEADER) */}
-          <nav className="hidden xl:flex items-center justify-center gap-0 min-w-0">
+          <nav className="hidden xl:flex items-center justify-center gap-0 min-w-0 xl:justify-self-center">
             {MAIN_ITEMS.map((item) => (
               <a
                 key={item.id}
@@ -394,7 +394,7 @@ const Navbar = ({
           </nav>
 
           {/* Right side desktop */}
-          <div className="hidden xl:flex items-center gap-3 shrink-0">
+          <div className="hidden xl:flex items-center justify-end gap-3 shrink-0 xl:justify-self-end min-w-[88px]">
             {adminSessionActive && (
               <button
                 type="button"

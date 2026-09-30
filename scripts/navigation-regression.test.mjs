@@ -43,6 +43,18 @@ test('resource, guide and article SSR pages have a single accessible main nav', 
   assert.match(readFileSync('api/learning-page.mjs', 'utf8'), /renderNavbar\('academic'\)/);
 });
 
+test('SPA and SSR navbar keep the same centered desktop geometry', () => {
+  const app = readFileSync('src/App.js', 'utf8');
+  assert.match(app, /xl:grid xl:grid-cols-\[minmax\(240px,1fr\)_auto_minmax\(240px,1fr\)\]/);
+  assert.match(app, /xl:justify-self-center/);
+  assert.match(app, /xl:justify-self-end min-w-\[88px\]/);
+  assert.match(navStyles, /grid-template-columns:minmax\(240px,1fr\) auto minmax\(240px,1fr\)/);
+  assert.match(navStyles, /min-height:60px/);
+  assert.match(navStyles, /\.desktop-account\{justify-self:end;min-width:88px/);
+  const html = renderNavbar('articles');
+  assert.match(html, /<div class="desktop-account"[^>]*><span>Hi, Dear<\/span><\/div>/);
+});
+
 test('direct and legacy page URLs resolve to one application route', () => {
   const direct = ['/study-guides', '/vu-notes-guide', '/past-papers-guide',
     '/exam-preparation', '/cgpa-guide', '/ai-study-tools',
