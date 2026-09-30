@@ -147,6 +147,18 @@ test('guides and tutorials render inside the shared App main and footer', () => 
   assert.match(readFileSync('src/admin-content-manager.css', 'utf8'), /\.edx-tutorials-embedded \.edx-admin-header\{display:none!important\}/);
 });
 
+test('moving resource orb stays mounted with the managed page links', () => {
+  const enhancer = readFileSync('src/DashboardEnhancerSafe.js', 'utf8');
+  assert.match(enhancer, /<FloatingResourceButton hidden=\{page === 'admin'\} \/>/);
+  assert.match(enhancer, /getMetaDoc\('floatingHub'\)/);
+  assert.match(enhancer, /subscribeMetaDoc\('floatingHub'/);
+  for (const label of ['Study Guides', 'Tutorial Videos', 'Student Resources', 'Live Projects']) {
+    assert.match(enhancer, new RegExp(label));
+  }
+  assert.match(enhancer, /dashboardPinned/);
+  assert.doesNotMatch(enhancer, /Orb removed/);
+});
+
 test('only content-hashed assets are eligible for service worker cache-first strategy', () => {
   const worker = readFileSync('public/sw.js', 'utf8');
   assert.match(worker, /IMMUTABLE_BUILD/);
