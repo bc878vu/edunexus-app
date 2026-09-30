@@ -52,6 +52,20 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "page",
+          "value": "portfolio"
+        }
+      ],
+      "destination": "/portfolio",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/portfolio",
@@ -60,17 +74,6 @@
           "type": "header",
           "key": "user-agent",
           "value": ".*([Ww]hats[Aa]pp|[Ff]acebookexternalhit|[Ff]acebookcatalog|[Tt]witterbot|[Ll]inkedin[Bb]ot|[Tt]elegrambot|[Dd]iscordbot|[Ss]lackbot|[Ss]kypeuripreview|[Gg]ooglebot|[Bb]ingbot|[Pp]interest|[Ee]mbedly|[Qq]uora|[Vv]k[Ss]hare).*"
-        }
-      ],
-      "destination": "/api/resource-page?ogpage=portfolio"
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "query",
-          "key": "page",
-          "value": "portfolio"
         }
       ],
       "destination": "/api/resource-page?ogpage=portfolio"
