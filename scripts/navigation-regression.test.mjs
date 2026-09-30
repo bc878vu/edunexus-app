@@ -159,6 +159,18 @@ test('moving resource orb stays mounted with the managed page links', () => {
   assert.doesNotMatch(enhancer, /Orb removed/);
 });
 
+test('article covers use the enhanced full-frame treatment', () => {
+  const articleList = readFileSync('src/ArticlesPage.js', 'utf8');
+  const articlePage = readFileSync('api/article-page.mjs', 'utf8');
+  assert.match(articleList, /object-\[center_30%\]/);
+  assert.match(articleList, /group-hover:scale-\[1\.035\]/);
+  assert.match(articleList, /View full image/);
+  assert.match(articlePage, /v8-enhanced-cover-visuals/);
+  assert.match(articlePage, /height:clamp\(260px,46vw,520px\)/);
+  assert.match(articlePage, /object-fit:cover;object-position:center 30%/);
+  assert.match(articlePage, /class="article-cover-action"/);
+});
+
 test('only content-hashed assets are eligible for service worker cache-first strategy', () => {
   const worker = readFileSync('public/sw.js', 'utf8');
   assert.match(worker, /IMMUTABLE_BUILD/);
