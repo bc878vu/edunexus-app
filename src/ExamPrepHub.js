@@ -259,6 +259,118 @@ function detectSectionFromUrl() {
   return '';
 }
 
+// SampleMcqs: 5 interactive sample questions shown by default so the MCQ Bank
+// page never looks empty. Fully client-side, no database reads.
+const SAMPLE_MCQS = [
+  {
+    id: 'sample-1', subject: 'CS101',
+    question: 'Which of the following is an example of an operating system?',
+    options: ['Microsoft Word', 'Linux', 'Google Chrome', 'Adobe Photoshop'],
+    answer: 1,
+    explanation: 'Linux manages hardware and software resources, which is the job of an operating system. The others are applications.'
+  },
+  {
+    id: 'sample-2', subject: 'MTH101',
+    question: 'What is the value of 12\u00B2 \u2212 8\u00B2?',
+    options: ['80', '64', '16', '48'],
+    answer: 0,
+    explanation: '12\u00B2 = 144 and 8\u00B2 = 64, so 144 \u2212 64 = 80.'
+  },
+  {
+    id: 'sample-3', subject: 'ENG101',
+    question: 'Choose the correctly spelled word:',
+    options: ['Occassion', 'Occasion', 'Ocassion', 'Occasssion'],
+    answer: 1,
+    explanation: '\u201COccasion\u201D has a double \u201Cc\u201D and a single \u201Cs\u201D.'
+  },
+  {
+    id: 'sample-4', subject: 'PHY101',
+    question: 'What is the SI unit of force?',
+    options: ['Joule', 'Watt', 'Newton', 'Pascal'],
+    answer: 2,
+    explanation: 'Force is measured in newtons (N). Joule is energy, watt is power, pascal is pressure.'
+  },
+  {
+    id: 'sample-5', subject: 'PAK301',
+    question: 'Pakistan became an independent nation in:',
+    options: ['1945', '1946', '1947', '1948'],
+    answer: 2,
+    explanation: 'Pakistan gained independence on 14 August 1947.'
+  }
+];
+
+function SampleMcqs() {
+  const [answers, setAnswers] = React.useState({});
+  const answeredCount = Object.keys(answers).length;
+  const score = SAMPLE_MCQS.filter((q) => answers[q.id] === q.answer).length;
+  const allDone = answeredCount === SAMPLE_MCQS.length;
+  const pick = (id, i) => {
+    if (answers[id] !== undefined) return;
+    setAnswers((prev) => ({ ...prev, [id]: i }));
+  };
+  const reset = () => setAnswers({});
+  const scrollToSearch = () => {
+    const el = document.querySelector('.edx-search-card');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  return (
+    <section aria-label="Sample practice questions">
+      <div className="edx-exam-between" style={{ marginBottom: 4 }}>
+        <div>
+          <span className="edx-exam-eyebrow">Try a sample</span>
+          <h2 style={{ margin: '4px 0 2px', fontSize: '1.3rem', fontWeight: 800 }}>Practice questions</h2>
+          <p style={{ margin: 0, color: 'var(--ex-muted)', fontSize: '.9rem' }}>
+            A quick taste of the MCQ Bank — tap an answer to check yourself.
+          </p>
+        </div>
+        <span className="edx-exam-pill">{answeredCount}/{SAMPLE_MCQS.length} answered{allDone ? ' · Score ' + score + '/' + SAMPLE_MCQS.length : ''}</span>
+      </div>
+      <div className="edx-exam-progress" aria-hidden="true"><span style={{ width: (answeredCount / SAMPLE_MCQS.length * 100) + '%' }} /></div>
+      <div className="edx-exam-stack">
+        {SAMPLE_MCQS.map((q, qi) => {
+          const selected = answers[q.id];
+          const answered = selected !== undefined;
+          return (
+            <section key={q.id} className="edx-exam-card edx-exam-question" aria-label={'Sample question ' + (qi + 1)}>
+              <div className="edx-exam-between">
+                <span className="edx-exam-eyebrow">Question {qi + 1} of {SAMPLE_MCQS.length}</span>
+                <span className="edx-exam-pill">{q.subject} · Sample</span>
+              </div>
+              <h3 style={{ marginTop: 10 }}>{q.question}</h3>
+              <div className="edx-exam-options">
+                {q.options.map((opt, i) => {
+                  const state = answered && i === q.answer ? ' correct' : answered && i === selected ? ' incorrect' : '';
+                  return (
+                    <button key={i} type="button" disabled={answered}
+                      className={'edx-exam-option' + state} aria-pressed={selected === i}
+                      onClick={() => pick(q.id, i)}>
+                      <span>{String.fromCharCode(65 + i)}</span>{opt}
+                    </button>
+                  );
+                })}
+              </div>
+              {answered && (
+                <p className={'edx-practice-inline-result ' + (selected === q.answer ? 'is-right' : 'is-wrong')} role="status">
+                  {selected === q.answer ? 'Correct! ' : 'Incorrect. Correct answer: ' + String.fromCharCode(65 + q.answer) + '. '}
+                  {q.explanation}
+                </p>
+              )}
+            </section>
+          );
+        })}
+      </div>
+      <div className="edx-exam-actions" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+        <button type="button" className="edx-exam-primary" onClick={scrollToSearch}>
+          Find my subject — full bank <ChevronRight size={16} />
+        </button>
+        {answeredCount > 0 && (
+          <button type="button" className="edx-exam-secondary" onClick={reset}>Try again</button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 // PracticeSearchCard: search-first subject finder for the MCQ Bank.
 // Replaces the old subject-pill catalogue: the user types a subject code,
 // picks Quiz / Midterm / Finalterm, hits Search, and only that subject's
@@ -499,7 +611,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     </nav>
     {((tab === "mcqs" && searchedSubject) || tab === "reviews") && <ShareBar tab={tab} subject={subject} term={term} />}
     {tab === "mcqs" && searchedSubject && searchStatus === "found" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={[searchedSubject]} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm}/></React.Suspense>}
-    {tab === "mcqs" && !searchedSubject && <section className="edx-exam-card edx-search-welcome" aria-live="polite"><Search size={30} aria-hidden="true" /><div><h3>Find your subject to begin</h3><p>Enter your subject code above, choose Quiz, Midterm or Finalterm, then press Search. Your selected practice bank will open here.</p></div></section>}
+    {tab === "mcqs" && !searchedSubject && <SampleMcqs />}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} onSubjectChange={selectSubject} subjects={catalogSubjects} />}
     {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { selectSubject(code); selectTerm(examType); setTab("mcqs"); }} />}
