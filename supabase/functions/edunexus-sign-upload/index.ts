@@ -3,7 +3,7 @@ import { createRemoteJWKSet, jwtVerify, createSecretKey } from "npm:jose@6";
 
 const PROJECT = "edunexus-live-e0b84";
 const ADMIN_EMAIL = "veducator4@gmail.com";
-// Supabase project (post-migration issuer). JWT secret comes from env.
+// Supabase project (post-migration issuer).
 const SUPABASE_PROJECT_URL = "https://cprpndovdfnkvekewstv.supabase.co";
 const BUCKET = "edunexus-public-files";
 const MAX_SIZE = 45 * 1024 * 1024;
@@ -20,6 +20,10 @@ const MIME = new Map(Object.entries({
   zip: "application/zip",
 }));
 const GOOGLE_KEYS = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
+// Supabase Auth signs access tokens with the project's asymmetric key
+// (ES256); verify against the published JWKS. The legacy HS256 JWT secret
+// is kept only as a fallback for older tokens.
+const SUPABASE_KEYS = createRemoteJWKSet(new URL(SUPABASE_PROJECT_URL + "/auth/v1/.well-known/jwks.json"));
 
 const headers = (origin: string) => ({
   "Access-Control-Allow-Origin": origin,
@@ -42,16 +46,11 @@ Deno.serve(async (request: Request) => {
   if (!bearer.startsWith("Bearer ")) return response(origin, 401, { error: "Sign in to EduNexus as the verified administrator." });
   let userId = "";
   const token = bearer.slice(7);
-  // Primary: verify the Supabase JWT (HS256 with the project's JWT secret).
-  // Fallback: Firebase ID token (Google JWKS) — kept during the
+  // Primary: verify the Supabase access token (JWKS, ES256).
+  // Fallback 1: legacy HS256 JWT secret (if configured).
+  // Fallback 2: Firebase ID token (Google JWKS) — kept during the
   // Firebase -> Supabase transition so both backends keep working.
-  let authenticated = false;
-  try {
-    const jwtSecret = Deno.env.get("SUPABASE_JWT_SECRET");
-    if (!jwtSecret) throw new Error("SUPABASE_JWT_SECRET not configured");
-    const { payload } = await jwtVerify(token, createSecretKey(jwtSecret, "utf-8"), {
-      algorithms: ["HS256"],
-    });
+  const checkSupabaseClaims = (payload: { [k: string]: unknown }): boolean => {
     const iss = String(payload.iss || "");
     const issOk = iss.includes("supabase.co") || iss === SUPABASE_PROJECT_URL ||
       iss === SUPABASE_PROJECT_URL + "/auth/v1";
@@ -60,11 +59,35 @@ Deno.serve(async (request: Request) => {
     const meta = (payload.user_metadata ?? {}) as { is_admin?: unknown };
     const isAdmin = meta.is_admin === true || payload.email === ADMIN_EMAIL;
     if (!issOk || !audOk || !payload.sub) throw new Error("Invalid Supabase token claims");
-    if (!isAdmin) return response(origin, 403, { error: "Only the verified EduNexus administrator may upload." });
+    return isAdmin === true;
+  };
+  let authenticated = false;
+  try {
+    const { payload } = await jwtVerify(token, SUPABASE_KEYS, {
+      issuer: SUPABASE_PROJECT_URL + "/auth/v1",
+    });
+    if (!checkSupabaseClaims(payload)) {
+      return response(origin, 403, { error: "Only the verified EduNexus administrator may upload." });
+    }
     userId = String(payload.sub);
     authenticated = true;
   } catch {
-    // Supabase verification failed -> fall through to the Firebase path.
+    // JWKS verification failed -> try the legacy HS256 secret, then Firebase.
+    const jwtSecret = Deno.env.get("SUPABASE_JWT_SECRET");
+    if (jwtSecret) {
+      try {
+        const { payload } = await jwtVerify(token, createSecretKey(jwtSecret, "utf-8"), {
+          algorithms: ["HS256"],
+        });
+        if (!checkSupabaseClaims(payload)) {
+          return response(origin, 403, { error: "Only the verified EduNexus administrator may upload." });
+        }
+        userId = String(payload.sub);
+        authenticated = true;
+      } catch {
+        // Fall through to the Firebase path.
+      }
+    }
   }
   if (!authenticated) {
     try {
