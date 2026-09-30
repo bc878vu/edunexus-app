@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { MAIN_ITEMS, MOBILE_ITEMS } from '../src/site-navigation.mjs';
-import { renderNavbar, navStyles } from '../api/site-shell.mjs';
+import { renderNavbar, renderFooter, renderThemeToggle, shellThemeBoot, navStyles } from '../api/site-shell.mjs';
 import { APP_PAGES, CONTENT_PAGE_IDS, routeFromLocation, pathForPage, navActivePage, routeParamsFromPath } from '../src/app-routes.mjs';
 import { SITE, canonicalPath } from '../src/site-seo.mjs';
 
@@ -53,6 +53,28 @@ test('SPA and SSR navbar keep the same centered desktop geometry', () => {
   assert.match(navStyles, /\.desktop-account\{justify-self:end;min-width:88px/);
   const html = renderNavbar('articles');
   assert.match(html, /<div class="desktop-account"[^>]*><span>Hi, Dear<\/span><\/div>/);
+});
+
+test('SPA and standalone pages share one stable app footer and theme shell', () => {
+  const app = readFileSync('src/App.js', 'utf8');
+  const footer = renderFooter();
+  assert.equal((app.match(/id="edunexus-main-footer"/g) || []).length, 1);
+  assert.equal((app.match(/data-edunexus-main-footer="true"/g) || []).length, 1);
+  assert.equal((footer.match(/id="edunexus-main-footer"/g) || []).length, 1);
+  assert.equal((footer.match(/data-edunexus-main-footer="true"/g) || []).length, 1);
+  assert.match(footer, /Study updates &amp; bug report\?/);
+  assert.match(footer, /MCQ Bank &amp; Paper Reviews/);
+  assert.match(renderThemeToggle(), /data-shell-theme-toggle/);
+  assert.match(shellThemeBoot, /localStorage\.getItem\("theme"\)/);
+  assert.match(navStyles, /body\{min-height:100vh;display:flex;flex-direction:column\}/);
+  assert.match(navStyles, /\.site-footer\{width:100%;max-width:none!important/);
+  for (const path of ['api/article-page.mjs', 'api/resource-page.mjs', 'api/learning-page.mjs']) {
+    const source = readFileSync(path, 'utf8');
+    assert.match(source, /renderFooter\(\)/);
+    assert.match(source, /renderThemeToggle\(\)/);
+    assert.match(source, /shellThemeBoot/);
+    assert.doesNotMatch(source, /<footer class="site-footer">/);
+  }
 });
 
 test('direct and legacy page URLs resolve to one application route', () => {
@@ -162,12 +184,15 @@ test('moving resource orb stays mounted with the managed page links', () => {
 test('article covers use the enhanced full-frame treatment', () => {
   const articleList = readFileSync('src/ArticlesPage.js', 'utf8');
   const articlePage = readFileSync('api/article-page.mjs', 'utf8');
-  assert.match(articleList, /object-\[center_30%\]/);
+  assert.match(articleList, /object-\[center_28%\]/);
+  assert.match(articleList, /articleImageSrcSet/);
+  assert.match(articleList, /q_auto:good,c_limit,w_/);
   assert.match(articleList, /group-hover:scale-\[1\.035\]/);
   assert.match(articleList, /View full image/);
-  assert.match(articlePage, /v8-enhanced-cover-visuals/);
+  assert.match(articlePage, /v9-unified-shell-enhanced-images/);
   assert.match(articlePage, /height:clamp\(260px,46vw,520px\)/);
   assert.match(articlePage, /object-fit:cover;object-position:center 30%/);
+  assert.match(articlePage, /articleImageSrcSet/);
   assert.match(articlePage, /class="article-cover-action"/);
 });
 
