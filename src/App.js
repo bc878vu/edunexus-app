@@ -5292,7 +5292,9 @@ useEffect(() => {
       <React.Suspense fallback={null}><EduBotAssistant /></React.Suspense>
 
            <footer
-  className={`mt-auto border-t ${theme.border} ${
+  id="edunexus-main-footer"
+  data-edunexus-main-footer="true"
+  className={`mt-auto w-full shrink-0 border-t ${theme.border} ${
     isDark ? "bg-slate-950/95" : "bg-slate-50"
   }`}
 >

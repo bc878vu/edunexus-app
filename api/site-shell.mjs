@@ -4,6 +4,10 @@ const escape = (value) => String(value).replace(/&/g, '&amp;').replace(/"/g, '&q
 const cap = '<svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 10-10 5L2 10l10-5 10 5Z"/><path d="M6 12v5c3.5 3 8.5 3 12 0v-5"/><path d="M22 10v6"/></svg>';
 const menuIcon = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
 const closeIcon = '<svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+const moonIcon = '<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>';
+const sunIcon = '<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+const cpuIcon = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>';
+const mailIcon = '<svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>';
 
 function links(items, active, mobile = false) {
   return items.map(item =>
@@ -14,47 +18,100 @@ function links(items, active, mobile = false) {
   ).join('');
 }
 
-// SSR pages use the same geometry, brand, destinations, order, breakpoint and
-// fixed center column as the React App navbar. Real links remain crawler-safe.
+// One small inline shell script powers saved theme state and closes the SSR
+// mobile drawer. The CSP explicitly allows this script on standalone pages.
+export const shellThemeBoot = `<script>(function(){try{
+var d=localStorage.getItem("theme")==="dark";
+document.documentElement.classList.toggle("dark",d);
+document.documentElement.style.colorScheme=d?"dark":"light";
+document.addEventListener("click",function(e){
+  var imageLink=e.target.closest("[data-shell-image-lightbox]");
+  if(imageLink){
+    e.preventDefault();
+    var src=imageLink.getAttribute("href");
+    if(!src)return;
+    var overlay=document.createElement("div");
+    overlay.className="site-image-lightbox";
+    overlay.setAttribute("role","dialog");
+    overlay.setAttribute("aria-modal","true");
+    overlay.setAttribute("aria-label","Full-size article image");
+    var closeButton=document.createElement("button");
+    closeButton.type="button";
+    closeButton.className="site-image-lightbox-close";
+    closeButton.setAttribute("aria-label","Close full-size image");
+    closeButton.textContent="×";
+    var image=document.createElement("img");
+    image.src=src;
+    image.alt=imageLink.getAttribute("data-image-alt")||"Article image";
+    overlay.appendChild(closeButton);
+    overlay.appendChild(image);
+    var close=function(){if(overlay.parentNode)overlay.parentNode.removeChild(overlay);document.removeEventListener("keydown",onKey)};
+    var onKey=function(event){if(event.key==="Escape")close()};
+    closeButton.addEventListener("click",close);
+    overlay.addEventListener("click",function(event){if(event.target===overlay)close()});
+    document.addEventListener("keydown",onKey);
+    document.body.appendChild(overlay);
+    closeButton.focus();
+    return;
+  }
+  var t=e.target.closest("[data-shell-theme-toggle]");
+  if(t){
+    d=!document.documentElement.classList.contains("dark");
+    document.documentElement.classList.toggle("dark",d);
+    document.documentElement.style.colorScheme=d?"dark":"light";
+    localStorage.setItem("theme",d?"dark":"light");
+    return;
+  }
+  var closer=e.target.closest("[data-shell-menu-close],.mobile-nav-link");
+  if(closer){var menu=closer.closest("details.mobile-menu");if(menu)menu.removeAttribute("open")}
+});
+}catch(e){}})();<\/script>`;
+
 export function renderNavbar(active = 'home') {
   return `<header id="edunexus-main-navbar" data-edunexus-main-nav="true" class="site-header"><div class="nav-wrap">
   <a class="brand" href="/" aria-label="EduNexus home"><span class="brand-icon">${cap}</span><span class="brand-label"><strong>EduNexus</strong><small>Study Material • Mock Tests • AI Tools</small></span></a>
   <nav class="desktop-links" aria-label="Main navigation">${links(MAIN_ITEMS, active)}</nav>
   <div class="desktop-account" aria-label="Account greeting"><span>Hi, Dear</span></div>
-  <details class="mobile-menu"><summary aria-label="Open navigation menu">${menuIcon}</summary><div class="mobile-drawer"><div class="mobile-drawer-head"><div class="mobile-drawer-brand"><span class="mobile-drawer-icon">E</span><span><strong>EduNexus</strong><small>Quick navigation</small></span></div><span class="mobile-close" aria-hidden="true">${closeIcon}</span></div><nav aria-label="Mobile navigation">${links(MOBILE_ITEMS, active, true)}</nav><div class="mobile-drawer-foot">Made for students · EduNexus</div></div></details>
+  <details class="mobile-menu"><summary aria-label="Open navigation menu">${menuIcon}</summary><div class="mobile-drawer"><div class="mobile-drawer-head"><div class="mobile-drawer-brand"><span class="mobile-drawer-icon">E</span><span><strong>EduNexus</strong><small>Quick navigation</small></span></div><button type="button" class="mobile-close" data-shell-menu-close aria-label="Close navigation">${closeIcon}</button></div><nav aria-label="Mobile navigation">${links(MOBILE_ITEMS, active, true)}</nav><div class="mobile-drawer-foot">Made for students · EduNexus</div></div></details>
   </div></header>`;
 }
 
+export function renderThemeToggle() {
+  return `<button type="button" class="site-theme-toggle" data-shell-theme-toggle aria-label="Toggle dark / light mode" title="Dark / light mode"><span class="site-theme-sun">${sunIcon}</span><span class="site-theme-moon">${moonIcon}</span></button>`;
+}
+
+export function renderFooter() {
+  const year = new Date().getFullYear();
+  return `<footer id="edunexus-main-footer" data-edunexus-main-footer="true" class="site-footer">
+  <div class="site-footer-inner">
+    <section class="site-footer-cta" aria-label="Support">
+      <div><strong>Study updates &amp; bug report?</strong><p>If you find any issue in notes, quizzes or AI tools, email us. We continuously improve EduNexus for students.</p></div>
+      <a class="site-footer-support" href="https://mail.google.com/mail/u/0/?view=cm&amp;fs=1&amp;to=a.m.a63425@gmail.com&amp;su=EduNexus%20Support%20Request" rel="noopener noreferrer">${mailIcon}<span>Contact Support</span></a>
+    </section>
+    <div class="site-footer-grid">
+      <section class="site-footer-brand"><div class="site-footer-brandline"><span class="site-footer-brandicon">${cpuIcon}</span><strong>EduNexus</strong></div><p>Smart study hub for Virtual University students — notes, quizzes, files and AI tools in one place. EduNexus is an independent platform and is <b>not officially affiliated</b> with VU.</p><div class="site-footer-socials"><a href="https://github.com/bc878vu" rel="noreferrer" aria-label="EduNexus developer on GitHub">GitHub</a><a href="https://pk.linkedin.com/in/asad-amanat-ali-860797416" rel="noreferrer" aria-label="Asad Amanat Ali on LinkedIn">LinkedIn</a></div></section>
+      <section><h2>Quick Links</h2><nav class="site-footer-links" aria-label="Footer quick links"><a href="/">Home</a><a href="/?page=academic">Academic Hub</a><a href="/?page=articles">Articles</a><a href="/?page=cgpa">CGPA Calculator</a></nav></section>
+      <section><h2>Study Tools</h2><nav class="site-footer-links" aria-label="Footer study tools"><a href="/?page=flashcards">AI Flashcards</a><a href="/?page=planner">Study Planner</a><a href="/?page=aiquiz">AI Quiz Generator</a><a href="/?page=exam-prep">MCQ Bank &amp; Paper Reviews</a></nav></section>
+      <section><h2>Contact &amp; Support</h2><div class="site-footer-contact"><a href="https://mail.google.com/mail/u/0/?view=cm&amp;fs=1&amp;to=a.m.a63425@gmail.com&amp;su=EduNexus%20Support%20Request" rel="noopener noreferrer">${mailIcon}<span>a.m.a63425@gmail.com</span></a><p>For study help only (no official VU support).</p></div></section>
+    </div>
+    <div class="site-footer-bottom"><span>© ${year} EduNexus · Developed by Asad Amanat Ali.</span><div><a href="/?page=privacy">Privacy Policy</a><a href="/?page=terms">Terms of Service</a><span>Made for students · Light &amp; Dark mode supported</span></div></div>
+  </div></footer>`;
+}
+
 export const navStyles = `
-.site-header,.site-header *{box-sizing:border-box}
-.site-header{position:sticky;top:0;z-index:50;width:100%;background:rgba(2,6,23,.90);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;border-bottom:1px solid #1e293b;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.site-header,.site-header *,.site-footer,.site-footer *,.site-theme-toggle,.site-theme-toggle *{box-sizing:border-box}
+html,body{min-height:100%}body{min-height:100vh;display:flex;flex-direction:column}body>main{flex:1 0 auto;width:100%}
+.site-header{position:sticky;top:0;z-index:50;width:100%;flex:0 0 auto;background:rgba(2,6,23,.90);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;border-bottom:1px solid #1e293b;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .nav-wrap{width:100%;max-width:1450px;min-height:60px;padding:10px 16px;margin:0 auto;display:grid;grid-template-columns:minmax(240px,1fr) auto minmax(240px,1fr);align-items:center;gap:12px}
-.brand{justify-self:start;display:flex;align-items:center;gap:12px;flex-shrink:0;text-decoration:none;color:#e2e8f0;min-width:0}
-.brand-icon{width:40px;height:40px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(to bottom right,#6366f1,#8b5cf6);color:white;box-shadow:0 10px 15px -3px rgba(0,0,0,.22),0 4px 6px -4px rgba(0,0,0,.22);flex:0 0 auto}
-.brand-label{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
-.brand strong{display:block;font-size:1.25rem;line-height:1.15;font-weight:800;letter-spacing:-.025em;background:linear-gradient(to right,#818cf8,#38bdf8,#8b5cf6);-webkit-background-clip:text;background-clip:text;color:transparent}
-.brand small{display:block;color:#cbd5e1;font-size:.75rem;line-height:1rem;margin-top:1px;white-space:nowrap}
-.desktop-links{justify-self:center;display:flex;justify-content:center;align-items:center;min-width:0;gap:0}
-.desktop-nav-link{display:inline-flex;align-items:center;color:#e2e8f0;text-decoration:none;font-weight:600;white-space:nowrap;padding:10px 12px;border-radius:9999px;font-size:15px;line-height:20px;letter-spacing:.025em;transition:background-color .15s,color .15s,box-shadow .15s}
-.desktop-nav-link:hover{background:rgba(30,41,59,.8);color:#fff}
-.desktop-nav-link[aria-current=page]{background:#6366f1;color:white;box-shadow:0 4px 6px -1px rgba(0,0,0,.18),0 2px 4px -2px rgba(0,0,0,.18)}
-.desktop-account{justify-self:end;min-width:88px;display:flex;align-items:center;justify-content:flex-end;gap:12px;color:#e2e8f0;font-size:12px;line-height:16px;white-space:nowrap}
-.mobile-menu{display:none;justify-self:end;position:relative;z-index:61}
-.mobile-menu summary{width:36px;height:36px;cursor:pointer;display:grid;place-items:center;border:1px solid #475569;border-radius:9999px;list-style:none;background:rgba(15,23,42,.9);color:#f1f5f9;box-shadow:0 1px 2px rgba(0,0,0,.1)}
-.mobile-menu summary::-webkit-details-marker{display:none}
-.mobile-menu[open]::before{content:"";position:fixed;inset:0;z-index:58;background:rgba(0,0,0,.45)}
-.mobile-drawer{position:fixed;z-index:60;inset:0 auto 0 0;width:288px;max-width:80vw;display:flex;flex-direction:column;background:#020617;color:#f1f5f9;border-right:1px solid #1e293b;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}
-.mobile-drawer-head{padding:12px 16px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.mobile-drawer-brand{display:flex;align-items:center;gap:8px}.mobile-drawer-brand>span:last-child{display:flex;flex-direction:column}
-.mobile-drawer-brand strong{font-size:14px;line-height:20px}.mobile-drawer-brand small{font-size:11px;line-height:16px;color:#94a3b8}
-.mobile-drawer-icon{width:32px;height:32px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(to bottom right,#6366f1,#8b5cf6);color:#fff;font-weight:700}
-.mobile-close{width:32px;height:32px;border:1px solid #334155;border-radius:9999px;display:grid;place-items:center;color:#cbd5e1}
-.mobile-drawer nav{flex:1;overflow-y:auto;margin-top:8px;padding-bottom:8px}
-.mobile-nav-link{width:100%;display:flex;align-items:center;gap:8px;padding:10px 16px;color:#f1f5f9;text-decoration:none;font-size:14px;line-height:20px;text-align:left}
-.mobile-nav-link:hover{background:#1e293b}.mobile-nav-link[aria-current=page]{background:#4f46e5;color:#fff}
-.mobile-nav-initial{width:24px;height:24px;border:1px solid #475569;border-radius:9999px;display:grid;place-items:center;font-size:11px;color:#94a3b8;flex:0 0 auto}
-.mobile-nav-link[aria-current=page] .mobile-nav-initial{border-color:rgba(255,255,255,.8);color:#fff}
-.mobile-drawer-foot{padding:12px 16px;border-top:1px solid #1e293b;color:#64748b;font-size:11px;line-height:16px}
+.brand{justify-self:start;display:flex;align-items:center;gap:12px;flex-shrink:0;text-decoration:none;color:#e2e8f0;min-width:0}.brand-icon{width:40px;height:40px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(to bottom right,#6366f1,#8b5cf6);color:white;box-shadow:0 10px 15px -3px rgba(0,0,0,.22),0 4px 6px -4px rgba(0,0,0,.22);flex:0 0 auto}.brand-label{display:flex;flex-direction:column;align-items:flex-start;min-width:0}.brand strong{display:block;font-size:1.25rem;line-height:1.15;font-weight:800;letter-spacing:-.025em;background:linear-gradient(to right,#818cf8,#38bdf8,#8b5cf6);-webkit-background-clip:text;background-clip:text;color:transparent}.brand small{display:block;color:#cbd5e1;font-size:.75rem;line-height:1rem;margin-top:1px;white-space:nowrap}
+.desktop-links{justify-self:center;display:flex;justify-content:center;align-items:center;min-width:0;gap:0}.desktop-nav-link{display:inline-flex;align-items:center;color:#e2e8f0;text-decoration:none;font-weight:600;white-space:nowrap;padding:10px 12px;border-radius:9999px;font-size:15px;line-height:20px;letter-spacing:.025em;transition:background-color .15s,color .15s,box-shadow .15s}.desktop-nav-link:hover{background:rgba(30,41,59,.8);color:#fff}.desktop-nav-link[aria-current=page]{background:#6366f1;color:white;box-shadow:0 4px 6px -1px rgba(0,0,0,.18),0 2px 4px -2px rgba(0,0,0,.18)}.desktop-account{justify-self:end;min-width:88px;display:flex;align-items:center;justify-content:flex-end;gap:12px;color:#e2e8f0;font-size:12px;line-height:16px;white-space:nowrap}
+.mobile-menu{display:none;justify-self:end;position:relative;z-index:61}.mobile-menu summary{width:36px;height:36px;cursor:pointer;display:grid;place-items:center;border:1px solid #475569;border-radius:9999px;list-style:none;background:rgba(15,23,42,.9);color:#f1f5f9;box-shadow:0 1px 2px rgba(0,0,0,.1)}.mobile-menu summary::-webkit-details-marker{display:none}.mobile-menu[open]::before{content:"";position:fixed;inset:0;z-index:58;background:rgba(0,0,0,.45)}.mobile-drawer{position:fixed;z-index:60;inset:0 auto 0 0;width:288px;max-width:80vw;display:flex;flex-direction:column;background:#020617;color:#f1f5f9;border-right:1px solid #1e293b;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.mobile-drawer-head{padding:12px 16px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;gap:12px}.mobile-drawer-brand{display:flex;align-items:center;gap:8px}.mobile-drawer-brand>span:last-child{display:flex;flex-direction:column}.mobile-drawer-brand strong{font-size:14px;line-height:20px}.mobile-drawer-brand small{font-size:11px;line-height:16px;color:#94a3b8}.mobile-drawer-icon{width:32px;height:32px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(to bottom right,#6366f1,#8b5cf6);color:#fff;font-weight:700}.mobile-close{width:32px;height:32px;padding:0;border:1px solid #334155;border-radius:9999px;display:grid;place-items:center;background:transparent;color:#cbd5e1;cursor:pointer}.mobile-drawer nav{flex:1;overflow-y:auto;margin-top:8px;padding-bottom:8px}.mobile-nav-link{width:100%;display:flex;align-items:center;gap:8px;padding:10px 16px;color:#f1f5f9;text-decoration:none;font-size:14px;line-height:20px;text-align:left}.mobile-nav-link:hover{background:#1e293b}.mobile-nav-link[aria-current=page]{background:#4f46e5;color:#fff}.mobile-nav-initial{width:24px;height:24px;border:1px solid #475569;border-radius:9999px;display:grid;place-items:center;font-size:11px;color:#94a3b8;flex:0 0 auto}.mobile-nav-link[aria-current=page] .mobile-nav-initial{border-color:rgba(255,255,255,.8);color:#fff}.mobile-drawer-foot{padding:12px 16px;border-top:1px solid #1e293b;color:#64748b;font-size:11px;line-height:16px}
+.site-theme-toggle{position:fixed;top:88px;right:16px;z-index:60;width:40px;height:40px;padding:0;border-radius:9999px;border:1px solid #0f172a;background:#0f172a;color:#fcd34d;display:grid;place-items:center;box-shadow:0 10px 24px rgba(15,23,42,.18);cursor:pointer;transition:transform .2s ease,background .2s ease}.site-theme-toggle:hover{transform:translateY(-1px);background:#1e293b}.site-theme-sun{display:none}.dark .site-theme-sun{display:grid}.dark .site-theme-moon{display:none}.dark .site-theme-toggle{background:rgba(245,158,11,.1);border-color:rgba(252,211,77,.35);color:#fde68a}
+.site-image-lightbox{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px;background:rgba(2,6,23,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}.site-image-lightbox img{display:block;max-width:min(96vw,1800px);max-height:90vh;object-fit:contain;border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.55);background:#020617}.site-image-lightbox-close{position:absolute;top:18px;right:18px;width:44px;height:44px;border:1px solid rgba(255,255,255,.18);border-radius:9999px;background:rgba(15,23,42,.78);color:#fff;font-size:28px;line-height:1;display:grid;place-items:center;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.3)}.site-image-lightbox-close:hover{background:#1e293b}
+.site-footer{width:100%;max-width:none!important;margin:auto 0 0!important;padding:0!important;flex:0 0 auto;border-top:1px solid #e2e8f0;background:#f8fafc;color:#1e293b;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.site-footer-inner{width:100%;max-width:1280px;margin:0 auto;padding:40px 16px 26px}.site-footer-cta{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border:1px solid rgba(99,102,241,.3);border-radius:16px;background:#eef2ff}.site-footer-cta strong{display:block;font-size:14px;color:#0f172a}.site-footer-cta p{margin:4px 0 0!important;white-space:normal!important;color:#64748b;font-size:13px;line-height:1.55}.site-footer-support{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:0 0 auto;padding:9px 16px;border-radius:9999px;background:#4f46e5;color:#fff!important;text-decoration:none!important;font-size:14px;font-weight:700}.site-footer-support:hover{background:#4338ca}.site-footer-grid{display:grid;grid-template-columns:1.35fr repeat(3,1fr);gap:32px;margin-top:32px}.site-footer-grid section{min-width:0}.site-footer-grid h2{margin:0 0 12px;font-size:14px;line-height:1.3;font-weight:700;color:#1e293b}.site-footer-brandline{display:flex;align-items:center;gap:8px}.site-footer-brandline>strong{font-size:18px}.site-footer-brandicon{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:#4f46e5;color:white}.site-footer-brand p,.site-footer-contact p{margin:12px 0 0!important;white-space:normal!important;color:#64748b;font-size:14px;line-height:1.65}.site-footer-socials{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.site-footer-socials a{padding:7px 10px;border:1px solid #cbd5e1;border-radius:9999px;color:#475569;text-decoration:none;font-size:12px;font-weight:700}.site-footer-links{display:grid;gap:9px}.site-footer-links a,.site-footer-contact a,.site-footer-bottom a{color:#475569;text-decoration:none;font-size:14px}.site-footer-links a:hover,.site-footer-contact a:hover,.site-footer-bottom a:hover{color:#4f46e5}.site-footer-contact a{display:flex;align-items:center;gap:7px;overflow-wrap:anywhere}.site-footer-bottom{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:28px;padding-top:18px;border-top:1px solid rgba(100,116,139,.24);color:#64748b;font-size:12px}.site-footer-bottom>div{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:14px}
+.dark body{background:#020617;color:#e2e8f0}.dark .resource,.dark .reviews{background:#0f172a!important;border-color:#334155!important;color:#e2e8f0!important}.dark .resource h1,.dark .resource h2,.dark .resource h3,.dark .reviews h1,.dark .reviews h2,.dark .reviews h3{color:#f8fafc}.dark .resource p,.dark .reviews p{color:#cbd5e1}.dark .site-footer{border-color:#1e293b;background:rgba(2,6,23,.97);color:#e2e8f0}.dark .site-footer-cta{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.35)}.dark .site-footer-cta strong,.dark .site-footer-grid h2{color:#f1f5f9}.dark .site-footer-cta p,.dark .site-footer-brand p,.dark .site-footer-contact p,.dark .site-footer-bottom{color:#94a3b8}.dark .site-footer-links a,.dark .site-footer-contact a,.dark .site-footer-bottom a{color:#cbd5e1}.dark .site-footer-socials a{border-color:#475569;color:#cbd5e1}.dark .site-footer-bottom{border-color:#334155}
 @media(max-width:1279px){.nav-wrap{display:flex;align-items:center;justify-content:space-between}.desktop-links,.desktop-account{display:none}.mobile-menu{display:block}}
-@media(max-width:639px){.nav-wrap{min-height:60px;padding:10px 16px}.brand small{display:none}.brand strong{font-size:1.125rem}.brand-icon{width:40px;height:40px}}
+@media(max-width:900px){.site-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:639px){.nav-wrap{min-height:60px;padding:10px 16px}.brand small{display:none}.brand strong{font-size:1.125rem}.brand-icon{width:40px;height:40px}.site-theme-toggle{top:76px;right:12px;width:40px;height:40px}.site-footer-inner{padding:30px 14px 22px}.site-footer-cta{align-items:flex-start;flex-direction:column}.site-footer-support{width:100%}.site-footer-grid{grid-template-columns:1fr;gap:24px}.site-footer-bottom{align-items:flex-start;flex-direction:column}.site-footer-bottom>div{justify-content:flex-start}}
+@media(prefers-reduced-motion:reduce){.site-theme-toggle,.desktop-nav-link{transition:none}}
 `;

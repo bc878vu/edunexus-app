@@ -1,5 +1,5 @@
 import { standaloneAdScript, standaloneContentSecurityPolicy } from './ad-support.mjs';
-import { renderNavbar, navStyles } from './site-shell.mjs';
+import { renderNavbar, renderFooter, renderThemeToggle, shellThemeBoot, navStyles } from './site-shell.mjs';
 import { escapeHtml as h, getPublicFile, listPublicFiles, listApprovedReviews, resourcePath, SITE, slugFor, validId } from './resource-data.mjs';
 import { guideForFile, SUBJECT_GUIDES } from './subject-guides.mjs';
 
@@ -221,16 +221,16 @@ export default async function handler(req, res) {
     if (req.method === 'HEAD') return res.status(200).end();
     return res.status(200).send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title>
 <meta name="description" content="${h((reviewPage > 1 ? 'Student reviews page ' + reviewPage + ': ' : '') + summary.slice(0, 155))}"><meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">
-<meta name="google-adsense-account" content="ca-pub-5179042048080611">${standaloneAdScript}<link rel="canonical" href="${h(canonical)}">
+<meta name="google-adsense-account" content="ca-pub-5179042048080611">${shellThemeBoot}${standaloneAdScript}<link rel="canonical" href="${h(canonical)}">
 <meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(summary.slice(0, 190))}"><meta property="og:url" content="${h(canonical)}">
-<script type="application/ld+json">${schema}</script><style>${styles}</style></head><body>${navbar}
+<script type="application/ld+json">${schema}</script><style>${styles}</style></head><body>${navbar}${renderThemeToggle()}
 <main><article class="resource"><div class="meta">${h(subject)} · ${h(String(file.ext || 'Study file').toUpperCase().slice(0, 12))}</div>
 <h1>${h(name)}</h1><p>${h(summary)}</p><div class="buttons"><a class="button" href="${h(appUrl)}">Preview this file on EduNexus</a>${downloadLink}<a class="button secondary" href="${h(reviewUrl)}">Read and write reviews</a></div>
 <p>EduNexus is an independent student learning platform. Check current course requirements with your institution. If you own rights to material that should not be shared, please contact us through the Contact page.</p></article>
 ${educationalContext}${relatedLinks}
 <section class="reviews" aria-label="Student reviews"><h2>Student reviews${reviewPage > 1 ? ' — page ' + reviewPage : ''}</h2>
 ${renderedReviews}${pagination}<a href="${h(reviewUrl)}">Read and write reviews in Academic Hub</a></section></main>
-<footer class="site-footer"><p>© EduNexus · Independent student study resources</p><nav aria-label="Footer links"><a href="/?page=academic">Academic Hub</a><a href="/?page=about">About</a><a href="/?page=contact">Contact</a><a href="/?page=privacy">Privacy Policy</a><a href="/?page=terms">Terms of Service</a></nav></footer></body></html>`);
+${renderFooter()}</body></html>`);
   } catch (error) {
     console.error('Resource page lookup failed', error?.message || 'unknown');
     return res.status(503).send('This resource is temporarily unavailable. Please try again shortly.');
