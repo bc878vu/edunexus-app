@@ -28,14 +28,7 @@ const articlePublicPath = (article) => {
   return '/articles/read/' + encodeURIComponent(id) + '/' + slug;
 };
 
-const articleSharePath = (article) => {
-  const params = new URLSearchParams();
-  params.set('share', '1');
-  params.set('t', String(article.title || 'EduNexus Article').slice(0, 180));
-  const description = getExcerpt(article.content, 180);
-  if (description) params.set('d', description);
-  return articlePublicPath(article) + '?' + params.toString();
-};
+const articleSharePath = (article) => articlePublicPath(article); // short clean link; OG comes from the article API
 
 // Excerpt + plain-text helpers (shared sanitizer understands the stored HTML)
 const getExcerpt = (content, maxLen = 280) => articleExcerpt(content, maxLen);
@@ -127,7 +120,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
             fetchpriority={idx === 0 ? "high" : "low"}
             decoding="async"
             onClick={() => setLightboxOpen(true)}
-            className="w-full h-auto cursor-zoom-in hover:opacity-95 transition-opacity"
+            className="w-full h-56 md:h-64 object-cover object-top cursor-zoom-in hover:opacity-95 transition-opacity"
             style={{ display: 'block' }}
           />
           <button
