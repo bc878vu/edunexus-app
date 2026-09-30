@@ -209,13 +209,20 @@ function AdminTools({ user, onView }) {
 
 
 // ShareBar: lets users share the current tab (MCQ Bank / Paper Reviews)
-// with the selected subject & term via copy-link or WhatsApp.
+// via copy-link or WhatsApp. The Paper Reviews tab shares the generic
+// /paper-reviews link with no subject name; the MCQ Bank tab keeps the
+// subject-specific share link.
 function ShareBar({ tab, subject, term }) {
   const [copied, setCopied] = React.useState(false);
-  const tabLabel = tab === "mcqs" ? "MCQ Bank" : tab === "reviews" ? "Paper Reviews" : "Study Files";
+  const isReviews = tab === "reviews";
+  const tabLabel = tab === "mcqs" ? "MCQ Bank" : isReviews ? "Paper Reviews" : "Study Files";
   const termLabel = term === "quiz" ? "Quiz" : term === "midterm" ? "Midterm" : "Finalterm";
-  const shareUrl = "https://edunexus.dpdns.org/exam-prep/" + encodeURIComponent(subject) + "/" + encodeURIComponent(term) + "/" + tab;
-  const shareText = subject + " " + termLabel + " " + tabLabel + " on EduNexus";
+  const shareUrl = isReviews
+    ? "https://edunexus.dpdns.org/paper-reviews"
+    : "https://edunexus.dpdns.org/exam-prep/" + encodeURIComponent(subject) + "/" + encodeURIComponent(term) + "/" + tab;
+  const shareText = isReviews
+    ? "Paper Reviews on EduNexus"
+    : subject + " " + termLabel + " " + tabLabel + " on EduNexus";
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -232,9 +239,9 @@ function ShareBar({ tab, subject, term }) {
   };
   const whatsAppUrl = "https://wa.me/?text=" + encodeURIComponent(shareText + "\n" + shareUrl);
   return (
-    <div className="edx-share-bar" role="group" aria-label={"Share this " + tabLabel}>
-      <span className="edx-share-bar-label"><Share2 size={15} /> Share this {tabLabel}</span>
-      <span className="edx-share-bar-subject">{subject} · {termLabel}</span>
+    <div className="edx-share-bar" role="group" aria-label={"Share " + tabLabel}>
+      <span className="edx-share-bar-label"><Share2 size={15} /> {isReviews ? "Share reviews" : "Share this " + tabLabel}</span>
+      {!isReviews && <span className="edx-share-bar-subject">{subject} · {termLabel}</span>}
       <button type="button" onClick={copyLink} className="edx-share-bar-btn" aria-label="Copy share link">
         {copied ? <Check size={16} /> : <Link2 size={16} />} {copied ? "Copied!" : "Copy link"}
       </button>

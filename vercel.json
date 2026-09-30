@@ -64,6 +64,30 @@
       ],
       "destination": "/portfolio",
       "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "page",
+          "value": "exam-prep"
+        }
+      ],
+      "destination": "/exam-prep",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "page",
+          "value": "academic"
+        }
+      ],
+      "destination": "/academic",
+      "permanent": false
     }
   ],
   "rewrites": [
@@ -77,6 +101,50 @@
         }
       ],
       "destination": "/api/resource-page?ogpage=portfolio"
+    },
+    {
+      "source": "/paper-reviews",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Ww]hats[Aa]pp|[Ff]acebookexternalhit|[Ff]acebookcatalog|[Tt]witterbot|[Ll]inkedin[Bb]ot|[Tt]elegrambot|[Dd]iscordbot|[Ss]lackbot|[Ss]kypeuripreview|[Gg]ooglebot|[Bb]ingbot|[Pp]interest|[Ee]mbedly|[Qq]uora|[Vv]k[Ss]hare).*"
+        }
+      ],
+      "destination": "/api/resource-page?ogpage=paperreviews"
+    },
+    {
+      "source": "/mcq-bank",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Ww]hats[Aa]pp|[Ff]acebookexternalhit|[Ff]acebookcatalog|[Tt]witterbot|[Ll]inkedin[Bb]ot|[Tt]elegrambot|[Dd]iscordbot|[Ss]lackbot|[Ss]kypeuripreview|[Gg]ooglebot|[Bb]ingbot|[Pp]interest|[Ee]mbedly|[Qq]uora|[Vv]k[Ss]hare).*"
+        }
+      ],
+      "destination": "/api/resource-page?ogpage=mcqbank"
+    },
+    {
+      "source": "/exam-prep",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Ww]hats[Aa]pp|[Ff]acebookexternalhit|[Ff]acebookcatalog|[Tt]witterbot|[Ll]inkedin[Bb]ot|[Tt]elegrambot|[Dd]iscordbot|[Ss]lackbot|[Ss]kypeuripreview|[Gg]ooglebot|[Bb]ingbot|[Pp]interest|[Ee]mbedly|[Qq]uora|[Vv]k[Ss]hare).*"
+        }
+      ],
+      "destination": "/api/resource-page?ogpage=examprep"
+    },
+    {
+      "source": "/academic",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Ww]hats[Aa]pp|[Ff]acebookexternalhit|[Ff]acebookcatalog|[Tt]witterbot|[Ll]inkedin[Bb]ot|[Tt]elegrambot|[Dd]iscordbot|[Ss]lackbot|[Ss]kypeuripreview|[Gg]ooglebot|[Bb]ingbot|[Pp]interest|[Ee]mbedly|[Qq]uora|[Vv]k[Ss]hare).*"
+        }
+      ],
+      "destination": "/api/resource-page?ogpage=academic"
     },
     {
       "source": "/learning/:code/:slug",
@@ -192,6 +260,10 @@
     },
     {
       "source": "/terms",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/academic",
       "destination": "/index.html"
     },
     {

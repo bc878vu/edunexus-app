@@ -67,6 +67,49 @@ export default async function handler(req, res) {
     return res.status(200).send(html);
   }
 
+  // Generic share pages (?page=exam-prep, ?page=academic, /paper-reviews,
+  // /mcq-bank): crawlers get a server-rendered preview with that page's own
+  // title and description — never a subject name. vercel.json routes crawler
+  // user-agents here; direct browser hits get a 302 to the page (loop-free:
+  // the function never 302s to a URL that rewrites back to itself).
+  const ogPage = String(req.query?.ogpage || '');
+  if (ogPage === 'paperreviews' || ogPage === 'mcqbank' || ogPage === 'examprep' || ogPage === 'academic') {
+    const ua = String(req.headers['user-agent'] || '').toLowerCase();
+    const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
+    const pages = {
+      paperreviews: {
+        appUrl: SITE + '/paper-reviews',
+        title: 'Paper Reviews | EduNexus',
+        desc: 'Read real paper reviews by VU students on EduNexus — paper patterns, important topics, difficulty level and exam tips. Share your own paper review.',
+        image: SITE + '/paper-reviews-og.jpg'
+      },
+      mcqbank: {
+        appUrl: SITE + '/mcq-bank',
+        title: 'MCQ Bank | EduNexus',
+        desc: 'Practice solved MCQs for VU subjects on EduNexus — important and repeated questions with answers, free for students.',
+        image: SITE + '/mcq-bank-og.jpg'
+      },
+      examprep: {
+        appUrl: SITE + '/exam-prep',
+        title: 'VU Exam MCQ Bank & Paper Reviews | EduNexus',
+        desc: 'Practice subject-wise VU MCQs, explore completed-exam paper reviews and find exam preparation resources.',
+        image: SITE + '/mcq-bank-og.jpg'
+      },
+      academic: {
+        appUrl: SITE + '/academic',
+        title: 'VU Notes, Handouts & Past Papers | EduNexus Academic Hub',
+        desc: 'Explore organized Virtual University notes, handouts, course files and past-paper resources with subject-focused search and quick access.',
+        image: SITE + '/logo512.png'
+      }
+    };
+    const pg = pages[ogPage];
+    if (!isCrawler) return res.redirect(302, pg.appUrl);
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(pg.title)}</title><meta name="description" content="${h(pg.desc)}"><meta name="robots" content="noindex,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(pg.title)}"><meta property="og:description" content="${h(pg.desc)}"><meta property="og:url" content="${h(pg.appUrl)}"><meta property="og:image" content="${h(pg.image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(pg.title)}"><meta name="twitter:description" content="${h(pg.desc)}"><meta name="twitter:image" content="${h(pg.image)}"><meta http-equiv="refresh" content="0;url=${h(pg.appUrl)}"></head><body><p><a href="${h(pg.appUrl)}">${h(pg.title)}</a></p></body></html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(html);
+  }
+
   // Exam-prep share links: /exam-prep/CS101/midterm/mcqs (via vercel.json rewrite).
   // Crawlers (WhatsApp etc.) get server-rendered OG tags so the preview shows the
   // subject's MCQ bank / paper reviews. Browsers get a 302 to the SPA URL.
@@ -84,10 +127,10 @@ export default async function handler(req, res) {
     if (!isCrawler) return res.redirect(302, appUrl);
     const title = isMcq
       ? rawSubject + ' ' + term + ' Solved MCQs | EduNexus'
-      : rawSubject + ' ' + term + ' Paper Reviews | EduNexus';
+      : 'Paper Reviews | EduNexus';
     const desc = isMcq
       ? 'Practice ' + rawSubject + ' ' + term + ' solved MCQs on EduNexus — important and repeated questions with answers, free for VU students.'
-      : 'Read real ' + rawSubject + ' ' + term + ' paper reviews by VU students on EduNexus — paper pattern, important topics and difficulty level.';
+      : 'Read real paper reviews by VU students on EduNexus — paper patterns, important topics, difficulty level and exam tips. Share your own paper review.';
     const image = SITE + (isMcq ? '/mcq-bank-og.jpg' : '/paper-reviews-og.jpg');
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><meta name="robots" content="noindex,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><p><a href="${h(appUrl)}">${h(title)}</a></p></body></html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
