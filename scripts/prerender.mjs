@@ -16,11 +16,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { SITE, canonicalPath, displaySubjectName } from '../src/site-seo.mjs';
 import { routeFromLocation, routeParamsFromPath } from '../src/app-routes.mjs';
 import { SEO_PAGE_DATA } from '../src/SEO.js';
-import { SUBJECTS } from '../api/subjects-sitemap.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(SCRIPT_DIR, '..');
-const MAX_ROUTES = 500;
+const MAX_ROUTES = 60;
 
 // SPA pages that always get a static file, even if the sitemap omits them.
 const FIXED_ROUTES = [
@@ -66,7 +65,7 @@ function routesFromSitemap(root) {
   return routes;
 }
 
-async function collectRoutes(root) {
+function collectRoutes(root) {
   const seen = new Set();
   const routes = [];
   const push = (pathname, search = '') => {
@@ -77,11 +76,6 @@ async function collectRoutes(root) {
   };
   for (const pathname of FIXED_ROUTES) push(pathname);
   for (const route of routesFromSitemap(root)) push(route.pathname, route.search);
-
-  // Subject pages are a local build-time catalog, not a network dependency.
-  // This guarantees static HTML for every subject even if the production
-  // domain or serverless sitemap is temporarily unavailable during deploy.
-  for (const subject of SUBJECTS) push('/academic/' + encodeURIComponent(subject));
   return routes;
 }
 
@@ -117,7 +111,8 @@ function routeSeo(route) {
     }
   }
   const canonical = SITE + canonicalPath(page, search, { subject: subjectRaw, term: termRaw });
-  return { page, pathParams, title, description, keywords, canonical, schemaType: data[3], bank, subjectRaw };
+  const image = page === 'portfolio' ? SITE + '/portfolio-og.jpg' : SITE + '/logo512.png';
+  return { page, pathParams, title, description, keywords, canonical, image, schemaType: data[3], bank, subjectRaw };
 }
 
 // ---- static content block ----------------------------------------------------
@@ -321,13 +316,13 @@ function renderRoute(template, route, seo, banks, robots) {
   html = replaceTag(html, /<meta\s+property="og:url"\s+content="[^"]*"\s*\/?>/,
     '<meta property="og:url" content="' + esc(seo.canonical) + '"/>');
   html = replaceTag(html, /<meta\s+property="og:image"\s+content="[^"]*"\s*\/?>/,
-    '<meta property="og:image" content="' + esc(SITE + '/logo512.png') + '"/>');
+    '<meta property="og:image" content="' + esc(seo.image) + '"/>');
   html = replaceTag(html, /<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/?>/,
     '<meta name="twitter:title" content="' + esc(seo.title) + '"/>');
   html = replaceTag(html, /<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/?>/,
     '<meta name="twitter:description" content="' + esc(seo.description) + '"/>');
   html = replaceTag(html, /<meta\s+name="twitter:image"\s+content="[^"]*"\s*\/?>/,
-    '<meta name="twitter:image" content="' + esc(SITE + '/logo512.png') + '"/>');
+    '<meta name="twitter:image" content="' + esc(seo.image) + '"/>');
   // Exactly one JSON-LD block per page: drop the template's static blocks.
   html = html.replace(/<script\s+type="application\/ld\+json">[\s\S]*?<\/script>/g, '');
   const jsonLd = JSON.stringify({
@@ -388,7 +383,7 @@ export async function prerender(rootDir) {
   const robotsMatch = template.match(/<meta\s+name="robots"\s+content="([^"]*)"/);
   const robots = robotsMatch ? robotsMatch[1] : DEFAULT_ROBOTS;
 
-  const routes = await collectRoutes(root);
+  const routes = collectRoutes(root);
   const withSeo = routes.map((route) => ({ route, seo: routeSeo(route) }));
   const banks = withSeo.filter((entry) => entry.seo.bank);
 

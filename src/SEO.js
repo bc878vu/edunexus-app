@@ -12,7 +12,7 @@ const DATA = {
   planner: ["AI Study Planner for University Students | EduNexus", "Build a focused study plan around your subjects, available study time and exam preparation goals.", "AI study planner, university study plan, VU study planner, exam timetable, study schedule, student planner", "WebApplication"],
   cgpa: ["CGPA & GPA Calculator for VU Students | EduNexus", "Calculate an approximate GPA or CGPA with a responsive university calculator and review how credit hours affect performance.", "CGPA calculator, GPA calculator, VU CGPA calculator, Virtual University GPA, 4.0 GPA calculator, university calculator Pakistan", "WebApplication"],
   forum: ["VU Student Discussion Forum | EduNexus", "Ask study questions, discuss university topics and share learning help with the EduNexus student community.", "VU discussion forum, Virtual University students, student questions, university discussion, VU community", "CollectionPage"],
-  portfolio: ["EduNexus Developer Portfolio | Student Technology Project", "Explore the technology and portfolio behind EduNexus, an independent student-focused learning platform.", "EduNexus portfolio, student technology project, web developer portfolio, education technology Pakistan", "ProfilePage"],
+  portfolio: ["Asad Amanat Ali — Software Engineer & Web Developer | Creator of EduNexus", "Asad Amanat Ali — Software Engineer & Web Developer from Pakistan and creator of EduNexus. Explore my projects, skills, and experience.", "Asad Amanat Ali, software engineer Pakistan, web developer portfolio, EduNexus creator, Virtual University developer", "ProfilePage"],
   about: ["About EduNexus | Independent Student Learning Platform", "Learn about EduNexus and its mission to make academic resources and study tools easier for students to access.", "about EduNexus, student learning platform, education portal, study hub", "AboutPage"],
   contact: ["Contact EduNexus | Student Support & Feedback", "Contact EduNexus for study-resource suggestions, corrections, feedback and technical support.", "contact EduNexus, student support, study portal support, feedback", "ContactPage"],
   guides: ["Study Guides for University Students | EduNexus", "Practical study guides covering revision, note taking, past papers, exam preparation and academic planning.", "study guides, university study tips, exam preparation, revision techniques, student guide Pakistan", "CollectionPage"],
@@ -98,10 +98,11 @@ function updateSeo() {
   setProp('og:description', description);
   setProp('og:url', canonical);
   setProp('og:locale', 'en_PK');
-  setProp('og:image', SITE + '/logo512.png');
+  const ogImage = page === 'portfolio' ? SITE + '/portfolio-og.jpg' : SITE + '/logo512.png';
+  setProp('og:image', ogImage);
   setMeta('twitter:title', title);
   setMeta('twitter:description', description);
-  setMeta('twitter:image', SITE + '/logo512.png');
+  setMeta('twitter:image', ogImage);
 
   let link = document.head.querySelector('link[rel="canonical"]');
   if (!link) {
