@@ -3925,6 +3925,7 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
       // the auth adapter's signInAdmin (Firebase branch). Supabase branch
       // uses Supabase's own session + confirmation handling.
       const appUser = await signInAdmin(enteredEmail, passwordVal);
+      try { console.log('[ADMIN-DEBUG] signInAdmin returned:', JSON.stringify({ email: appUser && appUser.email, uid: appUser && appUser.uid, verified: verifiedAdmin(appUser) })); } catch (_) {}
       // signInAdmin returns one normalized user shape for both Firebase and
       // Supabase. Admin session checks must use that normalized shape because
       // a raw Supabase user has id/email_confirmed_at rather than the
@@ -5000,6 +5001,17 @@ const NAV_ITEMS = PAGES;
     // downstream helpers only read those plain fields.
     const unsub = onAuthChange(account => {
       if (!active || logoutInProgress.current) return;
+      try {
+        console.log('[ADMIN-DEBUG] onAuthChange:', JSON.stringify({
+          email: account && account.email,
+          emailVerified: account && account.emailVerified,
+          isAnonymous: account && account.isAnonymous,
+          uid: account && account.uid,
+          verifiedAdmin: verifiedAdmin(account),
+          loginPending: isAdminLoginPending(),
+          tabActive: account ? adminTabIsActive(account) : null,
+        }));
+      } catch (_) {}
       if (verifiedAdmin(account)) {
         if (isAdminLoginPending()) return;
         // The auth session itself is a verified admin. If this tab never
@@ -5110,6 +5122,7 @@ useEffect(() => {
 
 
   const handleLogoutAdmin = async ({ redirect = true, broadcast = true } = {}) => {
+    try { console.log('[ADMIN-DEBUG] handleLogoutAdmin called, stack:', new Error().stack); } catch (_) {}
     if (logoutInProgress.current) return;
     logoutInProgress.current = true;
     isAdminRef.current = false;
