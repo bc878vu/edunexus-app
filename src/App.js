@@ -3493,7 +3493,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
   const [about, setAbout] = useState("");
 
   const defaultUrl =
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=Asad1&backgroundColor=1e293b";
+    "https://edunexus.dpdns.org/portfolio-profile.jpg";
 
   // profile doc path
   // TODO(supabase): public/data/profile/main maps to plan §1 table 13
