@@ -28,7 +28,14 @@ const articlePublicPath = (article) => {
   return '/articles/read/' + encodeURIComponent(id) + '/' + slug;
 };
 
-const articleSharePath = (article) => articlePublicPath(article); // short clean link; OG comes from the article API
+const articleSharePath = (article) => {
+  const params = new URLSearchParams();
+  params.set('share', '1');
+  params.set('t', String(article.title || 'EduNexus Article').slice(0, 180));
+  const description = getExcerpt(article.content, 180);
+  if (description) params.set('d', description);
+  return articlePublicPath(article) + '?' + params.toString();
+};
 
 // Excerpt + plain-text helpers (shared sanitizer understands the stored HTML)
 const getExcerpt = (content, maxLen = 280) => articleExcerpt(content, maxLen);
