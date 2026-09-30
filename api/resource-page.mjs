@@ -49,24 +49,27 @@ function buildSchema({ name, subject, summary, canonical }) {
 export default async function handler(req, res) {
   if (!['GET', 'HEAD'].includes(req.method)) return res.status(405).end();
 
-  // Exam-prep share links: ?page=exam-prep&section=mcqs|reviews&subject=CS101&term=midterm
-  // are client-side SPA URLs. Crawlers (WhatsApp etc.) get server-rendered OG tags
-  // here via a vercel.json rewrite, so the preview shows the subject's MCQ bank /
-  // paper reviews instead of the generic home preview. Regular browsers never hit this.
-  const epPage = String(req.query?.page || '');
+  // Exam-prep share links: /exam-prep/CS101/midterm/mcqs (via vercel.json rewrite).
+  // Crawlers (WhatsApp etc.) get server-rendered OG tags so the preview shows the
+  // subject's MCQ bank / paper reviews. Browsers get a 302 to the SPA URL.
+  // Regular browsers never hit this branch for other URLs.
+  const epShare = String(req.query?.examprep || '');
   const epSection = String(req.query?.section || '');
-  if (epPage === 'exam-prep' && (epSection === 'mcqs' || epSection === 'reviews')) {
+  if (epShare === '1' && (epSection === 'mcqs' || epSection === 'reviews')) {
     const rawSubject = String(req.query?.subject || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'VU';
     const rawTerm = String(req.query?.term || '').toLowerCase();
     const term = rawTerm === 'quiz' ? 'Quiz' : rawTerm === 'finalterm' ? 'Finalterm' : 'Midterm';
     const isMcq = epSection === 'mcqs';
+    const appUrl = SITE + '/?page=exam-prep&section=' + epSection + '&subject=' + encodeURIComponent(rawSubject) + '&term=' + encodeURIComponent(rawTerm || 'midterm');
+    const ua = String(req.headers['user-agent'] || '').toLowerCase();
+    const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
+    if (!isCrawler) return res.redirect(302, appUrl);
     const title = isMcq
       ? rawSubject + ' ' + term + ' Solved MCQs | EduNexus'
       : rawSubject + ' ' + term + ' Paper Reviews | EduNexus';
     const desc = isMcq
       ? 'Practice ' + rawSubject + ' ' + term + ' solved MCQs on EduNexus — important and repeated questions with answers, free for VU students.'
       : 'Read real ' + rawSubject + ' ' + term + ' paper reviews by VU students on EduNexus — paper pattern, important topics and difficulty level.';
-    const appUrl = SITE + '/?page=exam-prep&section=' + epSection + '&subject=' + encodeURIComponent(rawSubject) + '&term=' + encodeURIComponent(rawTerm || 'midterm');
     const image = SITE + (isMcq ? '/mcq-bank-og.jpg' : '/paper-reviews-og.jpg');
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><meta name="robots" content="noindex,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><p><a href="${h(appUrl)}">${h(title)}</a></p></body></html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

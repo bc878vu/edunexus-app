@@ -74,27 +74,6 @@
       "destination": "/api/resource-sitemap"
     },
     {
-      "source": "/",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": "(?i).*(whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare).*"
-        },
-        {
-          "type": "query",
-          "key": "page",
-          "value": "exam-prep"
-        },
-        {
-          "type": "query",
-          "key": "section",
-          "value": "(mcqs|reviews)"
-        }
-      ],
-      "destination": "/api/resource-page"
-    },
-    {
       "source": "/vu-notes/file/:id",
       "destination": "/api/resource-page?id=:id"
     },
@@ -193,6 +172,10 @@
     {
       "source": "/academic/:subject",
       "destination": "/index.html"
+    },
+    {
+      "source": "/exam-prep/:subject/:term/:section",
+      "destination": "/api/resource-page?examprep=1&section=:section&subject=:subject&term=:term"
     },
     {
       "source": "/exam-prep/:subject/:term",

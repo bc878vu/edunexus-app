@@ -49,8 +49,10 @@ export function routeParamsFromPath(pathname) {
     return { page: 'academic', subject: '', term: '', fileId: parts[2].slice(0, 80) };
   }
   // /exam-prep/<subject>/<term> e.g. /exam-prep/CS609/Finalterm
+  // /exam-prep/<subject>/<term>/<section> e.g. /exam-prep/CS609/Finalterm/mcqs (share links)
   if (parts[0] === 'exam-prep' && parts[1] && parts[2]) {
-    return { page: 'exam-prep', subject: parts[1].slice(0, 24), term: parts[2].slice(0, 24) };
+    const section = parts[3] && /^(mcqs|reviews)$/i.test(parts[3]) ? parts[3].toLowerCase() : '';
+    return { page: 'exam-prep', subject: parts[1].slice(0, 24), term: parts[2].slice(0, 24), section };
   }
   return { page: '', subject: '', term: '' };
 }

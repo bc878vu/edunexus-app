@@ -6,7 +6,6 @@ import { validateMcq } from "./examMcqImport";
 import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, publishedExamCatalog } from "./examCatalog";
 import { routeParamsFromPath } from "./app-routes.mjs";
 import { adminPanelAccess } from './adminSession';
-import { listFiles, subscribeFiles } from './db/files';
 
 import "./exam-prep-hub.css";
 const ExamPaperCommunity = React.lazy(() => import("./ExamPaperCommunity"));
@@ -66,24 +65,18 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
   useEffect(() => {
-    if (!validCourse(subject)) { setFiles([]); setLoading(false); setError(''); return; }
+    if (!validCourse(subject)) { setFiles([]); setLoading(false); return; }
     let live = true;
-    let unsubscribe = () => {};
-    const load = async () => {
-      setLoading(true); setError('');
-      try {
-        const result = await listFiles({ subject, limit: 100, activeOnly: true });
+    setLoading(true); setError('');
+    const unsubscribe = onSnapshot(query(col("files"), where("subject", "==", subject), limit(100)),
+      (snapshot) => {
         if (!live) return;
-        setFiles((result?.items || []).filter((f) => safeUrl(f.url || f.downloadUrl || f.fileUrl)));
-      } catch (err) {
-        if (live) setError(databaseReadError(err, 'Study files'));
-      } finally {
-        if (live) setLoading(false);
-      }
-    };
-    void load();
-    unsubscribe = subscribeFiles({ subject, limit: 100, onInvalidate: () => { if (live) void load(); } });
-    return () => { live = false; try { unsubscribe?.(); } catch (_) {} };
+        setFiles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .filter((f) => safeUrl(f.url || f.downloadUrl || f.fileUrl)));
+        setLoading(false);
+      },
+      () => { if (live) { setError('Study files could not load. Please try again.'); setLoading(false); } });
+    return () => { live = false; unsubscribe(); };
   }, [subject]);
   const visible = useMemo(() => files.filter(file =>
     [file.name, file.title, file.description, file.ext].some(value =>
@@ -95,8 +88,7 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
   return <div className="edx-study-page">
     <section className="edx-study-hero"><span className="edx-exam-eyebrow"><BookOpen size={15}/> Your study library</span>
       <h1>Find the material you need.</h1>
-      <p>Enter your subject code, search the library and open handouts, notes and shared study resources in seconds.</p>
-      <div className="edx-study-hero-points"><span><Search size={15}/> Search by subject</span><span><FileText size={15}/> Notes & handouts</span><span><BookOpen size={15}/> Study-ready resources</span></div></section>
+      <p>Browse handouts, notes and shared resources for your subject.</p></section>
     <div className="edx-study-controls">
       <CourseSelector value={subject} onChange={onSubjectChange} subjects={subjects}/>
       <label className="edx-exam-field">Find a file <span className="edx-study-search"><Search size={17}/><input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search title or file type…"/></span></label>
@@ -105,14 +97,14 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
       </select></label>
     </div>
     <section className="edx-exam-card edx-study-results" aria-live="polite">
-      <div className="edx-exam-between edx-study-results-head"><div><span className="edx-exam-eyebrow">Resource library</span><h2>{subject} study files</h2><p>{search ? 'Showing files matching your search.' : 'Open a resource below or refine the subject and search above.'}</p></div><span className="edx-exam-pill">{visible.length} {visible.length === 1 ? 'file' : 'files'}</span></div>
+      <div className="edx-exam-between"><h2>{subject} study files</h2><span className="edx-exam-pill">{visible.length} {visible.length === 1 ? 'file' : 'files'}</span></div>
       {loading && <p role="status">Loading study files…</p>}
       {error && <p role="alert">{error}</p>}
       {!loading && !error && !visible.length && <div className="edx-study-empty"><FileText size={26}/><h3>{search ? 'No matching files' : 'No files shared for this subject yet'}</h3><p>{search ? 'Try another search or clear the search box.' : 'Browse the Academic Hub to find resources for other subjects.'}</p>{search && <button type="button" className="edx-exam-secondary" onClick={()=>setSearch('')}>Clear search</button>}</div>}
       {!loading && !!visible.length && <div className="edx-study-grid">{visible.map(file =>
         <article className="edx-study-file" key={file.id}><div className="edx-study-icon"><FileText size={21}/></div>
-          <div><strong>{safe(file.name || file.title,120) || 'Study resource'}</strong><small>{safe(file.ext,10).toUpperCase() || 'RESOURCE'} · {subject}</small>{file.description && <p>{safe(file.description,140)}</p>}</div>
-          <a className="edx-exam-secondary" target="_blank" rel="noopener noreferrer" href={safeUrl(file.url || file.downloadUrl || file.fileUrl)}>Open resource <ChevronRight size={16}/></a>
+          <div><strong>{safe(file.name || file.title,120) || 'Study resource'}</strong><small>{safe(file.ext,10).toUpperCase() || 'RESOURCE'} · {subject}</small></div>
+          <a className="edx-exam-secondary" target="_blank" rel="noopener noreferrer" href={safeUrl(file.url || file.downloadUrl || file.fileUrl)}>Open <ChevronRight size={16}/></a>
         </article>)}</div>}
       <a className="edx-exam-secondary edx-study-browse" href="/?page=academic">Browse all study material <ChevronRight size={16}/></a>
     </section>
@@ -166,7 +158,7 @@ function AdminTools({ user, onView }) {
   return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Exam content management</h2><p>Only publish original or properly licensed questions and completed-exam guidance.</p></div><ShieldCheck size={28} /></div>
     {message && <p role="status" className="edx-exam-alert">{message}</p>}
     {lastPublished && <div className="edx-exam-publish-actions">
-      <a className="edx-exam-primary" href={(lastPublished.term === 'midterm' || lastPublished.term === 'finalterm') ? '/exam-prep/' + encodeURIComponent(lastPublished.subject) + '/' + (lastPublished.term === 'midterm' ? 'Midterm' : 'Finalterm') : '/exam-prep?subject=' + encodeURIComponent(lastPublished.subject) + '&term=quiz'} target="_blank" rel="noopener noreferrer">Open published {lastPublished.subject} {lastPublished.term} quiz <ChevronRight size={16}/></a>
+      <a className="edx-exam-primary" href={'/?page=exam-prep&subject=' + encodeURIComponent(lastPublished.subject) + '&term=' + encodeURIComponent(lastPublished.term)} target="_blank" rel="noopener noreferrer">Open published {lastPublished.subject} {lastPublished.term} quiz <ChevronRight size={16}/></a>
       <button type="button" className="edx-exam-secondary" onClick={() => onView?.(lastPublished.subject, lastPublished.term)}>Preview in Admin Panel</button>
     </div>}
     <form className="edx-exam-card edx-exam-form" onSubmit={addOne}><h3>Add an MCQ</h3><div className="edx-exam-form-grid"><CourseSelector value={draft.subject} onChange={(value) => setDraft((v) => ({ ...v, subject: value }))} /><TermSelector includeQuiz value={draft.term} onChange={(value) => setDraft((v) => ({ ...v, term: value }))} /></div>
@@ -208,9 +200,7 @@ function ShareBar({ tab, subject, term }) {
   const [copied, setCopied] = React.useState(false);
   const tabLabel = tab === "mcqs" ? "MCQ Bank" : tab === "reviews" ? "Paper Reviews" : "Study Files";
   const termLabel = term === "quiz" ? "Quiz" : term === "midterm" ? "Midterm" : "Finalterm";
-  const shareUrl = (term === "midterm" || term === "finalterm")
-    ? "https://edunexus.dpdns.org/exam-prep/" + encodeURIComponent(subject) + "/" + (term === "midterm" ? "Midterm" : "Finalterm") + (tab === "mcqs" ? "" : "?section=" + encodeURIComponent(tab))
-    : "https://edunexus.dpdns.org/exam-prep?section=" + encodeURIComponent(tab) + "&subject=" + encodeURIComponent(subject) + "&term=quiz";
+  const shareUrl = "https://edunexus.dpdns.org/exam-prep/" + encodeURIComponent(subject) + "/" + encodeURIComponent(term) + "/" + tab;
   const shareText = subject + " " + termLabel + " " + tabLabel + " on EduNexus";
   const copyLink = async () => {
     try {
@@ -317,13 +307,15 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   const showAdmin = adminWorkspace === true && isAdmin(user);
   const [tab, setTab] = useState(() => {
     if (adminWorkspace) return initialTab === "admin" ? "admin" : "mcqs";
-    const requested = new URLSearchParams(window.location.search).get('section');
+    const requested = new URLSearchParams(window.location.search).get('section')
+      || (window.location.pathname.match(/^\/exam-prep\/[^/]+\/[^/]+\/(mcqs|reviews|files)/i) || [])[1];
     return ['mcqs', 'reviews', 'files'].includes(requested) ? requested : 'mcqs';
   });
   useEffect(() => {
     if (adminWorkspace) return;
     const syncSection = () => {
-      const requested = new URLSearchParams(window.location.search).get('section');
+      const requested = new URLSearchParams(window.location.search).get('section')
+        || (window.location.pathname.match(/^\/exam-prep\/[^/]+\/[^/]+\/(mcqs|reviews|files)/i) || [])[1];
       if (['mcqs', 'reviews', 'files'].includes(requested)) setTab(requested);
     };
     window.addEventListener('popstate', syncSection);
@@ -358,9 +350,6 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   const [catalog, setCatalog] = useState({ subjects: [], bySubject: {}, total:0 });
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
-  // Runtime counts override stale denormalized catalogue values after a bank
-  // has actually loaded, so the selector always reflects what students see.
-  const [runtimeCounts, setRuntimeCounts] = useState({});
   const userPickedFilter = useRef(false);
   const subjectRef = useRef(subject);
   const termRef = useRef(term);
@@ -435,21 +424,13 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     termRef.current = value;
     if (searchedSubject) setSearchStatus("found");
   };
-  const countSubject = searchedSubject || subject;
-  const catalogCounts = catalog.bySubject[countSubject] || { quiz: 0, midterm: 0, finalterm: 0 };
-  const searchCounts = { ...catalogCounts, ...(runtimeCounts[countSubject] || {}) };
-  const handleBankLoaded = React.useCallback((code, examTerm, count) => {
-    setRuntimeCounts(prev => {
-      if (prev[code]?.[examTerm] === count) return prev;
-      return { ...prev, [code]: { ...(prev[code] || {}), [examTerm]: count } };
-    });
-  }, []);
+  const searchCounts = catalog.bySubject[searchedSubject || subject] || { quiz: 0, midterm: 0, finalterm: 0 };
   useEffect(() => {
     if (!validCourse(subject) || !EXAM_CATEGORIES.includes(term)) return;
     try { window.localStorage.setItem('edunexus:exam:last-selection:v1', JSON.stringify({ subject, term })); }
     catch (_) {}
   }, [subject, term]);
-  const availableCounts = { ...(catalog.bySubject[subject] || { quiz: 0, midterm: 0, finalterm: 0 }), ...(runtimeCounts[subject] || {}) };
+  const availableCounts = catalog.bySubject[subject] || { quiz: 0, midterm: 0, finalterm: 0 };
   const catalogSubjects = [...new Set([...catalog.subjects, ...SUBJECTS, subject])].filter(Boolean);
 
   const changeTab = (next) => {
@@ -465,7 +446,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
       {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
     </nav>
     {((tab === "mcqs" && searchedSubject) || tab === "reviews") && <ShareBar tab={tab} subject={subject} term={term} />}
-    {tab === "mcqs" && searchedSubject && searchStatus === "found" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={[searchedSubject]} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm} onBankLoaded={handleBankLoaded}/></React.Suspense>}
+    {tab === "mcqs" && searchedSubject && searchStatus === "found" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={[searchedSubject]} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm}/></React.Suspense>}
     {tab === "mcqs" && !searchedSubject && <section className="edx-exam-card edx-search-welcome" aria-live="polite"><Search size={30} aria-hidden="true" /><div><h3>Find your subject to begin</h3><p>Enter your subject code above, choose Quiz, Midterm or Finalterm, then press Search. Your selected practice bank will open here.</p></div></section>}
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} onSubjectChange={selectSubject} subjects={catalogSubjects} />}
