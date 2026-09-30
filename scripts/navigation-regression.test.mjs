@@ -23,6 +23,8 @@ test('all nine principal destinations are shared by desktop and mobile nav', () 
 test('resource, guide and article SSR pages have a single accessible main nav', () => {
   for (const active of ['academic', 'articles']) {
     const html = renderNavbar(active);
+    assert.equal((html.match(/id="edunexus-main-navbar"/g) || []).length, 1);
+    assert.equal((html.match(/data-edunexus-main-nav="true"/g) || []).length, 1);
     assert.equal((html.match(/class="site-header"/g) || []).length, 1);
     assert.equal((html.match(/aria-label="Main navigation"/g) || []).length, 1);
     assert.equal((html.match(/aria-label="Mobile navigation"/g) || []).length, 1);
@@ -32,7 +34,11 @@ test('resource, guide and article SSR pages have a single accessible main nav', 
     assert.match(html, /<summary aria-label="Open navigation menu">/);
   }
   assert.match(navStyles, /max-width:1279px/);
-  assert.match(readFileSync('src/App.js', 'utf8'), /const ALL_ITEMS = MOBILE_ITEMS/);
+  const appSource = readFileSync('src/App.js', 'utf8');
+  assert.match(appSource, /const ALL_ITEMS = MOBILE_ITEMS/);
+  assert.equal((appSource.match(/<Navbar\b/g) || []).length, 1);
+  assert.equal((appSource.match(/id="edunexus-main-navbar"/g) || []).length, 1);
+  assert.equal((appSource.match(/data-edunexus-main-nav="true"/g) || []).length, 1);
   assert.match(readFileSync('api/article-page.mjs', 'utf8'), /renderNavbar\('articles'\)/);
   assert.match(readFileSync('api/learning-page.mjs', 'utf8'), /renderNavbar\('academic'\)/);
 });
@@ -108,20 +114,25 @@ test('guides and tutorials render inside the shared App main and footer', () => 
   const app = readFileSync('src/App.js', 'utf8');
   const guides = readFileSync('src/ContentHub.js', 'utf8');
   const tutorials = readFileSync('src/TutorialHub.js', 'utf8');
+  const adminContent = readFileSync('src/AdminContentManager.js', 'utf8');
   assert.doesNotMatch(entry, /<ContentHub\s*\/>|<TutorialHub\s*\/>/);
   assert.match(app, /CONTENT_PAGE_IDS\.includes\(page\)/);
   assert.match(app, /page === 'tutorials'/);
   assert.match(app, /<ContentHub\s*\/>/);
   assert.match(app, /<TutorialHub\s*\/>/);
   assert.equal(CONTENT_PAGE_IDS.length, 8);
+  assert.doesNotMatch(guides, /edux-content-nav/);
+  assert.doesNotMatch(tutorials, /edux-tutorial-nav/);
+  assert.doesNotMatch(adminContent, /edx-admin-header/);
   assert.doesNotMatch(guides, /<main className="edux-content-main">/);
   assert.doesNotMatch(tutorials, /<main className='edux-tutorial-main'>/);
   assert.match(readFileSync('src/content-hub.css', 'utf8'),
     /\.edux-content-overlay\{position:relative;inset:auto;z-index:auto;overflow:visible/);
   assert.match(readFileSync('src/tutorial-hub.css', 'utf8'),
     /\.edux-tutorial-overlay\{position:relative;inset:auto;z-index:auto;overflow:visible/);
-  assert.match(readFileSync('src/content-hub.css', 'utf8'), /\.edux-content-nav\{display:none\}/);
-  assert.match(readFileSync('src/tutorial-hub.css', 'utf8'), /\.edux-tutorial-nav\{display:none\}/);
+  assert.match(readFileSync('src/content-hub.css', 'utf8'), /\.edux-content-nav\{display:none!important\}/);
+  assert.match(readFileSync('src/tutorial-hub.css', 'utf8'), /\.edux-tutorial-nav\{display:none!important\}/);
+  assert.match(readFileSync('src/admin-content-manager.css', 'utf8'), /\.edx-tutorials-embedded \.edx-admin-header\{display:none!important\}/);
 });
 
 test('only content-hashed assets are eligible for service worker cache-first strategy', () => {
