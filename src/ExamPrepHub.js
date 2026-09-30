@@ -297,7 +297,7 @@ const SAMPLE_MCQS = [
     answer: 2,
     explanation: 'Pakistan gained independence on 14 August 1947.'
   }
-];
+]; // v2 trigger
 
 function SampleMcqs() {
   const [answers, setAnswers] = React.useState({});
