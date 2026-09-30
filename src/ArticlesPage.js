@@ -110,9 +110,9 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
       className={`${theme.card} rounded-2xl border ${theme.border} overflow-hidden hover:shadow-2xl transition-all duration-300 group animate-fade-in`}
       style={{ animationDelay: `${Math.min(idx * 80, 400)}ms` }}
     >
-      {/* Cover image - fill the full card width; fullscreen keeps the complete original available */}
+      {/* Cover image - premium full-frame treatment; original remains available in fullscreen */}
       {art.imageUrl && (
-        <div className="relative h-56 sm:h-64 md:h-80 overflow-hidden bg-slate-900">
+        <div className="relative h-52 sm:h-60 md:h-72 overflow-hidden bg-slate-950 isolate">
           <img
             src={optimizeImageUrl(art.imageUrl)}
             alt={art.title}
@@ -120,15 +120,19 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
             fetchPriority={idx === 0 ? "high" : "low"}
             decoding="async"
             onClick={() => setLightboxOpen(true)}
-            className="w-full h-full object-cover object-center cursor-zoom-in hover:opacity-95 transition-opacity"
+            className="w-full h-full object-cover object-[center_30%] cursor-zoom-in transition-[transform,filter,opacity] duration-700 ease-out group-hover:scale-[1.035] group-hover:saturate-[1.04]"
             style={{ display: 'block' }}
           />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/35 via-transparent to-black/5" />
+          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5" />
           <button
             onClick={() => setLightboxOpen(true)}
-            className="absolute z-20 bottom-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors backdrop-blur-sm"
+            className="absolute z-20 bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/65 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-md transition-all hover:bg-slate-950/85 hover:scale-105"
             aria-label="View full image"
+            title="View full image"
           >
-            <Maximize2 size={16} />
+            <Maximize2 size={15} />
+            <span className="hidden sm:inline">View</span>
           </button>
         </div>
       )}
@@ -149,7 +153,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
           <img
             src={art.imageUrl}
             alt={art.title}
-            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            className="max-w-[96vw] max-h-[90vh] object-contain rounded-2xl shadow-2xl ring-1 ring-white/10 bg-slate-950"
             onClick={(e) => e.stopPropagation()}
           />
         </div>
