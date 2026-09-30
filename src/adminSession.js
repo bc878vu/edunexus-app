@@ -48,6 +48,10 @@ export function touchAdminSession() {
   catch (_) {}
 }
 
+export function clearAdminSession() {
+  try { session()?.removeItem(ADMIN_SESSION_KEY); } catch (_) {}
+}
+
 export function adminSessionAlive() {
   try {
     const ts = Number(session()?.getItem(ADMIN_SESSION_KEY) || 0);

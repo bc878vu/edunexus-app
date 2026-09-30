@@ -126,7 +126,7 @@ import {
 } from './db/articles';
 
 // This declaration must follow all static imports (CRA enforces import/first).
-import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, adminLoginStarted, adminLoginFinished, isAdminLoginPending, grantAdminTab, clearAdminTab, adminTabIsActive, adminPanelAccess, currentPageIsAdmin, verifiedAdmin, broadcastAdminLogout, touchAdminSession, adminSessionAlive } from './adminSession';
+import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, adminLoginStarted, adminLoginFinished, isAdminLoginPending, grantAdminTab, clearAdminTab, clearAdminSession, adminTabIsActive, adminPanelAccess, currentPageIsAdmin, verifiedAdmin, broadcastAdminLogout, touchAdminSession, adminSessionAlive } from './adminSession';
 const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
@@ -3937,6 +3937,7 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
       onClose();
     } catch (error) {
       clearAdminTab();
+      clearAdminSession();
       await signOut().catch(() => {});
       const code = error?.code || "";
       const message = code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found"
@@ -4950,7 +4951,8 @@ const NAV_ITEMS = PAGES;
     // ✅ central navigation function (har jagah isi ko use karna hai)
   const navigate = (targetPage) => {
     if (!PAGES.includes(targetPage)) targetPage = 'home';
-    if (verifiedAdmin(getCurrentUser())) touchAdminSession();
+    // getCurrentUser() is async — resolve before testing, never test the Promise.
+    getCurrentUser().then(u => { if (verifiedAdmin(u)) touchAdminSession(); }).catch(() => {});
     syncAdminModeForPage(targetPage);
 
     setPage(targetPage);
@@ -4976,7 +4978,7 @@ const NAV_ITEMS = PAGES;
   // Keep the main page in sync when the browser returns from a subject link.
   const syncFromHistory = () => {
     const nextPage = routeFromLocation(window.location);
-    if (verifiedAdmin(getCurrentUser())) touchAdminSession();
+    getCurrentUser().then(u => { if (verifiedAdmin(u)) touchAdminSession(); }).catch(() => {});
     syncAdminModeForPage(nextPage);
     setPage(nextPage);
     setIsMenuOpen(false);
@@ -5000,10 +5002,17 @@ const NAV_ITEMS = PAGES;
       if (!active || logoutInProgress.current) return;
       if (verifiedAdmin(account)) {
         if (isAdminLoginPending()) return;
-        if (!adminTabIsActive(account)) {
+        // The auth session itself is a verified admin. If this tab never
+        // completed the login modal (restored session on reload, new tab,
+        // re-subscribe), GRANT the tab instead of forcing a logout — the
+        // verified session is the authority, the tab key is only a marker.
+        // Forced logout here used to nuke valid sessions and broadcast the
+        // logout to every other tab.
+        if (!adminTabIsActive(account) && !grantAdminTab(account)) {
+          // Session storage is unavailable — cannot hold the admin grant.
           isAdminRef.current = false;
           setUser(null); setIsAdminMode(false);
-          void handleLogoutAdmin({ redirect: currentPageIsAdmin(), broadcast: true });
+          void handleLogoutAdmin({ redirect: currentPageIsAdmin(), broadcast: false });
           return;
         }
         touchAdminSession();
@@ -5028,8 +5037,13 @@ const NAV_ITEMS = PAGES;
     });
     const otherTab = event => {
       if (event.key !== ADMIN_LOGOUT_KEY || !event.newValue) return;
-      if (verifiedAdmin(getCurrentUser())) void handleLogoutAdmin({ redirect: true, broadcast: false });
-      else clearAdminTab();
+      // Another tab signed the admin out. getCurrentUser() is async — resolve
+      // it properly instead of testing the Promise object (which made the old
+      // check always false and unconditionally wiped this tab's grant).
+      getCurrentUser().then(currentUser => {
+        if (verifiedAdmin(currentUser)) void handleLogoutAdmin({ redirect: true, broadcast: false });
+        else { clearAdminTab(); clearAdminSession(); }
+      }).catch(() => { clearAdminTab(); clearAdminSession(); });
     };
     window.addEventListener('storage', otherTab);
     return () => { active = false; unsub(); window.removeEventListener('storage', otherTab); };
@@ -5037,18 +5051,21 @@ const NAV_ITEMS = PAGES;
 
   // 30-minute rolling admin session: any activity (click / key / touch /
   // navigation) refreshes it, and a minute-tick signs out once it lapses.
+  // getCurrentUser() is async — always resolve it before testing admin status.
   useEffect(() => {
     let lastBump = 0;
     const bump = () => {
       const now = Date.now();
       if (now - lastBump < 60000) return;
       lastBump = now;
-      if (verifiedAdmin(getCurrentUser())) touchAdminSession();
+      getCurrentUser().then(u => { if (verifiedAdmin(u)) touchAdminSession(); }).catch(() => {});
     };
     const enforce = () => {
-      if (verifiedAdmin(getCurrentUser()) && !adminSessionAlive()) {
-        void handleLogoutAdmin({ redirect: currentPageIsAdmin(), broadcast: true });
-      }
+      getCurrentUser().then(u => {
+        if (verifiedAdmin(u) && !adminSessionAlive()) {
+          void handleLogoutAdmin({ redirect: currentPageIsAdmin(), broadcast: true });
+        }
+      }).catch(() => {});
     };
     const timer = setInterval(enforce, 60000);
     window.addEventListener('click', bump, true);
@@ -5096,15 +5113,25 @@ useEffect(() => {
     if (logoutInProgress.current) return;
     logoutInProgress.current = true;
     isAdminRef.current = false;
-    clearAdminTab(); setUser(null); setIsAdminMode(false); setShowAdminLogin(false);
+    // Clear BOTH the tab grant and the rolling session timestamp — the old
+    // code left the session key behind, so adminSessionAlive() stayed true
+    // for hours after logout and poisoned the auth-state logic.
+    clearAdminTab(); clearAdminSession();
+    setUser(null); setIsAdminMode(false); setShowAdminLogin(false);
     if (broadcast) broadcastAdminLogout();
     if (redirect) navigate('home');
     try {
-      if (verifiedAdmin(getCurrentUser())) await signOut();
-      if (!getCurrentUser()) await ensureAnon();
+      // getCurrentUser() is async — resolve it first. The old code tested the
+      // Promise object itself, so signOut() was silently skipped and the
+      // Supabase session survived every "logout".
+      const currentUser = await getCurrentUser();
+      if (verifiedAdmin(currentUser)) await signOut();
+      const afterUser = await getCurrentUser();
+      if (!afterUser) await ensureAnon();
       // The auth observer intentionally ignores events while logout is pending.
       // Reattach the guest session explicitly so public tools keep working.
-      if (!verifiedAdmin(getCurrentUser())) setUser(getCurrentUser());
+      const finalUser = await getCurrentUser();
+      if (!verifiedAdmin(finalUser)) setUser(finalUser);
       if (redirect) showToast('Admin signed out from all EduNexus pages in this browser and its open tabs.', 'info');
     } catch (_) {
       showToast('Sign-out failed. Close this tab and retry.', 'error');
