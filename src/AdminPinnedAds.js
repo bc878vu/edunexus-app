@@ -6,6 +6,7 @@ import {
 import { Megaphone, Pencil, Plus, Trash2, X } from "lucide-react";
 import { db } from "./firebase-client";
 import { useConfirm } from "./ConfirmDialog";
+import { bumpPinnedAdVersion } from "./pinnedAdSync";
 
 const PINNED_ADS = collection(db, "artifacts/edunexus-live/public/data/pinned_ads");
 
@@ -171,6 +172,8 @@ export default function AdminPinnedAds({ showToast }) {
         });
         if (showToast) showToast("Ad created.", "success");
       }
+      // Tell open dashboard tabs to refetch immediately.
+      bumpPinnedAdVersion();
       cancelEdit();
     } catch (err) {
       console.error("Pinned ad save failed:", err);
@@ -188,6 +191,7 @@ export default function AdminPinnedAds({ showToast }) {
       onConfirm: async () => {
         try {
           await deleteDoc(doc(PINNED_ADS, ad.id));
+          bumpPinnedAdVersion();
           if (showToast) showToast("Ad deleted.", "success");
         } catch (err) {
           console.error("Pinned ad delete failed:", err);
@@ -203,6 +207,7 @@ export default function AdminPinnedAds({ showToast }) {
         isActive: !(ad.isActive !== false),
         updatedAt: serverTimestamp(),
       });
+      bumpPinnedAdVersion();
     } catch (err) {
       console.error("Pinned ad toggle failed:", err);
       if (showToast) showToast("Could not update the ad.", "error");
@@ -257,10 +262,10 @@ export default function AdminPinnedAds({ showToast }) {
             <label className="block">
               <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Video URL *</span>
               <input
-                type="url"
+                type="text"
                 value={form.videoUrl}
                 onChange={(e) => set("videoUrl", e.target.value)}
-                placeholder="https://…/intro.mp4"
+                placeholder="https://…/intro.mp4 or /pinned-ad-video.mp4"
                 required
                 className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
               />

@@ -1,10 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { Pin, X, Maximize2 } from "lucide-react";
 import { db } from "./firebase-client";
+import {
+  PINNED_AD_VERSION_KEY,
+  PINNED_AD_CHANGED_EVENT,
+  readPinnedAdVersion,
+} from "./pinnedAdSync";
 import "./pinned-ad.css";
 
-// PinnedAd v2.0.0 — floating pinned announcement.
+// PinnedAd v2.1.0 — floating pinned announcement.
 //
 // The player floats OVER the dashboard content (position:fixed) so it never
 // takes its own layout space or pushes content down. Tapping it opens an
@@ -13,7 +18,9 @@ import "./pinned-ad.css";
 //
 // Data: reads Firestore directly — the same collection the admin panel
 // reads/writes — so the dashboard always agrees with Admin → Pinned Ads.
-// Results are cached 1 hour in localStorage.
+// Results are cached 1 hour in localStorage (key v3), and the admin panel
+// bumps a version signal after every change so open dashboard tabs refetch
+// immediately instead of waiting out the cache.
 
 const PINNED_ADS = collection(db, "artifacts/edunexus-live/public/data/pinned_ads");
 
@@ -35,56 +42,108 @@ const POSITION_CLASS = {
   "bottom-right": "edx-pa-pos-bottom-right",
 };
 
+const CACHE_KEY = "edx-pinned-ad-cache-v3";
+const CACHE_TTL = 3600000; // 1 hour
+
+function toMs(v) {
+  if (!v) return null;
+  if (typeof v === "object") {
+    if (typeof v.toMillis === "function") return v.toMillis();
+    // Firestore Timestamps lose their prototype through the JSON cache
+    // round-trip and come back as plain {seconds, nanoseconds} objects.
+    if (typeof v.seconds === "number") {
+      return v.seconds * 1000 + Math.floor((v.nanoseconds || 0) / 1e6);
+    }
+  }
+  const ms = new Date(v).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
 function mediaTypeOf(ad) {
   if (ad.mediaType === "image" || ad.mediaType === "text") return ad.mediaType;
   return "video";
+}
+
+async function fetchActiveAd() {
+  const snap = await getDocs(query(PINNED_ADS, orderBy("createdAt", "desc")));
+  const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const now = Date.now();
+  return (
+    items.find((item) => {
+      if (item.isActive === false) return false;
+      const start = toMs(item.startAt);
+      if (start !== null && now < start) return false;
+      const end = toMs(item.endAt);
+      if (end !== null && now > end) return false;
+      return true;
+    }) || null
+  );
 }
 
 export default function PinnedAd() {
   const [ad, setAd] = useState(null);
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  // Last admin-change version we have already applied.
+  const versionRef = useRef(null);
+
+  // Quota-friendly: one-time fetch, cached 1 hour in localStorage.
+  // Cache key v3 — v2 was shared between the interim Supabase-backed build
+  // and this Firestore build, so v2 could hold a stale null payload.
+  const loadAd = useCallback(async (force) => {
+    if (!force) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+        if (cached && Date.now() - cached.ts < CACHE_TTL) {
+          versionRef.current = cached.v ?? readPinnedAdVersion();
+          setAd(cached.ad || null);
+          return;
+        }
+      } catch (_) {}
+    }
+    try {
+      const active = await fetchActiveAd();
+      versionRef.current = readPinnedAdVersion();
+      try {
+        localStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({ ts: Date.now(), ad: active, v: versionRef.current })
+        );
+      } catch (_) {}
+      setAd(active);
+    } catch (_) {
+      setAd(null);
+    }
+  }, []);
 
   useEffect(() => {
-    // Quota-friendly: one-time fetch, cached 1 hour in localStorage.
-    // Cache key v2 — v1 cached the old in-flow card payload shape.
-    const CACHE_KEY = "edx-pinned-ad-cache-v2";
-    const toMs = (v) => {
-      if (!v) return null;
-      if (typeof v === "object" && typeof v.toMillis === "function") return v.toMillis();
-      const ms = new Date(v).getTime();
-      return Number.isFinite(ms) ? ms : null;
+    loadAd(false);
+    // Admin bumps this signal after every pinned-ad mutation (create /
+    // update / delete / toggle). Two channels: the custom event covers the
+    // same tab (storage events never fire in the writing tab), the storage
+    // event covers other open tabs, and the visibility check is a backup
+    // for browsers that throttle background tabs.
+    const onChanged = () => loadAd(true);
+    const onStorage = (e) => {
+      if (e.key === PINNED_AD_VERSION_KEY) loadAd(true);
     };
-    try {
-      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-      if (cached && Date.now() - cached.ts < 3600000) {
-        setAd(cached.ad || null);
-        return;
+    const onVisible = () => {
+      if (
+        document.visibilityState === "visible" &&
+        readPinnedAdVersion() !== versionRef.current
+      ) {
+        loadAd(true);
       }
-    } catch (_) {}
-    (async () => {
-      try {
-        const snap = await getDocs(query(PINNED_ADS, orderBy("createdAt", "desc")));
-        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        const now = Date.now();
-        const active =
-          items.find((item) => {
-            if (item.isActive === false) return false;
-            const start = toMs(item.startAt);
-            if (start !== null && now < start) return false;
-            const end = toMs(item.endAt);
-            if (end !== null && now > end) return false;
-            return true;
-          }) || null;
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), ad: active }));
-        } catch (_) {}
-        setAd(active);
-      } catch (_) {
-        setAd(null);
-      }
-    })();
-  }, []);
+    };
+    window.addEventListener(PINNED_AD_CHANGED_EVENT, onChanged);
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener(PINNED_AD_CHANGED_EVENT, onChanged);
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [loadAd]);
 
   useEffect(() => {
     setDismissed(false);
