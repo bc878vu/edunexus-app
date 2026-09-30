@@ -4887,6 +4887,7 @@ const dashboardStudyCardStyles = "\n/* Dashboard entry cards: independent of the
 const App = () => {
   const [page, setPage] = useState(() => routeFromLocation(window.location));
   const [user, setUser] = useState(null);
+  const isAdminRef = useRef(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -5000,13 +5001,20 @@ const NAV_ITEMS = PAGES;
       if (verifiedAdmin(account)) {
         if (isAdminLoginPending()) return;
         if (!adminTabIsActive(account)) {
+          isAdminRef.current = false;
           setUser(null); setIsAdminMode(false);
           void handleLogoutAdmin({ redirect: currentPageIsAdmin(), broadcast: true });
           return;
         }
         touchAdminSession();
+        isAdminRef.current = true;
         setUser(account); setIsAdminMode(currentPageIsAdmin());
       } else {
+        // If we're currently admin (via ref), ignore non-admin auth changes.
+        // The admin session is managed explicitly via login/logout.
+        if (isAdminRef.current) {
+          return;
+        }
         // Don't clear the admin tab on non-admin auth changes - the admin
         // session is managed explicitly via login/logout, not by auth state.
         // Only update user if there's no active admin session.
@@ -5087,6 +5095,7 @@ useEffect(() => {
   const handleLogoutAdmin = async ({ redirect = true, broadcast = true } = {}) => {
     if (logoutInProgress.current) return;
     logoutInProgress.current = true;
+    isAdminRef.current = false;
     clearAdminTab(); setUser(null); setIsAdminMode(false); setShowAdminLogin(false);
     if (broadcast) broadcastAdminLogout();
     if (redirect) navigate('home');
@@ -5489,7 +5498,7 @@ useEffect(() => {
         <AdminLogin
           onClose={() => setShowAdminLogin(false)}
           setPage={navigate}
-          onLoginSuccess={(account) => { setUser(account); setIsAdminMode(adminTabIsActive(account)); }}
+          onLoginSuccess={(account) => { isAdminRef.current = verifiedAdmin(account); setUser(account); setIsAdminMode(adminTabIsActive(account)); }}
           showToast={showToast}
         />
       )}
