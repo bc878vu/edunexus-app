@@ -184,6 +184,14 @@
     {
       "source": "/exam-prep",
       "destination": "/index.html"
+    },
+    {
+      "source": "/mcq-bank",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/paper-reviews",
+      "destination": "/index.html"
     }
   ],
   "buildCommand": "npm run build",

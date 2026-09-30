@@ -245,6 +245,20 @@ function ShareBar({ tab, subject, term }) {
   );
 }
 
+// detectSectionFromUrl: resolves the active tab from the URL. Supports the
+// legacy ?section= param, /exam-prep/<subject>/<term>/<section> share links,
+// and the dedicated /mcq-bank and /paper-reviews pages.
+function detectSectionFromUrl() {
+  const fromParam = new URLSearchParams(window.location.search).get('section');
+  if (['mcqs', 'reviews', 'files'].includes(fromParam)) return fromParam;
+  const path = window.location.pathname || '';
+  if (/^\/mcq-bank(\/|$)/i.test(path)) return 'mcqs';
+  if (/^\/paper-reviews(\/|$)/i.test(path)) return 'reviews';
+  const m = path.match(/^\/exam-prep\/[^/]+\/[^/]+\/(mcqs|reviews|files)/i);
+  if (m && ['mcqs', 'reviews', 'files'].includes(m[1].toLowerCase())) return m[1].toLowerCase();
+  return '';
+}
+
 // PracticeSearchCard: search-first subject finder for the MCQ Bank.
 // Replaces the old subject-pill catalogue: the user types a subject code,
 // picks Quiz / Midterm / Finalterm, hits Search, and only that subject's
@@ -321,16 +335,13 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
   const showAdmin = adminWorkspace === true && isAdmin(user);
   const [tab, setTab] = useState(() => {
     if (adminWorkspace) return initialTab === "admin" ? "admin" : "mcqs";
-    const requested = new URLSearchParams(window.location.search).get('section')
-      || (window.location.pathname.match(/^\/exam-prep\/[^/]+\/[^/]+\/(mcqs|reviews|files)/i) || [])[1];
-    return ['mcqs', 'reviews', 'files'].includes(requested) ? requested : 'mcqs';
+    return detectSectionFromUrl() || 'mcqs';
   });
   useEffect(() => {
     if (adminWorkspace) return;
     const syncSection = () => {
-      const requested = new URLSearchParams(window.location.search).get('section')
-        || (window.location.pathname.match(/^\/exam-prep\/[^/]+\/[^/]+\/(mcqs|reviews|files)/i) || [])[1];
-      if (['mcqs', 'reviews', 'files'].includes(requested)) setTab(requested);
+      const requested = detectSectionFromUrl();
+      if (requested) setTab(requested);
     };
     window.addEventListener('popstate', syncSection);
     window.addEventListener('edunexus:navigation', syncSection);
@@ -464,6 +475,20 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     if (next === "admin" && !showAdmin) return;
     if (next === "reviews" && term === "quiz") selectTerm("midterm");
     setTab(next);
+    // Keep the address bar on the dedicated page URL when switching between
+    // the top-level pages (not subject-specific share links).
+    try {
+      const path = window.location.pathname || '';
+      const isTopLevel = path === '/mcq-bank' || path === '/paper-reviews'
+        || path === '/exam-prep' || path === '/exam-prep/';
+      if (isTopLevel && (next === 'mcqs' || next === 'reviews')) {
+        const target = next === 'mcqs' ? '/mcq-bank' : '/paper-reviews';
+        if (path !== target) {
+          window.history.pushState({}, '', target);
+          window.dispatchEvent(new Event('edunexus:navigation'));
+        }
+      }
+    } catch (_) {}
   };
   return <div className={"edx-exam" + (isDark ? " edx-exam-dark" : "")} id="edx-exam-hub">
     {tab === "mcqs" && <><section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><GraduationCap size={14} /> MCQ Bank</span><h1>Practice smarter. Prepare with confidence.</h1><p>Type your subject code in the search box below, pick Quiz, Midterm or Finalterm, and hit Search — practice the most important &amp; repeated MCQs for your paper.</p><div className="edx-exam-hero-links"><button onClick={() => { const el = document.querySelector(".edx-search-card"); if (el) el.scrollIntoView({behavior:"smooth",block:"start"}); }}>Find my subject <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>

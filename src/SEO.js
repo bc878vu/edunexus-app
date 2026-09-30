@@ -68,6 +68,14 @@ function updateSeo() {
   // library view gets its own indexable identity instead of one generic page.
   let title = data[0];
   let description = data[1];
+  const pathname = window.location.pathname || '';
+  if (pathname === '/mcq-bank') {
+    title = 'MCQ Bank — Practice Solved MCQs | EduNexus';
+    description = 'Practice the most important and repeated solved MCQs for VU subjects on EduNexus — Quiz, Midterm and Finalterm banks, free for students.';
+  } else if (pathname === '/paper-reviews') {
+    title = 'Paper Reviews — Real Student Experiences | EduNexus';
+    description = 'Read real paper reviews by VU students on EduNexus — paper pattern, important topics, difficulty level and preparation tips.';
+  }
   if (page === 'exam-prep') {
     const subject = (params.get('subject') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const term = (params.get('term') || '').toLowerCase();
@@ -98,7 +106,10 @@ function updateSeo() {
   setProp('og:description', description);
   setProp('og:url', canonical);
   setProp('og:locale', 'en_PK');
-  const ogImage = page === 'portfolio' ? SITE + '/portfolio-og.jpg?v=2' : SITE + '/logo512.png';
+  const ogImage = page === 'portfolio' ? SITE + '/portfolio-og.jpg?v=2'
+    : pathname === '/mcq-bank' ? SITE + '/mcq-bank-og.jpg'
+    : pathname === '/paper-reviews' ? SITE + '/paper-reviews-og.jpg'
+    : SITE + '/logo512.png';
   setProp('og:image', ogImage);
   setMeta('twitter:title', title);
   setMeta('twitter:description', description);

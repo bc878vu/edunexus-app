@@ -23,7 +23,7 @@ const MAX_ROUTES = 60;
 
 // SPA pages that always get a static file, even if the sitemap omits them.
 const FIXED_ROUTES = [
-  '/', '/exam-prep', '/vu-notes', '/articles', '/quizzes', '/cgpa-calculator',
+  '/', '/exam-prep', '/mcq-bank', '/paper-reviews', '/vu-notes', '/articles', '/quizzes', '/cgpa-calculator',
   '/about', '/contact', '/privacy', '/terms', '/forum', '/tutorials'
 ];
 
@@ -94,6 +94,16 @@ function routeSeo(route) {
   let description = data[1];
   let keywords = data[2];
   let bank = null;
+  // Dedicated pages get their own unique preview (title/description/image).
+  if (pathname === '/mcq-bank') {
+    title = 'MCQ Bank — Practice Solved MCQs | EduNexus';
+    description = 'Practice the most important and repeated solved MCQs for VU subjects on EduNexus — Quiz, Midterm and Finalterm banks, free for students.';
+    keywords += ', mcq bank, solved mcqs, vu mcqs, practice mcqs';
+  } else if (pathname === '/paper-reviews') {
+    title = 'Paper Reviews — Real Student Experiences | EduNexus';
+    description = 'Read real paper reviews by VU students on EduNexus — paper pattern, important topics, difficulty level and preparation tips.';
+    keywords += ', paper reviews, vu paper pattern, student reviews';
+  }
   if (page === 'exam-prep') {
     const subject = subjectRaw.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (subject && termLabel) {
@@ -111,7 +121,10 @@ function routeSeo(route) {
     }
   }
   const canonical = SITE + canonicalPath(page, search, { subject: subjectRaw, term: termRaw });
-  const image = page === 'portfolio' ? SITE + '/portfolio-og.jpg?v=2' : SITE + '/logo512.png';
+  const image = page === 'portfolio' ? SITE + '/portfolio-og.jpg?v=2'
+    : pathname === '/mcq-bank' ? SITE + '/mcq-bank-og.jpg'
+    : pathname === '/paper-reviews' ? SITE + '/paper-reviews-og.jpg'
+    : SITE + '/logo512.png';
   return { page, pathParams, title, description, keywords, canonical, image, schemaType: data[3], bank, subjectRaw };
 }
 

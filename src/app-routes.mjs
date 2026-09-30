@@ -8,7 +8,8 @@ export const FRIENDLY_ROUTES = Object.freeze({
   '/past-papers-guide': 'past-papers', '/exam-preparation': 'exam-preparation',
   '/cgpa-guide': 'cgpa-guide', '/ai-study-tools': 'ai-study-tools',
   '/student-resources': 'resources', '/live-projects': 'projects',
-  '/tutorials': 'tutorials', '/exam-prep': 'exam-prep'
+  '/tutorials': 'tutorials', '/exam-prep': 'exam-prep',
+  '/mcq-bank': 'exam-prep', '/paper-reviews': 'exam-prep'
 });
 
 export const CONTENT_PAGE_IDS = Object.freeze([
@@ -47,6 +48,14 @@ export function routeParamsFromPath(pathname) {
   // ?page=academic&file=<id>.
   if (parts[0] === 'vu-notes' && parts[1] === 'file' && parts[2]) {
     return { page: 'academic', subject: '', term: '', fileId: parts[2].slice(0, 80) };
+  }
+  // /mcq-bank — dedicated MCQ Bank page (exam-prep hub, mcqs tab)
+  if (parts[0] === 'mcq-bank' && !parts[1]) {
+    return { page: 'exam-prep', subject: '', term: '', section: 'mcqs' };
+  }
+  // /paper-reviews — dedicated Paper Reviews page (exam-prep hub, reviews tab)
+  if (parts[0] === 'paper-reviews' && !parts[1]) {
+    return { page: 'exam-prep', subject: '', term: '', section: 'reviews' };
   }
   // /exam-prep/<subject>/<term> e.g. /exam-prep/CS609/Finalterm
   // /exam-prep/<subject>/<term>/<section> e.g. /exam-prep/CS609/Finalterm/mcqs (share links)
