@@ -173,7 +173,8 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     let initialized = false;
     let unsubscribe = () => {};
     // Check cache first: if fresh data exists, use it instantly (0 reads, instant render).
-    const cached = questionCache.get(subject);
+    const cacheKey = subject + ':' + term;
+    const cached = questionCache.get(cacheKey);
     const now = Date.now();
     if (cached && (now - cached.fetchedAt) < CACHE_TTL_MS && cached.docs) {
       // Serve from cache - process the cached docs the same way as snapshot docs
@@ -190,15 +191,18 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       // skip the query entirely to save reads. User can hit "Check for new questions" to refresh.
       return () => {};
     }
-    // Supabase-primary (Firebase fallback) one-time fetch. The adapter already
-    // filters inactive items. No live listener: saves Firestore quota and the
-    // practice bank always matches the catalogue counts (same primary store),
-    // so Midterm shows Midterm data and Finalterm shows Finalterm data.
-    // "Check for new questions" refreshes manually.
-    listMcqs({ subject, limit: QUESTION_LIMIT }).then(async items => {
+    // Supabase-primary (Firebase fallback) one-time fetch, filtered server-side
+    // by term: selecting Midterm fetches ONLY midterm rows, Finalterm ONLY
+    // finalterm rows - never the whole subject at once. Quiz questions are
+    // stored with raw term 'midterm' (+ marker) or 'quiz', so quiz fetches the
+    // subject and relies on categoryOf below. orderedQuestions() remains the
+    // final safety net (handles explanation markers). "Check for new questions"
+    // refreshes manually.
+    const fetchTerm = term === 'quiz' ? undefined : term;
+    listMcqs({ subject, term: fetchTerm, limit: QUESTION_LIMIT }).then(async items => {
       if (sessionRef.current !== session) return;
       // Populate cache for future visits
-      questionCache.set(subject, { docs: items, fetchedAt: Date.now() });
+      questionCache.set(cacheKey, { docs: items, fetchedAt: Date.now() });
       const all = orderedQuestions(items, term);
       if (term === 'quiz') setQuizSets([...new Set(all.map(quizSetOf))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})));
       else setQuizSets([]);
@@ -420,7 +424,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       <CircleHelp size={29}/><h3>No questions found for {subject} · {CATEGORY_NAMES[term]}</h3>
       <p>No published questions were found for this combination. Quiz questions are listed separately from Midterm and Finalterm, even if their legacy Firestore records use the Midterm field.</p>
       <div className="edx-practice-empty-actions">{[["quiz", "Quiz"], ["midterm", "Midterm"], ["finalterm", "Finalterm"]].filter(([kind]) => kind !== term && categoryCounts[kind] > 0).map(([kind, label]) => <button type="button" key={kind} className="edx-exam-primary" onClick={() => onTermChange?.(kind)}>Open {label} · {categoryCounts[kind]} available</button>)}
-      <button type="button" className="edx-exam-secondary" onClick={() => (()=>{questionCache.delete(subject); setRefresh(v => v + 1);})()}>Check for new questions</button></div></div>}
+      <button type="button" className="edx-exam-secondary" onClick={() => (()=>{questionCache.delete(subject + ':' + term); setRefresh(v => v + 1);})()}>Check for new questions</button></div></div>}
     {!loading && !restoring && !loadError && !!actualQuestions.length && !finished && current && <>
       <QuestionReview question={current} number={index+1} total={actualQuestions.length} selected={answers[current.id]}
         onSelect={select} onPrevious={() => goTo(actualQuestions[index-1])} onNext={nextQuestion}
