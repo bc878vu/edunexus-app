@@ -5416,10 +5416,19 @@ useEffect(() => {
     <div className="border-t border-slate-700/40 pt-4 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
       {/* 🔐 Secret admin trigger area */}
       <p
+        role="button"
+        tabIndex={0}
+        aria-label="Admin login"
         className={`cursor-pointer select-none transition-colors ${
           theme.textMuted
         } hover:text-indigo-500`}
         onClick={handleFooterClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleFooterClick();
+          }
+        }}
       >
           © {currentYear} EduNexus · Developed by Asad Amanat Ali.
       </p>
