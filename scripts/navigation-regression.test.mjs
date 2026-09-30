@@ -186,9 +186,12 @@ test('moving resource orb stays mounted with the managed page links', () => {
 test('article covers use the enhanced full-frame treatment', () => {
   const articleList = readFileSync('src/ArticlesPage.js', 'utf8');
   const articlePage = readFileSync('api/article-page.mjs', 'utf8');
-  assert.match(articleList, /object-\[center_28%\]/);
+  assert.match(articleList, /w-full h-52 sm:h-64 md:h-80 lg:h-\[360px\]/);
+  assert.match(articleList, /style=\{\{ width: '100%' \}\}/);
+  assert.match(articleList, /absolute inset-0 w-full h-full object-cover object-\[center_28%\]/);
   assert.match(articleList, /articleImageSrcSet/);
   assert.match(articleList, /q_auto:good,c_limit,w_/);
+  assert.match(articleList, /896px/);
   assert.match(articleList, /group-hover:scale-\[1\.035\]/);
   assert.match(articleList, /View full image/);
   assert.match(articlePage, /v9-unified-shell-enhanced-images/);

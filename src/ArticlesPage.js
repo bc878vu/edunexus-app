@@ -120,18 +120,21 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
     >
       {/* Cover image - premium full-frame treatment; original remains available in fullscreen */}
       {art.imageUrl && (
-        <div className="relative aspect-[16/8.8] min-h-[210px] max-h-[330px] overflow-hidden bg-slate-950 isolate shadow-inner">
+        <div
+          className="relative w-full h-52 sm:h-64 md:h-80 lg:h-[360px] overflow-hidden bg-slate-950 isolate shadow-inner"
+          style={{ width: '100%' }}
+        >
           <img
-            src={optimizeImageUrl(art.imageUrl, 1400)}
+            src={optimizeImageUrl(art.imageUrl, 1600)}
             srcSet={articleImageSrcSet(art.imageUrl)}
-            sizes="(max-width: 767px) 100vw, 760px"
+            sizes="(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 64px), 896px"
             alt={art.title}
             loading={idx === 0 ? "eager" : "lazy"}
             fetchPriority={idx === 0 ? "high" : "low"}
             decoding="async"
             onClick={() => setLightboxOpen(true)}
-            className="w-full h-full object-cover object-[center_28%] cursor-zoom-in transition-[transform,filter,opacity] duration-700 ease-out group-hover:scale-[1.035] group-hover:saturate-[1.05] group-hover:contrast-[1.02]"
-            style={{ display: 'block' }}
+            className="absolute inset-0 w-full h-full object-cover object-[center_28%] cursor-zoom-in transition-[transform,filter,opacity] duration-700 ease-out group-hover:scale-[1.035] group-hover:saturate-[1.05] group-hover:contrast-[1.02]"
+            style={{ display: 'block', width: '100%', height: '100%' }}
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-black/10" />
           <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5" />
