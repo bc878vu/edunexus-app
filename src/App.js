@@ -4931,10 +4931,16 @@ const NAV_ITEMS = PAGES;
     // Leaving the Admin Panel no longer kills the session: it stays alive for
     // 30 minutes of inactivity, and coming back re-enables admin mode.
   const syncAdminModeForPage = (nextPage) => {
-    if (nextPage === 'admin' && adminTabIsActive(getCurrentUser())) {
-      touchAdminSession();
-      setUser(getCurrentUser());
-      setIsAdminMode(true);
+    if (nextPage === 'admin') {
+      // getCurrentUser() is async - resolve it before checking admin tab status
+      // to avoid setting user to a Promise object
+      getCurrentUser().then((currentUser) => {
+        if (adminTabIsActive(currentUser)) {
+          touchAdminSession();
+          setUser(currentUser);
+          setIsAdminMode(true);
+        }
+      }).catch(() => {});
     } else if (nextPage !== 'admin') {
       setIsAdminMode(false);
     }
