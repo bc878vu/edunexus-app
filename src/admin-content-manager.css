@@ -2,3 +2,12 @@
 .edx-tutorials-embedded .edx-admin-overlay{position:static;z-index:auto;background:none;overflow:visible}
 .edx-tutorials-embedded .edx-admin-main{width:100%;margin:0;padding:0}
 .edx-tutorials-embedded .edx-admin-gate{position:static;z-index:auto}
+
+/* Single-shell hardening: this manager is embedded under App's one main navbar. */
+.edx-tutorials-embedded .edx-admin-overlay{position:static!important;inset:auto!important;z-index:auto!important;background:none!important;overflow:visible!important}
+.edx-tutorials-embedded .edx-admin-header{display:none!important}
+.edx-tutorials-embedded .edx-admin-main{width:100%!important;margin:0!important;padding:0!important}
+.edx-tutorials-embedded .edx-admin-gate{position:static!important;inset:auto!important;z-index:auto!important}
+.edx-admin-hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.edx-admin-hero-actions button{display:inline-flex;align-items:center;gap:8px;border:1px solid #c7d2fe;border-radius:12px;padding:10px 14px;background:#eef2ff;color:#4338ca;font-weight:800;cursor:pointer}
+.edx-admin-hero-actions button:hover{background:#e0e7ff}
