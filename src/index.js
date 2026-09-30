@@ -19,6 +19,17 @@ import DashboardEnhancerSafe from './DashboardEnhancerSafe';
 import { SEOManager } from './SEO';
 import { routeFromLocation } from './app-routes.mjs';
 
+// Normalize legacy ?page=portfolio URLs to the clean /portfolio path before the
+// app reads the location, so the address bar (and any copied link) always carries
+// the share-friendly URL that renders the portfolio link preview on WhatsApp.
+try {
+  const loc = window.location;
+  if ((loc.pathname === '/' || loc.pathname === '') &&
+      new URLSearchParams(loc.search).get('page') === 'portfolio') {
+    window.history.replaceState(null, '', '/portfolio');
+  }
+} catch (_) {}
+
 const AdminResourceManagerV2 = React.lazy(() => import('./AdminResourceManagerV2'));
 
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {

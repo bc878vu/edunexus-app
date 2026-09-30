@@ -54,17 +54,6 @@
   ],
   "rewrites": [
     {
-      "source": "/",
-      "has": [
-        {
-          "type": "query",
-          "key": "page",
-          "value": "portfolio"
-        }
-      ],
-      "destination": "/api/resource-page?portfoliopreview=1"
-    },
-    {
       "source": "/learning/:code/:slug",
       "destination": "/api/learning-page?code=:code&slug=:slug"
     },
