@@ -1080,8 +1080,8 @@ const FileItem = ({ file, theme, isAdmin, onDelete }) => {
 
 /// PORTFOLIO PAGE – PROFILE + AI PROJECT IDEAS GENERATOR
 const Portfolio = ({ user, isAdmin, theme }) => {
-  // ✅ NEW: picUrl ab empty se start hoga (sirf real photo use hogi)
-  const [picUrl, setPicUrl] = useState("");
+  // ✅ User photo: default to the deployed profile photo; Firestore picUrl overrides when set.
+  const [picUrl, setPicUrl] = useState("https://edunexus.dpdns.org/portfolio-profile.jpg");
   const [imageLoaded, setImageLoaded] = useState(false); // ✅ NEW state
 
   // baaki tumhari states same rahengi:
