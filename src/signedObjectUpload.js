@@ -44,7 +44,7 @@ export function uploadToSignedObject(file, signed, onProgress, onTask) {
     const part = file.type === signed.contentType ? file :
       new File([file], file.name, { type: signed.contentType, lastModified: file.lastModified });
     data.append('', part, file.name);
-    onTask(xhr);
+    if (typeof onTask === 'function') onTask(xhr);
     try { xhr.send(data); } catch (error) { finish(error); }
   });
 }
