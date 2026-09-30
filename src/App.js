@@ -5006,8 +5006,15 @@ const NAV_ITEMS = PAGES;
         touchAdminSession();
         setUser(account); setIsAdminMode(currentPageIsAdmin());
       } else {
-        clearAdminTab(); setUser(account); setIsAdminMode(false);
-        if (!account && !isAdminLoginPending()) ensureAnon().catch(() => {});
+        // Don't clear the admin tab on non-admin auth changes - the admin
+        // session is managed explicitly via login/logout, not by auth state.
+        // Only update user if there's no active admin session.
+        if (!adminSessionAlive()) {
+          setUser(account); setIsAdminMode(false);
+          if (!account && !isAdminLoginPending()) ensureAnon().catch(() => {});
+        }
+        // If admin session is alive, keep the current user (admin) unchanged.
+        // The anonymous/auth change is ignored to prevent overwriting admin.
       }
     });
     const otherTab = event => {
