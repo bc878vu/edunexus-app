@@ -3930,6 +3930,7 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
       // a raw Supabase user has id/email_confirmed_at rather than the
       // Firebase-specific uid/emailVerified fields.
       if (!grantAdminTab(appUser)) throw new Error("Session storage unavailable. Enable it to open Admin Panel.");
+      touchAdminSession();
       onLoginSuccess(appUser);
       setPage("admin");
       showToast("Admin mode enabled. Session stays active for 30 minutes of inactivity.", "success");
