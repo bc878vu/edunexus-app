@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { Pin, X, Maximize2 } from "lucide-react";
-import { getActiveAd } from "./db/pinnedAds";
+import { db } from "./firebase-client";
 import "./pinned-ad.css";
 
 // PinnedAd v2.0.0 — floating pinned announcement.
@@ -10,8 +11,11 @@ import "./pinned-ad.css";
 // expanded overlay with full controls. Size, position and media type are all
 // set from the admin panel (Admin → Pinned Ads).
 //
-// Data: Supabase-primary via the pinnedAds adapter (same source as the admin
-// panel), Firebase as fallback. Results are cached 1 hour in localStorage.
+// Data: reads Firestore directly — the same collection the admin panel
+// reads/writes — so the dashboard always agrees with Admin → Pinned Ads.
+// Results are cached 1 hour in localStorage.
+
+const PINNED_ADS = collection(db, "artifacts/edunexus-live/public/data/pinned_ads");
 
 const SIZE_CLASS = {
   small: "edx-pa-size-small",
@@ -43,8 +47,14 @@ export default function PinnedAd() {
 
   useEffect(() => {
     // Quota-friendly: one-time fetch, cached 1 hour in localStorage.
-    // Cache key v2 — v1 cached the old Firestore-direct payload shape.
+    // Cache key v2 — v1 cached the old in-flow card payload shape.
     const CACHE_KEY = "edx-pinned-ad-cache-v2";
+    const toMs = (v) => {
+      if (!v) return null;
+      if (typeof v === "object" && typeof v.toMillis === "function") return v.toMillis();
+      const ms = new Date(v).getTime();
+      return Number.isFinite(ms) ? ms : null;
+    };
     try {
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
       if (cached && Date.now() - cached.ts < 3600000) {
@@ -54,11 +64,22 @@ export default function PinnedAd() {
     } catch (_) {}
     (async () => {
       try {
-        const active = await getActiveAd();
+        const snap = await getDocs(query(PINNED_ADS, orderBy("createdAt", "desc")));
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const now = Date.now();
+        const active =
+          items.find((item) => {
+            if (item.isActive === false) return false;
+            const start = toMs(item.startAt);
+            if (start !== null && now < start) return false;
+            const end = toMs(item.endAt);
+            if (end !== null && now > end) return false;
+            return true;
+          }) || null;
         try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), ad: active || null }));
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), ad: active }));
         } catch (_) {}
-        setAd(active || null);
+        setAd(active);
       } catch (_) {
         setAd(null);
       }

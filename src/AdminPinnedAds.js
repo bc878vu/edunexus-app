@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from "react";
+import {
+  addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query,
+  serverTimestamp, updateDoc,
+} from "firebase/firestore";
 import { Megaphone, Pencil, Plus, Trash2, X } from "lucide-react";
+import { db } from "./firebase-client";
 import { useConfirm } from "./ConfirmDialog";
-import { listPinnedAds, createPinnedAd, updatePinnedAd, removePinnedAd, setPinnedAdActive, subscribePinnedAds } from "./db/pinnedAds";
+
+const PINNED_ADS = collection(db, "artifacts/edunexus-live/public/data/pinned_ads");
 
 const EMPTY_FORM = {
   title: "",
@@ -64,33 +70,40 @@ export default function AdminPinnedAds({ showToast }) {
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
-  const [reloadKey, setReloadKey] = useState(0);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const { requestConfirm, ConfirmUI } = useConfirm();
 
   useEffect(() => {
-    let alive = true;
-    const refresh = async () => {
-      setLoadError(null);
-      try {
-        const items = await listPinnedAds();
-        if (!alive) return;
-        setAds(items);
+    const q = query(PINNED_ADS, orderBy("createdAt", "desc"));
+    return onSnapshot(q,
+      (snap) => {
+        setAds(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoadError(null);
         setLoading(false);
-      } catch (err) {
+      },
+      (err) => {
         console.error("Pinned ads load failed:", err);
-        if (alive) {
-          setLoadError("Could not load pinned ads. Check your connection and retry.");
-          setLoading(false);
-        }
-      }
-    };
-    refresh();
-    const unsub = subscribePinnedAds({ onInvalidate: refresh });
-    return () => { alive = false; unsub(); };
-  }, [reloadKey]);
+        setLoadError("Could not load pinned ads. Check your connection and retry.");
+        setLoading(false);
+      });
+  }, []);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    getDocs(query(PINNED_ADS, orderBy("createdAt", "desc")))
+      .then((snap) => {
+        setAds(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Pinned ads retry failed:", err);
+        setLoadError("Could not load pinned ads. Check your connection and retry.");
+        setLoading(false);
+      });
+  };
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -146,15 +159,16 @@ export default function AdminPinnedAds({ showToast }) {
         isActive: !!form.isActive,
         startAt: toTimestamp(form.startAt),
         endAt: toTimestamp(form.endAt),
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp(),
       };
       if (editingId) {
-        await updatePinnedAd(editingId, payload);
-        setAds((items) => items.map((item) => item.id === editingId ? { ...item, ...payload } : item));
-        window.dispatchEvent(new Event("edunexus:pinned-ads-changed"));
+        await updateDoc(doc(PINNED_ADS, editingId), payload);
         if (showToast) showToast("Ad updated.", "success");
       } else {
-        await createPinnedAd({ ...payload, createdAt: new Date() });
+        await addDoc(PINNED_ADS, {
+          ...payload,
+          createdAt: serverTimestamp(),
+        });
         if (showToast) showToast("Ad created.", "success");
       }
       cancelEdit();
@@ -173,7 +187,7 @@ export default function AdminPinnedAds({ showToast }) {
       danger: true,
       onConfirm: async () => {
         try {
-          await removePinnedAd(ad.id);
+          await deleteDoc(doc(PINNED_ADS, ad.id));
           if (showToast) showToast("Ad deleted.", "success");
         } catch (err) {
           console.error("Pinned ad delete failed:", err);
@@ -185,11 +199,10 @@ export default function AdminPinnedAds({ showToast }) {
 
   const toggleActive = async (ad) => {
     try {
-      const nextActive = !(ad.isActive !== false);
-      await setPinnedAdActive(ad.id, nextActive);
-      setAds((items) => items.map((item) => item.id === ad.id ? { ...item, isActive: nextActive, updatedAt: new Date() } : item));
-      window.dispatchEvent(new Event("edunexus:pinned-ads-changed"));
-      if (showToast) showToast(nextActive ? "Ad enabled." : "Ad disabled.", "success");
+      await updateDoc(doc(PINNED_ADS, ad.id), {
+        isActive: !(ad.isActive !== false),
+        updatedAt: serverTimestamp(),
+      });
     } catch (err) {
       console.error("Pinned ad toggle failed:", err);
       if (showToast) showToast("Could not update the ad.", "error");
@@ -312,7 +325,7 @@ export default function AdminPinnedAds({ showToast }) {
               ))}
             </select>
           </label>
-          <div className="grid grid-cols-2 gap-4 sm:col-span-2">
+          <div className="grid grid-cols-2 gap-4">
             <label className="block">
               <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Start (optional)</span>
               <input
@@ -374,7 +387,7 @@ export default function AdminPinnedAds({ showToast }) {
             <p className="text-sm text-red-600">{loadError}</p>
             <button
               type="button"
-              onClick={() => { setLoading(true); setReloadKey((k) => k + 1); }}
+              onClick={retryLoad}
               className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 w-fit"
             >
               Retry
