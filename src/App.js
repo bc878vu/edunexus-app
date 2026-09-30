@@ -5012,9 +5012,15 @@ const NAV_ITEMS = PAGES;
           tabActive: account ? adminTabIsActive(account) : null,
         });
         console.log('[ADMIN-DEBUG] onAuthChange:', info);
-        // TEMP DEBUG: mirror to DOM
-        const dbg0 = document.getElementById('admin-debug-log');
-        if (dbg0) { dbg0.textContent += '\n[AUTH-EVENT] ' + info; }
+        // TEMP DEBUG: mirror to DOM (create panel if needed)
+        let dbg0 = document.getElementById('admin-debug-log');
+        if (!dbg0) {
+          dbg0 = document.createElement('pre');
+          dbg0.id = 'admin-debug-log';
+          dbg0.style.cssText = 'position:fixed;bottom:0;left:0;z-index:99999;background:#000;color:#0f0;font-size:10px;max-height:40vh;overflow:auto;padding:8px;white-space:pre-wrap;';
+          document.body.appendChild(dbg0);
+        }
+        dbg0.textContent += '\n[AUTH-EVENT] ' + info;
       } catch (_) {}
       if (verifiedAdmin(account)) {
         if (isAdminLoginPending()) return;
@@ -5024,7 +5030,15 @@ const NAV_ITEMS = PAGES;
         // verified session is the authority, the tab key is only a marker.
         // Forced logout here used to nuke valid sessions and broadcast the
         // logout to every other tab.
-        if (!adminTabIsActive(account) && !grantAdminTab(account)) {
+        // TEMP DEBUG: log grant decision
+        const tabActiveBefore = adminTabIsActive(account);
+        let grantResult = 'skipped';
+        if (!tabActiveBefore) { try { grantResult = String(grantAdminTab(account)); } catch (e) { grantResult = 'threw:' + (e && e.message); } }
+        try {
+          let dbg1 = document.getElementById('admin-debug-log');
+          if (dbg1) dbg1.textContent += '\n[GRANT-CHECK] tabActiveBefore=' + tabActiveBefore + ' grantResult=' + grantResult + ' uid=' + (account && account.uid);
+        } catch (_) {}
+        if (!tabActiveBefore && grantResult !== 'true') {
           // Session storage is unavailable — cannot hold the admin grant.
           isAdminRef.current = false;
           setUser(null); setIsAdminMode(false);
