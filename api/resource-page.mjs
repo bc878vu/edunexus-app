@@ -28,24 +28,6 @@ const validReviewPage = (raw) => {
   return Number.isSafeInteger(n) && n <= 1000 ? n : null;
 };
 function linkToPage(path, page) { return path + (page > 1 ? '?reviews=' + page : ''); }
-
-// In-memory cache: survives Firestore quota outages so shared resource links keep working.
-const pageCache = new Map(); // key -> { html, at }
-const CACHE_TTL = 60 * 60 * 1000;
-const MAX_CACHE = 200;
-function cacheGet(key) {
-  const e = pageCache.get(key);
-  if (!e) return null;
-  if (Date.now() - e.at > CACHE_TTL) { pageCache.delete(key); return null; }
-  return e.html;
-}
-function cacheSet(key, html) {
-  if (pageCache.size >= MAX_CACHE) { const k = pageCache.keys().next().value; pageCache.delete(k); }
-  pageCache.set(key, { html, at: Date.now() });
-}
-function fallbackPage() {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Study Resource | EduNexus</title><meta name="description" content="Open this study resource in the EduNexus Academic Hub."><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="Study Resource | EduNexus"><meta property="og:description" content="Open this study resource in the EduNexus Academic Hub."><meta property="og:image" content="${h(SITE + '/logo512.png')}"><meta name="twitter:card" content="summary_large_image"><meta name="robots" content="noindex,follow"><style>${styles}</style></head><body>${navbar}<main><article class="resource"><div class="meta">EduNexus · Academic Hub</div><h1>Study Resource</h1><p>This resource page is temporarily unavailable. Please try again in a little while, or open it directly in the Academic Hub.</p><div class="buttons"><a class="button" href="/?page=academic">Open Academic Hub</a><a class="button secondary" href="/">Back to home</a></div></article></main><footer class="site-footer"><p>© EduNexus · Independent student study resources</p></footer></body></html>`;
-}
 function buildSchema({ name, subject, summary, canonical }) {
   // A downloadable PDF page is a LearningResource, not necessarily a Course,
   // Book, Product or other Google review-rich-result eligible entity. Google
@@ -64,128 +46,44 @@ function buildSchema({ name, subject, summary, canonical }) {
   };
   return JSON.stringify(schema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 }
-function compactSharedFallback(req, id) {
-  const raw = String(req.query?.p || '');
-  if (!raw || raw.length > 1200 || !/^[A-Za-z0-9_-]+$/.test(raw)) return null;
-  try {
-    const padded = raw.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - raw.length % 4) % 4);
-    const [nameRaw, subjectRaw, descRaw] = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
-    const clean = (v, max) => String(v || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, max);
-    const name = clean(nameRaw, 180);
-    if (!name) return null;
-    return { id, name, title: name, subject: clean(subjectRaw, 120) || 'General',
-      description: clean(descRaw, 500), ext: 'Study file', isActive: true };
-  } catch (_) { return null; }
-}
-function sharedFallback(req, id) {
-  if (String(req.query?.share || '') !== '1') return null;
-  const clean = (v, max) => String(v || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, max);
-  const name = clean(req.query?.t, 180);
-  if (!name) return null;
-  return { id, name, title: name, subject: clean(req.query?.s, 120) || 'General',
-    description: clean(req.query?.d, 500), ext: 'Study file', isActive: true };
-}
-function sharedPreviewHtml(req, file) {
-  const id = String(file.id || req.query?.id || '');
-  const name = String(file.name || file.title || 'Study resource').slice(0, 180);
-  const subject = String(file.subject || 'General').slice(0, 120);
-  const description = String(file.description || '').trim();
-  const summary = description || ('Preview ' + name + ' for ' + subject + ' in the EduNexus Academic Hub.');
-  const title = name + (name.toLowerCase().includes('edunexus') ? '' : ' | EduNexus');
-  const appUrl = SITE + '/?page=academic&subject=' + encodeURIComponent(subject) + '&file=' + encodeURIComponent(id) + '&panel=preview';
-  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<title>' + h(title) + '</title><meta name="description" content="' + h(summary.slice(0,190)) + '">' +
-    '<meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus">' +
-    '<meta property="og:title" content="' + h(title) + '"><meta property="og:description" content="' + h(summary.slice(0,190)) + '">' +
-    '<meta property="og:url" content="' + h(SITE + req.url) + '"><meta property="og:image" content="' + h(SITE + '/logo512.png') + '">' +
-    '<meta property="og:image:secure_url" content="' + h(SITE + '/logo512.png') + '"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512"><meta property="og:image:alt" content="' + h(name + ' — EduNexus') + '">' +
-    '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + h(title) + '">' +
-    '<meta name="twitter:description" content="' + h(summary.slice(0,190)) + '"><meta name="twitter:image" content="' + h(SITE + '/logo512.png') + '">' +
-    '<meta http-equiv="refresh" content="0;url=' + h(appUrl) + '"></head><body><p><a href="' + h(appUrl) + '">' + h(name) + '</a></p></body></html>';
-}
 export default async function handler(req, res) {
   if (!['GET', 'HEAD'].includes(req.method)) return res.status(405).end();
-  const id = String(req.query?.id || req.query?.file || '');
+
+  // Exam-prep share links: ?page=exam-prep&section=mcqs|reviews&subject=CS101&term=midterm
+  // are client-side SPA URLs. Crawlers (WhatsApp etc.) get server-rendered OG tags
+  // here via a vercel.json rewrite, so the preview shows the subject's MCQ bank /
+  // paper reviews instead of the generic home preview. Regular browsers never hit this.
+  const epPage = String(req.query?.page || '');
+  const epSection = String(req.query?.section || '');
+  if (epPage === 'exam-prep' && (epSection === 'mcqs' || epSection === 'reviews')) {
+    const rawSubject = String(req.query?.subject || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'VU';
+    const rawTerm = String(req.query?.term || '').toLowerCase();
+    const term = rawTerm === 'quiz' ? 'Quiz' : rawTerm === 'finalterm' ? 'Finalterm' : 'Midterm';
+    const isMcq = epSection === 'mcqs';
+    const title = isMcq
+      ? rawSubject + ' ' + term + ' Solved MCQs | EduNexus'
+      : rawSubject + ' ' + term + ' Paper Reviews | EduNexus';
+    const desc = isMcq
+      ? 'Practice ' + rawSubject + ' ' + term + ' solved MCQs on EduNexus — important and repeated questions with answers, free for VU students.'
+      : 'Read real ' + rawSubject + ' ' + term + ' paper reviews by VU students on EduNexus — paper pattern, important topics and difficulty level.';
+    const appUrl = SITE + '/?page=exam-prep&section=' + epSection + '&subject=' + encodeURIComponent(rawSubject) + '&term=' + encodeURIComponent(rawTerm || 'midterm');
+    const image = SITE + (isMcq ? '/mcq-bank-og.jpg' : '/paper-reviews-og.jpg');
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><meta name="robots" content="noindex,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><p><a href="${h(appUrl)}">${h(title)}</a></p></body></html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(html);
+  }
+
+  const id = String(req.query?.id || '');
   const reviewPage = validReviewPage(req.query?.reviews);
   if (!validId(id) || reviewPage === null) return res.status(404).send('Resource not found');
-  // OG-preview fast path: serve from cache before touching Firestore, so shared
-  // links keep correct previews during quota outages.
-  if (req.query?.ogpreview) {
-    const cachedOg = cacheGet(id + ':ogpreview');
-    if (cachedOg) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      if (req.method === 'HEAD') return res.status(200).end();
-      return res.status(200).send(cachedOg);
-    }
-  }
   try {
-    // Compact share links are self-contained. Decode them before any Firestore
-    // read so WhatsApp preview generation does not consume quota or fail on 503.
-    let file = compactSharedFallback(req, id);
-    const compactShare = Boolean(file);
-    if (!file) {
-      try { file = await getPublicFile(id); } catch (lookupError) {
-        file = sharedFallback(req, id);
-        if (!file) throw lookupError;
-      }
-      if (!file) file = sharedFallback(req, id);
-    }
+    const file = await getPublicFile(id);
     if (!file) return res.status(404).send('Resource not found');
-    if (compactShare || String(req.query?.share || '') === '1') {
-      const html = sharedPreviewHtml(req, file);
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
-      if (req.method === 'HEAD') return res.status(200).end();
-      return res.status(200).send(html);
-    }
     const name = String(file.name || file.title || 'Study resource').slice(0, 180);
     const subject = String(file.subject || 'General').slice(0, 120);
     const description = String(file.description || '').trim().slice(0, 3500);
     const path = resourcePath(id, name);
-    // Compact OG response for shared preview links (?page=academic&file=ID&panel=preview).
-    // Served to WhatsApp/Facebook/Twitter crawlers via the vercel.json rewrite —
-    // crawlers don't run JS, so the SPA's index.html would only show generic tags.
-    // Folded into this existing function to stay under the Hobby-plan function limit.
-    if (req.query?.ogpreview) {
-      const ogCacheKey = id + ':ogpreview';
-      const buildOgHtml = () => {
-        const ogPage = String(req.query?.page || 'academic');
-        const ogSubject = String(req.query?.subject || '');
-        const ogPanel = String(req.query?.panel || 'preview');
-        let ogAppUrl = SITE + '/?page=' + encodeURIComponent(ogPage);
-        if (ogSubject) ogAppUrl += '&subject=' + encodeURIComponent(ogSubject);
-        ogAppUrl += '&file=' + encodeURIComponent(id);
-        if (ogPanel) ogAppUrl += '&panel=' + encodeURIComponent(ogPanel);
-        const ogSummary = description || ('Preview and download ' + name + ' for ' + subject + ' in the EduNexus Academic Hub.');
-        const ogTitle = name + ' | ' + subject + (name.toLowerCase().includes('edunexus') ? '' : ' | EduNexus');
-        const ogDesc = ogSummary.slice(0, 190);
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-          '<title>' + h(ogTitle) + '</title><meta name="description" content="' + h(ogDesc) + '">' +
-          '<meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus">' +
-          '<meta property="og:title" content="' + h(ogTitle) + '"><meta property="og:description" content="' + h(ogDesc) + '">' +
-          '<meta property="og:url" content="' + h(ogAppUrl) + '"><meta property="og:image" content="' + h(SITE + '/logo512.png') + '">' +
-          '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + h(ogTitle) + '">' +
-          '<meta name="twitter:description" content="' + h(ogDesc) + '"><meta name="twitter:image" content="' + h(SITE + '/logo512.png') + '">' +
-          '<meta http-equiv="refresh" content="0;url=' + h(ogAppUrl) + '"></head>' +
-          '<body><p><a href="' + h(ogAppUrl) + '">' + h(ogTitle) + '</a></p></body></html>';
-      };
-      try {
-        const ogHtml = buildOgHtml();
-        cacheSet(ogCacheKey, ogHtml);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-        if (req.method === 'HEAD') return res.status(200).end();
-        return res.status(200).send(ogHtml);
-      } catch (ogErr) {
-        const cachedOg = cacheGet(ogCacheKey);
-        if (cachedOg) {
-          res.setHeader('Content-Type', 'text/html; charset=utf-8');
-          return res.status(200).send(cachedOg);
-        }
-        throw ogErr;
-      }
-    }
     if (req.query?.slug !== slugFor(name)) return res.redirect(301, linkToPage(path, reviewPage));
     const canonical = SITE + linkToPage(path, reviewPage);
     const summary = description || ('Preview and download ' + name + ' for ' + subject + ' in the EduNexus Academic Hub.');
@@ -200,7 +98,7 @@ export default async function handler(req, res) {
       console.error('Resource reviews temporarily unavailable', error?.message || 'unknown');
     }
     if (reviewPage > 1 && !reviewsUnavailable && reviews.length === 0) return res.status(404).send('No reviews on this page');
-    const appUrl = '/?page=academic&subject=' + encodeURIComponent(subject) + '&file=' + encodeURIComponent(id) + '&panel=preview';
+    const appUrl = '/?page=academic&file=' + encodeURIComponent(id);
     const reviewUrl = appUrl + '&panel=reviews';
     const downloadLink = file.sourceType === 'supabase-storage' && file.storageBucket === 'edunexus-public-files'
       ? '<a class="button secondary" href="/api/resource-download?id=' + encodeURIComponent(id) + '">Download file</a>' : '';
@@ -234,14 +132,14 @@ export default async function handler(req, res) {
       (hasMore ? '<a rel="next" href="' + h(linkToPage(path, reviewPage + 1)) + '">More reviews →</a>' : '') +
       '</nav>';
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
+    res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', standaloneContentSecurityPolicy);
     if (req.method === 'HEAD') return res.status(200).end();
-    const fullHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title>
+    return res.status(200).send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title>
 <meta name="description" content="${h((reviewPage > 1 ? 'Student reviews page ' + reviewPage + ': ' : '') + summary.slice(0, 155))}"><meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">
 <meta name="google-adsense-account" content="ca-pub-5179042048080611">${standaloneAdScript}<link rel="canonical" href="${h(canonical)}">
-<meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(summary.slice(0, 190))}"><meta property="og:url" content="${h(canonical)}"><meta property="og:image" content="${h(SITE + '/logo512.png')}"><meta property="og:image:alt" content="${h(name + ' — EduNexus')}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(summary.slice(0, 190))}"><meta name="twitter:image" content="${h(SITE + '/logo512.png')}">
+<meta property="og:type" content="article"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(summary.slice(0, 190))}"><meta property="og:url" content="${h(canonical)}">
 <script type="application/ld+json">${schema}</script><style>${styles}</style></head><body>${navbar}
 <main><article class="resource"><div class="meta">${h(subject)} · ${h(String(file.ext || 'Study file').toUpperCase().slice(0, 12))}</div>
 <h1>${h(name)}</h1><p>${h(summary)}</p><div class="buttons"><a class="button" href="${h(appUrl)}">Preview this file on EduNexus</a>${downloadLink}<a class="button secondary" href="${h(reviewUrl)}">Read and write reviews</a></div>
@@ -249,38 +147,9 @@ export default async function handler(req, res) {
 ${educationalContext}${relatedLinks}
 <section class="reviews" aria-label="Student reviews"><h2>Student reviews${reviewPage > 1 ? ' — page ' + reviewPage : ''}</h2>
 ${renderedReviews}${pagination}<a href="${h(reviewUrl)}">Read and write reviews in Academic Hub</a></section></main>
-<footer class="site-footer"><p>© EduNexus · Independent student study resources</p><nav aria-label="Footer links"><a href="/?page=academic">Academic Hub</a><a href="/?page=about">About</a><a href="/?page=contact">Contact</a><a href="/?page=privacy">Privacy Policy</a><a href="/?page=terms">Terms of Service</a></nav></footer></body></html>`;
-    cacheSet(id + ':reviews=' + reviewPage, fullHtml);
-    return res.status(200).send(fullHtml);
+<footer class="site-footer"><p>© EduNexus · Independent student study resources</p><nav aria-label="Footer links"><a href="/?page=academic">Academic Hub</a><a href="/?page=about">About</a><a href="/?page=contact">Contact</a><a href="/?page=privacy">Privacy Policy</a><a href="/?page=terms">Terms of Service</a></nav></footer></body></html>`);
   } catch (error) {
     console.error('Resource page lookup failed', error?.message || 'unknown');
-    const cacheKey = req.query?.ogpreview ? id + ':ogpreview' : id + ':reviews=' + reviewPage;
-    const cached = cacheGet(cacheKey);
-    if (cached) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.status(200).send(cached);
-    }
-    // Quota outage + empty OG cache: try to salvage OG tags from a cached full page.
-    if (req.query?.ogpreview) {
-      const fullCached = cacheGet(id + ':reviews=1');
-      if (fullCached) {
-        const ogTitle = (/property="og:title" content="([^"]*)"/.exec(fullCached) || [])[1];
-        const ogDesc = (/property="og:description" content="([^"]*)"/.exec(fullCached) || [])[1];
-        if (ogTitle) {
-          const salvaged =
-            '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
-            '<title>' + ogTitle + '</title>' +
-            '<meta property="og:title" content="' + ogTitle + '">' +
-            (ogDesc ? '<meta property="og:description" content="' + ogDesc + '">' : '') +
-            '<meta property="og:image" content="' + h(SITE + '/logo512.png') + '">' +
-            '<meta name="twitter:card" content="summary_large_image">' +
-            '</head><body></body></html>';
-          cacheSet(id + ':ogpreview', salvaged);
-          res.setHeader('Content-Type', 'text/html; charset=utf-8');
-          return res.status(200).send(salvaged);
-        }
-      }
-    }
-    return res.status(503).send(fallbackPage());
+    return res.status(503).send('This resource is temporarily unavailable. Please try again shortly.');
   }
 }
