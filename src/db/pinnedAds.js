@@ -19,15 +19,21 @@ const CACHE_PREFIX = 'pinned_ads_';
 const AD_SPEC = {
   title: 'title',
   description: 'description',
+  mediaType: 'media_type',
   videoUrl: 'video_url',
+  imageUrl: 'image_url',
   linkUrl: 'link_url',
+  size: 'player_size',
+  position: 'player_position',
   isActive: 'is_active',
   startAt: { col: 'start_at', ts: true },
   endAt: { col: 'end_at', ts: true },
   createdAt: { col: 'created_at', ts: true },
   updatedAt: { col: 'updated_at', ts: true },
-  // TODO(schema): plan §1 has no column for `thumbnailUrl` (used by the admin
-  // form and the dashboard card). Extend pinned_ads before cutover.
+  // TODO(schema): plan §1 has no columns for `thumbnailUrl` (used by the admin
+  // form and the dashboard card) or the v2 fields `media_type`, `image_url`,
+  // `player_size`, `player_position`. Extend pinned_ads before relying on them
+  // in Supabase; until then writes carrying those fields fall back to Firebase.
   thumbnailUrl: null,
 };
 const AD_REV = invertSpec(AD_SPEC);

@@ -1,101 +1,200 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
-import { Pin } from "lucide-react";
-import { db } from "./firebase-client";
+import { Pin, X, Maximize2 } from "lucide-react";
+import { getActiveAd } from "./db/pinnedAds";
 import "./pinned-ad.css";
 
-// PinnedAd v1.0.1 — dashboard video announcement (redeploy trigger)
+// PinnedAd v2.0.0 — floating pinned announcement.
+//
+// The player floats OVER the dashboard content (position:fixed) so it never
+// takes its own layout space or pushes content down. Tapping it opens an
+// expanded overlay with full controls. Size, position and media type are all
+// set from the admin panel (Admin → Pinned Ads).
+//
+// Data: Supabase-primary via the pinnedAds adapter (same source as the admin
+// panel), Firebase as fallback. Results are cached 1 hour in localStorage.
 
-const PINNED_ADS = collection(db, "artifacts/edunexus-live/public/data/pinned_ads");
+const SIZE_CLASS = {
+  small: "edx-pa-size-small",
+  medium: "edx-pa-size-medium",
+  large: "edx-pa-size-large",
+};
 
-/**
- * PinnedAd — pinned video announcement shown at the top of the main dashboard.
- *
- * Shows the currently active ad: isActive=true and current time within
- * startAt/endAt (either bound may be empty = no limit). If multiple qualify,
- * the most recently created one wins. Renders nothing when no ad qualifies,
- * so the dashboard never breaks.
- */
+const POSITION_CLASS = {
+  "top-left": "edx-pa-pos-top-left",
+  "top-center": "edx-pa-pos-top-center",
+  "top-right": "edx-pa-pos-top-right",
+  "middle-left": "edx-pa-pos-middle-left",
+  center: "edx-pa-pos-center",
+  "middle-right": "edx-pa-pos-middle-right",
+  "bottom-left": "edx-pa-pos-bottom-left",
+  "bottom-center": "edx-pa-pos-bottom-center",
+  "bottom-right": "edx-pa-pos-bottom-right",
+};
+
+function mediaTypeOf(ad) {
+  if (ad.mediaType === "image" || ad.mediaType === "text") return ad.mediaType;
+  return "video";
+}
+
 export default function PinnedAd() {
   const [ad, setAd] = useState(null);
   const [dismissed, setDismissed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    // Quota fix 2026-09-30: one-time cached fetch instead of a live listener.
-    // Pinned ads change rarely (admin-set); cache for 1 hour in localStorage.
-    const CACHE_KEY = "edx-pinned-ad-cache-v1";
-    const pickActive = (items) => {
-      const now = Date.now();
-      return items.find((item) => {
-        if (item.isActive === false) return false;
-        if (item.startAt) {
-          const start = item.startAt?.toMillis ? item.startAt.toMillis() : new Date(item.startAt).getTime();
-          if (Number.isFinite(start) && now < start) return false;
-        }
-        if (item.endAt) {
-          const end = item.endAt?.toMillis ? item.endAt.toMillis() : new Date(item.endAt).getTime();
-          if (Number.isFinite(end) && now > end) return false;
-        }
-        return true;
-      }) || null;
-    };
+    // Quota-friendly: one-time fetch, cached 1 hour in localStorage.
+    // Cache key v2 — v1 cached the old Firestore-direct payload shape.
+    const CACHE_KEY = "edx-pinned-ad-cache-v2";
     try {
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
       if (cached && Date.now() - cached.ts < 3600000) {
-        setAd(pickActive(cached.items));
+        setAd(cached.ad || null);
         return;
       }
     } catch (_) {}
     (async () => {
       try {
-        const q = query(PINNED_ADS, orderBy("createdAt", "desc"));
-        const snap = await getDocs(q);
-        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), items })); } catch (_) {}
-        setAd(pickActive(items));
-      } catch (_) { setAd(null); }
+        const active = await getActiveAd();
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), ad: active || null }));
+        } catch (_) {}
+        setAd(active || null);
+      } catch (_) {
+        setAd(null);
+      }
     })();
   }, []);
 
-  useEffect(() => { setDismissed(false); }, [ad?.id]);
+  useEffect(() => {
+    setDismissed(false);
+    setExpanded(false);
+  }, [ad?.id]);
+
+  // Lock body scroll + Escape-to-close while the expanded overlay is open.
+  useEffect(() => {
+    if (!expanded) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => {
+      if (e.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [expanded]);
 
   if (!ad || dismissed) return null;
 
+  const type = mediaTypeOf(ad);
+  const sizeCls = SIZE_CLASS[ad.size] || SIZE_CLASS.medium;
+  const posCls = POSITION_CLASS[ad.position] || POSITION_CLASS["bottom-left"];
+
+  const renderMedia = (withControls) => {
+    if (type === "image" && ad.imageUrl) {
+      return (
+        <img
+          className="edx-pa-media"
+          src={ad.imageUrl}
+          alt={ad.title || "Pinned announcement"}
+          loading="lazy"
+        />
+      );
+    }
+    if (type === "text") {
+      return (
+        <div className="edx-pa-textonly">
+          {ad.title && <h3 className="edx-pa-title">{ad.title}</h3>}
+          {ad.description && <p className="edx-pa-desc">{ad.description}</p>}
+          {!ad.title && !ad.description && (
+            <p className="edx-pa-desc">Pinned announcement</p>
+          )}
+        </div>
+      );
+    }
+    return (
+      <video
+        className="edx-pa-media"
+        src={ad.videoUrl}
+        poster={ad.thumbnailUrl || undefined}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        {...(withControls ? { controls: true } : {})}
+      />
+    );
+  };
+
+  const showCaption = type !== "text" && (ad.title || ad.description);
+
   return (
-    <section className="edx-pinned-ad" aria-label="Pinned announcement">
-      <div className="edx-pinned-ad-inner">
-        <div className="edx-pinned-ad-badge">
-          <Pin size={13} aria-hidden="true" />
-          <span>Pinned</span>
-        </div>
-        <button
-          type="button"
-          className="edx-pinned-ad-dismiss"
-          onClick={() => setDismissed(true)}
-          aria-label="Dismiss announcement"
-        >
-          ×
-        </button>
-        <div className="edx-pinned-ad-video-wrap">
-          <video
-            className="edx-pinned-ad-video"
-            src={ad.videoUrl}
-            poster={ad.thumbnailUrl || undefined}
-            autoPlay
-            muted
-            loop
-            playsInline
-            controls
-            preload="metadata"
-          />
-        </div>
-        {(ad.title || ad.description) && (
-          <div className="edx-pinned-ad-text">
-            {ad.title && <h3 className="edx-pinned-ad-title">{ad.title}</h3>}
-            {ad.description && <p className="edx-pinned-ad-desc">{ad.description}</p>}
+    <>
+      <div
+        className={`edx-pa-float ${sizeCls} ${posCls}`}
+        role="complementary"
+        aria-label="Pinned announcement"
+      >
+        <div className="edx-pa-card" onClick={() => setExpanded(true)}>
+          <div className="edx-pa-badge">
+            <Pin size={12} aria-hidden="true" />
+            <span>Pinned</span>
           </div>
-        )}
+          <button
+            type="button"
+            className="edx-pa-expand"
+            aria-label="Expand announcement"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(true);
+            }}
+          >
+            <Maximize2 size={13} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="edx-pa-dismiss"
+            aria-label="Dismiss announcement"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDismissed(true);
+            }}
+          >
+            ×
+          </button>
+          <div className="edx-pa-mediawrap">{renderMedia(false)}</div>
+          {showCaption && (
+            <div className="edx-pa-caption">
+              {ad.title && <h4 className="edx-pa-caption-title">{ad.title}</h4>}
+              {ad.description && <p className="edx-pa-caption-desc">{ad.description}</p>}
+            </div>
+          )}
+        </div>
       </div>
-    </section>
+
+      {expanded && (
+        <div className="edx-pa-overlay" onClick={() => setExpanded(false)}>
+          <div className="edx-pa-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="edx-pa-close"
+              aria-label="Close announcement"
+              onClick={() => setExpanded(false)}
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+            <div className="edx-pa-modal-media">{renderMedia(true)}</div>
+            {(ad.title || ad.description) && (
+              <div className="edx-pa-modal-text">
+                {ad.title && <h3 className="edx-pa-modal-title">{ad.title}</h3>}
+                {ad.description && <p className="edx-pa-modal-desc">{ad.description}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

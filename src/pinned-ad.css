@@ -1,118 +1,287 @@
-/* PinnedAd — pinned video announcement on the main dashboard.
-   Distinct but not intrusive; matches the EduNexus indigo theme. */
+/* PinnedAd v2 — floating pinned announcement.
+   The player is position:fixed, so it floats OVER the dashboard content and
+   never takes its own layout space. Size and position come from the admin
+   panel (Admin → Pinned Ads). Matches the EduNexus indigo theme. */
 
-.edx-pinned-ad {
-  margin: 0 0 1.5rem;
+.edx-pa-float {
+  position: fixed;
+  z-index: 220;
+  pointer-events: auto;
 }
 
-.edx-pinned-ad-inner {
+/* ---- positions (9) ---- */
+.edx-pa-pos-top-left { top: 12px; left: 12px; }
+.edx-pa-pos-top-center { top: 12px; left: 50%; transform: translateX(-50%); }
+.edx-pa-pos-top-right { top: 12px; right: 12px; }
+.edx-pa-pos-middle-left { top: 50%; left: 12px; transform: translateY(-50%); }
+.edx-pa-pos-center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.edx-pa-pos-middle-right { top: 50%; right: 12px; transform: translateY(-50%); }
+.edx-pa-pos-bottom-left { bottom: 12px; left: 12px; }
+.edx-pa-pos-bottom-center { bottom: 12px; left: 50%; transform: translateX(-50%); }
+.edx-pa-pos-bottom-right { bottom: 12px; right: 12px; }
+
+/* ---- sizes (admin-set) ---- */
+.edx-pa-size-small .edx-pa-card { width: 240px; }
+.edx-pa-size-medium .edx-pa-card { width: 320px; }
+.edx-pa-size-large .edx-pa-card { width: 420px; }
+
+/* ---- floating card ---- */
+.edx-pa-card {
   position: relative;
   border: 1px solid rgba(99, 102, 241, 0.28);
-  border-radius: 1.25rem;
+  border-radius: 1rem;
   background: linear-gradient(145deg, #eef2ff, #f8faff);
-  box-shadow: 0 8px 28px rgba(79, 70, 229, 0.12);
-  padding: 1rem;
+  box-shadow: 0 12px 36px rgba(79, 70, 229, 0.22);
+  padding: 0.6rem;
   overflow: hidden;
+  cursor: pointer;
 }
 
-.dark .edx-pinned-ad-inner,
-.edx-exam-dark .edx-pinned-ad-inner {
+.dark .edx-pa-card,
+.edx-exam-dark .edx-pa-card {
   background: linear-gradient(145deg, #1e1b4b, #172554);
   border-color: rgba(129, 140, 248, 0.35);
 }
 
-.edx-pinned-ad-badge {
+.edx-pa-badge {
   position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
+  top: 0.55rem;
+  left: 0.55rem;
   z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.3rem 0.65rem;
+  gap: 0.25rem;
+  padding: 0.22rem 0.55rem;
   border-radius: 9999px;
   background: #4f46e5;
   color: #fff;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
 }
 
-.edx-pinned-ad-dismiss {
+.edx-pa-expand,
+.edx-pa-dismiss {
   position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
   z-index: 2;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: 1.7rem;
+  height: 1.7rem;
   border-radius: 9999px;
   border: none;
   background: rgba(15, 23, 42, 0.55);
   color: #fff;
-  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
+}
+
+.edx-pa-expand { top: 0.5rem; right: 2.5rem; }
+.edx-pa-dismiss { top: 0.5rem; right: 0.5rem; font-size: 1rem; }
+
+.edx-pa-expand:hover,
+.edx-pa-dismiss:hover {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.edx-pa-mediawrap {
+  border-radius: 0.7rem;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.edx-pa-media {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  background: #0f172a;
+}
+
+.edx-pa-caption {
+  padding: 0.6rem 0.2rem 0.1rem;
+}
+
+.edx-pa-caption-title {
+  margin: 0 0 0.2rem;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+
+.dark .edx-pa-caption-title,
+.edx-exam-dark .edx-pa-caption-title {
+  color: #e0e7ff;
+}
+
+.edx-pa-caption-desc {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #475569;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dark .edx-pa-caption-desc,
+.edx-exam-dark .edx-pa-caption-desc {
+  color: #cbd5e1;
+}
+
+/* ---- text-only ad ---- */
+.edx-pa-textonly {
+  padding: 1.6rem 0.8rem 0.8rem;
+  background: linear-gradient(145deg, #eef2ff, #f8faff);
+  border-radius: 0.7rem;
+}
+
+.dark .edx-pa-textonly,
+.edx-exam-dark .edx-pa-textonly {
+  background: linear-gradient(145deg, #1e1b4b, #172554);
+}
+
+.edx-pa-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+
+.dark .edx-pa-title,
+.edx-exam-dark .edx-pa-title {
+  color: #e0e7ff;
+}
+
+.edx-pa-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.dark .edx-pa-desc,
+.edx-exam-dark .edx-pa-desc {
+  color: #cbd5e1;
+}
+
+/* ---- expanded overlay ---- */
+.edx-pa-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.edx-pa-modal {
+  position: relative;
+  width: min(920px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 1.25rem;
+  background: #fff;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  padding: 1rem;
+}
+
+.dark .edx-pa-modal,
+.edx-exam-dark .edx-pa-modal {
+  background: #1e1b4b;
+  border-color: rgba(129, 140, 248, 0.35);
+}
+
+.edx-pa-close {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  z-index: 2;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 9999px;
+  border: none;
+  background: rgba(15, 23, 42, 0.65);
+  color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.edx-pinned-ad-dismiss:hover {
-  background: rgba(15, 23, 42, 0.8);
+.edx-pa-close:hover {
+  background: rgba(15, 23, 42, 0.9);
 }
 
-.edx-pinned-ad-video-wrap {
+.edx-pa-modal-media {
   border-radius: 0.9rem;
   overflow: hidden;
   background: #0f172a;
 }
 
-.edx-pinned-ad-video {
-  display: block;
-  width: 100%;
-  max-height: 420px;
-  object-fit: contain;
-  background: #0f172a;
+.edx-pa-modal-media .edx-pa-media {
+  max-height: 72vh;
 }
 
-.edx-pinned-ad-text {
-  padding: 0.85rem 0.25rem 0.15rem;
+.edx-pa-modal-media .edx-pa-textonly {
+  padding: 2.5rem 1.5rem 1.5rem;
 }
 
-.edx-pinned-ad-title {
-  margin: 0 0 0.3rem;
-  font-size: 1.05rem;
+.edx-pa-modal-text {
+  padding: 1rem 0.25rem 0.25rem;
+}
+
+.edx-pa-modal-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: #1e1b4b;
 }
 
-.dark .edx-pinned-ad-title,
-.edx-exam-dark .edx-pinned-ad-title {
+.dark .edx-pa-modal-title,
+.edx-exam-dark .edx-pa-modal-title {
   color: #e0e7ff;
 }
 
-.edx-pinned-ad-desc {
+.edx-pa-modal-desc {
   margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.55;
+  font-size: 0.95rem;
+  line-height: 1.6;
   color: #475569;
 }
 
-.dark .edx-pinned-ad-desc,
-.edx-exam-dark .edx-pinned-ad-desc {
+.dark .edx-pa-modal-desc,
+.edx-exam-dark .edx-pa-modal-desc {
   color: #cbd5e1;
 }
 
+/* ---- responsive ---- */
 @media (max-width: 640px) {
-  .edx-pinned-ad-video {
-    max-height: 260px;
-  }
+  .edx-pa-size-small .edx-pa-card { width: min(240px, 72vw); }
+  .edx-pa-size-medium .edx-pa-card { width: min(320px, 72vw); }
+  .edx-pa-size-large .edx-pa-card { width: min(420px, 78vw); }
+  .edx-pa-pos-top-left { top: 8px; left: 8px; }
+  .edx-pa-pos-top-center { top: 8px; }
+  .edx-pa-pos-top-right { top: 8px; right: 8px; }
+  .edx-pa-pos-middle-left { left: 8px; }
+  .edx-pa-pos-middle-right { right: 8px; }
+  .edx-pa-pos-bottom-left { bottom: 8px; left: 8px; }
+  .edx-pa-pos-bottom-center { bottom: 8px; }
+  .edx-pa-pos-bottom-right { bottom: 8px; right: 8px; }
+  .edx-pa-media { max-height: 180px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .edx-pinned-ad-inner {
+  .edx-pa-card,
+  .edx-pa-modal {
     box-shadow: none;
   }
 }
