@@ -120,7 +120,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
             fetchpriority={idx === 0 ? "high" : "low"}
             decoding="async"
             onClick={() => setLightboxOpen(true)}
-            className="w-full h-56 md:h-64 object-cover object-top cursor-zoom-in hover:opacity-95 transition-opacity"
+            className="w-full h-48 sm:h-52 md:h-56 object-contain cursor-zoom-in hover:opacity-95 transition-opacity"
             style={{ display: 'block' }}
           />
           <button
