@@ -98,7 +98,7 @@ function updateSeo() {
   setProp('og:description', description);
   setProp('og:url', canonical);
   setProp('og:locale', 'en_PK');
-  const ogImage = page === 'portfolio' ? SITE + '/portfolio-og.jpg' : SITE + '/logo512.png';
+  const ogImage = page === 'portfolio' ? SITE + '/portfolio-og.jpg?v=2' : SITE + '/logo512.png';
   setProp('og:image', ogImage);
   setMeta('twitter:title', title);
   setMeta('twitter:description', description);

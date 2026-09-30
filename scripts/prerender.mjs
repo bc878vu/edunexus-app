@@ -111,7 +111,7 @@ function routeSeo(route) {
     }
   }
   const canonical = SITE + canonicalPath(page, search, { subject: subjectRaw, term: termRaw });
-  const image = page === 'portfolio' ? SITE + '/portfolio-og.jpg' : SITE + '/logo512.png';
+  const image = page === 'portfolio' ? SITE + '/portfolio-og.jpg?v=2' : SITE + '/logo512.png';
   return { page, pathParams, title, description, keywords, canonical, image, schemaType: data[3], bank, subjectRaw };
 }
 
