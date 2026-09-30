@@ -110,9 +110,15 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
       className={`${theme.card} rounded-2xl border ${theme.border} overflow-hidden hover:shadow-2xl transition-all duration-300 group animate-fade-in`}
       style={{ animationDelay: `${Math.min(idx * 80, 400)}ms` }}
     >
-      {/* Cover image - full visible, click for fullscreen */}
+      {/* Cover image - full image visible, frame filled without empty side space */}
       {art.imageUrl && (
-        <div className="relative bg-slate-100 dark:bg-slate-800">
+        <div className="relative h-48 sm:h-52 md:h-56 overflow-hidden bg-slate-900">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 scale-110 bg-cover bg-center blur-xl opacity-55"
+            style={{ backgroundImage: `url("${optimizeImageUrl(art.imageUrl)}")` }}
+          />
+          <div aria-hidden="true" className="absolute inset-0 bg-black/10" />
           <img
             src={optimizeImageUrl(art.imageUrl)}
             alt={art.title}
@@ -120,12 +126,12 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
             fetchpriority={idx === 0 ? "high" : "low"}
             decoding="async"
             onClick={() => setLightboxOpen(true)}
-            className="w-full h-48 sm:h-52 md:h-56 object-contain cursor-zoom-in hover:opacity-95 transition-opacity"
+            className="relative z-10 w-full h-full object-contain cursor-zoom-in hover:opacity-95 transition-opacity"
             style={{ display: 'block' }}
           />
           <button
             onClick={() => setLightboxOpen(true)}
-            className="absolute bottom-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors backdrop-blur-sm"
+            className="absolute z-20 bottom-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors backdrop-blur-sm"
             aria-label="View full image"
           >
             <Maximize2 size={16} />
