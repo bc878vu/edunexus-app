@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { listMcqs, updateMcq, subscribeMcqs } from './db/examMcqs';
-import { getProgress, saveProgress } from './db/examProgress';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { BookOpen, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, RotateCcw, Search, ShieldCheck } from 'lucide-react';
+import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { categoryOf, quizSetOf } from './examMcqImport';
 import { explanationForStudent, explanationPrompt, plainFeedback } from './examAnswerFeedback';
+import { listMcqs } from './db/examMcqs.js';
 import { CATEGORY_NAMES, answerKeyStats, attemptMessage, buildPracticeAttempt, canAdvance, isVerifiedAnswer, orderedQuestions, progressKey, QUESTION_LIMIT, recordAnswer, restoreAttemptIds, sanitizeProgress } from './examPractice';
 import RichContent from './RichContent';
 import { useConfirm } from './ConfirmDialog';
 import './exam-mcq-practice.css';
 
+const MCQS = ['artifacts', 'edunexus-live', 'public', 'data', 'examMcqs'];
 // In-memory cache for MCQ questions: subject -> { docs, fetchedAt }.
 // Serves repeat visits instantly with ZERO Firestore reads for 5 minutes.
 // Refresh button (setRefresh) bypasses this cache.
@@ -80,7 +82,7 @@ function AdminAnswerReview({ question, onUpdated }) {
           const note = ' Admin review source: ' + source.trim();
           if (explanation.length + note.length > 1000) throw new Error('Verification note exceeds the Firestore explanation length limit. Shorten the source reference.');
           explanation += note;
-          await updateMcq(question.id, { answer: Number(answer), explanation });
+          await updateDoc(doc(db, ...MCQS, question.id), { answer: Number(answer), explanation });
           onUpdated({ ...question, answer: Number(answer), explanation });
           setMessage('Admin review saved. This answer can now contribute to scores.');
           setSource('');
@@ -101,7 +103,7 @@ function AdminAnswerReview({ question, onUpdated }) {
   </details>;
 }
 
-export default function ExamMcqPractice({ user, subject, term, onSubjectChange, onTermChange, onBankLoaded, categoryCounts = {}, subjects = [] }) {
+export default function ExamMcqPractice({ user, subject, term, onSubjectChange, onTermChange, categoryCounts = {}, subjects = [] }) {
   const { requestConfirm, ConfirmUI } = useConfirm();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -160,7 +162,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
   useEffect(() => {
     const session = ++sessionRef.current;
     if (writeTimer.current) clearTimeout(writeTimer.current);
-    if (pendingCloud.current) { const queued = pendingCloud.current; pendingCloud.current = null; if (user?.uid) void saveProgress(user.uid, cloudProgressId, queued.payload).catch(() => {}); }
+    if (pendingCloud.current) { const queued = pendingCloud.current; pendingCloud.current = null; void setDoc(queued.ref, queued.payload).catch(() => {}); }
     answerLocksRef.current = new Set();
     answersRef.current = {};
     aiRequestRef.current++;
@@ -174,13 +176,12 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const cached = questionCache.get(subject);
     const now = Date.now();
     if (cached && (now - cached.fetchedAt) < CACHE_TTL_MS && cached.docs) {
-      // Serve from cache - process the cached questions the same way as fresh items
+      // Serve from cache - process the cached docs the same way as snapshot docs
       const all = orderedQuestions(cached.docs, term);
       if (term === 'quiz') setQuizSets([...new Set(all.map(quizSetOf))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})));
       else setQuizSets([]);
       const ordered = term === 'quiz' && quizSet !== 'all' ? all.filter(q => quizSetOf(q) === quizSet) : all;
       setQuestions(ordered);
-      onBankLoaded?.(subject, term, ordered.length);
       setLimited(cached.docs.length >= QUESTION_LIMIT);
       setLoadError('');
       setLoading(false); setRestoring(false);
@@ -189,19 +190,20 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       // skip the query entirely to save reads. User can hit "Check for new questions" to refresh.
       return () => {};
     }
-    // Adapter read + invalidation subscription: the subject-only query avoids a
-    // new composite index. The Quiz category is physically stored as midterm
-    // with a Quiz marker for old rules.
-    const applyItems = async items => {
+    // Supabase-primary (Firebase fallback) one-time fetch. The adapter already
+    // filters inactive items. No live listener: saves Firestore quota and the
+    // practice bank always matches the catalogue counts (same primary store),
+    // so Midterm shows Midterm data and Finalterm shows Finalterm data.
+    // "Check for new questions" refreshes manually.
+    listMcqs({ subject, limit: QUESTION_LIMIT }).then(async items => {
       if (sessionRef.current !== session) return;
       // Populate cache for future visits
       questionCache.set(subject, { docs: items, fetchedAt: Date.now() });
-      const all = orderedQuestions(items.filter(q => q.isActive !== false), term);
+      const all = orderedQuestions(items, term);
       if (term === 'quiz') setQuizSets([...new Set(all.map(quizSetOf))].sort((a,b) => a.localeCompare(b,undefined,{numeric:true})));
       else setQuizSets([]);
       const ordered = term === 'quiz' && quizSet !== 'all' ? all.filter(q => quizSetOf(q) === quizSet) : all;
       setQuestions(ordered);
-      onBankLoaded?.(subject, term, ordered.length);
       setLimited(items.length >= QUESTION_LIMIT);
       setLoadError('');
       if (initialized) return; // Preserve in-progress choices when new MCQs publish.
@@ -210,7 +212,9 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       let cloud = null;
       if (user?.uid) {
         try {
-          cloud = await getProgress(user.uid, cloudProgressId);
+          const saved = await getDoc(doc(db, 'artifacts', 'edunexus-live', 'users',
+            user.uid, 'examProgress', cloudProgressId));
+          if (saved.exists()) cloud = saved.data();
         } catch (_) {
           if (sessionRef.current === session)
             setSaveStatus('Offline/local mode. Cloud sync will retry when you answer a question.');
@@ -233,31 +237,21 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       setAnswers(restored.answers); setCurrentId(restored.currentId); setFinished(restored.finished);
       if (latest) setSaveStatus('Your saved practice has been restored.');
       setLoading(false); setRestoring(false);
-    };
-    const loadError = error => {
+    }).catch(error => {
       if (sessionRef.current !== session) return;
-      setLoadError(error?.code === 'permission-denied'
-        ? 'MCQ bank could not load. Check published Firestore read rules.'
-        : 'Questions could not load. Check your connection and retry.');
+      setLoadError('Questions could not load. Check your connection and retry.');
       setLoading(false); setRestoring(false);
-    };
-    const refresh = async () => {
-      try {
-        await applyItems(await listMcqs({ subject, limit: QUESTION_LIMIT, activeOnly: false }));
-      } catch (error) { loadError(error); }
-    };
-    refresh();
-    unsubscribe = subscribeMcqs({ subject, onInvalidate: refresh });
+    });
     return () => {
       unsubscribe();
       if (writeTimer.current) clearTimeout(writeTimer.current);
       if (pendingCloud.current) {
         const queued = pendingCloud.current; pendingCloud.current = null;
-        if (user?.uid) void saveProgress(user.uid, cloudProgressId, queued.payload).catch(() => {});
+        void setDoc(queued.ref, queued.payload).catch(() => {});
       }
       sessionRef.current++;
     };
-  }, [subject, term, quizSet, refresh, user?.uid, recordKey, cloudProgressId, eligible, onBankLoaded]);
+  }, [subject, term, quizSet, refresh, user?.uid, recordKey, cloudProgressId, eligible]);
 
   const save = useCallback((nextAnswers, nextId, nextFinished, nextAttempt = null) => {
     if (restoring || !actualQuestions.length) return;
@@ -269,13 +263,14 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
     const revision = ++saveRevision.current;
     const session = sessionRef.current;
     if (user?.uid) {
-      pendingCloud.current = { payload };
+      pendingCloud.current = { ref: doc(db, 'artifacts', 'edunexus-live', 'users', user.uid,
+        'examProgress', cloudProgressId), payload };
       writeTimer.current = setTimeout(async () => {
         const queued = pendingCloud.current;
         pendingCloud.current = null;
         if (!queued) return;
         try {
-          await saveProgress(user.uid, cloudProgressId, queued.payload);
+          await setDoc(queued.ref, queued.payload);
           if (sessionRef.current === session && saveRevision.current === revision) setSaveStatus('Saved to your private Firebase session and this browser.');
         } catch (_) {
           if (sessionRef.current === session && saveRevision.current === revision)
@@ -377,11 +372,10 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       <p>Choose your question count and original or random order. Your selected questions and progress stay saved in this browser.</p>
     </div><BookOpen size={28}/></div>
     <div className="edx-exam-card edx-practice-toolbar">
-      <div className="edx-practice-active-bank" aria-label="Active practice bank">
-        <div className="edx-practice-active-icon"><BookOpen size={20} aria-hidden="true" /></div>
-        <div><span>Active practice bank</span><strong>{subject} · {CATEGORY_NAMES[term] || term}</strong></div>
-        <span className="edx-practice-active-count">{loading || restoring ? 'Loading…' : questions.length + ' MCQs'}</span>
-      </div>
+      <label className="edx-exam-field">Subject category
+        <select value={subject} onChange={(e) => onSubjectChange(e.target.value)}>
+          {[...new Set([subject, ...subjects])].filter(Boolean).map(code => <option key={code} value={code}>{code}</option>)}
+        </select></label>
       {term === 'quiz' && quizSets.length > 1 && <label className="edx-exam-field">Quiz set
         <select value={quizSet} onChange={e=>setQuizSet(e.target.value)}>
           <option value="all">All quizzes ({quizSets.length} sets)</option>
