@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { Pin } from "lucide-react";
-import { getActiveAd, subscribePinnedAds } from "./db/pinnedAds";
+import { db } from "./firebase-client";
 import "./pinned-ad.css";
 
 // PinnedAd v1.0.1 — dashboard video announcement (redeploy trigger)
+
+const PINNED_ADS = collection(db, "artifacts/edunexus-live/public/data/pinned_ads");
 
 /**
  * PinnedAd — pinned video announcement shown at the top of the main dashboard.
@@ -18,28 +21,40 @@ export default function PinnedAd() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      try {
-        const next = await getActiveAd();
-        if (alive) setAd(next);
-      } catch (_) {
-        if (alive) setAd(null);
-      }
+    // Quota fix 2026-09-30: one-time cached fetch instead of a live listener.
+    // Pinned ads change rarely (admin-set); cache for 1 hour in localStorage.
+    const CACHE_KEY = "edx-pinned-ad-cache-v1";
+    const pickActive = (items) => {
+      const now = Date.now();
+      return items.find((item) => {
+        if (item.isActive === false) return false;
+        if (item.startAt) {
+          const start = item.startAt?.toMillis ? item.startAt.toMillis() : new Date(item.startAt).getTime();
+          if (Number.isFinite(start) && now < start) return false;
+        }
+        if (item.endAt) {
+          const end = item.endAt?.toMillis ? item.endAt.toMillis() : new Date(item.endAt).getTime();
+          if (Number.isFinite(end) && now > end) return false;
+        }
+        return true;
+      }) || null;
     };
-    void load();
-    const onAdminChange = () => void load();
-    window.addEventListener("edunexus:pinned-ads-changed", onAdminChange);
-    let unsubscribe = () => {};
     try {
-      const maybe = subscribePinnedAds({ onInvalidate: () => void load() });
-      if (typeof maybe === "function") unsubscribe = maybe;
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+      if (cached && Date.now() - cached.ts < 3600000) {
+        setAd(pickActive(cached.items));
+        return;
+      }
     } catch (_) {}
-    return () => {
-      alive = false;
-      window.removeEventListener("edunexus:pinned-ads-changed", onAdminChange);
-      try { unsubscribe(); } catch (_) {}
-    };
+    (async () => {
+      try {
+        const q = query(PINNED_ADS, orderBy("createdAt", "desc"));
+        const snap = await getDocs(q);
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), items })); } catch (_) {}
+        setAd(pickActive(items));
+      } catch (_) { setAd(null); }
+    })();
   }, []);
 
   useEffect(() => { setDismissed(false); }, [ad?.id]);

@@ -1136,24 +1136,37 @@ const Portfolio = ({ user, isAdmin, theme }) => {
   const updatePortfolioItem = (setter, id, key, value) => setter(items => items.map(item => item.id === id ? { ...item, [key]: value } : item));
 
   useEffect(() => {
+    // Quota fix 2026-09-30: cache profile in localStorage for 1 hour instead of
+    // reading Firestore on every portfolio visit.
+    const CACHE_KEY = "edx-portfolio-profile-cache-v1";
+    const applyProfile = (data) => {
+      if (data.picUrl) setPicUrl(data.picUrl);
+      if (data.fullName) setFullName(data.fullName);
+      if (data.title) setTitle(data.title);
+      if (data.about) setAbout(data.about);
+      if (data.contactEmail) setContactEmail(data.contactEmail);
+      if (data.contactPhone) setContactPhone(data.contactPhone);
+      if (Array.isArray(data.projects)) { setProjects(data.projects); setPortfolioShowStarter(false); }
+      if (Array.isArray(data.skills)) setSkills(data.skills);
+      if (Array.isArray(data.experience)) setExperience(data.experience);
+      if (Array.isArray(data.customSections)) setCustomSections(data.customSections);
+      if (Array.isArray(data.services)) setServices(data.services);
+    };
     const fetchProfile = async () => {
       try {
+        const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+        if (cached && Date.now() - cached.ts < 3600000 && cached.data) {
+          applyProfile(cached.data);
+          setPortfolioLoaded(true);
+          return;
+        }
         const snap = await getDoc(
           doc(db, "artifacts", appId, "public", "data", "profile", "main")
         );
         if (snap.exists()) {
           const data = snap.data();
-          if (data.picUrl) setPicUrl(data.picUrl);
-          if (data.fullName) setFullName(data.fullName);
-          if (data.title) setTitle(data.title);
-          if (data.about) setAbout(data.about);
-          if (data.contactEmail) setContactEmail(data.contactEmail);
-          if (data.contactPhone) setContactPhone(data.contactPhone);
-          if (Array.isArray(data.projects)) { setProjects(data.projects); setPortfolioShowStarter(false); }
-          if (Array.isArray(data.skills)) setSkills(data.skills);
-          if (Array.isArray(data.experience)) setExperience(data.experience);
-          if (Array.isArray(data.customSections)) setCustomSections(data.customSections);
-          if (Array.isArray(data.services)) setServices(data.services);
+          applyProfile(data);
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
         }
       } catch (e) {
         console.error("Profile fetch error", e);
