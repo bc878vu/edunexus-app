@@ -184,7 +184,15 @@ export function useCommentCount(articleId) {
     };
     refresh();
     const unsub = subscribeComments(articleId, { onInvalidate: refresh });
-    return () => { alive = false; unsub(); };
+    const onChanged = (event) => {
+      if (!event?.detail?.articleId || event.detail.articleId === articleId) refresh();
+    };
+    window.addEventListener('edunexus:article-comment-changed', onChanged);
+    return () => {
+      alive = false;
+      unsub();
+      window.removeEventListener('edunexus:article-comment-changed', onChanged);
+    };
   }, [articleId]);
   return count;
 }
