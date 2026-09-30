@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { createRemoteJWKSet, jwtVerify, createSecretKey } from "npm:jose@6";
+import { createRemoteJWKSet, jwtVerify } from "npm:jose@6";
 
 const PROJECT = "edunexus-live-e0b84";
 const ADMIN_EMAIL = "veducator4@gmail.com";
@@ -76,7 +76,7 @@ Deno.serve(async (request: Request) => {
     const jwtSecret = Deno.env.get("SUPABASE_JWT_SECRET");
     if (jwtSecret) {
       try {
-        const { payload } = await jwtVerify(token, createSecretKey(jwtSecret, "utf-8"), {
+        const { payload } = await jwtVerify(token, new TextEncoder().encode(jwtSecret), {
           algorithms: ["HS256"],
         });
         if (!checkSupabaseClaims(payload)) {
