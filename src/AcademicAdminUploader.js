@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { addDoc, collection, doc, increment, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { CheckCircle2, CloudUpload, FileText, ShieldCheck, X } from 'lucide-react';
+import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { uploadToSignedObject } from './signedObjectUpload';
 import { validateAcademicFileHeader } from './academic-upload-validation.mjs';
-import { publishFile, bumpFolderCount } from './db/files';
-import { getAccessToken } from './db/auth';
+import { getAccessToken } from './db/auth.js';
 
+const FILES = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'files');
+const FOLDERS = doc(db, 'artifacts', 'edunexus-live', 'public', 'data', 'meta', 'folders');
 const SUPABASE_PROJECT = 'cprpndovdfnkvekewstv';
 const BUCKET = 'edunexus-public-files';
 const MAX_BYTES = 45 * 1024 * 1024; // free-plan bucket limit: 45 MiB
@@ -17,8 +20,7 @@ const TYPES = {
   xls: 'application/vnd.ms-excel',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   txt: 'text/plain', csv: 'text/csv', jpg: 'image/jpeg',
-  jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
-  zip: 'application/zip'
+  jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp'
 };
 const extension = (name) => String(name || '').match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase() || '';
 const safeName = (name) => String(name || 'resource').normalize('NFKD')
@@ -29,14 +31,16 @@ const publicUrl = (path) => 'https://' + SUPABASE_PROJECT + '.supabase.co/storag
 const allowedMime = (file) => TYPES[extension(file?.name)];
 const validFile = (file) => {
   if (!file) return 'Choose a resource file first.';
-  if (!allowedMime(file)) return 'Supported types: PDF, Office documents, TXT, CSV, JPG, PNG, WEBP and ZIP.';
+  if (!allowedMime(file)) return 'Supported types: PDF, Office documents, TXT, CSV, JPG, PNG and WEBP.';
   if (file.size < 1) return 'The selected file is empty.';
   if (file.size > MAX_BYTES) return 'Free Supabase uploads are limited to 45 MiB. For larger files, add a Google Drive link below.';
   return '';
 };
 
-async function signUpload(file) {
-  const idToken = await getAccessToken();
+async function signUpload(user, file) {
+  const idToken = (typeof user?.getIdToken === 'function')
+    ? await user.getIdToken(true)
+    : await getAccessToken();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
   try {
@@ -129,7 +133,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     try {
       const signatureIssue = await validateAcademicFileHeader(file);
       if (signatureIssue) throw new Error(signatureIssue);
-      const signed = await signUpload(file);
+      const signed = await signUpload(user, file);
       if (!mounted.current) throw new Error('Page closed.');
       setPhase('uploading');
       await uploadToSignedObject(file, signed, (n) => { if (mounted.current) setProgress(n); },
@@ -140,17 +144,15 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
       const url = publicUrl(signed.path);
       // Keep all old records and Firebase user data. This adds one new record
       // to the same collection consumed by Academic Hub and Admin Panel.
-      // Timestamps are plain Dates: the adapter converts them to ISO for
-      // Supabase and to Firestore Timestamps on the Firebase branch.
-      await publishFile({
+      await addDoc(FILES, {
         name: title.trim(), subject: code, description: description.trim().slice(0, 1000),
         url, ext: extension(file.name), originalFilename: safeName(file.name),
         storagePath: signed.path, sourceType: 'supabase-storage',
         storageBucket: BUCKET, isLinkOnly: false, size: file.size,
-        uploadedBy: 'Admin', rightsBasis, rightsConfirmed: true, rightsConfirmedAt: new Date(), createdAt: new Date()
+        uploadedBy: 'Admin', rightsBasis, rightsConfirmed: true, rightsConfirmedAt: serverTimestamp(), createdAt: serverTimestamp()
       });
       // Keep the per-folder true file count in sync for the Academic Hub folder cards.
-      try { await bumpFolderCount(code, 1); } catch (_) {}
+      try { await updateDoc(FOLDERS, { ['fileCounts.' + code]: increment(1) }); } catch (_) {}
       if (mounted.current) {
         setPhase('done'); setFile(null); setTitle(''); setDescription(''); setRightsBasis(''); setRightsConfirmed(false);
         if (fileInput.current) fileInput.current.value = '';
@@ -187,7 +189,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
         <strong>{file ? file.name : 'Choose or drop a file'}</strong>
         <p>{file ? readableSize(file.size) + ' · ' + extension(file.name).toUpperCase() : 'Supported documents and images · 45 MiB maximum on Free'}</p>
         <input ref={fileInput} type="file" id={inputId + '-file'} disabled={busy}
-          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp,.zip"
+          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp"
           className="ah-visually-hidden" onChange={(e) => choose(e.target.files[0])}/>
         <label className="ah-secondary" htmlFor={inputId + '-file'}>Browse files</label>
       </div>

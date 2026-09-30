@@ -102,7 +102,7 @@ import {
   // Still used directly: the site_profile sections (no adapter yet).
   doc, getDoc, setDoc, serverTimestamp
 } from 'firebase/firestore';
-import { onAuthChange, ensureAnon, signInAdmin, signOut, getCurrentUser } from './db/auth';
+import { onAuthChange, ensureAnon, signInAdmin, signOut, getCurrentUser, getAccessToken } from './db/auth';
 import {
   listFiles, publishFile, updateFile, deleteFile,
   getMetaDoc, setMetaDoc, bumpFolderCount, countFiles,
@@ -3093,7 +3093,9 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       const file = coverFileRef.current;
       if (!file) return imageUrl;
       showToast('Uploading cover image…', 'info');
-      const idToken = await user.getIdToken(true);
+      const idToken = (typeof user?.getIdToken === 'function')
+        ? await user.getIdToken(true)
+        : await getAccessToken();
       const signRes = await fetch('https://cprpndovdfnkvekewstv.supabase.co/functions/v1/edunexus-sign-upload', {
         method: 'POST',
         headers: { authorization: 'Bearer ' + idToken, 'content-type': 'application/json' },

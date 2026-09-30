@@ -1,13 +1,13 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { serverTimestamp } from 'firebase/firestore';
 import { CheckCircle2, FileJson2, UploadCloud, AlertTriangle } from 'lucide-react';
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { categoryOf, MAX_IMPORT, MAX_JSON_BYTES, parseMcqJson, summarizeImport, suggestImportMetadata, validateMcq } from './examMcqImport';
 import { refreshExamCatalogCounts } from './examCatalogCounts';
+import { addMcqBatch } from './db/examMcqs';
 import './exam-mcq-import.css';
 
-const MCQS = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'examMcqs');
 const sample = '[{"subject":"CS620","term":"quiz","question":"Your question?","options":["A","B","C","D"],"answer":0,"explanation":"Verified answer explanation"}]';
 const errorMessage = (error) => {
   if (error?.code === 'permission-denied') return 'Firestore rejected the import. Verify that this Firebase account is the email-verified administrator and the examMcqs rules permit admin writes.';
@@ -118,7 +118,7 @@ export default function McqBulkImporter({ user, onView }) {
     }
     working.current = true; setBusy(true);
     try {
-      await user.getIdToken(true);
+      if (typeof user?.getIdToken === 'function') { await user.getIdToken(true); }
       // Every import gets one immutable batch ID so the Admin Panel can later
       // remove exactly this uploaded JSON file without touching other MCQs.
       const importBatchId = (window.crypto?.randomUUID?.() ||
@@ -134,14 +134,12 @@ export default function McqBulkImporter({ user, onView }) {
         return { ...normalized, importBatchId, sourceFileName, createdAt: serverTimestamp() };
       });
       let published = 0;
-      for (let start = 0; start < items.length; start += 100) {
-        const batch = writeBatch(db);
-        items.slice(start, start + 100).forEach(item => batch.set(doc(MCQS), item));
-        try { await batch.commit(); } catch (cause) {
-          throw new Error(published + ' questions were published before this batch failed. Check for duplicates before retrying. ' + errorMessage(cause));
-        }
-        published += Math.min(100, items.length - start);
+      try {
+        const result = await addMcqBatch(items, { chunkSize: 100 });
+        published = result.inserted;
         setProgress(published + ' / ' + items.length + ' published');
+      } catch (cause) {
+        throw new Error(published + ' questions were published before this batch failed. Check for duplicates before retrying. ' + errorMessage(cause));
       }
       // Refresh the denormalized exam catalogue for every subject this import
       // touched. Best-effort: if it fails, the counts document stays stale and
@@ -196,7 +194,7 @@ export default function McqBulkImporter({ user, onView }) {
       {progress && <p role="status" className="edx-import-note">{progress}</p>}
       {error && <div className="edx-exam-alert edx-import-result" role="alert">{error}</div>}
       {success && <div className="edx-exam-success edx-import-result" role="status"><CheckCircle2 size={18}/>{success}
-        {destination?.subject && destination?.category && <a className="edx-exam-secondary" href={'/exam-prep/' + encodeURIComponent(String(destination.subject).toUpperCase().replace(/[^A-Z0-9]/g, '')) + '/' + (String(destination.category).toLowerCase() === 'midterm' ? 'Midterm' : 'Finalterm')} target="_blank" rel="noopener noreferrer">Open public {destination.subject} {destination.category}</a>}
+        {destination?.subject && destination?.category && <a className="edx-exam-secondary" href={'/?page=exam-prep&subject=' + encodeURIComponent(destination.subject) + '&term=' + encodeURIComponent(destination.category)} target="_blank" rel="noopener noreferrer">Open public {destination.subject} {destination.category}</a>}
         {destination?.subject && destination?.category && <button type="button" className="edx-exam-secondary"
           onClick={() => onView?.(destination.subject, destination.category)}>View {destination.subject} {destination.category === 'quiz' ? 'Quiz' : destination.category === 'midterm' ? 'Midterm' : 'Finalterm'}</button>}</div>}
       <button type="submit" className="edx-exam-primary edx-import-submit" disabled={busy || !inspection.items?.length || (sourceChecked && verificationSource.trim().length < 12) || (sourceChecked && mustVerify && !verified)}>

@@ -30,24 +30,7 @@ export function trustedPreviewUrl(links, originalUrl, localUrl = '') {
       !/\/(?:image|raw|video|auto)\/upload\//.test(url.pathname)) return '';
     return url.href;
   }
-  if (kind === 'gview') {
-    // A Google Docs Viewer embed URL we built ourselves via gviewEmbedUrl().
-    return url.hostname === 'docs.google.com' && url.pathname === '/gview'
-      && url.searchParams.get('embedded') === '1' ? url.href : '';
-  }
   return '';
-}
-
-// Builds a Google Docs Viewer embed URL for a direct PDF link. The viewer
-// renders the PDF as HTML, which works on mobile browsers (e.g. Android
-// Chrome) where the native PDF plugin cannot render blob: URLs inside an
-// iframe ("This content is blocked"). The source URL must be plain https.
-export function gviewEmbedUrl(directUrl) {
-  if (!directUrl || typeof directUrl !== 'string') return '';
-  let url;
-  try { url = new URL(directUrl); } catch { return ''; }
-  if (url.protocol !== 'https:' || url.username || url.password) return '';
-  return 'https://docs.google.com/gview?embedded=1&url=' + encodeURIComponent(url.href);
 }
 
 export function previewSandbox(kind) {
@@ -65,4 +48,15 @@ export function previewSandbox(kind) {
   // sees Google's document viewer now. Top navigation, forms and popups stay
   // blocked, and only allowlisted URLs ever reach the frame.
   return 'allow-same-origin allow-scripts allow-downloads';
+}
+
+/**
+ * Build a Google Docs Viewer embed URL for a PDF source URL.
+ * Used as the mobile fallback PDF viewer (Android Chrome cannot render
+ * blob: PDFs in iframes). Returns '' for invalid input.
+ */
+export function gviewEmbedUrl(sourceUrl) {
+  if (!sourceUrl || typeof sourceUrl !== 'string') return '';
+  if (!/^https:\/\//.test(sourceUrl)) return '';
+  return 'https://docs.google.com/gview?embedded=1&url=' + encodeURIComponent(sourceUrl);
 }
