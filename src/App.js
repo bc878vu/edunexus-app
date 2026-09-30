@@ -126,7 +126,7 @@ import {
 } from './db/articles';
 
 // This declaration must follow all static imports (CRA enforces import/first).
-import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, adminLoginStarted, adminLoginFinished, isAdminLoginPending, grantAdminTab, clearAdminTab, clearAdminSession, adminTabIsActive, adminPanelAccess, currentPageIsAdmin, verifiedAdmin, broadcastAdminLogout, touchAdminSession, adminSessionAlive } from './adminSession';
+import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, ADMIN_TAB_SINCE_KEY, adminLoginStarted, adminLoginFinished, isAdminLoginPending, grantAdminTab, clearAdminTab, clearAdminSession, adminTabIsActive, adminPanelAccess, currentPageIsAdmin, verifiedAdmin, broadcastAdminLogout, touchAdminSession, adminSessionAlive } from './adminSession';
 const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
@@ -3925,7 +3925,6 @@ const AdminLogin = ({ onClose, setPage, onLoginSuccess, showToast }) => {
       // the auth adapter's signInAdmin (Firebase branch). Supabase branch
       // uses Supabase's own session + confirmation handling.
       const appUser = await signInAdmin(enteredEmail, passwordVal);
-      try { console.log('[ADMIN-DEBUG] signInAdmin returned:', JSON.stringify({ email: appUser && appUser.email, uid: appUser && appUser.uid, verified: verifiedAdmin(appUser) })); } catch (_) {}
       // signInAdmin returns one normalized user shape for both Firebase and
       // Supabase. Admin session checks must use that normalized shape because
       // a raw Supabase user has id/email_confirmed_at rather than the
@@ -5001,27 +5000,6 @@ const NAV_ITEMS = PAGES;
     // downstream helpers only read those plain fields.
     const unsub = onAuthChange(account => {
       if (!active || logoutInProgress.current) return;
-      try {
-        const info = JSON.stringify({
-          email: account && account.email,
-          emailVerified: account && account.emailVerified,
-          isAnonymous: account && account.isAnonymous,
-          uid: account && account.uid,
-          verifiedAdmin: verifiedAdmin(account),
-          loginPending: isAdminLoginPending(),
-          tabActive: account ? adminTabIsActive(account) : null,
-        });
-        console.log('[ADMIN-DEBUG] onAuthChange:', info);
-        // TEMP DEBUG: mirror to DOM (create panel if needed)
-        let dbg0 = document.getElementById('admin-debug-log');
-        if (!dbg0) {
-          dbg0 = document.createElement('pre');
-          dbg0.id = 'admin-debug-log';
-          dbg0.style.cssText = 'position:fixed;bottom:0;left:0;z-index:99999;background:#000;color:#0f0;font-size:10px;max-height:40vh;overflow:auto;padding:8px;white-space:pre-wrap;';
-          document.body.appendChild(dbg0);
-        }
-        dbg0.textContent += '\n[AUTH-EVENT] ' + info;
-      } catch (_) {}
       if (verifiedAdmin(account)) {
         if (isAdminLoginPending()) return;
         // The auth session itself is a verified admin. If this tab never
@@ -5030,15 +5008,7 @@ const NAV_ITEMS = PAGES;
         // verified session is the authority, the tab key is only a marker.
         // Forced logout here used to nuke valid sessions and broadcast the
         // logout to every other tab.
-        // TEMP DEBUG: log grant decision
-        const tabActiveBefore = adminTabIsActive(account);
-        let grantResult = 'skipped';
-        if (!tabActiveBefore) { try { grantResult = String(grantAdminTab(account)); } catch (e) { grantResult = 'threw:' + (e && e.message); } }
-        try {
-          let dbg1 = document.getElementById('admin-debug-log');
-          if (dbg1) dbg1.textContent += '\n[GRANT-CHECK] tabActiveBefore=' + tabActiveBefore + ' grantResult=' + grantResult + ' uid=' + (account && account.uid);
-        } catch (_) {}
-        if (!tabActiveBefore && grantResult !== 'true') {
+        if (!adminTabIsActive(account) && !grantAdminTab(account)) {
           // Session storage is unavailable — cannot hold the admin grant.
           isAdminRef.current = false;
           setUser(null); setIsAdminMode(false);
@@ -5067,6 +5037,16 @@ const NAV_ITEMS = PAGES;
     });
     const otherTab = event => {
       if (event.key !== ADMIN_LOGOUT_KEY || !event.newValue) return;
+      // Ignore stale broadcasts: the logout signal carries "timestamp:random".
+      // If this tab was granted AFTER the broadcast was sent, the broadcast is
+      // from an older session (e.g. a previous login/logout cycle or another
+      // browser task sharing this profile) and must not kill the fresh login.
+      try {
+        const broadcastTime = parseInt(String(event.newValue).split(':')[0], 10);
+        let tabSince = 0;
+        try { tabSince = parseInt(window.sessionStorage.getItem(ADMIN_TAB_SINCE_KEY) || '0', 10) || 0; } catch (_) {}
+        if (broadcastTime && tabSince && broadcastTime < tabSince) return;
+      } catch (_) {}
       // Another tab signed the admin out. getCurrentUser() is async — resolve
       // it properly instead of testing the Promise object (which made the old
       // check always false and unconditionally wiped this tab's grant).
@@ -5140,20 +5120,6 @@ useEffect(() => {
 
 
   const handleLogoutAdmin = async ({ redirect = true, broadcast = true } = {}) => {
-    try {
-      const stack = new Error().stack || '';
-      console.log('[ADMIN-DEBUG] handleLogoutAdmin called, stack:', stack);
-      // TEMP DEBUG: mirror to DOM so automation without console access can read it
-      const dbg = document.getElementById('admin-debug-log');
-      if (dbg) { dbg.textContent += '\n[LOGOUT-CALL] ' + stack.split('\n').slice(1, 4).join(' | '); }
-      else {
-        const d = document.createElement('pre');
-        d.id = 'admin-debug-log';
-        d.style.cssText = 'position:fixed;bottom:0;left:0;z-index:99999;background:#000;color:#0f0;font-size:10px;max-height:40vh;overflow:auto;padding:8px;white-space:pre-wrap;';
-        d.textContent = '[LOGOUT-CALL] ' + stack.split('\n').slice(1, 4).join(' | ');
-        document.body.appendChild(d);
-      }
-    } catch (_) {}
     if (logoutInProgress.current) return;
     logoutInProgress.current = true;
     isAdminRef.current = false;

@@ -3,6 +3,7 @@
 // This tab marker is deliberately NOT a credential and cannot authorize writes.
 export const ADMIN_EMAIL = 'veducator4@gmail.com';
 export const ADMIN_TAB_KEY = 'edunexus:admin:tab:v1';
+export const ADMIN_TAB_SINCE_KEY = 'edunexus:admin:tab:since:v1';
 export const ADMIN_LOGOUT_KEY = 'edunexus:admin:logout:v1';
 
 let loginPending = false;
@@ -17,11 +18,19 @@ const session = () => {
 };
 export function grantAdminTab(user) {
   if (!verifiedAdmin(user)) return false;
-  try { session()?.setItem(ADMIN_TAB_KEY, user.uid); return session()?.getItem(ADMIN_TAB_KEY) === user.uid; }
+  try {
+    session()?.setItem(ADMIN_TAB_KEY, user.uid);
+    // Record when this tab's grant was issued, so stale cross-tab logout
+    // broadcasts (older than this grant) are ignored instead of killing a
+    // fresh login.
+    try { session()?.setItem(ADMIN_TAB_SINCE_KEY, String(Date.now())); } catch (_) {}
+    return session()?.getItem(ADMIN_TAB_KEY) === user.uid;
+  }
   catch (_) { return false; }
 }
 export function clearAdminTab() {
   try { session()?.removeItem(ADMIN_TAB_KEY); } catch (_) {}
+  try { session()?.removeItem(ADMIN_TAB_SINCE_KEY); } catch (_) {}
 }
 export function adminTabIsActive(user) {
   if (!verifiedAdmin(user)) return false;
