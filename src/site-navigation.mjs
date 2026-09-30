@@ -7,7 +7,7 @@ export const MAIN_ITEMS = Object.freeze([
   { id: 'cgpa', label: 'CGPA Calc', href: '/?page=cgpa' },
   { id: 'articles', label: 'Articles', href: '/?page=articles' },
   { id: 'forum', label: 'Discussion', href: '/?page=forum' },
-  { id: 'portfolio', label: 'Portfolio', href: '/?page=portfolio' },
+  { id: 'portfolio', label: 'Portfolio', href: '/portfolio' },
   { id: 'about', label: 'About', href: '/?page=about' },
   { id: 'contact', label: 'Contact', href: '/?page=contact' }
 ].map(Object.freeze));

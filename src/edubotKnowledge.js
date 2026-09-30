@@ -2,7 +2,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/
 import { db } from './firebase-client';
 
 export const EDUNEXUS_GROUP = 'https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW';
-export const EDUNEXUS_SITE = 'https://edunexus.dpdns.org/';
+export const EDUNEXUS_SITE = 'https://edunexus-app.vercel.app/';
 export const SITE_GUIDE = Object.freeze([
   { name: 'Home', url: '/?page=home', detail: 'Main study dashboard and navigation to EduNexus tools.' },
   { name: 'Academic Hub', url: '/?page=academic', detail: 'Subject folders, downloadable handouts, past papers, files and resource reviews. Admin can add a link or upload public study files.' },
@@ -10,7 +10,7 @@ export const SITE_GUIDE = Object.freeze([
   { name: 'CGPA Calculator', url: '/?page=cgpa', detail: 'Calculate GPA and CGPA based on course grades and credit hours.' },
   { name: 'Articles', url: '/?page=articles', detail: 'Published educational articles and study guidance.' },
   { name: 'Discussion', url: '/?page=forum', detail: 'Student discussion and community posts.' },
-  { name: 'Portfolio', url: '/?page=portfolio', detail: 'Developer portfolio and public project information.' },
+  { name: 'Portfolio', url: '/portfolio', detail: 'Developer portfolio and public project information.' },
   { name: 'About', url: '/?page=about', detail: 'Information about the independent EduNexus educational platform.' },
   { name: 'Contact', url: '/?page=contact', detail: 'Contact and support information.' },
   { name: 'AI Quiz Generator', url: '/?page=aiquiz', detail: 'Generate optional AI practice questions from a topic or user-supplied text; generated answers may need verification.' },
