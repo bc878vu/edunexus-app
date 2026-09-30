@@ -66,6 +66,8 @@ test('SPA and standalone pages share one stable app footer and theme shell', () 
   assert.match(footer, /MCQ Bank &amp; Paper Reviews/);
   assert.match(renderThemeToggle(), /data-shell-theme-toggle/);
   assert.match(shellThemeBoot, /localStorage\.getItem\("theme"\)/);
+  assert.match(shellThemeBoot, /data-shell-image-lightbox/);
+  assert.match(navStyles, /\.site-image-lightbox\{position:fixed;inset:0;z-index:200/);
   assert.match(navStyles, /body\{min-height:100vh;display:flex;flex-direction:column\}/);
   assert.match(navStyles, /\.site-footer\{width:100%;max-width:none!important/);
   for (const path of ['api/article-page.mjs', 'api/resource-page.mjs', 'api/learning-page.mjs']) {
@@ -194,6 +196,7 @@ test('article covers use the enhanced full-frame treatment', () => {
   assert.match(articlePage, /object-fit:cover;object-position:center 30%/);
   assert.match(articlePage, /articleImageSrcSet/);
   assert.match(articlePage, /class="article-cover-action"/);
+  assert.match(articlePage, /data-shell-image-lightbox/);
 });
 
 test('only content-hashed assets are eligible for service worker cache-first strategy', () => {
