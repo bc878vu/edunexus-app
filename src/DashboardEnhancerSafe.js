@@ -1,8 +1,232 @@
-import React,{useEffect,useMemo,useState} from 'react';
-import {getApps,initializeApp} from 'firebase/app';import {getFirestore,doc,onSnapshot} from 'firebase/firestore';
-const cfg={apiKey:'AIzaSyCdoWl5a0irdMGftJUYkng-dQLUI1ZImP8',authDomain:'edunexus-live-e0b84.firebaseapp.com',projectId:'edunexus-live-e0b84',storageBucket:'edunexus-live-e0b84.firebasestorage.app',messagingSenderId:'464541062794',appId:'1:464541062794:web:7894ed257d604f202bbf73'};const app=getApps().find(a=>a.name==='[DEFAULT]')||initializeApp(cfg);const db=getFirestore(app);const settings=doc(db,'artifacts/edunexus-live/public/data/meta/floatingHub');
-const defaults=[{label:'Study Guides',href:'/study-guides'},{label:'Tutorial Videos',href:'/tutorials'},{label:'Student Resources',href:'/student-resources'},{label:'Live Projects',href:'/live-projects'}];
-const page=()=>new URLSearchParams(location.search).get('page')||'home';
-function sound(){try{const C=AudioContext||window.webkitAudioContext,c=new C(),o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(640,c.currentTime);o.frequency.exponentialRampToValueAtTime(980,c.currentTime+.08);g.gain.setValueAtTime(.0001,c.currentTime);g.gain.exponentialRampToValueAtTime(.07,c.currentTime+.01);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.12);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.12);setTimeout(()=>c.close().catch(()=>{}),180)}catch(e){}}
-function Orb({hidden}){const [items,setItems]=useState(defaults),[i,setI]=useState(0),[size,setSize]=useState(1),[pos,setPos]=useState({x:20,y:140});useEffect(()=>onSnapshot(settings,s=>{const d=s.data()||{};if(Array.isArray(d.buttons)&&d.buttons.length)setItems(d.buttons.filter(x=>x&&x.enabled!==false&&x.label&&x.href).map(x=>({label:String(x.label),href:String(x.href)})))},()=>{}),[]);const move=()=>{const w=innerWidth,h=innerHeight,s=w<769?66:82,m=14;const safeBottom=150,safeRight=125;const maxX=Math.max(m,w-s-m),maxY=Math.max(m,h-s-safeBottom);setPos({x:Math.round(m+Math.random()*Math.max(1,maxX-m)),y:Math.round(m+Math.random()*Math.max(1,maxY-m))});setSize(v=>(v+1)%3)};useEffect(()=>{if(hidden)return;move();const a=setInterval(move,3200),b=setInterval(()=>setI(v=>(v+1)%Math.max(1,items.length)),2400);addEventListener('resize',move);return()=>{clearInterval(a);clearInterval(b);removeEventListener('resize',move)}},[hidden,items.length]);if(hidden)return null;const r=items[i]||defaults[0];return <a href={r.href} onClick={sound} className={`edx-free-orb edx-resource-orb edx-resource-size-${size}`} style={{left:pos.x,top:pos.y,'--move-duration':`${2.1+size*.5}s`}} aria-label={`Open ${r.label}`}><span className='edx-free-orb-core'><span key={r.label} className='edx-resource-label'>{r.label}</span></span><span className='edx-free-spark edx-free-spark-a'/><span className='edx-free-spark edx-free-spark-b'/></a>}
-export default function DashboardEnhancerSafe(){const [p,setP]=useState(page);const [progress,setProgress]=useState(0);useEffect(()=>{const s=()=>setP(page());addEventListener('popstate',s);addEventListener('edunexus:navigation',s);return()=>{removeEventListener('popstate',s);removeEventListener('edunexus:navigation',s)}},[]);useEffect(()=>{const s=()=>{const d=document.documentElement,m=Math.max(1,d.scrollHeight-innerHeight);setProgress(scrollY/m*100)};addEventListener('scroll',s,{passive:true});s();return()=>removeEventListener('scroll',s)},[]);const label=useMemo(()=>({home:'Dashboard','exam-prep':'Exam Prep',guides:'Study Guides',tutorials:'Tutorial Videos',resources:'Student Resources',projects:'Live Projects'}[p]||'EduNexus'),[p]);return <>{/* Orb removed 2026-09-30 per user request */}<div className='edx-progress' aria-hidden='true'><span style={{width:`${Math.min(100,Math.max(0,progress))}%`}}/></div><div className='edx-page-pill' aria-hidden='true'><span className='edx-live-dot'/><span>{label}</span></div></>}
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { getMetaDoc, subscribeMetaDoc } from './db/files';
+import { routeFromLocation } from './app-routes.mjs';
+
+const DEFAULT_BUTTONS = Object.freeze([
+  { label: 'Study Guides', href: '/study-guides', enabled: true },
+  { label: 'Tutorial Videos', href: '/tutorials', enabled: true },
+  { label: 'Student Resources', href: '/student-resources', enabled: true },
+  { label: 'Live Projects', href: '/live-projects', enabled: true },
+].map(Object.freeze));
+
+const PAGE_LABELS = Object.freeze({
+  home: 'Dashboard',
+  academic: 'Academic Hub',
+  'exam-prep': 'Exam Prep',
+  articles: 'Knowledge Base',
+  aiquiz: 'AI Quiz',
+  flashcards: 'AI Flashcards',
+  planner: 'Study Planner',
+  cgpa: 'CGPA Calculator',
+  forum: 'Discussion',
+  portfolio: 'Portfolio',
+  about: 'About EduNexus',
+  contact: 'Contact',
+  guides: 'Study Guides',
+  'vu-notes-guide': 'VU Notes Guide',
+  'past-papers': 'Past Papers Guide',
+  'exam-preparation': 'Exam Preparation',
+  'cgpa-guide': 'CGPA Planning Guide',
+  'ai-study-tools': 'Responsible AI',
+  resources: 'Student Resources',
+  projects: 'Live Projects',
+  tutorials: 'Tutorial Videos',
+});
+
+const currentPage = () => routeFromLocation(window.location);
+
+const cleanButtons = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && item.enabled !== false && item.label && item.href)
+    .map((item) => ({
+      label: String(item.label).trim().slice(0, 42),
+      href: String(item.href).trim(),
+      enabled: true,
+    }))
+    .filter((item) => item.label && (/^\//.test(item.href) || /^https:\/\//i.test(item.href)));
+};
+
+function playClickSound() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(640, context.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(980, context.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.07, context.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.12);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.12);
+    window.setTimeout(() => context.close().catch(() => {}), 180);
+  } catch (_) {}
+}
+
+function FloatingResourceButton({ hidden = false }) {
+  const [config, setConfig] = useState({ buttons: DEFAULT_BUTTONS, dashboardPinned: true });
+  const [resourceIndex, setResourceIndex] = useState(0);
+  const [sizeLevel, setSizeLevel] = useState(1);
+  const [position, setPosition] = useState({ x: 24, y: 124 });
+  const [clicked, setClicked] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const data = (await getMetaDoc('floatingHub')) || {};
+        if (!alive) return;
+        const configured = cleanButtons(data.buttons);
+        setConfig({
+          buttons: configured.length ? configured : DEFAULT_BUTTONS,
+          dashboardPinned: data.dashboardPinned !== false,
+        });
+      } catch (_) {
+        if (alive) setConfig((current) => current);
+      }
+    };
+
+    void refresh();
+    const unsubscribe = subscribeMetaDoc('floatingHub', { onInvalidate: refresh });
+    const onConfigChanged = () => void refresh();
+    window.addEventListener('edunexus:resource-config', onConfigChanged);
+    return () => {
+      alive = false;
+      try { unsubscribe(); } catch (_) {}
+      window.removeEventListener('edunexus:resource-config', onConfigChanged);
+    };
+  }, []);
+
+  const resources = useMemo(() => {
+    const configured = config.buttons.length ? config.buttons : DEFAULT_BUTTONS;
+    if (config.dashboardPinned && !configured.some((item) => item.href === '/')) {
+      return [{ label: 'Dashboard', href: '/', enabled: true }, ...configured];
+    }
+    return configured;
+  }, [config]);
+
+  useEffect(() => {
+    setResourceIndex((index) => Math.min(index, Math.max(0, resources.length - 1)));
+  }, [resources.length]);
+
+  const moveButton = useCallback(() => {
+    if (hidden) return;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const orbSize = width <= 768 ? 70 : 88;
+    const sideMargin = width <= 480 ? 12 : 16;
+    const topSafe = width <= 639 ? 78 : 86;
+    const bottomSafe = width <= 768 ? 112 : 132;
+
+    const maxX = Math.max(sideMargin, width - orbSize - sideMargin);
+    const maxY = Math.max(topSafe, height - orbSize - bottomSafe);
+    const x = sideMargin + Math.random() * Math.max(1, maxX - sideMargin);
+    const y = topSafe + Math.random() * Math.max(1, maxY - topSafe);
+
+    setPosition({ x: Math.round(x), y: Math.round(y) });
+    setSizeLevel((level) => (level + 1) % 3);
+  }, [hidden]);
+
+  useEffect(() => {
+    if (hidden || !resources.length) return undefined;
+    moveButton();
+    const moveTimer = window.setInterval(moveButton, 3200);
+    const labelTimer = window.setInterval(
+      () => setResourceIndex((index) => (index + 1) % resources.length),
+      2400,
+    );
+    window.addEventListener('resize', moveButton, { passive: true });
+    return () => {
+      window.clearInterval(moveTimer);
+      window.clearInterval(labelTimer);
+      window.removeEventListener('resize', moveButton);
+    };
+  }, [hidden, moveButton, resources.length]);
+
+  if (hidden || !resources.length) return null;
+
+  const resource = resources[resourceIndex] || resources[0];
+  const isInternal = resource.href.startsWith('/');
+
+  const handleClick = (event) => {
+    playClickSound();
+    setClicked(true);
+    window.setTimeout(() => setClicked(false), 560);
+
+    if (!isInternal) return;
+    event.preventDefault();
+    window.setTimeout(() => {
+      window.history.pushState({}, '', resource.href);
+      window.dispatchEvent(new Event('edunexus:navigation'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 110);
+  };
+
+  return (
+    <a
+      className={`edx-free-orb edx-resource-orb edx-resource-size-${sizeLevel} ${clicked ? 'edx-resource-clicked' : ''}`}
+      href={resource.href}
+      aria-label={`Open ${resource.label}`}
+      title={`Open ${resource.label}`}
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        '--move-duration': `${2.1 + sizeLevel * 0.5}s`,
+      }}
+      onClick={handleClick}
+    >
+      <span className="edx-free-orb-core">
+        <span key={resource.label} className="edx-resource-label">{resource.label}</span>
+      </span>
+      <span className="edx-free-spark edx-free-spark-a" aria-hidden="true" />
+      <span className="edx-free-spark edx-free-spark-b" aria-hidden="true" />
+      <span className="edx-resource-ripple" aria-hidden="true" />
+    </a>
+  );
+}
+
+export default function DashboardEnhancerSafe() {
+  const [page, setPage] = useState(currentPage);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const syncRoute = () => setPage(currentPage());
+    window.addEventListener('popstate', syncRoute);
+    window.addEventListener('edunexus:navigation', syncRoute);
+    return () => {
+      window.removeEventListener('popstate', syncRoute);
+      window.removeEventListener('edunexus:navigation', syncRoute);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncProgress = () => {
+      const documentElement = document.documentElement;
+      const maximum = Math.max(1, documentElement.scrollHeight - window.innerHeight);
+      setProgress((window.scrollY / maximum) * 100);
+    };
+    window.addEventListener('scroll', syncProgress, { passive: true });
+    syncProgress();
+    return () => window.removeEventListener('scroll', syncProgress);
+  }, []);
+
+  const label = useMemo(() => PAGE_LABELS[page] || 'EduNexus', [page]);
+
+  return (
+    <>
+      <FloatingResourceButton hidden={page === 'admin'} />
+      <div className="edx-progress" aria-hidden="true">
+        <span style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
+      </div>
+      <div className="edx-page-pill" aria-hidden="true">
+        <span className="edx-live-dot" />
+        <span>{label}</span>
+      </div>
+    </>
+  );
+}
