@@ -13,7 +13,7 @@ function links(items, active) {
 // Same brand, destinations, order, active states and responsive threshold as App's navbar.
 // Static real links intentionally work without JavaScript, preserving crawler accessibility.
 export function renderNavbar(active = 'home') {
-  return `<header class="site-header"><div class="nav-wrap">
+  return `<header id="edunexus-main-navbar" data-edunexus-main-nav="true" class="site-header"><div class="nav-wrap">
   <a class="brand" href="/" aria-label="EduNexus home"><span class="brand-icon">${cap}</span><span class="brand-label"><strong>EduNexus</strong><small>Study Material • Mock Tests • AI Tools</small></span></a>
   <nav class="desktop-links" aria-label="Main navigation">${links(MAIN_ITEMS, active)}</nav>
   <details class="mobile-menu"><summary aria-label="Open navigation menu"><svg aria-hidden="true" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span></summary><nav aria-label="Mobile navigation">${links(MOBILE_ITEMS, active)}</nav></details>
