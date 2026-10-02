@@ -1,0 +1,23 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Resend verification</title></head>
+<body style="font-family:sans-serif;max-width:600px;margin:40px auto;padding:20px">
+<h2>Firebase email verification resend</h2>
+<p>Account: <b>veducator4@gmail.com</b> (project edunexus-live-e0b84)</p>
+<label>Admin password: <input type="password" id="pw" style="width:260px;padding:8px"></label><br><br>
+<button id="go" style="padding:10px 24px;font-size:16px">Send verification email</button>
+<p id="s" style="margin-top:20px;font-weight:bold"></p>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script>
+document.getElementById("go").onclick=function(){
+  var s=document.getElementById("s"); s.textContent="Working...";
+  try{
+    firebase.initializeApp({apiKey:"<redacted>",authDomain:"edunexus-live-e0b84.firebaseapp.com",projectId:"edunexus-live-e0b84"});
+    firebase.auth().signInWithEmailAndPassword("veducator4@gmail.com",document.getElementById("pw").value).then(function(c){
+      if(c.user.emailVerified){s.textContent="ALREADY VERIFIED - nothing to do.";return;}
+      return c.user.sendEmailVerification().then(function(){s.textContent="VERIFICATION EMAIL SENT to veducator4@gmail.com";});
+    }).catch(function(e){s.textContent="ERROR "+e.code+": "+e.message;});
+  }catch(e){s.textContent="INIT ERROR: "+e.message;}
+};
+</script>
+</body></html>
