@@ -1,4 +1,5 @@
 import { listPublicFiles, resourcePath, SITE, escapeHtml } from './resource-data.mjs';
+import { guideForFile } from './subject-guides.mjs';
 
 export const maxDuration = 60;
 // In-memory cache: survives Firestore quota outages so Googlebot never gets a 503.
@@ -13,6 +14,17 @@ function buildXml(urls) {
     '\n</urlset>';
 }
 
+// Keep the sitemap focused on pages that add publisher value beyond a file
+// name + download button. Thin files remain accessible in Academic Hub but do
+// not compete with richer guides/articles in Search or site-quality review.
+function isIndexableFile(file) {
+  const description = String(file?.description || '').replace(/\s+/g, ' ').trim();
+  const hasEditorialDescription = description.length >= 160;
+  const hasOriginalGuideContext = Boolean(guideForFile(file || {}));
+  const hasStudentFeedback = Number(file?.ratingCount || 0) > 0;
+  return Boolean(file?.id) && (hasEditorialDescription || hasOriginalGuideContext || hasStudentFeedback);
+}
+
 export default async function handler(req, res) {
   if (!['GET', 'HEAD'].includes(req.method)) return res.status(405).end();
   res.setHeader('Content-Type', 'application/xml; charset=utf-8');
@@ -22,7 +34,7 @@ export default async function handler(req, res) {
   try {
     const files = await listPublicFiles(100);
     const unique = new Map();
-    for (const file of files) if (file.id) unique.set(file.id, file);
+    for (const file of files) if (isIndexableFile(file)) unique.set(file.id, file);
     const urls = [...unique.values()].map((file) => SITE + resourcePath(file.id, file.name || file.title));
     cachedXml = buildXml(urls);
     cachedAt = Date.now();
