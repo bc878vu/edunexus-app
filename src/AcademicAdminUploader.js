@@ -1,14 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { addDoc, collection, doc, increment, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { publishFile, bumpFolderCount } from './db/files';
 import { CheckCircle2, CloudUpload, FileText, ShieldCheck, X } from 'lucide-react';
-import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
 import { uploadToSignedObject } from './signedObjectUpload';
 import { validateAcademicFileHeader } from './academic-upload-validation.mjs';
 import { getAccessToken } from './db/auth.js';
 
-const FILES = collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'files');
-const FOLDERS = doc(db, 'artifacts', 'edunexus-live', 'public', 'data', 'meta', 'folders');
 const SUPABASE_PROJECT = 'cprpndovdfnkvekewstv';
 const BUCKET = 'edunexus-public-files';
 const MAX_BYTES = 45 * 1024 * 1024; // free-plan bucket limit: 45 MiB
@@ -142,17 +139,18 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
       uploadedPath = signed.path;
       setPhase('saving');
       const url = publicUrl(signed.path);
-      // Keep all old records and Firebase user data. This adds one new record
-      // to the same collection consumed by Academic Hub and Admin Panel.
-      await addDoc(FILES, {
+      // Publish through the Supabase-primary adapter (same record shape the
+      // Academic Hub and Admin Panel read). No direct Firestore write, so the
+      // legacy email-verification gate does not block admin uploads.
+      await publishFile({
         name: title.trim(), subject: code, description: description.trim().slice(0, 1000),
         url, ext: extension(file.name), originalFilename: safeName(file.name),
         storagePath: signed.path, sourceType: 'supabase-storage',
         storageBucket: BUCKET, isLinkOnly: false, size: file.size,
-        uploadedBy: 'Admin', rightsBasis, rightsConfirmed: true, rightsConfirmedAt: serverTimestamp(), createdAt: serverTimestamp()
+        uploadedBy: 'Admin', rightsBasis, rightsConfirmed: true, rightsConfirmedAt: new Date(), createdAt: new Date()
       });
       // Keep the per-folder true file count in sync for the Academic Hub folder cards.
-      try { await updateDoc(FOLDERS, { ['fileCounts.' + code]: increment(1) }); } catch (_) {}
+      try { await bumpFolderCount(code, 1); } catch (_) {}
       if (mounted.current) {
         setPhase('done'); setFile(null); setTitle(''); setDescription(''); setRightsBasis(''); setRightsConfirmed(false);
         if (fileInput.current) fileInput.current.value = '';
@@ -163,7 +161,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
       if (mounted.current) {
         setPhase('idle');
         setError(uploadedPath
-          ? 'File bytes were uploaded, but the Firebase library record was not saved. Do not upload the same file again yet. Your stored file is available at: ' + publicUrl(uploadedPath) + '. Error: ' + (failure?.message || 'Firestore publishing failed.')
+          ? 'File bytes were uploaded, but the library record was not saved. Do not upload the same file again yet. Your stored file is available at: ' + publicUrl(uploadedPath) + '. Error: ' + (failure?.message || 'Publishing failed.')
           : (failure?.name === 'AbortError' ? 'Authorization timed out. ' : '') +
             (failure?.message || 'Upload failed. Verify your connection and retry.'));
       }
