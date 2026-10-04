@@ -4,6 +4,7 @@ import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, B
 import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
 import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, publishedExamCatalog } from "./examCatalog";
+import { readCatalogFromSupabase } from "./examCatalogCounts";
 import { routeParamsFromPath } from "./app-routes.mjs";
 import { adminPanelAccess } from './adminSession';
 
@@ -528,19 +529,26 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
         }
       } catch (_) {}
       try {
-        const snapshot = await getDoc(doc(db, ...ROOT, 'meta', 'examCatalog'));
-        const hasCounts = !!snapshot && typeof snapshot.exists === 'function' && snapshot.exists();
+        // Primary: Supabase exam_catalog table (one cheap query, always fresh
+        // after an admin refresh). Falls back to the legacy Firestore document.
+        let catalog = null;
+        try {
+          const { bySubject } = await readCatalogFromSupabase();
+          if (bySubject && Object.keys(bySubject).length) catalog = catalogFromCounts({ bySubject });
+        } catch (_) { /* fall through to Firestore */ }
         if (!live) return;
-        if (!hasCounts) {
+        if (!catalog) {
+          const snapshot = await getDoc(doc(db, ...ROOT, 'meta', 'examCatalog'));
+          const hasCounts = !!snapshot && typeof snapshot.exists === 'function' && snapshot.exists();
+          if (hasCounts) catalog = catalogFromCounts(snapshot.data());
+        }
+        if (!live) return;
+        if (!catalog) {
           // Legacy fallback: single scan (no persistent listener).
           const legacy = await getDocs(query(col('examMcqs'), limit(EXAM_SUBJECT_LIMIT)));
           if (!live) return;
-          const catalog = publishedExamCatalog(legacy.docs);
-          applyCatalog(catalog);
-          try { localStorage.setItem(CATALOG_CACHE, JSON.stringify({ ts: Date.now(), catalog })); } catch (_) {}
-          return;
+          catalog = publishedExamCatalog(legacy.docs);
         }
-        const catalog = catalogFromCounts(snapshot.data());
         applyCatalog(catalog);
         try { localStorage.setItem(CATALOG_CACHE, JSON.stringify({ ts: Date.now(), catalog })); } catch (_) {}
       } catch (error) {
