@@ -130,6 +130,7 @@ import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, ADMIN_TAB_SINCE_KE
 const ExamPrepHub = React.lazy(() => import('./ExamPrepHub'));
 const AcademicHubPro = React.lazy(() => import('./AcademicHubPro'));
 const AcademicAdminUploader = React.lazy(() => import('./AcademicAdminUploader'));
+const AdminFolderManager = React.lazy(() => import('./AdminFolderManager'));
 const AdminAcademicReviews = React.lazy(() => import('./AdminAcademicReviews'));
 const AdminContentManager = React.lazy(() => import('./AdminContentManager'));
 const AdminPinnedAds = React.lazy(() => import('./AdminPinnedAds'));
@@ -333,8 +334,6 @@ const Navbar = ({
     <>
       {/* 🔹 Top header / navbar */}
       <header
-        id="edunexus-main-navbar"
-        data-edunexus-main-nav="true"
         className="
           sticky top-0 z-50
           border-b border-slate-800
@@ -343,12 +342,12 @@ const Navbar = ({
           text-white
         "
       >
-        <div className="max-w-[1450px] mx-auto px-4 py-2.5 flex items-center justify-between gap-3 xl:grid xl:grid-cols-[minmax(240px,1fr)_auto_minmax(240px,1fr)]">
+        <div className="max-w-[1450px] mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
           {/* Brand */}
           <a
             href="/"
             onClick={(e) => { e.preventDefault(); handleNavClick("home"); }}
-            className="flex items-center gap-3 group shrink-0 xl:justify-self-start"
+            className="flex items-center gap-3 group shrink-0"
           >
             <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-lg">
               <GraduationCap className="h-6 w-6" />
@@ -371,7 +370,7 @@ const Navbar = ({
           </a>
 
           {/* Desktop links (PC HEADER) */}
-          <nav className="hidden xl:flex items-center justify-center gap-0 min-w-0 xl:justify-self-center">
+          <nav className="hidden xl:flex items-center justify-center gap-0 min-w-0">
             {MAIN_ITEMS.map((item) => (
               <a
                 key={item.id}
@@ -394,7 +393,7 @@ const Navbar = ({
           </nav>
 
           {/* Right side desktop */}
-          <div className="hidden xl:flex items-center justify-end gap-3 shrink-0 xl:justify-self-end min-w-[88px]">
+          <div className="hidden xl:flex items-center gap-3 shrink-0">
             {adminSessionActive && (
               <button
                 type="button"
@@ -2455,6 +2454,11 @@ const AcademicTab = ({ theme, user, showToast }) => {
                 showToast('File uploaded and published to ' + code + '.', 'success');
               }}
             />
+          </React.Suspense>
+
+          {/* Professional folder browser: search, expandable folders, inline file management. */}
+          <React.Suspense fallback={<div className="p-4" role="status">Loading folder manager…</div>}>
+            <AdminFolderManager user={user} />
           </React.Suspense>
 
           <div className="edx-admin-link-box">
@@ -5292,9 +5296,7 @@ useEffect(() => {
       <React.Suspense fallback={null}><EduBotAssistant /></React.Suspense>
 
            <footer
-  id="edunexus-main-footer"
-  data-edunexus-main-footer="true"
-  className={`mt-auto w-full shrink-0 border-t ${theme.border} ${
+  className={`mt-auto border-t ${theme.border} ${
     isDark ? "bg-slate-950/95" : "bg-slate-50"
   }`}
 >
