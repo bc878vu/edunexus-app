@@ -14,7 +14,7 @@ export default async function handler(req,res){
     const articles=await listPublicArticles(20);
     const seen=new Set();
     const urls=articles.filter((item)=> {
-      if(!item.id || !String(item.title||'').trim() || String(item.content||'').trim().length<450 || seen.has(item.id))return false;
+      if(!item.id || !String(item.title||'').trim() || String(item.content||item.body||'').trim().length<450 || seen.has(item.id))return false;
       seen.add(item.id);return true;
     }).map((item)=>SITE+articlePath(item.id,item.title));
     cachedXml=buildXml(urls);cachedAt=Date.now();
