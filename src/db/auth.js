@@ -81,7 +81,7 @@ async function firebaseAdminSignIn(email, password) {
     // address itself, so an unverified admin session still has full admin
     // access. We still attempt to send the verification email as a courtesy,
     // but login is never blocked on it.
-    try { await sendEmailVerification(credential.user); } catch (_) {}
+    try { await sendEmailVerification(credential.user); } catch { /* courtesy only */ }
   }
   return credential;
 }
