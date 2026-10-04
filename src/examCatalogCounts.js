@@ -32,14 +32,25 @@ async function countFromSupabase(subject, category) {
 }
 
 // Every subject code currently present in the question bank.
+// Paginated: a single huge select can get truncated on flaky networks,
+// which would silently refresh only the first few subjects.
 export async function listCatalogSubjects() {
-  const { data, error } = await supabase.from('exam_mcqs').select('subject').limit(30000);
-  if (error) throw error;
   const set = new Set();
-  (data || []).forEach((r) => {
-    const s = String(r.subject || '').trim().toUpperCase();
-    if (COURSE.test(s)) set.add(s);
-  });
+  const PAGE = 2000;
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from('exam_mcqs')
+      .select('subject')
+      .range(offset, offset + PAGE - 1);
+    if (error) throw error;
+    (data || []).forEach((r) => {
+      const s = String(r.subject || '').trim().toUpperCase();
+      if (COURSE.test(s)) set.add(s);
+    });
+    if (!data || data.length < PAGE) break;
+    offset += PAGE;
+  }
   return [...set].sort();
 }
 
