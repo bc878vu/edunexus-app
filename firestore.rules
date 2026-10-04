@@ -9,9 +9,12 @@ service cloud.firestore {
     // Admin access is tied to the Firebase account, not a client-side password.
     // Email verification is required before any privileged write is accepted.
     function admin() {
+      // Email verification is NOT required: the admin signs in with a
+      // password, so the verified email + password combination is the gate.
+      // Requiring the verified flag locked the admin out when Firebase's
+      // verification emails don't arrive.
       return signedIn()
-        && request.auth.token.email == 'veducator4@gmail.com'
-        && request.auth.token.email_verified == true;
+        && request.auth.token.email == 'veducator4@gmail.com';
     }
 
     match /artifacts/edunexus-live/public/data/announcements/{docId} {

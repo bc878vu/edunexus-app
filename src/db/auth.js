@@ -77,10 +77,11 @@ async function firebaseAdminSignIn(email, password) {
   const credential = await signInWithEmailAndPassword(auth, email, password);
   await credential.user.reload();
   if (!credential.user.emailVerified) {
-    await sendEmailVerification(credential.user);
-    await fbSignOut(auth);
-    await fbSignInAnonymously(auth);
-    throw new Error('Verification email sent to the admin address. Open it, verify your email, then sign in again.');
+    // Verification is optional now: Firestore admin rules check the email
+    // address itself, so an unverified admin session still has full admin
+    // access. We still attempt to send the verification email as a courtesy,
+    // but login is never blocked on it.
+    try { await sendEmailVerification(credential.user); } catch (_) {}
   }
   return credential;
 }
