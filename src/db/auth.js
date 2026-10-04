@@ -66,27 +66,49 @@ export async function ensureAnon() {
   );
 }
 
+/** Firebase admin sign-in (shared). Firestore's admin() rule requires a
+ *  Firebase ID token with the verified admin email — without it every admin
+ *  Firestore write (pinned ads, articles, catalog edits...) is denied. */
+async function firebaseAdminSignIn(email, password) {
+  // Tab-scoped session: admin auth survives refresh in this tab but is not
+  // automatically shared with every other tab through Firebase's default
+  // LOCAL persistence.
+  await setPersistence(auth, browserSessionPersistence);
+  const credential = await signInWithEmailAndPassword(auth, email, password);
+  await credential.user.reload();
+  if (!credential.user.emailVerified) {
+    await sendEmailVerification(credential.user);
+    await fbSignOut(auth);
+    await fbSignInAnonymously(auth);
+    throw new Error('Verification email sent to the admin address. Open it, verify your email, then sign in again.');
+  }
+  return credential;
+}
+
 /** Admin email/password sign-in. Components keep their own gating/verification. */
 export async function signInAdmin(email, password) {
   return withFallback(
     async () => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      // Dual sign-in: a Supabase-only session leaves request.auth empty in
+      // Firestore, so admin() fails and all admin Firestore writes are denied.
+      // Sign into Firebase too so the admin panel CRUD (pinned ads, articles,
+      // announcements, catalog edits) keeps working.
+      try {
+        await firebaseAdminSignIn(email, password);
+      } catch (fbErr) {
+        throw new Error(
+          'Supabase login succeeded, but Firebase admin sign-in failed (' +
+          ((fbErr && fbErr.message) || fbErr) +
+          '). Firestore admin features (pinned ads, content editing) need the Firebase password for ' +
+          email + ' to match.'
+        );
+      }
       return toAppUser(data.user);
     },
     async () => {
-      // Tab-scoped session: admin auth survives refresh in this tab but is not
-      // automatically shared with every other tab through Firebase's default
-      // LOCAL persistence.
-      await setPersistence(auth, browserSessionPersistence);
-      const credential = await signInWithEmailAndPassword(auth, email, password);
-      await credential.user.reload();
-      if (!credential.user.emailVerified) {
-        await sendEmailVerification(credential.user);
-        await fbSignOut(auth);
-        await fbSignInAnonymously(auth);
-        throw new Error('Verification email sent to the admin address. Open it, verify your email, then sign in again.');
-      }
+      const credential = await firebaseAdminSignIn(email, password);
       return toAppUser(credential.user);
     },
     { cacheKeys: [] }

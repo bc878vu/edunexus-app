@@ -170,6 +170,10 @@
       "destination": "/api/article-sitemap"
     },
     {
+      "source": "/article-sitemap.xml",
+      "destination": "/api/article-sitemap"
+    },
+    {
       "source": "/subjects-sitemap.xml",
       "destination": "/api/subjects-sitemap"
     },
