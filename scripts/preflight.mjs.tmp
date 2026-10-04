@@ -1,0 +1,99 @@
+import fs from 'node:fs';
+
+const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+const exists = (file) => fs.existsSync(file);
+
+const pkg = readJson('package.json');
+const lock = readJson('package-lock.json');
+const failures = [];
+
+if (pkg.dependencies?.['@testing-library/user-event'] !== '^13.5.0') {
+  failures.push('package.json must use the published @testing-library/user-event range ^13.5.0.');
+}
+if (lock.packages?.['']?.dependencies?.['@testing-library/user-event'] !== '^13.5.0') {
+  failures.push('package-lock.json root dependency must stay aligned with package.json for @testing-library/user-event.');
+}
+
+const requiredFiles = [
+  'src/App.js',
+  'src/LegalContactPages.js',
+  'src/ProfessionalAIAssistantV2.js',
+  'src/responsive-hardening.css',
+  'src/ui-layer-fix.css',
+  'src/firebase-console.js',
+  'scripts/secure-production-build.mjs',
+  'api/gemini.mjs',
+  'firestore.rules',
+  'storage.rules',
+  'vercel.json',
+];
+for (const file of requiredFiles) {
+  if (!exists(file)) failures.push(`Required production file is missing: ${file}`);
+}
+
+// Guard against reintroducing multiple floating AI assistants or public admin links.
+const entrypoint = fs.readFileSync('src/index.js', 'utf8');
+const mainApp = fs.readFileSync('src/App.js', 'utf8');
+const examPage = fs.readFileSync('src/ExamPrepHub.js', 'utf8');
+if (entrypoint.includes('<ProfessionalAIAssistantV2') || entrypoint.includes('<ProfessionalAIAssistant ')) {
+  failures.push('Do not mount the legacy assistant beside EduBot.');
+}
+if ((mainApp.match(/<EduBotAssistant\s*\/>/g) || []).length !== 1) {
+  failures.push('EduBot must have exactly one shared mount in App.js.');
+}
+if (examPage.includes('onAdminPanel') || mainApp.includes('onAdminPanel={()')) {
+  failures.push('The public Exam Prep must not expose an administrator navigation button.');
+}
+if (!examPage.includes('const showAdmin = adminWorkspace === true && isAdmin(user)')) {
+  failures.push('Admin tools must require the restricted Admin Panel workspace.');
+}
+
+const geminiApi = fs.readFileSync('api/gemini.mjs', 'utf8');
+if (/process\.env\.REACT_APP_GEMINI_API_KEY/.test(geminiApi)) {
+  failures.push('api/gemini.mjs must not accept a REACT_APP_GEMINI_API_KEY fallback; Gemini credentials must remain server-side.');
+}
+if (!/process\.env\.GEMINI_API_KEY/.test(geminiApi)) {
+  failures.push('api/gemini.mjs must read GEMINI_API_KEY server-side.');
+}
+
+const legal = fs.readFileSync('src/LegalContactPages.js', 'utf8');
+for (const required of ['a.m.a63425@gmail.com', '0309-8851445', 'https://mail.google.com/mail/?view=cm']) {
+  if (!legal.includes(required)) failures.push(`Legal/contact pages are missing required support detail: ${required}`);
+}
+
+const rules = fs.readFileSync('firestore.rules', 'utf8');
+if (!rules.includes("request.auth.token.email == 'veducator4@gmail.com'")) {
+  failures.push('Firestore rules must restrict privileged writes to the configured admin email.');
+}
+
+// Fail fast on the specific corruption found in Firebase Storage rules.
+// The Storage emulator workflow performs actual compilation and access tests.
+const storageRules = fs.readFileSync('storage.rules', 'utf8');
+const examStart = storageRules.indexOf('match /exam-papers/{userId}/{uploadId}/{fileName} {');
+const catchAllStart = storageRules.indexOf('match /{allPaths=**} {', examStart);
+const examRules = examStart >= 0 && catchAllStart > examStart
+  ? storageRules.slice(examStart, catchAllStart) : '';
+if ((storageRules.match(/match \/\{allPaths=\*\*\} \{/g) || []).length !== 1
+  || !examRules.includes("uploadId.matches('^[a-z0-9_]{8,32}$')")
+  || !examRules.includes("fileName.matches('^[A-Za-z0-9._-]{1,95}$')")
+  || !examRules.includes('resource == null')
+  || !examRules.includes('request.auth.uid == userId')
+  || !examRules.includes('request.resource.size <= 5 * 1024 * 1024')
+  || !examRules.includes("request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png']")
+  || !examRules.includes('allow update: if false;')) {
+  failures.push('Firebase Storage exam-paper upload restrictions are malformed.');
+}
+if (!storageRules.includes('match /tutorials/{fileName} {')
+  || !storageRules.includes('match /academic-hub/{userId}/{uploadId}/{fileName} {')
+  || !storageRules.includes('allow create, update: if admin()')
+  || !storageRules.includes('allow read: if true;')) {
+  failures.push('Existing Firebase Storage admin/public paths were unexpectedly changed.');
+}
+
+if (failures.length) {
+  console.error('EduNexus production preflight FAILED:');
+  for (const failure of failures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+
+console.log('EduNexus production preflight passed: dependency, security, legal/contact and required-file checks are aligned.');
