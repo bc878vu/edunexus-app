@@ -26,6 +26,23 @@ const readableSize = (bytes) => (bytes / (1024 * 1024)).toFixed(2) + ' MiB';
 const publicUrl = (path) => 'https://' + SUPABASE_PROJECT + '.supabase.co/storage/v1/object/public/' +
   BUCKET + '/' + path.split('/').map(encodeURIComponent).join('/');
 const allowedMime = (file) => TYPES[extension(file?.name)];
+const cleanFolderName = (value) => String(value || '').normalize('NFKC')
+  .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+  .replace(/\s+/g, ' ').trim().slice(0, 120);
+const folderIdentity = (value) => cleanFolderName(value).toLocaleLowerCase('en-US').replace(/[^a-z0-9]+/g, '');
+const naturalFolderCompare = (a, b) => cleanFolderName(a).localeCompare(cleanFolderName(b), undefined, {
+  numeric: true, sensitivity: 'base'
+});
+const dedupeFolders = (values) => {
+  const byIdentity = new Map();
+  for (const raw of values || []) {
+    const name = cleanFolderName(raw);
+    const key = folderIdentity(name);
+    if (!name || !key || byIdentity.has(key)) continue;
+    byIdentity.set(key, name);
+  }
+  return [...byIdentity.values()].sort(naturalFolderCompare);
+};
 const validFile = (file) => {
   if (!file) return 'Choose a resource file first.';
   if (!allowedMime(file)) return 'Supported types: PDF, Office documents, TXT, CSV, JPG, PNG and WEBP.';
@@ -71,6 +88,7 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState(initialSubject || 'CS101');
   const [customFolder, setCustomFolder] = useState(false);
+  const [managedFolders, setManagedFolders] = useState([]);
   const [description, setDescription] = useState('');
   const [rightsBasis, setRightsBasis] = useState('');
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
@@ -85,8 +103,9 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
   const fileInput = useRef(null);
   const inputId = React.useId();
   const busy = phase === 'authorizing' || phase === 'uploading' || phase === 'saving';
-  const folders = useMemo(() => [...new Set(['General', 'CS101', ...subjects, ...(initialSubject ? [initialSubject] : [])]
-    .filter((name) => typeof name === 'string' && name.trim()))].sort((a, b) => a.localeCompare(b)), [subjects, initialSubject]);
+  const folders = useMemo(() => dedupeFolders([
+    'General', 'CS101', ...subjects, ...managedFolders, ...(initialSubject ? [initialSubject] : [])
+  ]), [subjects, managedFolders, initialSubject]);
 
   useEffect(() => {
     mounted.current = true;
@@ -96,8 +115,25 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     };
   }, []);
   useEffect(() => {
-    if (initialSubject && !busy) { setSubject(initialSubject); setCustomFolder(false); }
-  }, [initialSubject, busy]);
+    const syncManagedFolders = (event) => {
+      const next = event?.detail?.folders;
+      if (!Array.isArray(next)) return;
+      setManagedFolders(dedupeFolders(next));
+      setSubject((current) => {
+        const canonical = dedupeFolders(next).find((name) => folderIdentity(name) === folderIdentity(current));
+        return canonical || current;
+      });
+    };
+    window.addEventListener('edunexus:folders-changed', syncManagedFolders);
+    return () => window.removeEventListener('edunexus:folders-changed', syncManagedFolders);
+  }, []);
+  useEffect(() => {
+    if (initialSubject && !busy) {
+      const canonical = folders.find((name) => folderIdentity(name) === folderIdentity(initialSubject));
+      setSubject(canonical || cleanFolderName(initialSubject));
+      setCustomFolder(false);
+    }
+  }, [initialSubject, busy, folders]);
 
   const choose = (next) => {
     if (busy) return;
@@ -118,7 +154,11 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
     event.preventDefault();
     if (inFlight.current) return;
     const invalid = validFile(file);
-    const code = subject.trim().replace(/\s+/g, ' ');
+    const requestedCode = cleanFolderName(subject);
+    const existingFolder = folders.find((name) => folderIdentity(name) === folderIdentity(requestedCode));
+    // A custom entry that is merely a case/spacing/punctuation/hidden-Unicode
+    // variant of an existing folder must publish into the existing folder.
+    const code = existingFolder || requestedCode;
     if (invalid || !code || code.length > 120 || !title.trim() || title.trim().length > 150 || !rightsConfirmed || !rightsBasis) {
       setError(invalid || 'A folder, title, valid sharing-rights basis and copyright confirmation are required.'); return;
     }
@@ -153,8 +193,11 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
       try { await bumpFolderCount(code, 1); } catch (_) {}
       if (mounted.current) {
         setPhase('done'); setFile(null); setTitle(''); setDescription(''); setRightsBasis(''); setRightsConfirmed(false);
+        setSubject(code); setCustomFolder(false);
         if (fileInput.current) fileInput.current.value = '';
-        setNotice('File uploaded to free Supabase Storage and published in the existing EduNexus library.');
+        setNotice(existingFolder && requestedCode !== existingFolder
+          ? 'File published in the existing “' + existingFolder + '” folder; a duplicate folder was not created.'
+          : 'File uploaded to free Supabase Storage and published in the existing EduNexus library.');
         if (onUploaded) onUploaded(code);
       }
     } catch (failure) {
@@ -199,12 +242,12 @@ export default function AcademicAdminUploader({ user, subjects = [], initialSubj
             if (e.target.value === '__custom__') { setCustomFolder(true); setSubject(''); }
             else { setCustomFolder(false); setSubject(e.target.value); }
           }}>
-            {folders.map((name) => <option key={name} value={name}>{name}</option>)}
+            {folders.map((name) => <option key={folderIdentity(name)} value={name}>{name}</option>)}
             <option value="__custom__">+ Create a new folder…</option>
           </select>
           {customFolder && <input required maxLength={120} disabled={busy} value={subject}
             onChange={(e) => setSubject(e.target.value)} placeholder="New folder name" aria-label="New folder name"/>}
-          <span className="ah-note">{folders.length} existing folders · Your existing categories are preserved.</span>
+          <span className="ah-note">{folders.length} unique existing folders · Duplicate names are automatically consolidated.</span>
         </label>
         <label className="ah-upload-description">Description (optional)
           <textarea rows={3} maxLength={1000} disabled={busy} value={description}
