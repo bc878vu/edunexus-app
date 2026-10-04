@@ -8,11 +8,12 @@ import { adminPanelAccess } from './adminSession';
 import {
   Folder, FolderOpen, Search, ChevronDown, ChevronRight,
   FileText, Eye, Pencil, Trash2, X, Loader2, Plus, Merge,
-  Save, MoveRight, RefreshCw
+  Save, MoveRight, RefreshCw, ShieldCheck
 } from 'lucide-react';
 
-const DEFAULT_FOLDERS = ['General', 'PHY101', 'CS101', 'MGT101', 'ENG101', 'CS201', 'MTH101', 'ISL201', 'PAK301'];
-const PROTECTED_KEYS = new Set(DEFAULT_FOLDERS.map((name) => folderKey(name)));
+// General is the only system folder. Course folders are fully CRUD-manageable.
+const SYSTEM_FOLDERS = ['General'];
+const PROTECTED_KEYS = new Set(SYSTEM_FOLDERS.map((name) => folderKey(name)));
 
 function cleanFolderName(value) {
   return String(value || '')
@@ -23,6 +24,8 @@ function cleanFolderName(value) {
     .slice(0, 120);
 }
 
+// Duplicate identity intentionally ignores case, spaces and punctuation.
+// Examples: CS 201 === CS201, while CS201P !== CS201.
 function folderKey(value) {
   return cleanFolderName(value)
     .toLocaleLowerCase('en-US')
@@ -37,22 +40,32 @@ function naturalFolderCompare(a, b) {
 }
 
 function uniqueNames(values) {
-  const seen = new Set();
-  const out = [];
+  const byKey = new Map();
   for (const raw of values || []) {
     const name = cleanFolderName(raw);
     const key = folderKey(name);
-    if (!name || !key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(name);
+    if (!name || !key || byKey.has(key)) continue;
+    byKey.set(key, name);
   }
-  return out.sort(naturalFolderCompare);
+  return [...byKey.values()].sort(naturalFolderCompare);
+}
+
+function chooseCanonical(aliases, exactCounts) {
+  return [...aliases].sort((a, b) => {
+    const byUsage = (exactCounts.get(b) || 0) - (exactCounts.get(a) || 0);
+    if (byUsage) return byUsage;
+    const compactA = /^[A-Za-z]{2,6}\d{3}[A-Za-z]?$/.test(a) ? 0 : 1;
+    const compactB = /^[A-Za-z]{2,6}\d{3}[A-Za-z]?$/.test(b) ? 0 : 1;
+    if (compactA !== compactB) return compactA - compactB;
+    if (a.length !== b.length) return a.length - b.length;
+    return naturalFolderCompare(a, b);
+  })[0];
 }
 
 function buildFolderGroups(metaList, files) {
-  const exactCounts = new Map();
-  const aliasesByKey = new Map();
   const rows = Array.isArray(files) ? files : [];
+  const aliasesByKey = new Map();
+  const exactCounts = new Map();
 
   const addAlias = (raw) => {
     const name = cleanFolderName(raw || 'General') || 'General';
@@ -62,7 +75,7 @@ function buildFolderGroups(metaList, files) {
     aliasesByKey.set(key, bucket);
   };
 
-  DEFAULT_FOLDERS.forEach(addAlias);
+  SYSTEM_FOLDERS.forEach(addAlias);
   (Array.isArray(metaList) ? metaList : []).forEach(addAlias);
   rows.forEach((file) => {
     const name = cleanFolderName(file.subject || file.folder || 'General') || 'General';
@@ -70,22 +83,12 @@ function buildFolderGroups(metaList, files) {
     exactCounts.set(name, (exactCounts.get(name) || 0) + 1);
   });
 
-  const groups = [];
-  aliasesByKey.forEach((aliasSet, key) => {
+  return [...aliasesByKey.entries()].map(([key, aliasSet]) => {
     const aliases = [...aliasSet].sort(naturalFolderCompare);
-    const canonical = [...aliases].sort((a, b) => {
-      const countDiff = (exactCounts.get(b) || 0) - (exactCounts.get(a) || 0);
-      if (countDiff) return countDiff;
-      const invisiblePenaltyA = a.length - cleanFolderName(a).length;
-      const invisiblePenaltyB = b.length - cleanFolderName(b).length;
-      if (invisiblePenaltyA !== invisiblePenaltyB) return invisiblePenaltyA - invisiblePenaltyB;
-      return naturalFolderCompare(a, b);
-    })[0];
+    const name = chooseCanonical(aliases, exactCounts);
     const groupFiles = rows.filter((file) => folderKey(file.subject || file.folder || 'General') === key);
-    groups.push({ key, name: canonical, aliases, files: groupFiles, count: groupFiles.length });
-  });
-
-  return groups.sort((a, b) => naturalFolderCompare(a.name, b.name));
+    return { key, name, aliases, files: groupFiles, count: groupFiles.length };
+  }).sort((a, b) => naturalFolderCompare(a.name, b.name));
 }
 
 function safeHttpUrl(value) {
@@ -118,6 +121,7 @@ export default function AdminFolderManager({ user }) {
   const groups = useMemo(() => buildFolderGroups(metaList, allFiles), [metaList, allFiles]);
   const groupByKey = useMemo(() => new Map(groups.map((group) => [group.key, group])), [groups]);
   const folderNames = useMemo(() => groups.map((group) => group.name), [groups]);
+  const duplicateGroups = useMemo(() => groups.filter((group) => group.aliases.length > 1), [groups]);
 
   const refresh = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setRefreshing(true);
@@ -127,9 +131,8 @@ export default function AdminFolderManager({ user }) {
         getMetaDoc('folders').catch(() => null),
         listFiles({ limit: 10000, activeOnly: false }),
       ]);
-      const rows = Array.isArray(page?.items) ? page.items : [];
       setMetaList(Array.isArray(meta?.list) ? meta.list : []);
-      setAllFiles(rows);
+      setAllFiles(Array.isArray(page?.items) ? page.items : []);
     } catch (e) {
       setError('Could not load the folder library: ' + (e?.message || 'unknown error'));
     } finally {
@@ -158,8 +161,10 @@ export default function AdminFolderManager({ user }) {
   const filtered = useMemo(() => {
     const needle = cleanFolderName(query).toLocaleLowerCase('en-US');
     if (!needle) return groups;
+    const compactNeedle = folderKey(needle);
     return groups.filter((group) => {
       if (group.name.toLocaleLowerCase('en-US').includes(needle)) return true;
+      if (compactNeedle && group.key.includes(compactNeedle)) return true;
       if (group.aliases.some((alias) => alias.toLocaleLowerCase('en-US').includes(needle))) return true;
       return group.files.some((file) =>
         [file.name, file.title, file.description, file.ext]
@@ -167,11 +172,6 @@ export default function AdminFolderManager({ user }) {
       );
     });
   }, [groups, query]);
-
-  const customFolderList = useCallback((names) => {
-    const protectedKeys = PROTECTED_KEYS;
-    return uniqueNames(names).filter((name) => !protectedKeys.has(folderKey(name)));
-  }, []);
 
   const countsForRows = useCallback((rows, names) => {
     const canonicalByKey = new Map(uniqueNames(names).map((name) => [folderKey(name), name]));
@@ -185,14 +185,18 @@ export default function AdminFolderManager({ user }) {
   }, []);
 
   const persistFolderMeta = useCallback(async (names, rows) => {
-    const allNames = uniqueNames([...DEFAULT_FOLDERS, ...names, ...rows.map((file) => file.subject || file.folder || 'General')]);
-    const list = customFolderList(allNames);
-    const fileCounts = countsForRows(rows, allNames);
+    const allNames = uniqueNames([
+      ...SYSTEM_FOLDERS,
+      ...(names || []),
+      ...(rows || []).map((file) => file.subject || file.folder || 'General'),
+    ]);
+    const list = allNames.filter((name) => !PROTECTED_KEYS.has(folderKey(name)));
+    const fileCounts = countsForRows(rows || [], allNames);
     await setMetaDoc('folders', { list, fileCounts }, { merge: true });
     try {
       window.dispatchEvent(new CustomEvent('edunexus:folders-changed', { detail: { folders: allNames } }));
     } catch (_) {}
-  }, [countsForRows, customFolderList]);
+  }, [countsForRows]);
 
   const requireAdmin = () => {
     if (adminPanelAccess(user)) return true;
@@ -202,7 +206,7 @@ export default function AdminFolderManager({ user }) {
 
   const flash = (message) => {
     setNotice(message);
-    window.setTimeout(() => setNotice(''), 3200);
+    window.setTimeout(() => setNotice(''), 3400);
   };
 
   const handleAddFolder = async (event) => {
@@ -210,18 +214,17 @@ export default function AdminFolderManager({ user }) {
     if (!requireAdmin()) return;
     const name = cleanFolderName(newFolder);
     const key = folderKey(name);
-    if (!name || !key) {
-      setError('Enter a valid folder name.');
-      return;
-    }
+    if (!name || !key) return setError('Enter a valid folder name.');
+
     const existing = groupByKey.get(key);
     if (existing) {
       setQuery(existing.name);
       setOpenKey(existing.key);
       setNewFolder('');
-      flash('That folder already exists. The existing folder was opened instead of creating a duplicate.');
+      flash(`“${name}” matches the existing “${existing.name}” folder, so no duplicate was created.`);
       return;
     }
+
     setBusy('add');
     setError('');
     try {
@@ -229,7 +232,7 @@ export default function AdminFolderManager({ user }) {
       setNewFolder('');
       setQuery('');
       await refresh({ quiet: true });
-      flash('Folder added without creating a duplicate.');
+      flash(`Folder “${name}” created.`);
     } catch (e) {
       setError('Could not add folder: ' + (e?.message || 'unknown error'));
     } finally {
@@ -238,10 +241,7 @@ export default function AdminFolderManager({ user }) {
   };
 
   const beginRename = (group) => {
-    if (PROTECTED_KEYS.has(group.key)) {
-      setError('Default system folders are protected from rename/delete.');
-      return;
-    }
+    if (PROTECTED_KEYS.has(group.key)) return setError('The General system folder cannot be renamed or deleted.');
     setEditingKey(group.key);
     setEditingName(group.name);
     setError('');
@@ -258,25 +258,21 @@ export default function AdminFolderManager({ user }) {
     if (!source) return;
     const requested = cleanFolderName(editingName);
     const targetKey = folderKey(requested);
-    if (!requested || !targetKey) {
-      setError('Enter a valid folder name.');
-      return;
-    }
-    if (PROTECTED_KEYS.has(source.key)) {
-      setError('Default system folders are protected from rename/delete.');
-      return;
-    }
+    if (!requested || !targetKey) return setError('Enter a valid folder name.');
+    if (PROTECTED_KEYS.has(source.key)) return setError('The General system folder cannot be renamed.');
 
     const targetGroup = groupByKey.get(targetKey);
     const targetName = targetGroup && targetGroup.key !== source.key ? targetGroup.name : requested;
+    if (targetKey === source.key && targetName === source.name && source.aliases.length === 1) {
+      cancelRename();
+      flash('Folder name is already up to date.');
+      return;
+    }
+
     const sourceIds = new Set(source.files.map((file) => file.id));
-    const nextRows = allFiles.map((file) =>
-      sourceIds.has(file.id) ? { ...file, subject: targetName } : file
-    );
-    const sourceAliases = new Set(source.aliases.map((name) => cleanFolderName(name)));
-    const nextMeta = metaList
-      .map(cleanFolderName)
-      .filter((name) => name && !sourceAliases.has(name));
+    const nextRows = allFiles.map((file) => sourceIds.has(file.id) ? { ...file, subject: targetName } : file);
+    const sourceAliasKeys = new Set(source.aliases.map(folderKey));
+    const nextMeta = metaList.filter((name) => !sourceAliasKeys.has(folderKey(name)));
     if (!PROTECTED_KEYS.has(targetKey)) nextMeta.push(targetName);
 
     setBusy('rename');
@@ -291,8 +287,8 @@ export default function AdminFolderManager({ user }) {
       setOpenKey(targetKey);
       await refresh({ quiet: true });
       flash(targetGroup && targetGroup.key !== source.key
-        ? `Merged ${filesToMove.length} file${filesToMove.length === 1 ? '' : 's'} into ${targetName}.`
-        : `Folder renamed to ${targetName}; its files moved with it.`);
+        ? `Merged ${filesToMove.length} file${filesToMove.length === 1 ? '' : 's'} into “${targetName}”.`
+        : `Folder renamed to “${targetName}”; all files stayed with it.`);
     } catch (e) {
       setError('Could not complete folder rename/merge: ' + (e?.message || 'unknown error'));
       await refresh({ quiet: true });
@@ -303,28 +299,64 @@ export default function AdminFolderManager({ user }) {
 
   const handleDeleteFolder = async (group) => {
     if (!requireAdmin()) return;
-    if (PROTECTED_KEYS.has(group.key)) {
-      setError('Default system folders are protected from deletion.');
-      return;
-    }
-    if (group.count > 0) {
-      setError(`${group.name} contains ${group.count} file${group.count === 1 ? '' : 's'}. Rename it to an existing folder to merge/move those files first; EduNexus will not orphan files.`);
-      setOpenKey(group.key);
-      return;
-    }
-    if (!window.confirm(`Delete the empty folder "${group.name}"?`)) return;
+    if (PROTECTED_KEYS.has(group.key)) return setError('The General system folder cannot be deleted.');
+
+    const message = group.count > 0
+      ? `Delete “${group.name}”? Its ${group.count} file${group.count === 1 ? '' : 's'} will be moved safely to General; file records and stored files will NOT be deleted.`
+      : `Delete the empty folder “${group.name}”?`;
+    if (!window.confirm(message)) return;
 
     setBusy('delete:' + group.key);
     setError('');
     try {
-      const aliases = new Set(group.aliases.map((name) => cleanFolderName(name)));
-      const nextMeta = metaList.map(cleanFolderName).filter((name) => name && !aliases.has(name));
-      await persistFolderMeta(nextMeta, allFiles);
-      if (openKey === group.key) setOpenKey('');
+      const sourceIds = new Set(group.files.map((file) => file.id));
+      const nextRows = allFiles.map((file) => sourceIds.has(file.id) ? { ...file, subject: 'General' } : file);
+      if (group.count > 0) {
+        for (const file of group.files) {
+          await updateFile(file.id, { subject: 'General', updatedAt: new Date() });
+        }
+      }
+      const aliasKeys = new Set(group.aliases.map(folderKey));
+      const nextMeta = metaList.filter((name) => !aliasKeys.has(folderKey(name)));
+      await persistFolderMeta(nextMeta, nextRows);
+      if (openKey === group.key) setOpenKey(group.count > 0 ? folderKey('General') : '');
       await refresh({ quiet: true });
-      flash('Empty folder deleted. No files were affected.');
+      flash(group.count > 0
+        ? `Folder deleted; ${group.count} file${group.count === 1 ? '' : 's'} moved safely to General.`
+        : 'Empty folder deleted.');
     } catch (e) {
       setError('Could not delete folder: ' + (e?.message || 'unknown error'));
+      await refresh({ quiet: true });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const handleConsolidateDuplicates = async () => {
+    if (!requireAdmin() || duplicateGroups.length === 0) return;
+    if (!window.confirm(`Consolidate ${duplicateGroups.length} duplicate-label group${duplicateGroups.length === 1 ? '' : 's'} into their canonical folder names? Files will be moved between folder labels only; no files will be deleted.`)) return;
+
+    setBusy('consolidate');
+    setError('');
+    try {
+      const canonicalByKey = new Map(groups.map((group) => [group.key, group.name]));
+      const nextRows = allFiles.map((file) => {
+        const current = cleanFolderName(file.subject || file.folder || 'General') || 'General';
+        const canonical = canonicalByKey.get(folderKey(current)) || current;
+        return current === canonical ? file : { ...file, subject: canonical };
+      });
+      for (const file of allFiles) {
+        const current = cleanFolderName(file.subject || file.folder || 'General') || 'General';
+        const canonical = canonicalByKey.get(folderKey(current)) || current;
+        if (current !== canonical) await updateFile(file.id, { subject: canonical, updatedAt: new Date() });
+      }
+      const nextMeta = uniqueNames(metaList.map((name) => canonicalByKey.get(folderKey(name)) || name));
+      await persistFolderMeta(nextMeta, nextRows);
+      await refresh({ quiet: true });
+      flash('Duplicate folder labels consolidated.');
+    } catch (e) {
+      setError('Could not consolidate duplicate folders: ' + (e?.message || 'unknown error'));
+      await refresh({ quiet: true });
     } finally {
       setBusy('');
     }
@@ -351,10 +383,8 @@ export default function AdminFolderManager({ user }) {
     const name = String(editTitle || '').trim().slice(0, 150);
     const target = groupByKey.get(folderKey(editFolder));
     const subject = target?.name || cleanFolderName(editFolder);
-    if (!name || !subject) {
-      setError('File title and destination folder are required.');
-      return;
-    }
+    if (!name || !subject) return setError('File title and destination folder are required.');
+
     setBusy('file:' + file.id);
     setError('');
     try {
@@ -367,7 +397,7 @@ export default function AdminFolderManager({ user }) {
       cancelFileEdit();
       await refresh({ quiet: true });
       flash(subject !== cleanFolderName(file.subject || file.folder || 'General')
-        ? `File moved to ${subject} and updated.`
+        ? `File moved to “${subject}” and updated.`
         : 'File details updated.');
     } catch (e) {
       setError('Could not save file changes: ' + (e?.message || 'unknown error'));
@@ -379,7 +409,7 @@ export default function AdminFolderManager({ user }) {
   const removeFile = async (file) => {
     if (!requireAdmin()) return;
     const title = String(file.name || file.title || file.id);
-    if (!window.confirm(`Remove "${title}" from the EduNexus library? The external/source file is not deleted.`)) return;
+    if (!window.confirm(`Remove “${title}” from the EduNexus library? The external/source file is not deleted.`)) return;
     setBusy('file:' + file.id);
     setError('');
     try {
@@ -393,16 +423,13 @@ export default function AdminFolderManager({ user }) {
     }
   };
 
-  const duplicateGroups = useMemo(() => groups.filter((group) => group.aliases.length > 1), [groups]);
-  const totalFiles = allFiles.length;
-
   return (
     <section className="edx-afm" aria-label="Admin folder manager">
       <div className="edx-afm-head">
         <div>
           <span className="ah-eyebrow">Administrator workspace · Academic library</span>
           <h3>Folder manager</h3>
-          <p>{groups.length} unique folders · {totalFiles} files · natural course-code sequence</p>
+          <p>{groups.length} unique folders · {allFiles.length} files · full folder CRUD</p>
         </div>
         <button type="button" className="edx-afm-refresh" onClick={() => refresh()} disabled={refreshing || loading}>
           <RefreshCw size={15} className={refreshing ? 'spin' : ''}/>
@@ -417,7 +444,7 @@ export default function AdminFolderManager({ user }) {
             value={newFolder}
             onChange={(event) => setNewFolder(event.target.value)}
             maxLength={120}
-            placeholder="Add a new folder (e.g. CS620_Modeling_and_Simulation)"
+            placeholder="Add folder (e.g. CS620_Modeling_and_Simulation)"
             aria-label="New folder name"
           />
           <button type="submit" disabled={busy === 'add' || !newFolder.trim()}>
@@ -438,11 +465,20 @@ export default function AdminFolderManager({ user }) {
         </label>
       </div>
 
+      <div className="edx-afm-rule-note">
+        <ShieldCheck size={15}/>
+        <span><strong>Duplicate protection:</strong> CS 201 and CS201 are treated as the same folder; CS201P remains a separate folder.</span>
+      </div>
+
       <div className="edx-afm-summary" aria-live="polite">
         <span>{filtered.length} shown</span>
         <span>{groups.length} unique folders</span>
-        <span>{totalFiles} file records</span>
-        {duplicateGroups.length > 0 && <span className="edx-afm-warning">{duplicateGroups.length} duplicate label group{duplicateGroups.length === 1 ? '' : 's'} grouped safely</span>}
+        <span>{allFiles.length} file records</span>
+        {duplicateGroups.length > 0 && (
+          <button type="button" className="edx-afm-consolidate" onClick={handleConsolidateDuplicates} disabled={busy === 'consolidate'}>
+            <Merge size={14}/>{busy === 'consolidate' ? 'Consolidating…' : `Consolidate ${duplicateGroups.length} duplicate group${duplicateGroups.length === 1 ? '' : 's'}`}
+          </button>
+        )}
       </div>
 
       {error && <p className="ah-message ah-upload-error" role="alert">{error}</p>}
@@ -460,34 +496,36 @@ export default function AdminFolderManager({ user }) {
             const renaming = editingKey === group.key;
             return (
               <li key={group.key} className={'edx-afm-item' + (open ? ' is-open' : '')}>
-                <div className="edx-afm-folder-row">
-                  <button
-                    type="button"
-                    className="edx-afm-folder"
-                    onClick={() => setOpenKey(open ? '' : group.key)}
-                    aria-expanded={open}
-                  >
-                    <span className="edx-afm-sequence">{String(index + 1).padStart(3, '0')}</span>
-                    <span className="edx-afm-folder-icon">{open ? <FolderOpen size={21}/> : <Folder size={21}/>}</span>
-                    <span className="edx-afm-folder-copy">
-                      <strong>{group.name}</strong>
-                      <small>{group.count} {group.count === 1 ? 'file' : 'files'}{group.aliases.length > 1 ? ` · ${group.aliases.length} equivalent labels grouped` : ''}</small>
-                    </span>
-                    <span className="edx-afm-chevron">{open ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}</span>
+                <button
+                  type="button"
+                  className="edx-afm-folder"
+                  onClick={() => setOpenKey(open ? '' : group.key)}
+                  aria-expanded={open}
+                  title={group.name}
+                >
+                  <span className="edx-afm-sequence">{String(index + 1).padStart(3, '0')}</span>
+                  <span className="edx-afm-folder-icon">{open ? <FolderOpen size={22}/> : <Folder size={22}/>}</span>
+                  <span className="edx-afm-folder-copy">
+                    <strong>{group.name}</strong>
+                    <small>{group.count} {group.count === 1 ? 'file' : 'files'}{group.aliases.length > 1 ? ` · ${group.aliases.length} equivalent labels` : ''}</small>
+                  </span>
+                  <span className="edx-afm-chevron">{open ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}</span>
+                </button>
+
+                <div className="edx-afm-folder-tools" aria-label={`${group.name} folder actions`}>
+                  <button type="button" onClick={() => setOpenKey(open ? '' : group.key)}>
+                    {open ? <ChevronDown size={15}/> : <FolderOpen size={15}/>}<span>{open ? 'Close' : 'Open'}</span>
                   </button>
-                  {!protectedFolder && (
-                    <div className="edx-afm-folder-tools">
-                      <button type="button" onClick={() => beginRename(group)} title="Rename or merge folder"><Pencil size={15}/><span>Rename / merge</span></button>
-                      <button type="button" className="danger" disabled={group.count > 0 || busy === 'delete:' + group.key} onClick={() => handleDeleteFolder(group)} title={group.count > 0 ? 'Move or merge files before deleting this folder' : 'Delete empty folder'}><Trash2 size={15}/><span>Delete</span></button>
-                    </div>
-                  )}
+                  {!protectedFolder && <button type="button" onClick={() => beginRename(group)} title="Rename or merge folder"><Pencil size={15}/><span>Rename / merge</span></button>}
+                  {!protectedFolder && <button type="button" className="danger" disabled={busy === 'delete:' + group.key} onClick={() => handleDeleteFolder(group)} title={group.count > 0 ? 'Delete folder and move its files safely to General' : 'Delete empty folder'}><Trash2 size={15}/><span>{busy === 'delete:' + group.key ? 'Deleting…' : 'Delete'}</span></button>}
+                  {protectedFolder && <span className="edx-afm-system-badge"><ShieldCheck size={13}/> System folder</span>}
                 </div>
 
                 {renaming && (
                   <div className="edx-afm-rename">
                     <div>
                       <strong>Rename or merge this folder</strong>
-                      <p>Type a new name. If that folder already exists, every file from this folder is moved into the existing folder automatically.</p>
+                      <p>If the destination already exists, every file is moved into that existing folder automatically.</p>
                     </div>
                     <input value={editingName} onChange={(event) => setEditingName(event.target.value)} maxLength={120} aria-label="Rename folder"/>
                     <div className="edx-afm-rename-actions">
@@ -503,46 +541,44 @@ export default function AdminFolderManager({ user }) {
                       <div><strong>{group.name}</strong><span>{group.count} file{group.count === 1 ? '' : 's'} inside this folder</span></div>
                       {group.aliases.length > 1 && <span className="edx-afm-aliases" title={group.aliases.join(' · ')}>Equivalent labels: {group.aliases.join(' · ')}</span>}
                     </div>
+
                     {group.files.length === 0 ? (
-                      <p className="edx-afm-empty">This folder is empty. You can upload a file here or delete the folder.</p>
+                      <p className="edx-afm-empty">This folder is empty. You can upload a file here, rename it, or delete it.</p>
                     ) : (
                       <ul className="edx-afm-file-list">
-                        {group.files
-                          .slice()
-                          .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' }))
-                          .map((file) => {
-                            const url = safeHttpUrl(file.url);
-                            const isEditing = editingFile === file.id;
-                            const fileBusy = busy === 'file:' + file.id;
-                            return (
-                              <li key={file.id} className="edx-afm-file">
-                                <span className="edx-afm-file-icon"><FileText size={17}/></span>
-                                {isEditing ? (
-                                  <div className="edx-afm-edit">
-                                    <label>File title<input value={editTitle} maxLength={150} onChange={(event) => setEditTitle(event.target.value)}/></label>
-                                    <label>Folder<select value={editFolder} onChange={(event) => setEditFolder(event.target.value)}>{folderNames.map((name) => <option key={folderKey(name)} value={name}>{name}</option>)}</select></label>
-                                    <label className="wide">Description<textarea value={editDesc} maxLength={1000} rows={2} onChange={(event) => setEditDesc(event.target.value)} placeholder="Optional description"/></label>
-                                    <div className="edx-afm-edit-actions wide">
-                                      <button type="button" className="primary" disabled={fileBusy || !editTitle.trim()} onClick={() => saveFileEdit(file)}>{editFolder !== group.name ? <MoveRight size={15}/> : <Save size={15}/>} {fileBusy ? 'Saving…' : (editFolder !== group.name ? 'Move & save' : 'Save')}</button>
-                                      <button type="button" onClick={cancelFileEdit}><X size={15}/> Cancel</button>
-                                    </div>
+                        {group.files.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' })).map((file) => {
+                          const url = safeHttpUrl(file.url);
+                          const isEditing = editingFile === file.id;
+                          const fileBusy = busy === 'file:' + file.id;
+                          return (
+                            <li key={file.id} className="edx-afm-file">
+                              <span className="edx-afm-file-icon"><FileText size={17}/></span>
+                              {isEditing ? (
+                                <div className="edx-afm-edit">
+                                  <label>File title<input value={editTitle} maxLength={150} onChange={(event) => setEditTitle(event.target.value)}/></label>
+                                  <label>Folder<select value={editFolder} onChange={(event) => setEditFolder(event.target.value)}>{folderNames.map((name) => <option key={folderKey(name)} value={name}>{name}</option>)}</select></label>
+                                  <label className="wide">Description<textarea value={editDesc} maxLength={1000} rows={2} onChange={(event) => setEditDesc(event.target.value)} placeholder="Optional description"/></label>
+                                  <div className="edx-afm-edit-actions wide">
+                                    <button type="button" className="primary" disabled={fileBusy || !editTitle.trim()} onClick={() => saveFileEdit(file)}>{editFolder !== group.name ? <MoveRight size={15}/> : <Save size={15}/>} {fileBusy ? 'Saving…' : (editFolder !== group.name ? 'Move & save' : 'Save')}</button>
+                                    <button type="button" onClick={cancelFileEdit}><X size={15}/> Cancel</button>
                                   </div>
-                                ) : (
-                                  <>
-                                    <div className="edx-afm-file-copy">
-                                      <strong>{String(file.name || file.title || file.id)}</strong>
-                                      <small>{String(file.ext || 'FILE').toUpperCase()} · {file.isActive === false ? 'Disabled' : 'Active'}{file.description ? ' · Description saved' : ''}</small>
-                                    </div>
-                                    <div className="edx-afm-file-actions">
-                                      {url && <a href={url} target="_blank" rel="noopener noreferrer" title="Open file"><Eye size={15}/><span>Open</span></a>}
-                                      <button type="button" onClick={() => beginFileEdit(file)} title="Edit or move file"><Pencil size={15}/><span>Edit / move</span></button>
-                                      <button type="button" className="danger" disabled={fileBusy} onClick={() => removeFile(file)} title="Remove file listing"><Trash2 size={15}/><span>Remove</span></button>
-                                    </div>
-                                  </>
-                                )}
-                              </li>
-                            );
-                          })}
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="edx-afm-file-copy">
+                                    <strong>{String(file.name || file.title || file.id)}</strong>
+                                    <small>{String(file.ext || 'FILE').toUpperCase()} · {file.isActive === false ? 'Disabled' : 'Active'}{file.description ? ' · Description saved' : ''}</small>
+                                  </div>
+                                  <div className="edx-afm-file-actions">
+                                    {url && <a href={url} target="_blank" rel="noopener noreferrer" title="Open file"><Eye size={15}/><span>Open</span></a>}
+                                    <button type="button" onClick={() => beginFileEdit(file)} title="Edit or move file"><Pencil size={15}/><span>Edit / move</span></button>
+                                    <button type="button" className="danger" disabled={fileBusy} onClick={() => removeFile(file)} title="Remove file listing"><Trash2 size={15}/><span>Remove</span></button>
+                                  </div>
+                                </>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </div>
