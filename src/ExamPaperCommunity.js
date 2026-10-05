@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
-import { db, storage } from './firebase-client';
-import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { db } from './firebase-client';
 import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import RichContent from './RichContent';
 import './exam-paper-community.css';
@@ -35,13 +34,11 @@ const readError = (error, name) => error?.code === 'permission-denied'
 function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
   const [form, setForm] = useState(() => defaultForm(subject, term));
   const [agreed, setAgreed] = useState(false);
-  const [paper, setPaper] = useState(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const listId = React.useId();
   const saving = useRef(false);
-  const fileInput = useRef(null);
   useEffect(() => {
     setForm((prev) => ({ ...prev, term }));
   }, [subject, term]);
@@ -66,10 +63,7 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
     const name = safe(form.sharedBy, 60);
     const summary = String(form.summary || '');
     if (summary.length > REVIEW_CHAR_LIMIT || countReviewWords(summary) > REVIEW_WORD_LIMIT) {
-      setError('Review must contain no more than 10,000 words and 300,000 characters. Attach a PDF for longer papers.'); return;
-    }
-    if (paper && (paper.size > 5 * 1024 * 1024 || paper.size === 0 || !['application/pdf','image/jpeg','image/png'].includes(paper.type))) {
-      setError('Choose a PDF, JPG or PNG file no larger than 5 MB.'); return;
+      setError('Review must contain no more than 10,000 words and 300,000 characters.'); return;
     }
     const examMoment = new Date(form.examDate + 'T' + form.examTime + ':00');
     const futureExam = !Number.isFinite(examMoment.getTime()) || examMoment.getTime() > Date.now();
@@ -82,27 +76,12 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
       return;
     }
     saving.current = true; setBusy(true);
-    let orphanUpload = null;
     try {
       const id = [user.uid, code, form.term, form.examDate].join('_');
       const reviewRef = doc(col(REVIEW_COLLECTION), id);
       if ((await getDoc(reviewRef)).exists()) {
         setError('You already shared a review for this course, exam type and date. Find it in the reviews below, or contact the site administrator to correct it.');
         return;
-      }
-      // A paper attachment is optional. The file is only uploaded after the
-      // completed-exam confirmation; ordinary text reviews work without storage.
-      let attachment = {};
-      if (paper) {
-        const ext = paper.type === 'application/pdf' ? 'pdf' : paper.type === 'image/png' ? 'png' : 'jpg';
-        const fileName = paper.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 95) || 'paper.' + ext;
-        const uploadId = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
-        const paperPath = 'exam-papers/' + user.uid + '/' + uploadId + '/' + fileName;
-        const destination = storageRef(storage, paperPath);
-        await uploadBytes(destination, paper, { contentType: paper.type });
-        orphanUpload = destination;
-        const paperUrl = await getDownloadURL(destination);
-        attachment = { paperName:fileName, paperPath, paperUrl };
       }
       await setDoc(reviewRef, {
         userId: user.uid, subject: code, term: form.term,
@@ -111,16 +90,12 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
         examAt: Timestamp.fromDate(examMoment),
         sharedBy: name, difficulty: form.difficulty,
         topics: safe(form.topics, 400), summary, createdAt: serverTimestamp(),
-        ...attachment
       });
-      orphanUpload = null;
       setNotice('Your review is now published. Students can read and share it below.');
       if (onPublished) onPublished(code, form.term);
       setForm((prev) => ({ ...defaultForm('', prev.term), semesterYear: prev.semesterYear }));
-      setAgreed(false); setPaper(null);
-      if (fileInput.current) fileInput.current.value = '';
+      setAgreed(false);
     } catch (err) {
-      if (orphanUpload) await deleteObject(orphanUpload).catch(() => {});
       setError(err?.code === 'permission-denied'
         ? 'Publishing is blocked by the live database rules. Please ask the site administrator to publish the updated Firestore review rules. Your review text is still here.'
         : err?.code === 'unavailable' || err?.code === 'deadline-exceeded'
@@ -146,7 +121,6 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
         <label className="edx-paper-full">Main topics (optional) <input maxLength={400} placeholder="e.g. important definitions, lecture topics or general preparation tips" value={form.topics} onChange={(e) => update('topics', e.target.value)} /></label>
         <label className="edx-paper-full">Your paper experience and study tips <textarea required minLength={20} maxLength={REVIEW_CHAR_LIMIT} rows={10} placeholder="What topics came up? What would you suggest other students revise?" value={form.summary} onChange={(e) => update('summary', e.target.value)} /><span className="edx-paper-count">{countReviewWords(form.summary).toLocaleString()} / 10,000 words</span></label>
       </div>
-      <label className="edx-paper-attachment">Attach your completed paper (optional) <input ref={fileInput} type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" disabled={busy} onChange={e=>{const file=e.target.files?.[0] || null; if(file && (file.size>5*1024*1024 || file.size===0 || !["application/pdf","image/jpeg","image/png"].includes(file.type))){setPaper(null);setError("Choose a PDF, JPG or PNG file no larger than 5 MB.");e.target.value="";return;}setError("");setPaper(file);}}/><small>{paper ? paper.name : "PDF, JPG or PNG · Up to 5 MB · Only upload material you are allowed to share."}</small></label>
       <label className="edx-paper-consent"><input type="checkbox" required checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /><span>I have completed this exam, and my review does not disclose confidential or active examination material. I understand that my display name and review will be publicly visible.</span></label>
       {error && <div className="edx-paper-alert" role="alert">{error}</div>}
       {notice && <div className="edx-paper-success" role="status"><CheckCircle2 size={18} /> {notice} <a href="#edx-paper-feed">View reviews</a></div>}
