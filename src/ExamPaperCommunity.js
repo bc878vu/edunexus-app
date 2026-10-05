@@ -3,6 +3,7 @@ import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, query, ser
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
 import { db, auth } from './firebase-client';
 import { signInAnonymously } from 'firebase/auth';
+import { submitCommunityReview } from './db/examReviews';
 import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import RichContent from './RichContent';
 import './exam-paper-community.css';
@@ -90,30 +91,30 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
     }
     saving.current = true; setBusy(true);
     try {
-      const id = [fbUid, code, form.term, form.examDate].join('_');
-      const reviewRef = doc(col(REVIEW_COLLECTION), id);
-      if ((await getDoc(reviewRef)).exists()) {
-        setError('You already shared a review for this course, exam type and date. Find it in the reviews below, or contact the site administrator to correct it.');
-        return;
-      }
-      await setDoc(reviewRef, {
+      // Write through the Supabase-primary adapter (with Firestore fallback)
+      // so the review appears in the app's listing, which reads Supabase first.
+      // The Firebase UID is used for userId to satisfy Firestore rules.
+      await submitCommunityReview({
         userId: fbUid, subject: code, term: form.term,
         semester: form.semesterSeason + ' ' + form.semesterYear,
         examDate: form.examDate, examTime: form.examTime,
-        examAt: Timestamp.fromDate(examMoment),
+        examAt: examMoment,
         sharedBy: name, difficulty: form.difficulty,
-        topics: safe(form.topics, 400), summary, createdAt: serverTimestamp(),
+        topics: safe(form.topics, 400), summary,
       });
       setNotice('Your review is now published. Students can read and share it below.');
       if (onPublished) onPublished(code, form.term);
       setForm((prev) => ({ ...defaultForm('', prev.term), semesterYear: prev.semesterYear }));
       setAgreed(false);
     } catch (err) {
-      setError(err?.code === 'permission-denied'
-        ? 'Publishing is blocked by the live database rules. Please ask the site administrator to publish the updated Firestore review rules. Your review text is still here.'
-        : err?.code === 'unavailable' || err?.code === 'deadline-exceeded'
-          ? 'Connection to the review database failed. Check your internet connection and try again; your text is still here.'
-          : 'The review could not be published (' + safe(err?.code || 'unexpected error', 50) + '). Please try again; your text is still here.');
+      const msg = String(err?.message || '');
+      setError(msg.startsWith('duplicate:')
+        ? 'You already shared a review for this course, exam type and date. Find it in the reviews below, or contact the site administrator to correct it. Your review text is still here.'
+        : err?.code === 'permission-denied'
+          ? 'Publishing is blocked by the live database rules. Please ask the site administrator to publish the updated Firestore review rules. Your review text is still here.'
+          : err?.code === 'unavailable' || err?.code === 'deadline-exceeded'
+            ? 'Connection to the review database failed. Check your internet connection and try again; your text is still here.'
+            : 'The review could not be published (' + safe(err?.code || msg.slice(0, 50) || 'unexpected error', 50) + '). Please try again; your text is still here.');
     } finally { saving.current = false; setBusy(false); }
   };
   return <section className="edx-paper-submit" aria-labelledby="edx-paper-share-title">
