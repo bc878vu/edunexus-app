@@ -104,8 +104,6 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
       });
       setNotice('Your review is now published. Students can read and share it below.');
       if (onPublished) onPublished(code, form.term);
-      // Refresh the list to show the newly published review immediately.
-      setReloadKey(n => n + 1);
       setForm((prev) => ({ ...defaultForm('', prev.term), semesterYear: prev.semesterYear }));
       setAgreed(false);
     } catch (err) {
@@ -308,6 +306,8 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
     setBrowseSubject('');
     setAllSubjects(true);
     setBrowseTerm('all');
+    // Refresh the list to show the newly published review immediately.
+    setReloadKey(n => n + 1);
     onPublished?.(code,examTerm);
   };
   return <div className="edx-paper">
