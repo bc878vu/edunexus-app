@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
-import { db } from './firebase-client';
+import { db, auth } from './firebase-client';
+import { signInAnonymously } from 'firebase/auth';
 import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import RichContent from './RichContent';
 import './exam-paper-community.css';
@@ -58,7 +59,19 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
     event.preventDefault();
     if (saving.current) return;
     setError(''); setNotice('');
-    if (!user?.uid) { setError('Please sign in to share a review.'); return; }
+    // Firestore rules validate against the Firebase Auth UID (request.auth.uid),
+    // NOT the app-level user id (which may be a Supabase UID after the
+    // Supabase-first migration). Always use the Firebase UID for the review's
+    // userId and document ID, signing in anonymously if needed.
+    let fbUid = auth.currentUser?.uid;
+    if (!fbUid) {
+      try {
+        const cred = await signInAnonymously(auth);
+        fbUid = cred.user.uid;
+      } catch (_) {
+        setError('Please sign in to share a review.'); return;
+      }
+    }
     const code = courseCode(form.subject);
     const name = safe(form.sharedBy, 60);
     const summary = String(form.summary || '');
@@ -77,14 +90,14 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
     }
     saving.current = true; setBusy(true);
     try {
-      const id = [user.uid, code, form.term, form.examDate].join('_');
+      const id = [fbUid, code, form.term, form.examDate].join('_');
       const reviewRef = doc(col(REVIEW_COLLECTION), id);
       if ((await getDoc(reviewRef)).exists()) {
         setError('You already shared a review for this course, exam type and date. Find it in the reviews below, or contact the site administrator to correct it.');
         return;
       }
       await setDoc(reviewRef, {
-        userId: user.uid, subject: code, term: form.term,
+        userId: fbUid, subject: code, term: form.term,
         semester: form.semesterSeason + ' ' + form.semesterYear,
         examDate: form.examDate, examTime: form.examTime,
         examAt: Timestamp.fromDate(examMoment),
@@ -124,8 +137,8 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
       <label className="edx-paper-consent"><input type="checkbox" required checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /><span>I have completed this exam, and my review does not disclose confidential or active examination material. I understand that my display name and review will be publicly visible.</span></label>
       {error && <div className="edx-paper-alert" role="alert">{error}</div>}
       {notice && <div className="edx-paper-success" role="status"><CheckCircle2 size={18} /> {notice} <a href="#edx-paper-feed">View reviews</a></div>}
-      <button className="edx-paper-publish" type="submit" disabled={busy || !user || !agreed}><Send size={18} /> {busy ? 'Publishing your review…' : 'Share my paper experience'}</button>
-      {!user && <p className="edx-paper-hint">Waiting for a student session. Reload the page if the button remains disabled.</p>}
+      <button className="edx-paper-publish" type="submit" disabled={busy || !agreed}><Send size={18} /> {busy ? 'Publishing your review…' : 'Share my paper experience'}</button>
+      {!agreed && <p className="edx-paper-hint">Tick the confirmation above to share your review.</p>}
     </form>
   </section>;
 }
