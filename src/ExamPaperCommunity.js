@@ -3,7 +3,7 @@ import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, query, ser
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
 import { db, auth } from './firebase-client';
 import { signInAnonymously } from 'firebase/auth';
-import { submitCommunityReview } from './db/examReviews';
+import { submitCommunityReview, listCommunityReviews } from './db/examReviews';
 import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import RichContent from './RichContent';
 import './exam-paper-community.css';
@@ -104,6 +104,8 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
       });
       setNotice('Your review is now published. Students can read and share it below.');
       if (onPublished) onPublished(code, form.term);
+      // Refresh the list to show the newly published review immediately.
+      setReloadKey(n => n + 1);
       setForm((prev) => ({ ...defaultForm('', prev.term), semesterYear: prev.semesterYear }));
       setAgreed(false);
     } catch (err) {
@@ -256,25 +258,19 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
       pending[key] = false;
       if (active && !pending.community && !pending.legacy) setLoading(false);
     };
-    // Quota fix 2026-09-30: one-time cached fetch (10 min) instead of two live
-    // listeners reading up to 200 docs each on every visit.
-    // Fetch public reviews regardless of the MCQ Bank's selected subject or
-    // category. Historical reviews used different subjects/terms and were
-    // previously hidden by an exact-match filter.
+    // Load reviews via the Supabase-primary adapter (with Firestore fallback),
+    // so newly published reviews appear immediately.
     const observe = async (name, setItems, key) => {
       try {
-        const cacheKey = "edx-reviews-" + name;
-        const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
-        if (cached && Date.now() - cached.ts < 600000 && Array.isArray(cached.items)) {
-          if (!active) return;
-          setItems(cached.items);
-          setErrors(prev => prev.filter(entry=>entry.key!==key));
-          done(key);
-          return;
+        let items;
+        if (name === REVIEW_COLLECTION) {
+          // Community reviews: Supabase-primary via adapter.
+          items = await listCommunityReviews({ activeOnly: true, limit: 200 });
+        } else {
+          // Legacy reviews: Firestore-only (unchanged).
+          const snapshot = await getDocs(query(col(name), limit(200)));
+          items = snapshot.docs.map(d => ({ id:d.id,collectionName:name,...d.data() })).filter(r => r.isActive !== false);
         }
-        const snapshot = await getDocs(query(col(name), limit(200)));
-        const items = snapshot.docs.map(d => ({ id:d.id,collectionName:name,...d.data() })).filter(r => r.isActive !== false);
-        try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), items })); } catch (_) {}
         if (!active) return;
         setItems(items);
         setErrors(prev => prev.filter(entry=>entry.key!==key));
