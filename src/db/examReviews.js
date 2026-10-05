@@ -108,6 +108,9 @@ export async function submitCommunityReview(data) {
       if (existing) throw new Error('duplicate: a review already exists for this course, exam type and date');
       const row = { id, ...toCommunityRow(data) };
       if (!row.created_at) row.created_at = nowIso();
+      // Listing filters is_active=true; ensure new reviews are visible.
+      // (toCommunityRow only maps isActive if the caller passed it.)
+      if (row.is_active == null) row.is_active = true;
       const { error } = await supabase.from('exam_community_reviews').insert(row);
       if (error) throw error;
       return id;
