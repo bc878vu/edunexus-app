@@ -136,8 +136,7 @@ export async function listCommunityReviews({ subject, term, activeOnly = true, l
         let q = supabase.from('exam_community_reviews').select('*');
         if (subject) q = q.eq('subject', subject);
         if (term) q = q.eq('term', term);
-        // Treat NULL is_active as active (legacy rows); only explicit false hides.
-        if (activeOnly) q = q.or('is_active.eq.true,is_active.is.null');
+        if (activeOnly) q = q.eq('is_active', true);
         const { data, error } = await q.order('exam_date', { ascending: false }).limit(max);
         if (error) throw error;
         return (data || []).map(toCommunity);
