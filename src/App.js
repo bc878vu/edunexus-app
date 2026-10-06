@@ -4305,7 +4305,7 @@ const CGPACalculator = ({ theme, isDark }) => {
   const [program, setProgram] = React.useState("BS (Computer Science)");
   const [semester, setSemester] = React.useState("");
 
-  // 🔹 Subject change helper (allows empty + decimals)
+  // 🔹 Subject change helper (editable, never empty, decimals allowed)
   const handleSubjectChange = (index, field, rawValue) => {
     setSubjects((prev) =>
       prev.map((sub, i) => {
@@ -4315,27 +4315,44 @@ const CGPACalculator = ({ theme, isDark }) => {
         if (field === "name") {
           updated.name = rawValue;
         } else if (field === "credits") {
-          // Allow empty (user can clear the field)
+          // Editable: empty while typing → default to 3 on blur, clamp 1–4
           if (rawValue === "" || rawValue === null) {
             updated.credits = "";
           } else {
             let v = parseInt(rawValue, 10);
             if (isNaN(v)) v = "";
-            else v = Math.max(1, Math.min(4, v)); // 1–4 credits (VU standard)
+            else v = Math.max(1, Math.min(4, v));
             updated.credits = v;
           }
         } else if (field === "score") {
-          // Allow empty + decimal values (e.g., 85.5)
+          // Editable: empty while typing → default to 0 on blur, decimals allowed
           if (rawValue === "" || rawValue === null) {
             updated.score = "";
           } else {
             let v = parseFloat(rawValue);
             if (isNaN(v)) v = "";
-            else v = Math.max(0, Math.min(100, v)); // 0–100 marks
+            else v = Math.max(0, Math.min(100, v));
             updated.score = v;
           }
         }
 
+        return updated;
+      })
+    );
+  };
+
+  // 🔹 On blur: fill empty fields with defaults (never leave empty)
+  const handleSubjectBlur = (index, field) => {
+    setSubjects((prev) =>
+      prev.map((sub, i) => {
+        if (i !== index) return sub;
+        const updated = { ...sub };
+        if (field === "credits" && (updated.credits === "" || updated.credits === null)) {
+          updated.credits = 3;
+        }
+        if (field === "score" && (updated.score === "" || updated.score === null)) {
+          updated.score = 0;
+        }
         return updated;
       })
     );
@@ -4366,7 +4383,8 @@ const CGPACalculator = ({ theme, isDark }) => {
     window.print();
   };
 
-  // 🔹 Overall CGPA / percentage / credits (skips empty rows)
+  // 🔹 Overall CGPA / percentage / credits (VU formula)
+  // CGPA = Σ(Grade Points × Credit Hours) ÷ Σ(Credit Hours)
   const { overallGPA, overallPercent, totalCredits, failedCount } =
     React.useMemo(() => {
       let creditSum = 0;
@@ -4375,9 +4393,10 @@ const CGPACalculator = ({ theme, isDark }) => {
       let fails = 0;
 
       subjects.forEach((sub) => {
-        const c = sub.credits === "" ? 0 : Number(sub.credits) || 0;
-        const s = sub.score === "" ? null : Number(sub.score);
-        if (c <= 0 || s === null || isNaN(s)) return;
+        // Empty while typing → treat as default (3 credits, 0 score)
+        const c = sub.credits === "" || sub.credits === null ? 3 : Number(sub.credits) || 0;
+        const s = sub.score === "" || sub.score === null ? 0 : Number(sub.score);
+        if (c <= 0 || isNaN(s)) return;
 
         const band = getBandForScore(s);
         creditSum += c;
@@ -4655,15 +4674,13 @@ const CGPACalculator = ({ theme, isDark }) => {
             </div>
 
             {subjects.map((sub, idx) => {
-              const hasScore = sub.score !== "" && sub.score !== null && !isNaN(Number(sub.score));
-              const band = hasScore ? getBandForScore(Number(sub.score)) : null;
-              const isFail = band?.label === "F";
+              // Empty while typing → show as 0 score for display
+              const displayScore = sub.score === "" || sub.score === null ? 0 : Number(sub.score);
+              const band = getBandForScore(displayScore);
+              const isFail = band.label === "F";
+              const hasScore = sub.score !== "" && sub.score !== null;
 
-              const gradeColor = !hasScore
-                ? isDark
-                  ? "border-slate-600 bg-slate-800/50 text-slate-400"
-                  : "border-slate-300 bg-slate-100 text-slate-500"
-                : isFail
+              const gradeColor = isFail
                 ? isDark
                   ? "border-rose-500/60 bg-rose-500/10 text-rose-200"
                   : "border-rose-500 bg-rose-50 text-rose-700"
@@ -4729,6 +4746,7 @@ const CGPACalculator = ({ theme, isDark }) => {
                       onChange={(e) =>
                         handleSubjectChange(idx, "credits", e.target.value)
                       }
+                      onBlur={() => handleSubjectBlur(idx, "credits")}
                       className={`${inputBase} ${inputBg} w-full py-1.5 text-center text-xs sm:text-sm`}
                     />
                   </div>
@@ -4744,6 +4762,7 @@ const CGPACalculator = ({ theme, isDark }) => {
                       onChange={(e) =>
                         handleSubjectChange(idx, "score", e.target.value)
                       }
+                      onBlur={() => handleSubjectBlur(idx, "score")}
                       placeholder="0–100"
                       className={`${inputBase} ${inputBg} w-full py-1.5 text-center text-xs sm:text-sm`}
                     />
@@ -4751,7 +4770,6 @@ const CGPACalculator = ({ theme, isDark }) => {
 
                   {/* Grade / GPA / % chips */}
                   <div className="min-w-0">
-                    {hasScore ? (
                     <div className="flex flex-wrap items-center justify-center gap-1">
                       {/* Grade */}
                       <div
@@ -4771,12 +4789,9 @@ const CGPACalculator = ({ theme, isDark }) => {
                       <div
                         className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
                       >
-                        <span>{Number(sub.score).toFixed(1)}%</span>
+                        <span>{displayScore.toFixed(1)}%</span>
                       </div>
                     </div>
-                    ) : (
-                      <p className={`text-center text-[10px] ${theme.textMuted}`}>—</p>
-                    )}
                   </div>
 
                   {/* Remove button */}
@@ -4894,16 +4909,17 @@ const CGPACalculator = ({ theme, isDark }) => {
             </thead>
             <tbody>
               {subjects.map((sub, idx) => {
-                const hasScore = sub.score !== "" && sub.score !== null && !isNaN(Number(sub.score));
-                const band = hasScore ? getBandForScore(Number(sub.score)) : null;
+                const displayScore = sub.score === "" || sub.score === null ? 0 : Number(sub.score);
+                const displayCredits = sub.credits === "" || sub.credits === null ? 3 : Number(sub.credits);
+                const band = getBandForScore(displayScore);
                 return (
                   <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
                     <td className="px-3 py-2 border-b border-slate-200 text-center">{idx + 1}</td>
                     <td className="px-3 py-2 border-b border-slate-200 font-medium">{sub.name || "—"}</td>
-                    <td className="px-3 py-2 border-b border-slate-200 text-center">{sub.credits || "—"}</td>
-                    <td className="px-3 py-2 border-b border-slate-200 text-center">{hasScore ? Number(sub.score).toFixed(1) : "—"}</td>
-                    <td className="px-3 py-2 border-b border-slate-200 text-center font-bold">{band?.label || "—"}</td>
-                    <td className="px-3 py-2 border-b border-slate-200 text-center">{band ? band.gpa.toFixed(2) : "—"}</td>
+                    <td className="px-3 py-2 border-b border-slate-200 text-center">{displayCredits}</td>
+                    <td className="px-3 py-2 border-b border-slate-200 text-center">{displayScore.toFixed(1)}</td>
+                    <td className="px-3 py-2 border-b border-slate-200 text-center font-bold">{band.label}</td>
+                    <td className="px-3 py-2 border-b border-slate-200 text-center">{band.gpa.toFixed(2)}</td>
                   </tr>
                 );
               })}
