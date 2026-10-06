@@ -4189,7 +4189,8 @@ const ExamPrep = ({ theme }) => (
 );
 // CGPACalculator.jsx (ya jahan bhi tum ne CGPA component rakha hai)
 
-// 🔐 VU-style grading helper
+// 🔐 VU official grading scheme (Virtual University of Pakistan)
+// Source: VU grading policy - 4.0 scale
 const getGradeInfo = (score) => {
   const s = Number.isFinite(score) ? score : 0;
 
@@ -4198,17 +4199,23 @@ const getGradeInfo = (score) => {
   if (s >= 85)
     return { grade: "A", gpa: 4.0, tone: "good", range: "85–89%" };
   if (s >= 80)
-    return { grade: "A-", gpa: 3.8, tone: "good", range: "80–84%" };
+    return { grade: "A-", gpa: 3.7, tone: "good", range: "80–84%" };
   if (s >= 75)
-    return { grade: "B+", gpa: 3.5, tone: "ok", range: "75–79%" };
+    return { grade: "B+", gpa: 3.3, tone: "ok", range: "75–79%" };
   if (s >= 71)
-    return { grade: "B", gpa: 3.15, tone: "ok", range: "71–74%" };
+    return { grade: "B", gpa: 3.0, tone: "ok", range: "71–74%" };
   if (s >= 68)
-    return { grade: "B-", gpa: 2.8, tone: "ok", range: "68–70%" };
+    return { grade: "B-", gpa: 2.7, tone: "ok", range: "68–70%" };
+  if (s >= 64)
+    return { grade: "C+", gpa: 2.3, tone: "warn", range: "64–67%" };
   if (s >= 61)
-    return { grade: "C", gpa: 2.3, tone: "warn", range: "61–67%" };
+    return { grade: "C", gpa: 2.0, tone: "warn", range: "61–63%" };
+  if (s >= 58)
+    return { grade: "C-", gpa: 1.7, tone: "warn", range: "58–60%" };
+  if (s >= 54)
+    return { grade: "D+", gpa: 1.3, tone: "warn", range: "54–57%" };
   if (s >= 50)
-    return { grade: "D", gpa: 1.3, tone: "warn", range: "50–60%" };
+    return { grade: "D", gpa: 1.0, tone: "warn", range: "50–53%" };
   return { grade: "F", gpa: 0.0, tone: "bad", range: "< 50%" };
 };
 
@@ -4267,17 +4274,20 @@ const GRADE_BADGE_CLASSES = {
   bad: "bg-rose-500/10 text-rose-300 border border-rose-500/40",
 };
 
-// CGPA Calculator – clean + VU-style grades (A+, A, A-, ...)
+// CGPA Calculator – VU official grades (12 bands)
 
 const gradeBands = [
   { min: 90, label: "A+", gpa: 4.0, range: "90–100%" },
   { min: 85, label: "A",  gpa: 4.0, range: "85–89%" },
-  { min: 80, label: "A-", gpa: 3.8, range: "80–84%" },
-  { min: 75, label: "B+", gpa: 3.5, range: "75–79%" },
-  { min: 71, label: "B",  gpa: 3.15, range: "71–74%" },
-  { min: 68, label: "B-", gpa: 2.8, range: "68–70%" },
-  { min: 61, label: "C",  gpa: 2.3, range: "61–67%" },
-  { min: 50, label: "D",  gpa: 1.3, range: "50–60%" },
+  { min: 80, label: "A-", gpa: 3.7, range: "80–84%" },
+  { min: 75, label: "B+", gpa: 3.3, range: "75–79%" },
+  { min: 71, label: "B",  gpa: 3.0, range: "71–74%" },
+  { min: 68, label: "B-", gpa: 2.7, range: "68–70%" },
+  { min: 64, label: "C+", gpa: 2.3, range: "64–67%" },
+  { min: 61, label: "C",  gpa: 2.0, range: "61–63%" },
+  { min: 58, label: "C-", gpa: 1.7, range: "58–60%" },
+  { min: 54, label: "D+", gpa: 1.3, range: "54–57%" },
+  { min: 50, label: "D",  gpa: 1.0, range: "50–53%" },
   { min: 0,  label: "F",  gpa: 0.0, range: "< 50%" },
 ];
 
@@ -4307,7 +4317,7 @@ const CGPACalculator = ({ theme, isDark }) => {
         } else if (field === "credits") {
           let v = parseInt(rawValue, 10);
           if (isNaN(v)) v = 0;
-          v = Math.max(1, Math.min(3, v)); // 1–3 credits
+          v = Math.max(1, Math.min(4, v)); // 1–4 credits (VU standard)
           updated.credits = v;
         } else if (field === "score") {
           let v = parseInt(rawValue, 10);
@@ -4440,10 +4450,32 @@ const CGPACalculator = ({ theme, isDark }) => {
 
         {/* 🔹 Intro text */}
         <p className={`text-xs md:text-sm ${theme.textMuted}`}>
-          Add all subjects with credit hours and marks (0–100). We approximate
-          CGPA on a 4.0 scale using VU-style letter grades. Always confirm with
+          Add all subjects with credit hours and marks (0–100). We calculate
+          CGPA on a 4.0 scale using VU official letter grades. Always confirm with
           your official grade book.
         </p>
+
+        {/* 🔹 VU Grade Reference Table */}
+        <details className={`rounded-2xl border ${isDark ? 'border-slate-700 bg-slate-900/50' : 'border-slate-200 bg-slate-50'} overflow-hidden`}>
+          <summary className={`px-5 py-3.5 cursor-pointer text-sm font-bold ${theme.text} hover:opacity-80 transition-opacity list-none flex items-center justify-between`}>
+            <span>📊 VU Official Grading Scale (click to view)</span>
+            <span className="text-xs">▼</span>
+          </summary>
+          <div className="px-5 pb-5">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+              {gradeBands.map((band) => (
+                <div key={band.label} className={`rounded-xl border px-3 py-2.5 text-center ${isDark ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-white'}`}>
+                  <p className={`text-base font-black ${band.label === 'F' ? 'text-rose-500' : band.gpa >= 3.7 ? 'text-emerald-500' : band.gpa >= 3.0 ? 'text-sky-500' : 'text-amber-500'}`}>{band.label}</p>
+                  <p className={`text-xs font-bold ${theme.text}`}>{band.gpa.toFixed(1)}</p>
+                  <p className={`text-[10px] ${theme.textMuted}`}>{band.range}</p>
+                </div>
+              ))}
+            </div>
+            <p className={`mt-3 text-[11px] ${theme.textMuted}`}>
+              Passing marks: 50% (Grade D). CGPA = Σ(Grade Points × Credit Hours) ÷ Σ(Credit Hours)
+            </p>
+          </div>
+        </details>
 
         {/* 🔹 Summary cards */}
         <div className="grid gap-4 md:grid-cols-3">
@@ -4676,7 +4708,7 @@ const CGPACalculator = ({ theme, isDark }) => {
                     <input
                       type="number"
                       min={1}
-                      max={3}
+                      max={4}
                       step={1}
                       value={sub.credits}
                       onChange={(e) =>
