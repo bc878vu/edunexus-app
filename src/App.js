@@ -332,51 +332,69 @@ const Navbar = ({
 
   return (
     <>
-      {/* 🔹 Top header / navbar — fully transparent glassmorphism, professional modern */}
+      {/* 🔹 Top header / navbar — theme-aware, fully transparent glassmorphism, professional modern */}
       <header
-        className="
+        className={`
           sticky top-0 z-50
-          border-b border-white/[0.08]
-          bg-gradient-to-b from-slate-950/80 to-slate-950/40
+          border-b ${isDark ? 'border-white/[0.08]' : 'border-slate-900/[0.08]'}
+          ${isDark
+            ? 'bg-gradient-to-b from-slate-950/85 to-slate-950/50 text-white shadow-[0_8px_32px_rgb(0,0,0,0.2)]'
+            : 'bg-gradient-to-b from-white/85 to-white/50 text-slate-900 shadow-[0_8px_32px_rgb(0,0,0,0.08)]'
+          }
           backdrop-blur-2xl
-          supports-[backdrop-filter]:from-slate-950/60
-          text-white
-          shadow-[0_8px_32px_rgb(0,0,0,0.15)]
-        "
+          supports-[backdrop-filter]:backdrop-blur-2xl
+        `}
       >
         <div className="max-w-[1450px] mx-auto px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3">
-          {/* Brand — original professional logo */}
+          {/* Brand — custom unique EduNexus logo */}
           <a
             href="/"
             onClick={(e) => { e.preventDefault(); handleNavClick("home"); }}
             className="flex items-center gap-2.5 group shrink-0"
+            aria-label="EduNexus home"
           >
-            <div className="relative h-10 w-10 sm:h-11 sm:w-11">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 shadow-[0_4px_20px_rgb(99,102,241,0.5)] group-hover:shadow-[0_4px_28px_rgb(99,102,241,0.7)] transition-shadow duration-300" />
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-transparent via-white/20 to-white/40 opacity-60" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-white font-black text-xl sm:text-2xl tracking-tighter drop-shadow-lg">E</span>
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-slate-950 shadow-md" />
+            <div className="relative h-10 w-10 sm:h-11 sm:w-11 transition-transform duration-300 group-hover:scale-105 group-hover:rotate-3">
+              <svg viewBox="0 0 48 48" className="h-full w-full drop-shadow-[0_4px_12px_rgb(99,102,241,0.5)]">
+                <defs>
+                  <linearGradient id="edx-logo-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#6366f1" />
+                    <stop offset="50%" stopColor="#8b5cf6" />
+                    <stop offset="100%" stopColor="#d946ef" />
+                  </linearGradient>
+                  <linearGradient id="edx-logo-shine" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5" />
+                    <stop offset="50%" stopColor="#ffffff" stopOpacity="0.1" />
+                    <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#edx-logo-bg)" />
+                <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#edx-logo-shine)" />
+                <path d="M14 32 L24 10 L34 32" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.95" />
+                <circle cx="24" cy="32" r="2.5" fill="#ffffff" opacity="0.95" />
+                <path d="M18 26 L24 14 L30 26" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.4" />
+              </svg>
+              <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 ${isDark ? 'border-slate-950' : 'border-white'} shadow-md`} />
             </div>
 
             <div className="flex flex-col items-start">
               <span
-                className="
+                className={`
                   text-lg sm:text-xl font-black tracking-tight
-                  bg-gradient-to-r from-white via-indigo-200 to-purple-300
+                  bg-gradient-to-r ${isDark
+                    ? 'from-white via-indigo-200 to-purple-300 group-hover:from-indigo-300 group-hover:via-purple-200 group-hover:to-pink-200'
+                    : 'from-slate-900 via-indigo-700 to-purple-700 group-hover:from-indigo-600 group-hover:via-purple-600 group-hover:to-pink-600'
+                  }
                   bg-clip-text text-transparent
-                  group-hover:from-indigo-300 group-hover:via-purple-200 group-hover:to-pink-200
                   transition-all duration-300
-                "
+                `}
               >
                 EduNexus
               </span>
             </div>
           </a>
 
-          {/* Desktop links (PC HEADER) — modern pill navigation, responsive */}
-          <nav className="hidden lg:flex items-center justify-center gap-1 min-w-0 rounded-full bg-white/[0.06] backdrop-blur-md border border-white/10 p-1 sm:p-1.5 shadow-inner">
+          {/* Desktop links (PC HEADER) — theme-aware modern pill navigation */}
+          <nav className={`hidden lg:flex items-center justify-center gap-1 min-w-0 rounded-full backdrop-blur-md border p-1 sm:p-1.5 shadow-inner ${isDark ? 'bg-white/[0.06] border-white/10' : 'bg-slate-900/[0.05] border-slate-900/10'}`}>
             {MAIN_ITEMS.map((item) => (
               <a
                 key={item.id}
@@ -389,7 +407,9 @@ const Navbar = ({
                   ${
                     isActive(item.id)
                       ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[0_4px_16px_rgb(99,102,241,0.4)]"
-                      : "text-slate-300 hover:text-white hover:bg-white/10"
+                      : isDark
+                        ? "text-slate-300 hover:text-white hover:bg-white/10"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-900/10"
                   }
                 `}
               >
@@ -399,40 +419,46 @@ const Navbar = ({
             ))}
           </nav>
 
-          {/* Right side desktop — user profile picture (from Gmail account) */}
-          <div className="hidden lg:flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Right side desktop — user profile, fixed position */}
+          <div className="hidden lg:flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
             {adminSessionActive && (
               <button
                 type="button"
                 onClick={() => handleNavClick("admin")}
-                className="text-[11px] px-2 py-1 rounded-full border border-emerald-400/70 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
+                className={`text-[11px] px-3 py-1.5 rounded-full border font-bold transition-all ${isDark ? 'border-emerald-400/70 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-emerald-600/50 text-emerald-700 bg-emerald-500/10 hover:bg-emerald-500/20'} focus:outline-none focus:ring-2 focus:ring-emerald-400/70`}
                 title="Open Admin Panel"
               >
                 Admin mode
               </button>
             )}
             {user ? (
-              <button
-                type="button"
-                onClick={() => handleNavClick("profile")}
-                title={user.displayName || user.email || "Profile"}
-                className="group relative h-10 w-10 rounded-full overflow-hidden ring-2 ring-indigo-400/60 hover:ring-indigo-300 transition-all duration-300 hover:scale-105 shadow-lg"
-              >
-                {user.photoURL ? (
-                  <img
-                    src={user.photoURL}
-                    alt={user.displayName || "User"}
-                    className="h-full w-full object-cover"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
-                ) : (
-                  <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-sm font-extrabold">
-                    {(user.displayName || user.email || "U").charAt(0).toUpperCase()}
+              <div className="relative flex items-center">
+                <button
+                  type="button"
+                  onClick={() => handleNavClick("profile")}
+                  title={user.displayName || user.email || "Profile"}
+                  className="group relative h-10 w-10 rounded-full overflow-hidden ring-2 ring-indigo-400/60 hover:ring-indigo-300 hover:ring-4 transition-all duration-300 hover:scale-105 shadow-[0_4px_16px_rgb(99,102,241,0.3)]"
+                >
+                  {user.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt={user.displayName || "User"}
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling.style.display = 'flex'; }}
+                    />
+                  ) : null}
+                  <span
+                    className={`${user.photoURL ? 'hidden' : 'flex'} h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white text-sm font-black`}
+                    style={user.photoURL ? { display: 'none' } : {}}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-5 w-5 text-white/90" fill="currentColor">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
                   </span>
-                )}
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-400 border-2 border-slate-950" />
-              </button>
+                </button>
+                <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 ${isDark ? 'border-slate-950' : 'border-white'} shadow-md`} />
+              </div>
             ) : (
               <button
                 type="button"
