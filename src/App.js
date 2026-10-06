@@ -4305,7 +4305,7 @@ const CGPACalculator = ({ theme, isDark }) => {
   const [program, setProgram] = React.useState("BS (Computer Science)");
   const [semester, setSemester] = React.useState("");
 
-  // 🔹 Subject change helper (clamps values)
+  // 🔹 Subject change helper (allows empty + decimals)
   const handleSubjectChange = (index, field, rawValue) => {
     setSubjects((prev) =>
       prev.map((sub, i) => {
@@ -4315,15 +4315,25 @@ const CGPACalculator = ({ theme, isDark }) => {
         if (field === "name") {
           updated.name = rawValue;
         } else if (field === "credits") {
-          let v = parseInt(rawValue, 10);
-          if (isNaN(v)) v = 0;
-          v = Math.max(1, Math.min(4, v)); // 1–4 credits (VU standard)
-          updated.credits = v;
+          // Allow empty (user can clear the field)
+          if (rawValue === "" || rawValue === null) {
+            updated.credits = "";
+          } else {
+            let v = parseInt(rawValue, 10);
+            if (isNaN(v)) v = "";
+            else v = Math.max(1, Math.min(4, v)); // 1–4 credits (VU standard)
+            updated.credits = v;
+          }
         } else if (field === "score") {
-          let v = parseInt(rawValue, 10);
-          if (isNaN(v)) v = 0;
-          v = Math.max(0, Math.min(100, v)); // 0–100 marks
-          updated.score = v;
+          // Allow empty + decimal values (e.g., 85.5)
+          if (rawValue === "" || rawValue === null) {
+            updated.score = "";
+          } else {
+            let v = parseFloat(rawValue);
+            if (isNaN(v)) v = "";
+            else v = Math.max(0, Math.min(100, v)); // 0–100 marks
+            updated.score = v;
+          }
         }
 
         return updated;
@@ -4356,7 +4366,7 @@ const CGPACalculator = ({ theme, isDark }) => {
     window.print();
   };
 
-  // 🔹 Overall CGPA / percentage / credits
+  // 🔹 Overall CGPA / percentage / credits (skips empty rows)
   const { overallGPA, overallPercent, totalCredits, failedCount } =
     React.useMemo(() => {
       let creditSum = 0;
@@ -4365,9 +4375,9 @@ const CGPACalculator = ({ theme, isDark }) => {
       let fails = 0;
 
       subjects.forEach((sub) => {
-        const c = Number(sub.credits) || 0;
-        const s = Number(sub.score) || 0;
-        if (c <= 0) return;
+        const c = sub.credits === "" ? 0 : Number(sub.credits) || 0;
+        const s = sub.score === "" ? null : Number(sub.score);
+        if (c <= 0 || s === null || isNaN(s)) return;
 
         const band = getBandForScore(s);
         creditSum += c;
@@ -4645,10 +4655,15 @@ const CGPACalculator = ({ theme, isDark }) => {
             </div>
 
             {subjects.map((sub, idx) => {
-              const band = getBandForScore(sub.score);
-              const isFail = band.label === "F";
+              const hasScore = sub.score !== "" && sub.score !== null && !isNaN(Number(sub.score));
+              const band = hasScore ? getBandForScore(Number(sub.score)) : null;
+              const isFail = band?.label === "F";
 
-              const gradeColor = isFail
+              const gradeColor = !hasScore
+                ? isDark
+                  ? "border-slate-600 bg-slate-800/50 text-slate-400"
+                  : "border-slate-300 bg-slate-100 text-slate-500"
+                : isFail
                 ? isDark
                   ? "border-rose-500/60 bg-rose-500/10 text-rose-200"
                   : "border-rose-500 bg-rose-50 text-rose-700"
@@ -4718,23 +4733,25 @@ const CGPACalculator = ({ theme, isDark }) => {
                     />
                   </div>
 
-                  {/* Score */}
+                  {/* Score (allows decimals + clearable) */}
                   <div className="min-w-0">
                     <input
                       type="number"
                       min={0}
                       max={100}
-                      step={1}
+                      step="any"
                       value={sub.score}
                       onChange={(e) =>
                         handleSubjectChange(idx, "score", e.target.value)
                       }
+                      placeholder="0–100"
                       className={`${inputBase} ${inputBg} w-full py-1.5 text-center text-xs sm:text-sm`}
                     />
                   </div>
 
                   {/* Grade / GPA / % chips */}
                   <div className="min-w-0">
+                    {hasScore ? (
                     <div className="flex flex-wrap items-center justify-center gap-1">
                       {/* Grade */}
                       <div
@@ -4754,9 +4771,12 @@ const CGPACalculator = ({ theme, isDark }) => {
                       <div
                         className={`px-2 py-0.5 rounded-md border text-[9px] ${gradeColor}`}
                       >
-                        <span>{(Number(sub.score) || 0).toFixed(0)}%</span>
+                        <span>{Number(sub.score).toFixed(1)}%</span>
                       </div>
                     </div>
+                    ) : (
+                      <p className={`text-center text-[10px] ${theme.textMuted}`}>—</p>
+                    )}
                   </div>
 
                   {/* Remove button */}
@@ -4790,128 +4810,116 @@ const CGPACalculator = ({ theme, isDark }) => {
         </div>
       </div>
 
-      {/* 🔹 PRINT ONLY – VU style marksheet */}
-      <div
-  id="cgpa-print-sheet"
-  className="print-only"
->
-  <div className="max-w-3xl mx-auto my-4 bg-white text-black border border-black p-6">
-          {/* Header */}
-          <div className="text-center mb-4 border-b border-black pb-3">
-            <div className="text-lg font-extrabold tracking-wide">
-              VIRTUAL UNIVERSITY OF PAKISTAN
-            </div>
-            <p className="text-xs mt-1">
-              Unofficial CGPA / Result Summary (Generated via EduNexus)
-            </p>
-          </div>
-
-                    {/* Student info */}
-          <div className="text-xs mb-4 space-y-1">
-            <div className="flex justify-between">
-              <span className="font-semibold">Student Name:</span>
-              <span>{studentName || "-"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-semibold">Student ID:</span>
-              <span>{studentId || "-"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-semibold">Program:</span>
-              <span>{program || "-"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-semibold">Semester:</span>
-              <span>{semester || "-"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-semibold">Date:</span>
-              <span>{new Date().toLocaleDateString()}</span>
+      {/* 🔹 PRINT ONLY – Modern professional A4 result card */}
+      <div id="cgpa-print-sheet" className="print-only">
+        <div className="cgpa-a4 mx-auto bg-white text-slate-900 p-8" style={{ maxWidth: '210mm', minHeight: '297mm' }}>
+          {/* Header with accent bar */}
+          <div className="border-b-4 border-indigo-600 pb-5 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-black tracking-wide text-slate-900">
+                  VIRTUAL UNIVERSITY OF PAKISTAN
+                </h1>
+                <p className="text-sm text-slate-500 mt-1">
+                  CGPA / Result Summary
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="inline-block rounded-lg bg-indigo-600 px-4 py-2">
+                  <p className="text-2xl font-black text-white">{overallGPA.toFixed(2)}</p>
+                  <p className="text-[10px] text-indigo-100 uppercase tracking-wider">CGPA</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Overall summary */}
-          <div className="grid grid-cols-3 gap-3 text-xs mb-4">
-            <div className="border border-black py-2 px-3 text-center">
-              <p className="font-semibold">CGPA (approx)</p>
-              <p className="text-xl font-extrabold mt-1">
-                {overallGPA.toFixed(2)}
-              </p>
+          {/* Student info grid */}
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm mb-6">
+            <div className="flex">
+              <span className="w-32 font-semibold text-slate-500">Student Name</span>
+              <span className="font-medium">{studentName || "—"}</span>
             </div>
-            <div className="border border-black py-2 px-3 text-center">
-              <p className="font-semibold">Percentage</p>
-              <p className="text-xl font-extrabold mt-1">
-                {overallPercent.toFixed(1)}%
-              </p>
+            <div className="flex">
+              <span className="w-32 font-semibold text-slate-500">Student ID</span>
+              <span className="font-medium">{studentId || "—"}</span>
             </div>
-            <div className="border border-black py-2 px-3 text-center">
-              <p className="font-semibold">Total Credits</p>
-              <p className="text-xl font-extrabold mt-1">
-                {totalCredits}
-              </p>
+            <div className="flex">
+              <span className="w-32 font-semibold text-slate-500">Program</span>
+              <span className="font-medium">{program || "—"}</span>
+            </div>
+            <div className="flex">
+              <span className="w-32 font-semibold text-slate-500">Semester</span>
+              <span className="font-medium">{semester || "—"}</span>
+            </div>
+            <div className="flex">
+              <span className="w-32 font-semibold text-slate-500">Date</span>
+              <span className="font-medium">{new Date().toLocaleDateString()}</span>
+            </div>
+            <div className="flex">
+              <span className="w-32 font-semibold text-slate-500">Total Credits</span>
+              <span className="font-medium">{totalCredits}</span>
             </div>
           </div>
 
-          {/* Subjects table (print style) */}
-          <table className="w-full text-[10px] border border-black border-collapse">
+          {/* Summary stats */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">CGPA</p>
+              <p className="text-3xl font-black text-indigo-600 mt-1">{overallGPA.toFixed(2)}</p>
+              <p className="text-[10px] text-slate-400 mt-1">out of 4.00</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Percentage</p>
+              <p className="text-3xl font-black text-emerald-600 mt-1">{overallPercent.toFixed(1)}%</p>
+              <p className="text-[10px] text-slate-400 mt-1">weighted average</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Credits</p>
+              <p className="text-3xl font-black text-slate-700 mt-1">{totalCredits}</p>
+              <p className="text-[10px] text-slate-400 mt-1">total hours</p>
+            </div>
+          </div>
+
+          {/* Subjects table */}
+          <table className="w-full text-sm border-collapse mb-6">
             <thead>
-              <tr className="bg-slate-100">
-                <th className="border border-black px-1 py-1 text-left">#</th>
-                <th className="border border-black px-1 py-1 text-left">
-                  Course / Subject
-                </th>
-                <th className="border border-black px-1 py-1 text-center">
-                  Credit Hrs
-                </th>
-                <th className="border border-black px-1 py-1 text-center">
-                  Score
-                </th>
-                <th className="border border-black px-1 py-1 text-center">
-                  Grade
-                </th>
-                <th className="border border-black px-1 py-1 text-center">
-                  GPA
-                </th>
+              <tr className="bg-indigo-600 text-white">
+                <th className="px-3 py-2.5 text-left font-semibold w-10">#</th>
+                <th className="px-3 py-2.5 text-left font-semibold">Course</th>
+                <th className="px-3 py-2.5 text-center font-semibold w-20">Credits</th>
+                <th className="px-3 py-2.5 text-center font-semibold w-20">Score</th>
+                <th className="px-3 py-2.5 text-center font-semibold w-20">Grade</th>
+                <th className="px-3 py-2.5 text-center font-semibold w-20">GPA</th>
               </tr>
             </thead>
             <tbody>
               {subjects.map((sub, idx) => {
-                const band = getBandForScore(sub.score);
+                const hasScore = sub.score !== "" && sub.score !== null && !isNaN(Number(sub.score));
+                const band = hasScore ? getBandForScore(Number(sub.score)) : null;
                 return (
-                  <tr key={idx}>
-                    <td className="border border-black px-1 py-1 text-center">
-                      {idx + 1}
-                    </td>
-                    <td className="border border-black px-1 py-1">
-                      {sub.name || "-"}
-                    </td>
-                    <td className="border border-black px-1 py-1 text-center">
-                      {sub.credits}
-                    </td>
-                    <td className="border border-black px-1 py-1 text-center">
-                      {sub.score}
-                    </td>
-                    <td className="border border-black px-1 py-1 text-center">
-                      {band.label}
-                    </td>
-                    <td className="border border-black px-1 py-1 text-center">
-                      {band.gpa.toFixed(2)}
-                    </td>
+                  <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                    <td className="px-3 py-2 border-b border-slate-200 text-center">{idx + 1}</td>
+                    <td className="px-3 py-2 border-b border-slate-200 font-medium">{sub.name || "—"}</td>
+                    <td className="px-3 py-2 border-b border-slate-200 text-center">{sub.credits || "—"}</td>
+                    <td className="px-3 py-2 border-b border-slate-200 text-center">{hasScore ? Number(sub.score).toFixed(1) : "—"}</td>
+                    <td className="px-3 py-2 border-b border-slate-200 text-center font-bold">{band?.label || "—"}</td>
+                    <td className="px-3 py-2 border-b border-slate-200 text-center">{band ? band.gpa.toFixed(2) : "—"}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
 
-          {/* Signature area */}
-          <div className="mt-8 flex justify-between text-[10px]">
+          {/* Footer */}
+          <div className="mt-10 pt-6 border-t border-slate-200 flex justify-between items-end text-xs text-slate-400">
             <div>
-              <p>__________________________</p>
-              <p className="mt-1">Student Signature</p>
+              <div className="w-48 border-t border-slate-400 pt-1 mt-8">
+                <p>Student Signature</p>
+              </div>
             </div>
             <div className="text-right">
-              <p>__________________________</p>
-              <p className="mt-1">System Generated (EduNexus)</p>
+              <p>Generated via EduNexus</p>
+              <p className="mt-1">{new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
             </div>
           </div>
         </div>
