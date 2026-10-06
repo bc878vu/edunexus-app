@@ -2094,6 +2094,16 @@ const HomePage = ({setPage, theme, showToast, user}) => {
         </div>
         <p className={`mt-3 text-xs ${theme.textMuted}`}>#VUExamPreparation · #VUMCQs · #VUPastPapers · #VUStudyFiles</p>
       </nav>
+
+      <section aria-label="About EduNexus" className={`mt-8 rounded-2xl border p-5 sm:p-8 ${theme.border} ${theme.card}`}>
+        <h2 className={`text-2xl font-black ${theme.text}`}>About EduNexus — Your Virtual University Study Partner</h2>
+        <div className={`mt-4 space-y-4 text-sm leading-7 ${theme.textMuted}`}>
+          <p>EduNexus is a free study platform built specifically for Virtual University (VU) students in Pakistan. Whether you are preparing for midterm exams, final term exams, or daily quizzes, EduNexus brings together everything you need in one place — solved MCQs, subjective questions with answers, past paper reviews from real students, study handouts, and smart practice tools.</p>
+          <p>Our MCQ bank covers dozens of VU subjects including MTH301 Calculus, CS101 Introduction to Computing, ENG101 English, PAK301 Pakistan Studies, and many more. Each question comes with the correct answer and a clear explanation, so you do not just memorize — you actually understand the concept. Students use our practice mode to simulate real exam conditions, track their scores, and identify weak topics before the actual paper.</p>
+          <p>What makes EduNexus different is our community-driven paper reviews section. Real VU students share their recent paper experiences — which topics appeared, how difficult the paper was, and what to focus on. This first-hand information is invaluable for exam preparation because VU papers often repeat patterns from previous semesters.</p>
+          <p>We also maintain a growing library of study files, handouts, and solved past papers organized by subject code. Every resource is free to preview and download. Our goal is simple: to help every VU student study smarter, save time, and score higher — without spending a single rupee. Join thousands of students who trust EduNexus for their Virtual University exam preparation.</p>
+        </div>
+      </section>
     </div>
   );
 };
