@@ -374,7 +374,6 @@ const Navbar = ({
                 <circle cx="24" cy="32" r="2.5" fill="#ffffff" opacity="0.95" />
                 <path d="M18 26 L24 14 L30 26" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.4" />
               </svg>
-              <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 ${isDark ? 'border-slate-950' : 'border-white'} shadow-md`} />
             </div>
 
             <div className="flex flex-col items-start">
@@ -458,7 +457,6 @@ const Navbar = ({
                     </svg>
                   </span>
                 </button>
-                <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 ${isDark ? 'border-slate-950' : 'border-white'} shadow-md`} />
               </div>
             ) : (
               <button
@@ -471,21 +469,55 @@ const Navbar = ({
             )}
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile: profile pic + menu button */}
+          <div className="lg:hidden flex items-center gap-2 shrink-0">
+            {user ? (
+              <button
+                type="button"
+                onClick={() => handleNavClick("profile")}
+                title={user.displayName || user.email || "Profile"}
+                className="relative h-9 w-9 rounded-full overflow-hidden ring-2 ring-indigo-400/60 shadow-md"
+              >
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt={user.displayName || "User"}
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 text-white/90" fill="currentColor">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
+                  </span>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleNavClick("login")}
+                className="rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-1.5 text-xs font-bold text-white shadow-md"
+              >
+                Sign in
+              </button>
+            )}
           <button
             onClick={toggleMenu}
-            className="
-              lg:hidden inline-flex items-center justify-center
+            className={`
+              inline-flex items-center justify-center
               h-9 w-9 rounded-full border
-              border-slate-600 bg-slate-900/90 text-slate-100
+              ${isDark ? 'border-slate-600 bg-slate-900/90 text-slate-100' : 'border-slate-300 bg-white/90 text-slate-800'}
               shadow-sm
-            "
+            `}
             aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={isMenuOpen}
             aria-controls="edunexus-mobile-nav"
           >
             {isMenuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
+          </div>
         </div>
       </header>
 
