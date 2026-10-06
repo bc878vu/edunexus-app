@@ -95,17 +95,16 @@ export function communityReviewId(userId, subject, term, examDate) {
  * Returns the id.
  */
 export async function submitCommunityReview(data) {
-  const id = data.id || communityReviewId(data.userId, data.subject, data.term, data.examDate);
+  // Use a unique ID per submission (timestamp suffix) so multiple reviews
+  // for the same course/term/date are allowed (no duplicate blocking).
+  const baseId = data.id || communityReviewId(data.userId, data.subject, data.term, data.examDate);
+  const id = baseId + '_' + Date.now().toString(36);
   if (!data.userId || !data.subject || !data.term || !data.examDate) {
     throw new Error('userId, subject, term and examDate are required');
   }
   clearCachedPrefix(CACHE_PREFIX);
   return withFallback(
     async () => {
-      const { data: existing, error: readError } = await supabase.from('exam_community_reviews')
-        .select('id').eq('id', id).maybeSingle();
-      if (readError) throw readError;
-      if (existing) throw new Error('duplicate: a review already exists for this course, exam type and date');
       const row = { id, ...toCommunityRow(data) };
       if (!row.created_at) row.created_at = nowIso();
       // Listing filters is_active=true; ensure new reviews are visible.
@@ -117,8 +116,6 @@ export async function submitCommunityReview(data) {
     },
     async () => {
       const ref = doc(COMMUNITY(), id);
-      const snap = await getDoc(ref);
-      if (snap.exists()) throw new Error('duplicate: a review already exists for this course, exam type and date');
       const { id: _drop, ...rest } = data;
       await setDoc(ref, { ...rest });
       return id;
