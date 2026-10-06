@@ -1141,7 +1141,10 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     });
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [mergedCodes]);
-  const normalized = deferredSearch.trim().toLowerCase();
+  // Use submittedSearch directly (not the deferred value) so the Search button
+  // filters immediately on submit. The deferred value was causing the search
+  // to not update the displayed results.
+  const normalized = submittedSearch.trim().toLowerCase();
   // Course-aware search. A department prefix such as "cs" intentionally
   // matches every CS course; a complete course code such as "cs101" matches
   // CS101 only (including its folder aliases) and never CS1010/CS101A.
