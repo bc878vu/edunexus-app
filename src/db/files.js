@@ -234,7 +234,7 @@ export async function searchFiles(q, { limit: max = 20 } = {}) {
         const pat = `%${escapeIlike(needle)}%`;
         const { data, error } = await supabase.from('files').select('*')
           .eq('is_active', true)
-          .or(`name.ilike.${pat},description.ilike.${pat},subject.ilike.${pat}`)
+          .or(`name.ilike.${pat},title.ilike.${pat},description.ilike.${pat},subject.ilike.${pat}`)
           .order('created_at', { ascending: false })
           .limit(max);
         // TODO(search): plan §10.1 adds a tsvector column + GIN index; switch this
