@@ -4650,9 +4650,9 @@ const CGPACalculator = ({ theme, isDark }) => {
   <div className="max-w-3xl mx-auto my-4 bg-white text-black border border-black p-6">
           {/* Header */}
           <div className="text-center mb-4 border-b border-black pb-3">
-            <h1 className="text-lg font-extrabold tracking-wide">
+            <div className="text-lg font-extrabold tracking-wide">
               VIRTUAL UNIVERSITY OF PAKISTAN
-            </h1>
+            </div>
             <p className="text-xs mt-1">
               Unofficial CGPA / Result Summary (Generated via EduNexus)
             </p>
