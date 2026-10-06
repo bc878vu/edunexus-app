@@ -554,8 +554,26 @@ const Navbar = ({
           {/* Drawer header */}
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-base">
-                E
+              <div className="h-8 w-8">
+                <svg viewBox="0 0 48 48" className="h-full w-full drop-shadow-[0_4px_12px_rgb(99,102,241,0.5)]">
+                  <defs>
+                    <linearGradient id="edx-logo-drawer-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#6366f1" />
+                      <stop offset="50%" stopColor="#8b5cf6" />
+                      <stop offset="100%" stopColor="#d946ef" />
+                    </linearGradient>
+                    <linearGradient id="edx-logo-drawer-shine" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5" />
+                      <stop offset="50%" stopColor="#ffffff" stopOpacity="0.1" />
+                      <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#edx-logo-drawer-bg)" />
+                  <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#edx-logo-drawer-shine)" />
+                  <path d="M14 32 L24 10 L34 32" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.95" />
+                  <circle cx="24" cy="32" r="2.5" fill="#ffffff" opacity="0.95" />
+                  <path d="M18 26 L24 14 L30 26" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.4" />
+                </svg>
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-semibold">EduNexus</span>
