@@ -332,14 +332,16 @@ const Navbar = ({
 
   return (
     <>
-      {/* 🔹 Top header / navbar */}
+      {/* 🔹 Top header / navbar — transparent glassmorphism, professional modern */}
       <header
         className="
           sticky top-0 z-50
-          border-b border-slate-800
-          bg-slate-950/90
-          backdrop-blur
+          border-b border-white/10
+          bg-slate-950/70
+          backdrop-blur-xl
+          supports-[backdrop-filter]:bg-slate-950/60
           text-white
+          shadow-[0_8px_32px_rgb(0,0,0,0.12)]
         "
       >
         <div className="max-w-[1450px] mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
@@ -369,30 +371,31 @@ const Navbar = ({
             </div>
           </a>
 
-          {/* Desktop links (PC HEADER) */}
-          <nav className="hidden xl:flex items-center justify-center gap-0 min-w-0">
+          {/* Desktop links (PC HEADER) — modern pill navigation */}
+          <nav className="hidden xl:flex items-center justify-center gap-1 min-w-0 rounded-full bg-white/5 backdrop-blur-md border border-white/10 p-1.5">
             {MAIN_ITEMS.map((item) => (
               <a
                 key={item.id}
                 href={item.href}
                 onClick={(e) => { e.preventDefault(); handleNavClick(item.id); }}
                 className={`
-                  px-3 py-2.5 rounded-full whitespace-nowrap
-                  text-[15px] font-semibold tracking-wide
-                  transition-all
+                  relative px-4 py-2 rounded-full whitespace-nowrap
+                  text-[14px] font-bold tracking-wide
+                  transition-all duration-300
                   ${
                     isActive(item.id)
-                      ? "bg-indigo-500 text-white shadow-md"
-                      : "text-slate-200 hover:bg-slate-800/80"
+                      ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[0_4px_16px_rgb(99,102,241,0.4)]"
+                      : "text-slate-300 hover:text-white hover:bg-white/10"
                   }
                 `}
               >
                 {item.label}
+                {isActive(item.id) && <span className="absolute -bottom-[7px] left-1/2 -translate-x-1/2 h-1 w-8 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400" />}
               </a>
             ))}
           </nav>
 
-          {/* Right side desktop */}
+          {/* Right side desktop — user profile picture (from Gmail account) */}
           <div className="hidden xl:flex items-center gap-3 shrink-0">
             {adminSessionActive && (
               <button
@@ -404,10 +407,36 @@ const Navbar = ({
                 Admin mode
               </button>
             )}
-            {user && (
-              <span className="text-xs text-slate-200">
-                Hi, {user.displayName || "Dear"}
-              </span>
+            {user ? (
+              <button
+                type="button"
+                onClick={() => handleNavClick("profile")}
+                title={user.displayName || user.email || "Profile"}
+                className="group relative h-10 w-10 rounded-full overflow-hidden ring-2 ring-indigo-400/60 hover:ring-indigo-300 transition-all duration-300 hover:scale-105 shadow-lg"
+              >
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt={user.displayName || "User"}
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-sm font-extrabold">
+                    {(user.displayName || user.email || "U").charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-400 border-2 border-slate-950" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleNavClick("login")}
+                className="rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2 text-sm font-bold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+              >
+                Sign in
+              </button>
             )}
           </div>
 
