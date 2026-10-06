@@ -319,6 +319,7 @@ const Navbar = ({
   theme,
   toggleMenu,
   isMenuOpen,
+  isDark,
 }) => {
   // A single shared nav contract also powers the SSR resource, article and guide pages.
   const ALL_ITEMS = MOBILE_ITEMS;
@@ -5251,6 +5252,7 @@ useEffect(() => {
   theme={theme}
   toggleMenu={() => setIsMenuOpen(!isMenuOpen)}
   isMenuOpen={isMenuOpen}
+  isDark={isDark}
 />
 
       {/* 🔆 Global theme toggle – top right, har page par */}
