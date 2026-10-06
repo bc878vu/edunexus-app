@@ -332,55 +332,59 @@ const Navbar = ({
 
   return (
     <>
-      {/* 🔹 Top header / navbar — transparent glassmorphism, professional modern */}
+      {/* 🔹 Top header / navbar — fully transparent glassmorphism, professional modern */}
       <header
         className="
           sticky top-0 z-50
-          border-b border-white/10
-          bg-slate-950/70
-          backdrop-blur-xl
-          supports-[backdrop-filter]:bg-slate-950/60
+          border-b border-white/[0.08]
+          bg-gradient-to-b from-slate-950/80 to-slate-950/40
+          backdrop-blur-2xl
+          supports-[backdrop-filter]:from-slate-950/60
           text-white
-          shadow-[0_8px_32px_rgb(0,0,0,0.12)]
+          shadow-[0_8px_32px_rgb(0,0,0,0.15)]
         "
       >
-        <div className="max-w-[1450px] mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-          {/* Brand */}
+        <div className="max-w-[1450px] mx-auto px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3">
+          {/* Brand — original professional logo */}
           <a
             href="/"
             onClick={(e) => { e.preventDefault(); handleNavClick("home"); }}
-            className="flex items-center gap-3 group shrink-0"
+            className="flex items-center gap-2.5 group shrink-0"
           >
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-lg">
-              <GraduationCap className="h-6 w-6" />
+            <div className="relative h-10 w-10 sm:h-11 sm:w-11">
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 shadow-[0_4px_20px_rgb(99,102,241,0.5)] group-hover:shadow-[0_4px_28px_rgb(99,102,241,0.7)] transition-shadow duration-300" />
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-transparent via-white/20 to-white/40 opacity-60" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-white font-black text-xl sm:text-2xl tracking-tighter drop-shadow-lg">E</span>
+              </div>
+              <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-slate-950 shadow-md" />
             </div>
 
             <div className="flex flex-col items-start">
               <span
                 className="
-                  text-lg md:text-xl font-extrabold tracking-tight
-                  bg-gradient-to-r from-indigo-400 via-sky-400 to-violet-500
+                  text-lg sm:text-xl font-black tracking-tight
+                  bg-gradient-to-r from-white via-indigo-200 to-purple-300
                   bg-clip-text text-transparent
+                  group-hover:from-indigo-300 group-hover:via-purple-200 group-hover:to-pink-200
+                  transition-all duration-300
                 "
               >
                 EduNexus
               </span>
-              <span className="hidden sm:block text-[11px] md:text-xs text-slate-300">
-                Study Material • Mock Tests • AI Tools
-              </span>
             </div>
           </a>
 
-          {/* Desktop links (PC HEADER) — modern pill navigation */}
-          <nav className="hidden xl:flex items-center justify-center gap-1 min-w-0 rounded-full bg-white/5 backdrop-blur-md border border-white/10 p-1.5">
+          {/* Desktop links (PC HEADER) — modern pill navigation, responsive */}
+          <nav className="hidden lg:flex items-center justify-center gap-1 min-w-0 rounded-full bg-white/[0.06] backdrop-blur-md border border-white/10 p-1 sm:p-1.5 shadow-inner">
             {MAIN_ITEMS.map((item) => (
               <a
                 key={item.id}
                 href={item.href}
                 onClick={(e) => { e.preventDefault(); handleNavClick(item.id); }}
                 className={`
-                  relative px-4 py-2 rounded-full whitespace-nowrap
-                  text-[14px] font-bold tracking-wide
+                  relative px-3 sm:px-4 py-1.5 sm:py-2 rounded-full whitespace-nowrap
+                  text-[13px] sm:text-[14px] font-bold tracking-wide
                   transition-all duration-300
                   ${
                     isActive(item.id)
@@ -396,7 +400,7 @@ const Navbar = ({
           </nav>
 
           {/* Right side desktop — user profile picture (from Gmail account) */}
-          <div className="hidden xl:flex items-center gap-3 shrink-0">
+          <div className="hidden lg:flex items-center gap-2 sm:gap-3 shrink-0">
             {adminSessionActive && (
               <button
                 type="button"
@@ -444,7 +448,7 @@ const Navbar = ({
           <button
             onClick={toggleMenu}
             className="
-              xl:hidden inline-flex items-center justify-center
+              lg:hidden inline-flex items-center justify-center
               h-9 w-9 rounded-full border
               border-slate-600 bg-slate-900/90 text-slate-100
               shadow-sm
@@ -463,7 +467,7 @@ const Navbar = ({
         id="edunexus-mobile-nav"
         aria-hidden={!isMenuOpen}
         className={`
-          xl:hidden fixed inset-0
+          lg:hidden fixed inset-0
           z-50
           transition-opacity duration-200
           ${isMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}
