@@ -8,6 +8,8 @@
 import {
   signInAnonymously as fbSignInAnonymously,
   signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut as fbSignOut,
   onAuthStateChanged,
   setPersistence,
@@ -33,6 +35,7 @@ export function toAppUser(user) {
       uid: user.id,
       email: user.email || '',
       displayName: meta.display_name || meta.name || meta.full_name || '',
+      photoURL: meta.avatar_url || meta.picture || '',
       emailVerified: !!user.email_confirmed_at,
       isAnonymous: !!user.is_anonymous,
       raw: user,
@@ -42,6 +45,7 @@ export function toAppUser(user) {
     uid: user.uid,
     email: user.email || '',
     displayName: user.displayName || '',
+    photoURL: user.photoURL || '',
     emailVerified: user.emailVerified === true,
     isAnonymous: user.isAnonymous === true,
     raw: user,
@@ -87,8 +91,7 @@ async function firebaseAdminSignIn(email, password) {
 }
 
 /** Admin email/password sign-in. Components keep their own gating/verification. */
-export async function signInAdmin(email, password) {
-  return withFallback(
+export async function signInAdmin(email, password) {  return withFallback(
     async () => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
@@ -116,8 +119,33 @@ export async function signInAdmin(email, password) {
   );
 }
 
-export async function signOut() {
+/** Sign in with Google (OAuth). Returns the normalized app user.
+ *  Supabase-primary: uses supabase.auth.signInWithOAuth (redirects to Google).
+ *  Firebase fallback: signInWithPopup with GoogleAuthProvider.
+ *  Google provides photoURL (profile picture) automatically. */
+export async function signInWithGoogle() {
   return withFallback(
+    async () => {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) throw error;
+      // OAuth redirects away; user object resolves on return via getSession.
+      // Return null here — the auth state listener picks up the session.
+      return null;
+    },
+    async () => {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const credential = await signInWithPopup(auth, provider);
+      return toAppUser(credential.user);
+    },
+    { cacheKeys: [] }
+  );
+}
+
+export async function signOut() {  return withFallback(
     async () => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
