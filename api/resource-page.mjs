@@ -121,9 +121,18 @@ export default async function handler(req, res) {
     const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
     if (!isCrawler) return res.redirect(302, appUrl);
     const title = pretty + ' Notes, Handouts & Past Papers | EduNexus';
-    const desc = 'Browse ' + pretty + ' study resources on EduNexus Academic Hub — notes, handouts, course files and past papers shared by VU students.';
+    const desc = 'Download ' + pretty + ' study resources on EduNexus Academic Hub — notes, handouts, solved MCQs, past papers and course files shared by Virtual University students, free.';
     const image = SITE + '/logo512.png';
-    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><meta name="robots" content="noindex,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><p><a href="${h(appUrl)}">${h(title)}</a></p></body></html>`;
+    const bodyContent = '<main style="max-width:820px;margin:40px auto;padding:0 20px;font-family:system-ui;line-height:1.7">'
+      + '<h1>' + h(pretty + ' Notes, Handouts & Past Papers') + '</h1>'
+      + '<p>' + h(desc) + '</p>'
+      + '<h2>What you will find for ' + h(pretty) + '</h2>'
+      + '<ul><li>' + h(pretty) + ' handouts and lecture notes</li>'
+      + '<li>' + h(pretty) + ' midterm and final term solved MCQs</li>'
+      + '<li>' + h(pretty) + ' past papers and paper reviews</li>'
+      + '<li>' + h(pretty) + ' subjective solved questions</li></ul>'
+      + '<p><a href="' + h(appUrl) + '">Open ' + h(pretty) + ' study resources on EduNexus</a></p></main>';
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><link rel="canonical" href="${h(appUrl)}"><meta name="robots" content="index,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"></head><body>${bodyContent}</body></html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     return res.status(200).send(html);

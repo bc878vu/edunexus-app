@@ -22,6 +22,8 @@ export const SUBJECTS = [
   'CS619', 'CS611', 'CS615', 'MGT101', 'SE601', 'CS311', 'CS435',
   // Semester 8
   'CS636', 'SE602', 'CS508', 'CS609',
+  // Other subjects with published content
+  'MTH301',
 ];
 
 function buildXml(urls) {
