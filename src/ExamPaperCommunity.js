@@ -64,13 +64,25 @@ function ReviewSubmission({ user, subject, term, reuseDraft, onPublished }) {
     // NOT the app-level user id (which may be a Supabase UID after the
     // Supabase-first migration). Always use the Firebase UID for the review's
     // userId and document ID, signing in anonymously if needed.
-    let fbUid = auth.currentUser?.uid;
+    // Supabase permits public review inserts. Do not block submission if
+    // Firebase anonymous sign-in is unavailable; use an existing identity
+    // where possible and a per-browser anonymous author key otherwise.
+    let fbUid = auth.currentUser?.uid || user?.uid;
     if (!fbUid) {
       try {
         const cred = await signInAnonymously(auth);
         fbUid = cred.user.uid;
       } catch (_) {
-        setError('Please sign in to share a review.'); return;
+        try {
+          const key = 'edx-paper-review-author-id';
+          fbUid = localStorage.getItem(key);
+          if (!fbUid) {
+            fbUid = 'guest-' + crypto.randomUUID();
+            localStorage.setItem(key, fbUid);
+          }
+        } catch (_) {
+          fbUid = 'guest-' + crypto.randomUUID();
+        }
       }
     }
     const code = courseCode(form.subject);
