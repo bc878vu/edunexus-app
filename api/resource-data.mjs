@@ -124,6 +124,28 @@ export async function listApprovedReviews(id, page = 1, pageSize = 20) {
 
 const ARTICLES = 'artifacts/edunexus-live/public/data/articles';
 export const articlePath = (id, title) => '/articles/read/' + encodeURIComponent(id) + '/' + slugFor(title);
+const HIGHLIGHTS_FB = 'artifacts/edunexus-live/public/data/highlights';
+export const highlightPath = (id, title) => '/highlights/' + encodeURIComponent(id) + '/' + slugFor(title);
+export async function getPublicHighlight(id) {
+  if (!validId(id)) return null;
+  if (USE_SUPABASE) {
+    const rows = await postgrestGet('highlights', 'select=*&id=eq.' + encodeURIComponent(id) + '&limit=1');
+    return rows && rows[0] ? toCamel(rows[0]) : null;
+  }
+  const doc = await getJson(endpoint(HIGHLIGHTS_FB + '/' + encodeURIComponent(id)));
+  return doc ? decodeDoc(doc) : null;
+}
+export async function listPublicHighlights(max = 100) {
+  if (USE_SUPABASE) {
+    const rows = await postgrestGet('highlights', 'select=*&is_active=eq.true&order=created_at.desc&limit=' + max);
+    return (rows || []).map(toCamel);
+  }
+  const url = new URL(ENDPOINT + HIGHLIGHTS_FB);
+  url.searchParams.set('key', API_KEY);
+  url.searchParams.set('pageSize', String(max));
+  const json = await getJson(url.href);
+  return ((json && json.documents) || []).map(decodeDoc);
+}
 export async function getPublicArticle(id) {
   if (!validId(id)) return null;
   if (USE_SUPABASE) {

@@ -1,6 +1,6 @@
 import { standaloneAdScript, standaloneContentSecurityPolicy } from './ad-support.mjs';
 import { renderNavbar, renderFooter, renderThemeToggle, shellThemeBoot, navStyles } from './site-shell.mjs';
-import { escapeHtml as h, getPublicFile, listPublicFiles, listApprovedReviews, resourcePath, SITE, slugFor, validId } from './resource-data.mjs';
+import { escapeHtml as h, getPublicFile, getPublicHighlight, listPublicFiles, listApprovedReviews, resourcePath, highlightPath, SITE, slugFor, validId } from './resource-data.mjs';
 import { guideForFile, SUBJECT_GUIDES } from './subject-guides.mjs';
 
 export const navbar = renderNavbar('academic');
@@ -113,6 +113,31 @@ export default async function handler(req, res) {
   // Academic subject pages: /academic/CS101 (via a crawler-gated vercel.json
   // rewrite). Crawlers get a subject-specific preview; normal browsers get a
   // 302 to the SPA subject page (loop-free: the rewrite only fires for crawlers).
+  // Highlight detail pages: /highlights/:id/:slug (via a crawler-gated
+  // vercel.json rewrite). Crawlers get the highlight title + text with
+  // index,follow; normal browsers get a 302 to the homepage highlights
+  // section (loop-free: the rewrite only fires for crawlers).
+  if (ogPage === 'highlight') {
+    const hid = String(req.query?.id || '').slice(0, 80);
+    const ua = String(req.headers['user-agent'] || '').toLowerCase();
+    const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
+    const appUrl = SITE + '/';
+    if (!isCrawler) return res.redirect(302, appUrl);
+    let hl = null;
+    try { hl = hid ? await getPublicHighlight(hid) : null; } catch {}
+    const title = hl && hl.title ? String(hl.title).slice(0, 150) : 'EduNexus Highlight';
+    const desc = hl && (hl.text || hl.desc) ? String(hl.text || hl.desc).slice(0, 350) : 'Latest announcement highlight from EduNexus for Virtual University students.';
+    const pageTitle = title + ' | EduNexus';
+    const image = SITE + '/logo512.png';
+    const bodyContent = '<main style="max-width:820px;margin:40px auto;padding:0 20px;font-family:system-ui;line-height:1.7">'
+      + '<h1>' + h(title) + '</h1>'
+      + '<p>' + h(desc) + '</p>'
+      + '<p><a href="' + h(appUrl) + '">More highlights on EduNexus</a></p></main>';
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(pageTitle)}</title><meta name="description" content="${h(desc)}"><link rel="canonical" href="${h(SITE + highlightPath(hid, title))}"><meta name="robots" content="index,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(pageTitle)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(SITE + highlightPath(hid, title))}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(pageTitle)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"></head><body>${bodyContent}</body></html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(html);
+  }
   if (ogPage === 'academicsubject') {
     const rawSubj = String(req.query?.subject || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80) || 'VU';
     const pretty = rawSubj.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'VU';
