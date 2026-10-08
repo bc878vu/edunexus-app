@@ -3,7 +3,7 @@ import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, query, ser
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
 import { db, auth } from './firebase-client';
 import { signInAnonymously } from 'firebase/auth';
-import { submitCommunityReview, listCommunityReviews } from './db/examReviews';
+import { submitCommunityReview, listCommunityReviews, listLegacyReviews } from './db/examReviews';
 import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import RichContent from './RichContent';
 import './exam-paper-community.css';
@@ -263,11 +263,10 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
         let items;
         if (name === REVIEW_COLLECTION) {
           // Community reviews: Supabase-primary via adapter.
-          items = await listCommunityReviews({ activeOnly: true, limit: 200 });
+          items = (await listCommunityReviews({ activeOnly: true, limit: 200 })).map(r => ({ ...r, collectionName: name }));
         } else {
-          // Legacy reviews: Firestore-only (unchanged).
-          const snapshot = await getDocs(query(col(name), limit(200)));
-          items = snapshot.docs.map(d => ({ id:d.id,collectionName:name,...d.data() })).filter(r => r.isActive !== false);
+          // Legacy published reviews use the same Supabase-primary adapter.
+          items = (await listLegacyReviews({ limit: 200 })).map(r => ({ ...r, collectionName: name })).filter(r => r.isActive !== false);
         }
         if (!active) return;
         setItems(items);
