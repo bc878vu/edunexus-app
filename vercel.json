@@ -179,7 +179,7 @@
     },
     {
       "source": "/highlights-sitemap.xml",
-      "destination": "/api/highlights-sitemap"
+      "destination": "/api/article-sitemap?kind=highlights"
     },
     {
       "source": "/highlights/:id/:slug",
