@@ -2,7 +2,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/
 import { db } from './firebase-client';
 
 export const EDUNEXUS_GROUP = 'https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW';
-export const EDUNEXUS_SITE = 'https://edunexus-app.vercel.app/';
+export const EDUNEXUS_SITE = 'https://edunexus.dpdns.org/';
 export const SITE_GUIDE = Object.freeze([
   { name: 'Home', url: '/?page=home', detail: 'Main study dashboard and navigation to EduNexus tools.' },
   { name: 'Academic Hub', url: '/?page=academic', detail: 'Subject folders, downloadable handouts, past papers, files and resource reviews. Admin can add a link or upload public study files.' },
