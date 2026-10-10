@@ -76,3 +76,15 @@ test('all friendly canonical routes can be opened directly on Vercel', () => {
     assert.equal(routeFromLocation(new URL(SITE + path)), page);
   }
 });
+
+
+test('academic crawler landing page exposes all sitemap subjects as crawlable anchors', async () => {
+  const { SUBJECTS } = await import('../api/subjects-sitemap.mjs');
+  const source = text('api/resource-page.mjs');
+  assert.equal(SUBJECTS.length, 50);
+  assert.equal(new Set(SUBJECTS).size, SUBJECTS.length);
+  assert.match(source, /SUBJECTS\.map\(code => '<li><a href=/);
+  assert.match(source, /\$\{subjectLinks\}/);
+  assert.ok(SUBJECTS.includes('CS101'));
+  assert.ok(SUBJECTS.includes('CS620'));
+});
