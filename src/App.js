@@ -3091,12 +3091,21 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       } catch (_) { return false; }
     };
     const openLinkBox = () => {
-      const hadSelection = saveEditorSelection();
+      saveEditorSelection();
+      // Only a real (non-collapsed) selection counts as "has selection":
+      // with a merely blinking cursor the link-text field must stay visible
+      // so the author can type custom link text (live-verified 2026-10-14).
+      let hasRange = false;
+      let selectedText = '';
       try {
         const sel = window.getSelection();
-        setLinkText(hadSelection && sel && sel.rangeCount > 0 ? String(sel.toString() || '') : '');
-      } catch (_) { setLinkText(''); }
-      setLinkHasSelection(hadSelection);
+        if (sel && sel.rangeCount > 0) {
+          hasRange = !sel.getRangeAt(0).collapsed;
+          selectedText = String(sel.toString() || '');
+        }
+      } catch (_) {}
+      setLinkText(hasRange ? selectedText : '');
+      setLinkHasSelection(hasRange);
       setLinkUrl('');
       setShowLinkBox(true);
     };
