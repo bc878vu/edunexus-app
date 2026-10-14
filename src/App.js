@@ -1964,6 +1964,10 @@ const ContactUsLegacy = ({ theme }) => {
   );
 };
 
+// WARNING — DO NOT EDIT HomePage HERE: scripts/upgrade-dashboard.mjs runs on
+// every build (local + Vercel) and REPLACES everything from `const HomePage`
+// to `// 14. Floating AI Chat` with scripts/dashboard.patch.txt. Edit the
+// patch file instead, or your change will be silently wiped on the next build.
 // 13. Home Page
 const HomePage = ({setPage, theme, showToast, user}) => {
   const [highlights, setHighlights] = useState(() => {
@@ -3006,7 +3010,12 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       const refresh = async () => {
         try {
           const items = await listArticles();
-          if (alive) setArts(items);
+          if (!alive) return;
+          // Never let a transient empty fetch wipe a populated list: a mass
+          // delete cannot happen through this UI, so [] here means the fetch
+          // hit a backend hiccup / an empty fallback — not "no articles".
+          // (Previously every publish/delete flashed "Existing Articles (0)".)
+          setArts(prev => (items.length === 0 && prev.length > 0 ? prev : items));
         } catch (_) {}
       };
       refresh();
@@ -3230,10 +3239,21 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
     const confirmDelete = async () => {
       if (!showDeleteConfirm) return;
-      await deleteArticle(showDeleteConfirm.id);
+      const id = showDeleteConfirm.id;
+      try {
+        await deleteArticle(id);
+      } catch (err) {
+        showToast('Could not delete article: ' + (err?.message || 'unknown error'), 'error');
+        setShowDeleteConfirm(null);
+        return;
+      }
       showToast("Article deleted", "success");
       setShowDeleteConfirm(null);
-      if (editId === showDeleteConfirm.id) resetForm();
+      // Optimistic: drop it now; the realtime refresh confirms. This also
+      // covers the last-article case, where the refresh guard above would
+      // otherwise keep showing the just-deleted row.
+      setArts(prev => prev.filter(a => a.id !== id));
+      if (editId === id) resetForm();
     };
 
     const toggleActive = async (art) => {
