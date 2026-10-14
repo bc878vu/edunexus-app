@@ -17,7 +17,7 @@ export function uploadToSignedObject(file, signed, onProgress, onTask) {
     xhr.timeout = 120000;
     xhr.setRequestHeader('x-upsert', 'false');
     xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && event.total > 0) {
+      if (event.lengthComputable && event.total > 0 && typeof onProgress === 'function') {
         onProgress(Math.round(event.loaded / event.total * 100));
       }
     };

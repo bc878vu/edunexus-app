@@ -3088,14 +3088,24 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
         updatedAt: new Date()
       };
       if(editId) {
-        await updateArticle(editId, articleData);
+        try {
+          await updateArticle(editId, articleData);
+        } catch (err) {
+          showToast('Article could not be saved: ' + (err?.message || 'unknown error') + ' — the cover image was uploaded but the article was not saved.', 'error');
+          return;
+        }
         showToast("Article Updated", "success");
       } else {
-        await createArticle({
-          ...articleData,
-          author: 'Admin', rightsConfirmed: true, originalContentConfirmed: true,
-          likes: 0, likedBy: [], createdAt: new Date()
-        });
+        try {
+          await createArticle({
+            ...articleData,
+            author: 'Admin', rightsConfirmed: true, originalContentConfirmed: true,
+            likes: 0, likedBy: [], createdAt: new Date()
+          });
+        } catch (err) {
+          showToast('Article could not be saved: ' + (err?.message || 'unknown error') + ' — the cover image was uploaded but the article was not saved.', 'error');
+          return;
+        }
         showToast("Article Published", "success");
       }
       resetForm();
@@ -3160,10 +3170,22 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       const idToken = (typeof user?.getIdToken === 'function')
         ? await user.getIdToken(true)
         : await getAccessToken();
+      // Browser file.type is unreliable: Android pickers can report e.g.
+      // "image/jpg" for a .jpg file, and the sign-upload function rejects any
+      // MIME that does not exactly match the extension ("File type does not
+      // match its extension"). Send the canonical MIME for the file's
+      // extension instead — same pattern as AcademicAdminUploader. Files with
+      // no extension get one derived from their MIME type.
+      const COVER_MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+      const TYPE_TO_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+      let filename = file.name || 'cover';
+      let ext = String(filename).match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase() || '';
+      if (!ext && TYPE_TO_EXT[file.type]) { ext = TYPE_TO_EXT[file.type]; filename += '.' + ext; }
+      const contentType = COVER_MIME[ext] || file.type;
       const signRes = await fetch('https://cprpndovdfnkvekewstv.supabase.co/functions/v1/edunexus-sign-upload', {
         method: 'POST',
         headers: { authorization: 'Bearer ' + idToken, 'content-type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, size: file.size, contentType: file.type }),
+        body: JSON.stringify({ filename, size: file.size, contentType }),
       });
       const signed = await signRes.json().catch(() => ({}));
       if (!signRes.ok || !signed.uploadUrl || !signed.path) {
