@@ -2993,6 +2993,13 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const [fontSize, setFontSize] = useState('16');
     const editorRef = React.useRef(null);
     const coverFileRef = React.useRef(null); // freshly-picked cover file, uploaded on publish
+    // Inline link box (replaces the old native prompt() link flow): lets the
+    // author add a real clickable link inside the article content.
+    const [showLinkBox, setShowLinkBox] = useState(false);
+    const [linkUrl, setLinkUrl] = useState('');
+    const [linkText, setLinkText] = useState('');
+    const [linkHasSelection, setLinkHasSelection] = useState(false);
+    const savedRangeRef = React.useRef(null); // editor selection saved when the link box opens
 
     useEffect(() => {
       let alive = true;
@@ -3053,9 +3060,86 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       setContent(editorRef.current?.innerHTML || '');
     };
 
-    const insertLink = () => {
-      const url = prompt('Enter URL:');
-      if (url) execCmd('createLink', url);
+    // --- Inline link insertion (no native prompt) ---
+    // Native prompt() is fragile: automation auto-dismisses it (no link is
+    // ever added), some mobile browsers handle it poorly, and it accepts
+    // anything (e.g. "www.x" with no scheme becomes a broken relative link).
+    // The toolbar link button now opens an inline box instead. Selection is
+    // saved on open (focusing the box would otherwise lose it) and restored
+    // before the link is applied.
+    const saveEditorSelection = () => {
+      try {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && editorRef.current &&
+            editorRef.current.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+          savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+          return true;
+        }
+      } catch (_) {}
+      savedRangeRef.current = null;
+      return false;
+    };
+    const restoreEditorSelection = () => {
+      try {
+        const range = savedRangeRef.current;
+        if (!range) return false;
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        editorRef.current?.focus();
+        return true;
+      } catch (_) { return false; }
+    };
+    const openLinkBox = () => {
+      const hadSelection = saveEditorSelection();
+      try {
+        const sel = window.getSelection();
+        setLinkText(hadSelection && sel && sel.rangeCount > 0 ? String(sel.toString() || '') : '');
+      } catch (_) { setLinkText(''); }
+      setLinkHasSelection(hadSelection);
+      setLinkUrl('');
+      setShowLinkBox(true);
+    };
+    const normalizeLinkUrl = (raw) => {
+      const url = String(raw || '').trim();
+      if (!url) return '';
+      if (/^(https?:\/\/|\/|#)/i.test(url)) return url;
+      if (/^(javascript|data|vbscript|file):/i.test(url)) return '';
+      if (/^www\./i.test(url)) return 'https://' + url;
+      if (/^[^\s]+\.[a-z]{2,}(\/\S*)?$/i.test(url)) return 'https://' + url;
+      return '';
+    };
+    const closeLinkBox = () => {
+      setShowLinkBox(false);
+      setLinkUrl(''); setLinkText(''); setLinkHasSelection(false);
+    };
+    const applyLink = () => {
+      const url = normalizeLinkUrl(linkUrl);
+      if (!url) { showToast('Please enter a valid link (https://… or www.…)', 'error'); return; }
+      editorRef.current?.focus();
+      restoreEditorSelection();
+      const sel = window.getSelection();
+      const hasSelection = !!(sel && sel.rangeCount > 0 && !sel.getRangeAt(0).collapsed);
+      if (hasSelection) {
+        // Selected text becomes the link — matches what the old prompt flow did.
+        execCmd('createLink', url);
+      } else if (linkText.trim()) {
+        execCmd('insertHTML', '<a href="' + url.replace(/"/g, '&quot;') + '">' +
+          linkText.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</a>');
+      } else {
+        // No selection and no text: insert the URL itself as the link text.
+        execCmd('insertHTML', '<a href="' + url.replace(/"/g, '&quot;') + '">' +
+          url.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</a>');
+      }
+      setContent(editorRef.current?.innerHTML || '');
+      closeLinkBox();
+    };
+    const cancelLink = () => { closeLinkBox(); editorRef.current?.focus(); restoreEditorSelection(); };
+    const removeLink = () => {
+      editorRef.current?.focus();
+      restoreEditorSelection();
+      execCmd('unlink');
+      setContent(editorRef.current?.innerHTML || '');
     };
 
     const handleSubmit = async () => {
@@ -3254,9 +3338,32 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               <span className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-1"></span>
               <button type="button" onClick={()=>execCmd('insertUnorderedList')} className={toolbarBtn} title="Bullet list">•</button>
               <button type="button" onClick={()=>execCmd('insertOrderedList')} className={toolbarBtn} title="Numbered list">1.</button>
-              <button type="button" onClick={insertLink} className={toolbarBtn} title="Insert link">🔗</button>
+              <button type="button" onMouseDown={(e)=>e.preventDefault()} onClick={openLinkBox} className={toolbarBtn} title="Insert link">🔗</button>
+              <button type="button" onClick={removeLink} className={toolbarBtn} title="Remove link">⛓️‍💥</button>
               <button type="button" onClick={()=>execCmd('removeFormat')} className={toolbarBtn} title="Clear formatting">✕</button>
             </div>
+            {showLinkBox && (
+              <div className="flex flex-wrap items-center gap-2 mt-2 p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+                <input
+                  value={linkUrl}
+                  onChange={e=>setLinkUrl(e.target.value)}
+                  onKeyDown={e=>{ if (e.key === 'Enter') { e.preventDefault(); applyLink(); } if (e.key === 'Escape') { e.preventDefault(); cancelLink(); } }}
+                  placeholder="https://example.com"
+                  className={`flex-1 min-w-[180px] ${theme.input} p-2 rounded-lg`}
+                />
+                {!linkHasSelection && (
+                  <input
+                    value={linkText}
+                    onChange={e=>setLinkText(e.target.value)}
+                    onKeyDown={e=>{ if (e.key === 'Enter') { e.preventDefault(); applyLink(); } if (e.key === 'Escape') { e.preventDefault(); cancelLink(); } }}
+                    placeholder="Link text (optional — uses the URL)"
+                    className={`flex-1 min-w-[140px] ${theme.input} p-2 rounded-lg`}
+                  />
+                )}
+                <button type="button" onClick={applyLink} className="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold">Add link</button>
+                <button type="button" onClick={cancelLink} className="px-3 py-2 rounded-lg bg-slate-300 dark:bg-slate-600 text-xs font-bold">Cancel</button>
+              </div>
+            )}
             <div
               ref={editorRef}
               contentEditable
