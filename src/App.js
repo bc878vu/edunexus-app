@@ -1124,7 +1124,7 @@ const FileItem = ({ file, theme, isAdmin, onDelete }) => {
 /// PORTFOLIO PAGE – PROFILE + AI PROJECT IDEAS GENERATOR
 const Portfolio = ({ user, isAdmin, theme }) => {
   // ✅ User photo: default to the deployed profile photo; Firestore picUrl overrides when set.
-  const [picUrl, setPicUrl] = useState("https://edunexus.dpdns.org/portfolio-profile.jpg");
+  const [picUrl, setPicUrl] = useState("https://edunexus-app.vercel.app/portfolio-profile.jpg");
   const [imageLoaded, setImageLoaded] = useState(false); // ✅ NEW state
 
   // baaki tumhari states same rahengi:
@@ -1145,7 +1145,7 @@ const Portfolio = ({ user, isAdmin, theme }) => {
   const [ideas, setIdeas] = useState("");
   const [loadingIdeas, setLoadingIdeas] = useState(false);
   const starterProjects = [
-    { id: 'edunexus', title: 'EduNexus — Student Learning Platform', description: 'A complete learning platform for Virtual University students with subject-wise MCQ banks (5000+ questions), exam paper reviews from real students, study files library, handouts, past papers, CGPA calculator and AI study tools. Built with React, Firebase and Supabase. Serving thousands of VU students across Pakistan.', url: 'https://edunexus.dpdns.org/', image: 'https://images.pexels.com/photos/4144923/pexels-photo-4144923.jpeg?auto=compress&cs=tinysrgb&w=800', gradient: 'from-indigo-500 via-purple-500 to-pink-500' },
+    { id: 'edunexus', title: 'EduNexus — Student Learning Platform', description: 'A complete learning platform for Virtual University students with subject-wise MCQ banks (5000+ questions), exam paper reviews from real students, study files library, handouts, past papers, CGPA calculator and AI study tools. Built with React, Firebase and Supabase. Serving thousands of VU students across Pakistan.', url: 'https://edunexus-app.vercel.app/', image: 'https://images.pexels.com/photos/4144923/pexels-photo-4144923.jpeg?auto=compress&cs=tinysrgb&w=800', gradient: 'from-indigo-500 via-purple-500 to-pink-500' },
     { id: 'powerhouse', title: 'Power House Electrical Management System', description: 'A comprehensive electrical infrastructure management system designed for power house operations. Manages electrical panels, cable routing, breaker capacities, departmental load distribution and preventive maintenance schedules. Includes role-based access control for supervisors and technicians, real-time load monitoring, fault reporting and future capacity planning. Built for industrial power distribution reliability.', url: '', image: 'https://images.pexels.com/photos/2800832/pexels-photo-2800832.jpeg?auto=compress&cs=tinysrgb&w=800', gradient: 'from-amber-500 via-orange-500 to-red-500' },
     { id: 'onlineacademy', title: 'Online Academy — E-Learning Platform', description: 'A full-featured online academy platform for remote learning. Includes course management, video lectures, quizzes and assignments, student progress tracking, live class scheduling and certificate generation. Designed to make quality education accessible to students anywhere in Pakistan with an intuitive Urdu/English bilingual interface.', url: '', image: 'https://images.pexels.com/photos/5428003/pexels-photo-5428003.jpeg?auto=compress&cs=tinysrgb&w=800', gradient: 'from-blue-500 via-cyan-500 to-teal-500' },
     { id: 'aicvmaker', title: 'AI CV Maker — Smart Resume Builder', description: 'An AI-powered CV/resume builder that helps job seekers create professional resumes in minutes. Features smart content suggestions, multiple modern templates, ATS-friendly formatting, PDF export and LinkedIn profile optimization tips. Users input their details and the AI structures them into a polished, recruiter-ready CV.', url: '', image: 'https://images.pexels.com/photos/590016/pexels-photo-590016.jpeg?auto=compress&cs=tinysrgb&w=800', gradient: 'from-emerald-500 via-green-500 to-lime-500' },
@@ -3730,7 +3730,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
   const [about, setAbout] = useState("");
 
   const defaultUrl =
-    "https://edunexus.dpdns.org/portfolio-profile.jpg";
+    "https://edunexus-app.vercel.app/portfolio-profile.jpg";
 
   // profile doc path
   // TODO(supabase): public/data/profile/main maps to plan §1 table 13

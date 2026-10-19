@@ -219,8 +219,8 @@ function ShareBar({ tab, subject, term }) {
   const tabLabel = tab === "mcqs" ? "MCQ Bank" : isReviews ? "Paper Reviews" : "Study Files";
   const termLabel = term === "quiz" ? "Quiz" : term === "midterm" ? "Midterm" : "Finalterm";
   const shareUrl = isReviews
-    ? "https://edunexus.dpdns.org/paper-reviews"
-    : "https://edunexus.dpdns.org/exam-prep/" + encodeURIComponent(subject) + "/" + encodeURIComponent(term) + "/" + tab;
+    ? "https://edunexus-app.vercel.app/paper-reviews"
+    : "https://edunexus-app.vercel.app/exam-prep/" + encodeURIComponent(subject) + "/" + encodeURIComponent(term) + "/" + tab;
   const shareText = isReviews
     ? "Paper Reviews on EduNexus"
     : subject + " " + termLabel + " " + tabLabel + " on EduNexus";

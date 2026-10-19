@@ -54,6 +54,17 @@
   ],
   "redirects": [
     {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "edunexus.dpdns.org"
+        }
+      ],
+      "destination": "https://edunexus-app.vercel.app/$1",
+      "permanent": true
+    },
+    {
       "source": "/",
       "has": [
         {

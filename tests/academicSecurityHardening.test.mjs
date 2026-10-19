@@ -16,8 +16,8 @@ test('only known cross-origin document hosts can enter the iframe', () => {
   assert.equal(trustedPreviewUrl({kind:'pdf'},supa),supa);
   assert.equal(trustedPreviewUrl({kind:'pdf'},'https://res.cloudinary.com/demo/raw/upload/v1/book.pdf'),
     'https://res.cloudinary.com/demo/raw/upload/v1/book.pdf');
-  assert.equal(trustedPreviewUrl({kind:'firebase'},'', 'blob:https://edunexus.dpdns.org/abc'),
-    'blob:https://edunexus.dpdns.org/abc');
+  assert.equal(trustedPreviewUrl({kind:'firebase'},'', 'blob:https://edunexus-app.vercel.app/abc'),
+    'blob:https://edunexus-app.vercel.app/abc');
   // Direct-URL PDFs are served to the iframe as same-origin blobs (Chrome
   // blocks its PDF viewer in ANY sandboxed iframe; verified blobs render
   // with the sandbox attribute omitted — see the sandbox test below).
