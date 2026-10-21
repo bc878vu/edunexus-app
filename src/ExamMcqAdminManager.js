@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { BookOpen, CheckCircle2, Pencil, Search, Trash2, X } from 'lucide-react';
-import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
+import { listMcqs, updateMcq, deleteMcqs, setMcqActive } from './db/examMcqs';
 import { categoryOf, orderOf, quizSetOf, stripQuizMarker, validateMcq } from './examMcqImport';
 import { refreshExamCatalogCounts } from './examCatalogCounts';
 import { explanationForStudent } from './examAnswerFeedback';
@@ -10,7 +9,6 @@ import { isVerifiedAnswer } from './examPractice';
 import RichContent from './RichContent';
 import { useConfirm } from './ConfirmDialog';
 
-const PATH = ['artifacts','edunexus-live','public','data','examMcqs'];
 const COURSE = /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/;
 const clean = value => String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);
 const SOURCE_TAG = '[EduNexus admin verified] Admin review source: ';
@@ -19,7 +17,7 @@ const fromRecord = q => ({
   options:[...q.options], answer:q.answer, explanation:explanationForStudent(q),
   verificationSource:''
 });
-const errorText = e => e?.code === 'permission-denied' ? 'Firebase denied this change. Reopen the verified Admin Panel and check your Firestore rules.' : e?.message || 'Action could not be completed. Try again.';
+const errorText = e => e?.code === 'permission-denied' ? 'Database denied this change. Reopen the verified Admin Panel and try again.' : e?.message || 'Action could not be completed. Try again.';
 
 export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
   const { requestConfirm, ConfirmUI } = useConfirm();
@@ -57,15 +55,19 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
     });
   };
 
-  useEffect(() => {
+  // Question bank reads through the examMcqs adapter (Supabase primary), the
+  // same store the public practice page and the single-MCQ publisher use.
+  const loadRecords = async () => {
     if (!adminPanelAccess(user) || !COURSE.test(subject)) { setRecords([]); setLoading(false); return; }
     setLoading(true); setError('');
-    return onSnapshot(query(collection(db,...PATH),where('subject','==',subject),limit(1000)), shot => {
-      setRecords(shot.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>
-        ((a.createdAt?.toMillis?.() || 0)-(b.createdAt?.toMillis?.() || 0)) || a.id.localeCompare(b.id)));
-      setLoading(false);
-    }, e => {setLoading(false);setError(errorText(e));});
-  }, [subject,user]);
+    try {
+      const items = await listMcqs({ subject, activeOnly: false, limit: 1000 });
+      const ts = v => { const t = new Date(v?.createdAt || 0).getTime(); return Number.isNaN(t) ? 0 : t; };
+      setRecords(items.sort((a,b) => (ts(b.createdAt)-ts(a.createdAt)) || String(a.id).localeCompare(String(b.id))));
+    } catch (e) { setError(errorText(e)); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { loadRecords(); }, [subject, user]);
 
   const uploadBatches = useMemo(() => {
     const map = new Map();
@@ -114,7 +116,8 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         normalized.explanation += note;
       }
       // Never carry an old verification forward if a key changed without a new source.
-      await updateDoc(doc(db,...PATH,selected.id), normalized);
+      await updateMcq(selected.id, normalized);
+      await loadRecords();
       // An edit can change the subject and/or exam category, so recompute the
       // denormalized catalogue for both the old and the new subject.
       try { await refreshExamCatalogCounts([selected.subject, draft.subject]); }
@@ -150,15 +153,14 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       // Do not silently move a subset when the source has changed or exceeds
       // the single-transaction limit. Re-fetch before writing; this is important
       // when students/admins have added questions since the list was loaded.
-      const fresh = await getDocs(query(collection(db,...PATH),where('subject','==',subject),limit(451)));
+      const fresh = await listMcqs({ subject, activeOnly: false, limit: 451 });
       const listedIds = new Set(records.map(item => item.id));
-      if (fresh.size !== records.length || fresh.size > 450 ||
-        fresh.docs.some(item => !listedIds.has(item.id))) {
+      if (fresh.length !== records.length || fresh.length > 450 ||
+        fresh.some(item => !listedIds.has(item.id))) {
         throw new Error('The source question list changed. Reload this subject and confirm the new count before trying again.');
       }
-      const batch = writeBatch(db);
-      fresh.docs.forEach(item => batch.update(item.ref, { subject: target }));
-      await batch.commit();
+      for (const item of fresh) await updateMcq(item.id, { subject: target });
+      await loadRecords();
       // Recompute the denormalized catalogue for the emptied source subject
       // and the destination subject.
       try { await refreshExamCatalogCounts([subject, target]); }
@@ -167,7 +169,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       setSearch(''); setCategory('all');
       setBulkTarget(''); setBulkCountConfirmation('');
       setSubject(target);
-      setMessage(fresh.size + ' questions moved from ' + subject + ' to ' + target +
+      setMessage(fresh.length + ' questions moved from ' + subject + ' to ' + target +
         '. Question text, answer choices, keys, categories and document IDs were not changed.');
     } catch(err) {setError(errorText(err));}
     finally {setBusy(false);}
@@ -189,20 +191,14 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       onConfirm: async () => {
     setBusy(true); setDeletingBatch(upload.id); setError(''); setMessage('');
     try {
-      const batchQuery = upload.tracked
-        ? query(collection(db,...PATH),where('importBatchId','==',upload.batchId),limit(1000))
-        : query(collection(db,...PATH),where('subject','==',subject),where('sourceFileName','==',upload.fileName),limit(1000));
-      const fresh = await getDocs(batchQuery);
-      // For untracked batches, only delete docs that truly lack importBatchId (safety)
-      const docs = upload.tracked ? fresh.docs : fresh.docs.filter(d => !d.data().importBatchId);
+      const fresh = await listMcqs({ subject, activeOnly: false, limit: 1000 });
+      // For untracked batches, only delete records that truly lack importBatchId (safety)
+      const docs = fresh.filter(q => upload.tracked ? q.importBatchId === upload.batchId
+        : (q.subject === subject && q.sourceFileName === upload.fileName && !q.importBatchId));
       if (docs.length !== batchRecords.length || docs.length > 900) throw new Error('This upload changed while it was open. Reload the subject and try again so no partial delete can occur.');
-      let deleted = 0;
-      for (let start=0; start<docs.length; start+=450) {
-        const batch = writeBatch(db);
-        docs.slice(start,start+450).forEach(item => batch.delete(item.ref));
-        await batch.commit();
-        deleted += Math.min(450, docs.length-start);
-      }
+      const deleted = docs.length;
+      await deleteMcqs(docs.map(q => q.id));
+      await loadRecords();
       if (selected && batchRecords.some(q => q.id === selected.id)) { setSelected(null); setDraft(null); }
       try { await refreshExamCatalogCounts([subject]); }
       catch (_) {}
@@ -234,13 +230,9 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       onConfirm: async () => {
     setBusy(true); setDeletingAll(true);
     try {
-      let deleted = 0;
-      for (let start = 0; start < targets.length; start += 450) {
-        const batch = writeBatch(db);
-        targets.slice(start, start + 450).forEach(q => batch.delete(doc(db, ...PATH, q.id)));
-        await batch.commit();
-        deleted += Math.min(450, targets.length - start);
-      }
+      const deleted = targets.length;
+      await deleteMcqs(targets.map(q => q.id));
+      await loadRecords();
       if (selected && targets.some(q => q.id === selected.id)) { setSelected(null); setDraft(null); }
       setDeleteAllConfirm(''); setSearch('');
       try { await refreshExamCatalogCounts([subject]); }
@@ -260,7 +252,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       danger: true,
       onConfirm: async () => {
     setBusy(true);setError('');setMessage('');
-    try { await deleteDoc(doc(db,...PATH,q.id)); if(selected?.id===q.id){setSelected(null);setDraft(null);}
+    try { await deleteMcqs([q.id]); await loadRecords(); if(selected?.id===q.id){setSelected(null);setDraft(null);}
       try { await refreshExamCatalogCounts([q.subject]); }
       catch (_) {}
       setMessage('Question deleted. All other published questions and resources remain unchanged.');
@@ -280,7 +272,8 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       onConfirm: async () => {
     setBusy(true); setError(''); setMessage('');
     try {
-      await updateDoc(doc(db,...PATH,q.id), { isActive: next, updatedAt: serverTimestamp() });
+      await setMcqActive([q.id], next);
+      await loadRecords();
       try { await refreshExamCatalogCounts([q.subject]); }
       catch (_) {}
       setMessage(next ? 'Question activated.' : 'Question disabled. It is now hidden from students.');
@@ -303,18 +296,12 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       onConfirm: async () => {
     setBusy(true); setError(''); setMessage('');
     try {
-      const batchQuery = upload.tracked
-        ? query(collection(db,...PATH),where('importBatchId','==',upload.batchId),limit(1000))
-        : query(collection(db,...PATH),where('subject','==',subject),where('sourceFileName','==',upload.fileName),limit(1000));
-      const fresh = await getDocs(batchQuery);
-      const docs = upload.tracked ? fresh.docs : fresh.docs.filter(d => !d.data().importBatchId);
-      let updated = 0;
-      for (let start=0; start<docs.length; start+=450) {
-        const batch = writeBatch(db);
-        docs.slice(start,start+450).forEach(item => batch.update(item.ref, { isActive: next, updatedAt: serverTimestamp() }));
-        await batch.commit();
-        updated += Math.min(450, docs.length-start);
-      }
+      const fresh = await listMcqs({ subject, activeOnly: false, limit: 1000 });
+      const docs = fresh.filter(q => upload.tracked ? q.importBatchId === upload.batchId
+        : (q.subject === subject && q.sourceFileName === upload.fileName && !q.importBatchId));
+      const updated = docs.length;
+      await setMcqActive(docs.map(q => q.id), next);
+      await loadRecords();
       try { await refreshExamCatalogCounts([subject]); }
       catch (_) {}
       setMessage(updated + ' questions from "' + upload.name + '" ' + (next ? 'activated.' : 'disabled.'));
