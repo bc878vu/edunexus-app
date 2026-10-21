@@ -2402,8 +2402,6 @@ const AcademicTab = ({ theme, user, showToast }) => {
       showToast("Default folders ko delete nahi kar sakte", "error");
       return;
     }
-    // DEBUG: confirm the handler runs (remove after diagnosis)
-    showToast("Delete clicked: " + name, "info");
     // Inline dialog (local state) — the proven BlogTab delete pattern.
     setFolderDeleteTarget(name);
   };
