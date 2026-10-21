@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { addDoc, collection, doc, getDoc, getDocs, limit, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { ChevronRight, FileText, GraduationCap, ShieldCheck, Sparkles, Search, BookOpen, MessageCircle, ArrowDownUp, Share2, Link2, Check } from "lucide-react";
 import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
+import { addMcq } from "./db/examMcqs";
 import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, publishedExamCatalog } from "./examCatalog";
 import { readCatalogFromSupabase } from "./examCatalogCounts";
 import { routeParamsFromPath } from "./app-routes.mjs";
@@ -153,7 +154,14 @@ function AdminTools({ user, onView }) {
     event.preventDefault();
     if (!isAdmin(user)) { setMessage("Admin session expired. Please log in again."); return; }
     setBusy(true); setMessage("");
-    try { const published = normalize(draft); await addDoc(col("examMcqs"), published); setLastPublished({subject:published.subject, term:draft.term}); setDraft({ ...EMPTY_MCQ, subject: draft.subject, term: draft.term }); setMessage("MCQ published successfully. The public practice page updates automatically; use the link below to open the exact subject and exam type."); }
+    try {
+      const published = normalize(draft);
+      // Route through the examMcqs adapter (Supabase primary): the old raw
+      // Firestore addDoc was denied by rules (importBatchId/sourceFileName
+      // required) and the public bank reads from Supabase anyway.
+      await addMcq({ ...published, importBatchId: 'manual', sourceFileName: 'admin-manual-entry' });
+      setLastPublished({subject:published.subject, term:draft.term}); setDraft({ ...EMPTY_MCQ, subject: draft.subject, term: draft.term }); setMessage("MCQ published successfully. The public practice page updates automatically; use the link below to open the exact subject and exam type.");
+    }
     catch (error) { setMessage(error.message || "MCQ could not be published."); } finally { setBusy(false); }
   };
   const moderate = async (review, approve) => {

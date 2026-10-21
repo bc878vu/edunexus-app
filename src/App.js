@@ -2184,6 +2184,9 @@ const AcademicTab = ({ theme, user, showToast }) => {
 
   const [editingFolder, setEditingFolder] = useState(null);
   const [editingName, setEditingName] = useState("");
+  // Folder delete uses a local inline dialog (same proven pattern as BlogTab's
+  // article delete) instead of requestConfirm.
+  const [folderDeleteTarget, setFolderDeleteTarget] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -2394,26 +2397,31 @@ const AcademicTab = ({ theme, user, showToast }) => {
     setEditingName("");
   };
 
-  const handleDeleteFolder = async (name) => {
+  const handleDeleteFolder = (name) => {
     if (DEFAULT_FOLDERS.includes(name)) {
       showToast("Default folders ko delete nahi kar sakte", "error");
       return;
     }
-    const filesInFolder = files.filter(f => f.subject === name).length;
-    requestConfirm({
-      message: 'Delete folder "' + name + '"' + (filesInFolder > 0 ? ' containing ' + filesInFolder + ' file(s)' : '') + '? The files inside will become orphaned (hidden from folders but still in database). This cannot be undone.',
-      confirmLabel: 'Delete folder',
-      danger: true,
-      onConfirm: async () => {
-        const updated = subjects.filter((s) => s !== name);
-        setSubjects(updated);
-        await saveFoldersToDb(updated);
-        showToast("Folder deleted", "success");
-        if (selSubject === name) {
-          setSelSubject("General");
-        }
-      },
-    });
+    // Inline dialog (local state) — the proven BlogTab delete pattern.
+    setFolderDeleteTarget(name);
+  };
+
+  const confirmDeleteFolder = async () => {
+    const name = folderDeleteTarget;
+    if (!name) return;
+    try {
+      const updated = subjects.filter((s) => s !== name);
+      setSubjects(updated);
+      await saveFoldersToDb(updated);
+      showToast("Folder deleted", "success");
+      if (selSubject === name) {
+        setSelSubject("General");
+      }
+    } catch (err) {
+      console.error("Folder delete failed:", err);
+      showToast("Could not delete folder: " + (err?.message || "unknown error"), "error");
+    }
+    setFolderDeleteTarget(null);
   };
 
   return (
@@ -2615,6 +2623,18 @@ const AcademicTab = ({ theme, user, showToast }) => {
           </div>
         </div>
       </section>
+      {folderDeleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={()=>setFolderDeleteTarget(null)}>
+          <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} max-w-sm w-full`} onClick={e=>e.stopPropagation()}>
+            <h3 className={`font-bold ${theme.text} mb-2`}>Delete folder?</h3>
+            <p className={`text-sm ${theme.textMuted} mb-4`}>Permanently delete "{String(folderDeleteTarget)}"? The files inside will become orphaned (hidden from folders but still in database). This cannot be undone.</p>
+            <div className="flex gap-2">
+              <button onClick={()=>setFolderDeleteTarget(null)} className="flex-1 px-4 py-2 rounded-lg border font-bold">Cancel</button>
+              <button onClick={confirmDeleteFolder} className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
       <ConfirmUI />
     </div>
   );
@@ -4115,6 +4135,9 @@ const ProfileTab = ({ theme, user, showToast }) => {
 )}
 
       </div>
+      {/* AdminPanel-level confirm dialogs (Highlights delete, dashboard feedback delete).
+          HighlightsTab reuses AdminPanel's requestConfirm, so its dialog must render here. */}
+      <ConfirmUI />
     </div>
   );
 };

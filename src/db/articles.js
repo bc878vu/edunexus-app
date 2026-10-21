@@ -33,13 +33,15 @@ const ARTICLE_SPEC = {
   likes: 'likes',
   createdAt: { col: 'created_at', ts: true },
   updatedAt: { col: 'updated_at', ts: true },
+  // isActive maps to the articles.is_active column (added 2026-10-21) so the
+  // Blog admin Disable/Activate toggle persists on the Supabase branch.
   // TODO(schema): plan §1 has no columns for these Firestore fields —
-  // keywords, hiddenLinks, isActive, rightsConfirmed, originalContentConfirmed,
+  // keywords, hiddenLinks, rightsConfirmed, originalContentConfirmed,
   // excerpt (derivable), likedBy (replaced by article_likes). Extend the table
   // (e.g. an `extra` jsonb) before cutover if any must survive migration.
   keywords: null,
   hiddenLinks: null,
-  isActive: null,
+  isActive: 'is_active',
   rightsConfirmed: null,
   originalContentConfirmed: null,
   likedBy: null,
