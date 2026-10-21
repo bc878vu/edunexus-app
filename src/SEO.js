@@ -142,6 +142,8 @@ function updateSeo() {
   schema.textContent = JSON.stringify({
     '@context': 'https://schema.org', '@type': data[3],
     name: title.split('|')[0].trim(), url: canonical, description: description,
+    // Brand variants help Google match spaced queries like "edu nexus".
+    ...(data[3] === 'WebSite' ? { alternateName: 'Edu Nexus' } : {}),
     isPartOf: { '@type': 'WebSite', name: 'EduNexus', url: SITE }
   }).replace(/</g, '\\u003c');
 
