@@ -5824,6 +5824,15 @@ useEffect(() => {
           Terms of Service
         </a>
 
+        <a
+          href="https://www.facebook.com/truepearl26"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${theme.textMuted} hover:text-indigo-500`}
+        >
+          Facebook
+        </a>
+
         <span className={`${theme.textMuted}`}>
           Made for students · Light & Dark mode supported
         </span>
