@@ -5828,9 +5828,22 @@ useEffect(() => {
           href="https://www.facebook.com/truepearl26"
           target="_blank"
           rel="noopener noreferrer"
+          aria-label="Follow EduNexus on Facebook for VU study updates"
+          title="EduNexus on Facebook"
           className={`${theme.textMuted} hover:text-indigo-500`}
         >
           Facebook
+        </a>
+
+        <a
+          href="https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Join the EduNexus WhatsApp group for VU past papers, handouts and study updates"
+          title="Join EduNexus WhatsApp Group — VU Past Papers & Study Updates"
+          className={`${theme.textMuted} hover:text-indigo-500`}
+        >
+          WhatsApp
         </a>
 
         <span className={`${theme.textMuted}`}>
