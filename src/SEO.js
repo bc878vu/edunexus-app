@@ -33,6 +33,19 @@ const DATA = {
 // reuses the same per-page titles/descriptions without touching the DOM.
 export const SEO_PAGE_DATA = DATA;
 
+
+// Homepage FAQ structured data (mirrors src/DashboardFAQ.js QUESTIONS)
+const HOME_FAQ = [
+  ["Where can I find notes, handouts and past papers?", "Open Academic Hub and choose your subject. You can browse the available files, check their details and download the ones you need."],
+  ["A file is not opening or downloading. What should I do?", "Try the Download button instead of Preview. If the file is hosted on Google Drive, check whether the owner has enabled access. If it still does not work, send us the subject code and file name through the query form."],
+  ["How do I practise MCQs for my subject?", "Go to Exam Prep, select your subject and choose Quiz, Midterm or Finalterm. You can set the number of questions and choose their original or random order."],
+  ["Can I return to an unfinished MCQ practice session?", "Your practice progress is saved in this browser. Avoid clearing browser data if you are practising as a guest."],
+  ["What should I do if an MCQ answer looks incorrect?", "Send us the subject code, question number and the answer you believe is correct. A lecture, handout or other reliable reference will help us check it."],
+  ["Can I share my completed exam experience?", "Yes. Open Exam Prep and find Paper Reviews. Share the subject, exam type and your own experience after completing the paper."],
+  ["Do I have to pay to use the study resources?", "The study resources and practice tools currently available on EduNexus can be accessed without a paid subscription."],
+  ["Is EduNexus an official Virtual University website?", "No. EduNexus is an independent study platform. For official dates, announcements, grades and university policies, always check your VU LMS or the university website."]
+];
+
 // All SEO head changes are owned here; App handles rendering/navigation only.
 const setMeta = (name, value) => {
   let element = document.head.querySelector('meta[name="' + name + '"]');
@@ -69,6 +82,16 @@ function updateSeo() {
   let title = data[0];
   let description = data[1];
   const pathname = window.location.pathname || '';
+  const articleReadMatch = pathname.match(/^\/articles\/read\/([^/]+)\/([^/]+)/);
+  if (articleReadMatch) {
+    const slugTitle = decodeURIComponent(articleReadMatch[2] || '')
+      .replace(/-/g, ' ').replace(/\s+/g, ' ').trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    if (slugTitle) {
+      title = slugTitle + ' | EduNexus';
+      description = 'Read "' + slugTitle + '" — a student article on EduNexus with study guides, exam tips and Virtual University resources.';
+    }
+  }
   if (pathname === '/mcq-bank') {
     title = 'MCQ Bank — Practice Solved MCQs | EduNexus';
     description = 'Practice the most important and repeated solved MCQs for VU subjects on EduNexus — Quiz, Midterm and Finalterm banks, free for students.';
@@ -139,13 +162,73 @@ function updateSeo() {
     schema.dataset.edunexusSeo = 'true';
     document.head.appendChild(schema);
   }
-  schema.textContent = JSON.stringify({
-    '@context': 'https://schema.org', '@type': data[3],
+  const isArticleDetail = !!articleReadMatch;
+  const schemaType = isArticleDetail ? 'Article' : data[3];
+  const schemaObj = {
+    '@context': 'https://schema.org', '@type': schemaType,
     name: title.split('|')[0].trim(), url: canonical, description: description,
     // Brand variants help Google match spaced queries like "edu nexus".
     ...(data[3] === 'WebSite' ? { alternateName: 'Edu Nexus' } : {}),
-    isPartOf: { '@type': 'WebSite', name: 'EduNexus', url: SITE }
-  }).replace(/</g, '\\u003c');
+    isPartOf: { '@type': 'WebSite', name: 'EduNexus', url: SITE },
+    // Rich Article metadata for individual article pages.
+    ...(isArticleDetail ? {
+      headline: title.split('|')[0].trim(),
+      author: { '@type': 'Organization', name: 'EduNexus', url: SITE },
+      publisher: { '@type': 'Organization', name: 'EduNexus', url: SITE }
+    } : {})
+  };
+  schema.textContent = JSON.stringify(schemaObj).replace(/</g, '\\u003c');
+
+  // --- FAQPage schema on the homepage (rich results for common questions) ---
+  let faqSchema = document.head.querySelector('script[data-edunexus-faq]');
+  if (page === 'home') {
+    if (!faqSchema) {
+      faqSchema = document.createElement('script');
+      faqSchema.type = 'application/ld+json';
+      faqSchema.dataset.edunexusFaq = 'true';
+      document.head.appendChild(faqSchema);
+    }
+    faqSchema.textContent = JSON.stringify({
+      '@context': 'https://schema.org', '@type': 'FAQPage',
+      mainEntity: HOME_FAQ.map(([q, a]) => ({
+        '@type': 'Question', name: q,
+        acceptedAnswer: { '@type': 'Answer', text: a }
+      }))
+    }).replace(/</g, '\\u003c');
+  } else if (faqSchema) {
+    faqSchema.remove();
+  }
+
+  // --- BreadcrumbList for subject/term library pages ---
+  let crumbSchema = document.head.querySelector('script[data-edunexus-crumbs]');
+  const crumbs = [];
+  if (page === 'academic') {
+    crumbs.push(['Home', SITE + '/'], ['VU Notes & Handouts', SITE + '/vu-notes']);
+    const subj = displaySubjectName(params.get('subject'));
+    if (subj) crumbs.push([subj + ' Notes', canonical]);
+  } else if (page === 'exam-prep') {
+    crumbs.push(['Home', SITE + '/'], ['Exam Prep', SITE + '/exam-prep']);
+    const subject = (params.get('subject') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (subject) crumbs.push([subject + ' MCQs', canonical]);
+  } else if (page === 'articles') {
+    crumbs.push(['Home', SITE + '/'], ['Articles', SITE + '/articles']);
+  }
+  if (crumbs.length >= 2) {
+    if (!crumbSchema) {
+      crumbSchema = document.createElement('script');
+      crumbSchema.type = 'application/ld+json';
+      crumbSchema.dataset.edunexusCrumbs = 'true';
+      document.head.appendChild(crumbSchema);
+    }
+    crumbSchema.textContent = JSON.stringify({
+      '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+      itemListElement: crumbs.map(([name, url], i) => ({
+        '@type': 'ListItem', position: i + 1, name: name, item: url
+      }))
+    }).replace(/</g, '\\u003c');
+  } else if (crumbSchema) {
+    crumbSchema.remove();
+  }
 
   // Preserve the original developer ProfilePage schema without a second
   // writer using the Vercel host.
