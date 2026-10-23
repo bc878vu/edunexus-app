@@ -5690,6 +5690,24 @@ useEffect(() => {
           >
             <MessageCircle size={16} />
           </a>
+          <a
+            href="#"
+            aria-label="EduNexus on YouTube — coming soon"
+            title="YouTube — coming soon"
+            onClick={(e) => e.preventDefault()}
+            className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors opacity-60"
+          >
+            <Youtube size={16} />
+          </a>
+          <a
+            href="#"
+            aria-label="EduNexus on Instagram — coming soon"
+            title="Instagram — coming soon"
+            onClick={(e) => e.preventDefault()}
+            className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors opacity-60"
+          >
+            <Instagram size={16} />
+          </a>
         </div>
       </div>
 
