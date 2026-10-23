@@ -34,6 +34,9 @@ import {
   Edit,
   Github,
   Linkedin,
+  Facebook,
+  Instagram,
+  Youtube,
   Mail,
   Phone,
   Brain,
@@ -5666,6 +5669,26 @@ useEffect(() => {
             className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
           >
             <Linkedin size={16} />
+          </a>
+          <a
+            href="https://www.facebook.com/truepearl26"
+            target="_blank"
+            aria-label="EduNexus on Facebook — VU study updates, past papers and announcements"
+            title="EduNexus on Facebook"
+            rel="noreferrer"
+            className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
+          >
+            <Facebook size={16} />
+          </a>
+          <a
+            href="https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW"
+            target="_blank"
+            aria-label="Join the EduNexus WhatsApp group — VU past papers, handouts and study updates"
+            title="Join EduNexus WhatsApp Group"
+            rel="noreferrer"
+            className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
+          >
+            <MessageCircle size={16} />
           </a>
         </div>
       </div>
