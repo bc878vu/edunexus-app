@@ -60,3 +60,9 @@
 .edx-bot-example{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%}
 .edx-bot-example button{font:inherit;font-size:.75rem;text-align:left;color:#4338ca;background:#f1f2ff;border:1px solid #d4d8ff;border-radius:10px;padding:8px 10px;cursor:pointer;line-height:1.45}
 .edx-bot-example button:hover{background:#e4e7ff;border-color:#a5b4fc}
+.edx-bot-web-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.edx-bot-web-actions>a{font-size:.75rem;font-weight:600;padding:6px 10px;border-radius:999px;border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.edx-bot-web-actions>a:hover{background:#e0e7ff}
+.edx-bot-sources{margin-top:8px;display:grid;gap:4px;max-width:100%;padding:10px;background:#f5f6ff;border:1px solid #d7dcff;border-radius:11px}
+.edx-bot-sources>strong{font-size:.77rem;color:#3f3aa7}
+.edx-bot-sources>a{font-size:.77rem;color:#4338ca;text-decoration:none;display:flex;align-items:center;gap:5px}

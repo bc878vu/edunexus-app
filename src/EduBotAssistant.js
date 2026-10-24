@@ -49,13 +49,31 @@ export default function EduBotAssistant() {
     return () => window.speechSynthesis.removeEventListener?.('voiceschanged', refreshVoices);
   }, [canSpeak]);
   const detectSpeechLanguage = value => {
-    if (/[\u0600-\u06FF]/.test(value)) return 'ur-PK';
-    if (/\b(hai|hain|kya|kaise|mujhe|aap|ap|mera|meri|nahi|nahin|batao|btao|karo|kro|chahiye|raha|rha|theek|acha)\b/i.test(value)) return 'hi-IN';
-    return 'en-US';
+    if (/[\u0600-\u06FF]/.test(value)) return 'ur';
+    if (/\b(hai|hain|kya|kaise|mujhe|aap|ap|mera|meri|nahi|nahin|batao|btao|karo|kro|chahiye|raha|rha|theek|acha)\b/i.test(value)) return 'ur';
+    return 'en';
+  };
+  // Prefer genuinely natural voices first (neural / natural / Google premium),
+  // then warm human-named voices. Roman Urdu is spoken best by an Urdu voice,
+  // falling back to Hindi, then English — never a robotic default.
+  const voiceScore = voice => {
+    const name = String(voice.name || '').toLowerCase();
+    let score = 0;
+    if (/natural|neural|wavenet|premium|aria|jenny|guy/i.test(name)) score += 6;
+    if (/google/.test(name)) score += 3;
+    if (/zira|samantha|sara|heera|ayesha|neerja|susan|hazel|natasha|female/i.test(name)) score += 2;
+    if (voice.default) score += 1;
+    return score;
   };
   const pickVoice = lang => {
-    const voices = availableVoices.filter(voice => voice.lang.toLowerCase().split('-')[0] === lang.split('-')[0].toLowerCase());
-    return voices.find(voice => /female|zira|samantha|jenny|aria|sara|heera|ayesha|neerja|susan|hazel|natasha/i.test(voice.name)) || voices.find(voice => voice.default) || voices[0] || null;
+    const prefix = String(lang || 'en').toLowerCase().split('-')[0];
+    const chains = { ur: ['ur', 'hi', 'en'], hi: ['hi', 'ur', 'en'] };
+    const order = chains[prefix] || [prefix, 'en'];
+    for (const p of order) {
+      const voices = availableVoices.filter(voice => voice.lang.toLowerCase().split('-')[0] === p);
+      if (voices.length) return voices.sort((a, b) => voiceScore(b) - voiceScore(a))[0];
+    }
+    return availableVoices.sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null;
   };
 
   const stopSpeech = () => {
@@ -89,11 +107,13 @@ export default function EduBotAssistant() {
       const voice = pickVoice(detectedLanguage);
       if (voice) utterance.voice = voice;
       utterance.lang = voice?.lang || detectedLanguage;
-      utterance.rate = 0.97;
+      utterance.rate = 1.0;
       utterance.pitch = 1.0;
       utterance.volume = 1;
       utterance.onstart = () => { if (speechTokenRef.current === token) setSpeakingId(messageId); };
-      utterance.onend = playNext;
+      // A short breath between sentences sounds far more natural than
+      // chaining utterances back-to-back.
+      utterance.onend = () => { if (speechTokenRef.current === token) setTimeout(playNext, 180); };
       utterance.onerror = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
       try { window.speechSynthesis.speak(utterance); }
       catch (_) { if (speechTokenRef.current === token) setSpeakingId(null); setVoiceError('Speech output is unavailable on this device.'); }
@@ -211,11 +231,11 @@ export default function EduBotAssistant() {
     let allowed = [];
     const course = question.toUpperCase().match(/\b[A-Z]{2,5}[0-9]{3}[A-Z]?\b/)?.[0];
     try {
-      // Keep slow Firestore reads from blocking the AI request indefinitely.
+      // Keep slow library reads from blocking the AI request indefinitely.
       // Only explicitly public collections are queried by this helper.
       records = await Promise.race([
         fetchRelevantPublicKnowledge(question),
-        new Promise(resolve => setTimeout(() => resolve([]), 3500))
+        new Promise(resolve => setTimeout(() => resolve([]), 6000))
       ]);
       if (controller.signal.aborted) return;
       const knowledge = assemblePublicKnowledge(records, question, pageName());
@@ -231,7 +251,8 @@ export default function EduBotAssistant() {
       if (typeof body.text !== 'string' || !body.text.trim()) throw new Error('No answer was returned. Try again.');
       const reply = cleanEduBotText(body.text.slice(0, 4500));
       if (!controller.signal.aborted) {
-        setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), { role: 'ai', text: reply, approvedUrls: allowed, suggestions }]);
+        setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), { role: 'ai', text: reply, approvedUrls: allowed, suggestions, question,
+          sources: Array.isArray(body.sources) ? body.sources.slice(0, 5) : [] }]);
       }
     } catch (error) {
       // A provider outage must not be presented as an answer from the AI.
@@ -240,7 +261,7 @@ export default function EduBotAssistant() {
         ? `I couldn't get an AI response right now. You can browse ${course} study files in Academic Hub or try Exam Prep for practice questions. I can't confirm a specific file without checking the library.`
         : 'The AI service is temporarily unavailable. You can still browse Academic Hub, Exam Prep and Articles, or try your question again shortly.';
       setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), {
-        role: 'ai', text: fallback, approvedUrls: verifiedResourceUrls([]),
+        role: 'ai', text: fallback, approvedUrls: verifiedResourceUrls([]), question,
         suggestions: suggestions.length ? suggestions : []
       }]);
     } finally {
@@ -274,6 +295,11 @@ export default function EduBotAssistant() {
         {messages.map((message, index) => <div key={index} className={'edx-bot-message ' + message.role}>
           <p>{renderableLinks(message.text, message.approvedUrls || []).map((chunk, part) => chunk.url ? <a key={part} href={chunk.url} rel="noopener noreferrer">{chunk.text}<ExternalLink size={12} aria-hidden="true"/></a> : <React.Fragment key={part}>{chunk.text}</React.Fragment>)}</p>
           {message.suggestions?.length > 0 && <div className="edx-bot-resources" aria-label="Verified public study resources"><strong>Available public resources</strong>{message.suggestions.map((file, i) => <a key={file.url + i} href={file.url} rel="noopener noreferrer"><BookOpen size={14}/>{file.title || file.subject || 'Study resource'} <ExternalLink size={13}/></a>)}</div>}
+          {message.role === 'ai' && message.question && <div className="edx-bot-web-actions" aria-label="Search the web for this question">
+            <a href={'https://www.google.com/search?q=' + encodeURIComponent(message.question)} target="_blank" rel="noreferrer">Google par search karein <ExternalLink size={12}/></a>
+            <a href={'https://www.youtube.com/results?search_query=' + encodeURIComponent(message.question)} target="_blank" rel="noreferrer">YouTube par dekhein <ExternalLink size={12}/></a>
+          </div>}
+          {message.sources?.length > 0 && <div className="edx-bot-sources" aria-label="Web sources used for this answer"><strong>Web sources</strong>{message.sources.map((s, i) => <a key={s.uri + i} href={s.uri} target="_blank" rel="noreferrer">{s.title} <ExternalLink size={12}/></a>)}</div>}
           {message.role === 'ai' && canSpeak && <button type="button" className="edx-bot-speak"
             onClick={() => speakingId === index ? stopSpeech() : speak(message.text, index)}
             title={speakingId === index ? 'Stop this response' : 'Read this response aloud'} aria-label={speakingId === index ? 'Stop this response' : 'Read this response aloud'} aria-pressed={speakingId === index}>
@@ -281,7 +307,7 @@ export default function EduBotAssistant() {
           </button>}
         </div>)}
         {messages.length === 1 && !busy && <div className="edx-bot-example" aria-label="Suggested questions">
-          {['CS101 ki study files dhoondo', 'Quiz aur Finalterm ki tayari kaise karun?', 'EduNexus WhatsApp group link do', 'Mere liye study plan suggest karo'].map(q => (
+          {['CS101 ki study files dhoondo', 'Quiz aur Finalterm ki tayari kaise karun?', 'EduNexus WhatsApp number do', 'Mere liye study plan suggest karo'].map(q => (
             <button type="button" key={q} onClick={() => void send(q)}>{q}</button>
           ))}
         </div>}

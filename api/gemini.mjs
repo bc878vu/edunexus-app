@@ -2,7 +2,7 @@
 export const runtime = 'nodejs';
 export const maxDuration = 25;
 
-const MAX_PROMPT_LENGTH = 12000;
+const MAX_PROMPT_LENGTH = 17000;
 const WINDOW_MS = 60000;
 const MAX_REQUESTS_PER_WINDOW = 20;
 const requestLog = new Map();
@@ -67,7 +67,12 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'x-goog-api-key': apiKey,
       },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt.trim() }] }], generationConfig: { maxOutputTokens: 650, temperature: 0.35 } }),
+      // Google Search grounding: the model may search the live web for
+      // general/current questions. Grounding sources are returned separately
+      // so the client can show real source links (never invented ones).
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt.trim() }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 900, temperature: 0.35 } }),
     });
 
     const data = await response.json().catch(() => null);
@@ -88,7 +93,13 @@ export default async function handler(req, res) {
       .trim();
 
     if (!text) return res.status(502).json({ error: 'The AI provider returned no text.' });
-    return res.status(200).json({ text });
+    const sources = (data?.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
+      .map((chunk) => chunk?.web)
+      .filter((web) => web && typeof web.uri === 'string' && web.uri.startsWith('https://'))
+      .map((web) => ({ title: String(web.title || web.uri).slice(0, 160), uri: web.uri }))
+      .filter((source, index, all) => all.findIndex((other) => other.uri === source.uri) === index)
+      .slice(0, 5);
+    return res.status(200).json({ text, ...(sources.length ? { sources } : {}) });
   } catch (error) {
     return res.status(error?.name === 'AbortError' ? 504 : 500).json({
       error: error?.name === 'AbortError'
