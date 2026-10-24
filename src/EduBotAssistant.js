@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Bot, BookOpen, ExternalLink, Loader2, Maximize2, MessageCircle, Mic, MicOff, Minimize2, Move, Send, Volume2, VolumeX, X } from 'lucide-react';
-import { assemblePublicKnowledge, EDUNEXUS_GROUP, fetchRelevantPublicKnowledge, makeEduBotPrompt, resourceSuggestions, verifiedResourceUrls, SITE_GUIDE } from './edubotKnowledge';
+import { assemblePublicKnowledge, EDUNEXUS_GROUP, fetchRelevantPublicKnowledge, makeEduBotPrompt, resourceSuggestions, articleSuggestions, verifiedResourceUrls, SITE_GUIDE } from './edubotKnowledge';
 import { cleanEduBotText, plainSpeechText, renderableLinks } from './edubotPresentation';
 import './edubot-assistant.css';
 
@@ -35,6 +35,7 @@ export default function EduBotAssistant() {
   const gestureRef = useRef(null);
   const panelRef = useRef(null);
   const speechRef = useRef(null);
+  const audioRef = useRef(null);
   const requestRef = useRef(null);
   const bottomRef = useRef(null);
   const openRef = useRef(open);
@@ -78,6 +79,7 @@ export default function EduBotAssistant() {
 
   const stopSpeech = () => {
     speechTokenRef.current += 1;
+    if (audioRef.current) { try { audioRef.current.pause(); } catch (_) {} audioRef.current = null; }
     if (canSpeak) window.speechSynthesis.cancel();
     setSpeakingId(null);
   };
@@ -89,37 +91,87 @@ export default function EduBotAssistant() {
     setListening(false);
     setInterim('');
   };
-  const speak = (text, messageId) => {
-    if (!canSpeak) { setVoiceError('Speech output is not supported by this browser.'); return; }
+  // Wrap raw 16-bit mono PCM (from the server TTS voice) in a WAV container
+  // the browser <audio> element can play. Returns an object URL.
+  const pcmToWavUrl = (base64, sampleRate) => {
+    const binary = window.atob(base64);
+    const pcm = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) pcm[i] = binary.charCodeAt(i);
+    const header = new ArrayBuffer(44);
+    const view = new DataView(header);
+    const write = (offset, value) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)); };
+    write(0, 'RIFF'); view.setUint32(4, 36 + pcm.length, true); write(8, 'WAVE');
+    write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+    write(36, 'data'); view.setUint32(40, pcm.length, true);
+    return URL.createObjectURL(new Blob([header, pcm], { type: 'audio/wav' }));
+  };
+  const speak = async (text, messageId) => {
     stopSpeech();
     const token = speechTokenRef.current;
     const speechText = plainSpeechText(text).trim();
     if (!speechText) return;
     // Split only at natural sentence boundaries; preserve the actual answer.
     const segments = speechText.match(/[^.!?۔؟\n]+[.!?۔؟]?/g)?.map(part => part.trim()).filter(Boolean) || [speechText];
-    let position = 0;
-    const playNext = () => {
+    // Human female voice first: Gemini TTS ("Kore") via the server endpoint.
+    // On-device speechSynthesis stays as the fallback — phone voices are the
+    // robotic ones, because real neural voices are not installed on devices.
+    try {
+      let spoken = '';
+      for (const segment of segments) {
+        const next = (spoken + ' ' + segment).trim();
+        if (next.length > 1100) break;
+        spoken = next;
+      }
+      if (!spoken) spoken = segments[0].slice(0, 1100);
+      const response = await fetch('/api/tts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: spoken }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.audio) throw new Error('server voice unavailable');
       if (speechTokenRef.current !== token) return;
-      if (position >= segments.length) { setSpeakingId(null); return; }
-      const segment = segments[position++];
-      const utterance = new window.SpeechSynthesisUtterance(segment);
-      const detectedLanguage = detectSpeechLanguage(segment);
-      const voice = pickVoice(detectedLanguage);
-      if (voice) utterance.voice = voice;
-      utterance.lang = voice?.lang || detectedLanguage;
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.volume = 1;
-      utterance.onstart = () => { if (speechTokenRef.current === token) setSpeakingId(messageId); };
-      // A short breath between sentences sounds far more natural than
-      // chaining utterances back-to-back.
-      utterance.onend = () => { if (speechTokenRef.current === token) setTimeout(playNext, 180); };
-      utterance.onerror = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
-      try { window.speechSynthesis.speak(utterance); }
-      catch (_) { if (speechTokenRef.current === token) setSpeakingId(null); setVoiceError('Speech output is unavailable on this device.'); }
-    };
-    setSpeakingId(messageId);
-    playNext();
+      const url = pcmToWavUrl(body.audio, body.sampleRate || 24000);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) setSpeakingId(null); };
+      audio.onerror = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) speakOnDevice(); };
+      setSpeakingId(messageId);
+      await audio.play();
+      return;
+    } catch (_) {
+      if (speechTokenRef.current !== token) return;
+      // Fall through to on-device speech below.
+    }
+    speakOnDevice();
+    function speakOnDevice() {
+      if (!canSpeak) { setVoiceError('Speech output is not supported by this browser.'); return; }
+      if (speechTokenRef.current !== token) return;
+      let position = 0;
+      const playNext = () => {
+        if (speechTokenRef.current !== token) return;
+        if (position >= segments.length) { setSpeakingId(null); return; }
+        const segment = segments[position++];
+        const utterance = new window.SpeechSynthesisUtterance(segment);
+        const detectedLanguage = detectSpeechLanguage(segment);
+        const voice = pickVoice(detectedLanguage);
+        if (voice) utterance.voice = voice;
+        utterance.lang = voice?.lang || detectedLanguage;
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1;
+        utterance.onstart = () => { if (speechTokenRef.current === token) setSpeakingId(messageId); };
+        // A short breath between sentences sounds far more natural than
+        // chaining utterances back-to-back.
+        utterance.onend = () => { if (speechTokenRef.current === token) setTimeout(playNext, 180); };
+        utterance.onerror = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
+        try { window.speechSynthesis.speak(utterance); }
+        catch (_) { if (speechTokenRef.current === token) setSpeakingId(null); setVoiceError('Speech output is unavailable on this device.'); }
+      };
+      setSpeakingId(messageId);
+      playNext();
+    }
   };
 
   useEffect(() => {
@@ -128,6 +180,7 @@ export default function EduBotAssistant() {
   useEffect(() => {
     if (!open) {
       if (speechRef.current) { try { speechRef.current.abort(); } catch (_) {} speechRef.current = null; }
+      if (audioRef.current) { try { audioRef.current.pause(); } catch (_) {} audioRef.current = null; }
       if (canSpeak) window.speechSynthesis.cancel();
       speechTokenRef.current += 1;
       setSpeakingId(null);
@@ -136,9 +189,9 @@ export default function EduBotAssistant() {
   useEffect(() => () => {
     if (requestRef.current) requestRef.current.abort();
     if (speechRef.current) { try { speechRef.current.abort(); } catch (_) {} }
+    if (audioRef.current) { try { audioRef.current.pause(); } catch (_) {} }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
   }, []);
-
   const toggleListening = () => {
     setVoiceError('');
     if (listening) { stopListening(); return; }
@@ -233,14 +286,23 @@ export default function EduBotAssistant() {
     try {
       // Keep slow library reads from blocking the AI request indefinitely.
       // Only explicitly public collections are queried by this helper.
+      // Slow phone connections get 12s, then ONE retry that waits for the
+      // in-flight (or cached) fetch — answering blind on a timeout is how a
+      // "files nahi mil rahi" reply happens while the library is just slow.
       records = await Promise.race([
         fetchRelevantPublicKnowledge(question),
-        new Promise(resolve => setTimeout(() => resolve([]), 6000))
+        new Promise(resolve => setTimeout(() => resolve([]), 12000))
       ]);
+      if (!records.length && !controller.signal.aborted) {
+        records = await Promise.race([
+          fetchRelevantPublicKnowledge(question),
+          new Promise(resolve => setTimeout(() => resolve([]), 10000))
+        ]);
+      }
       if (controller.signal.aborted) return;
       const knowledge = assemblePublicKnowledge(records, question, pageName());
       allowed = verifiedResourceUrls(records);
-      suggestions = resourceSuggestions(records, question);
+      suggestions = [...resourceSuggestions(records, question), ...articleSuggestions(records, question)];
       const response = await fetch('/api/gemini', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: makeEduBotPrompt(question, next, knowledge) }),

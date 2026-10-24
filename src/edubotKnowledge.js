@@ -2,6 +2,15 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/
 import { db } from './firebase-client';
 import { searchFiles } from './db/files';
 import { countMcqs } from './db/examMcqs';
+// Overall data fetch: every public section through the SAME adapters the site
+// itself renders with (Supabase primary, Firestore fallback). The bot must never
+// read a stale side copy while the site shows something else.
+import { listArticles } from './db/articles';
+import { listHighlights } from './db/highlights';
+import { listAnnouncements } from './db/announcements';
+import { listTutorials } from './db/tutorials';
+import { listCommunityReviews } from './db/examReviews';
+import { listDiscussions } from './db/discussions';
 
 export const EDUNEXUS_GROUP = 'https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye.';
 export const EDUNEXUS_SITE = 'https://edunexus-app.vercel.app/';
@@ -23,13 +32,17 @@ export const SITE_GUIDE = Object.freeze([
   { name: 'Terms', url: '/?page=terms', detail: 'Website usage terms.' }
 ]);
 const ROOT = ['artifacts', 'edunexus-live', 'public', 'data'];
-const PUBLIC_COLLECTIONS = [
-  ['announcements', 8], ['articles', 12], ['highlights', 10],
-  ['tutorials', 12], ['files', 45], ['examCommunityReviews', 10], ['examReviews', 10]
-];
 const text = (value, max = 180) => String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
 export const courseCode = (message) => String(message || '').toUpperCase().match(/\b[A-Z]{2,5}[0-9]{3}[A-Z]?\b/)?.[0] || '';
-// Folder names carry the code as a prefix (CS101_Introduction_to_Computing).
+// Article public path, mirroring ArticlesPage.articlePublicPath exactly, so
+// the bot can give the same clickable article links the site itself uses.
+const articleSlug = (title) => String(title || 'article').normalize('NFKD').toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'article';
+export const articleUrl = (article) => {
+  const id = String(article?.id || '');
+  if (!id) return '';
+  return EDUNEXUS_SITE.replace(/\/$/, '') + '/articles/read/' + encodeURIComponent(id) + '/' + articleSlug(article?.title);
+};
 // Normalize any subject/folder value to its course code so alias-stored files
 // match the code the student asked about.
 const subjectCodeOf = (value) => String(value || '').toUpperCase().match(/^([A-Z]{2,}\d{3}[A-Z]?)/)?.[1] || '';
@@ -50,7 +63,9 @@ export const safeUrl = (value) => {
 };
 function recordFor(name, raw) {
   const title = text(raw.title || raw.name || raw.originalFilename || raw.subject || raw.question, 135);
-  const description = text(raw.description || raw.summary || raw.content || raw.text || raw.topics || '', 200);
+  // Article/announcement bodies are stored HTML — strip tags so the snapshot
+  // carries readable text, not markup.
+  const description = text(raw.description || raw.summary || raw.content || raw.text || raw.topics || '', 200).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   // Public collections only; never send student IDs, contact details, review
   // authors, private profile data, authentication or administrator documents.
   const resource = name === 'files' ? safeUrl(raw.url || raw.downloadUrl || raw.fileUrl) : '';
@@ -87,15 +102,23 @@ export function assemblePublicKnowledge(documents, request, page) {
 let cache = null;
 let cacheAt = 0;
 let currentLoad = null;
+// Overall fetch: articles, highlights, announcements, tutorials, community
+// reviews and discussions — the same public data the site renders. Each
+// adapter call is guarded so one slow/failed section never blocks the rest.
 export async function fetchPublicKnowledge(force = false) {
   if (!force && cache && Date.now() - cacheAt < 180000) return cache;
   if (currentLoad) return currentLoad;
-  currentLoad = Promise.all(PUBLIC_COLLECTIONS.map(async ([name, count]) => {
-    try {
-      const results = await getDocs(query(collection(db, ...ROOT, name), limit(count)));
-      return results.docs.map(document => ({ section:name, data:document.data() }));
-    } catch (_) { return []; }
-  })).then(groups => {
+  const section = (promise, name) => promise
+    .then(items => (items || []).map(data => ({ section: name, data })))
+    .catch(() => []);
+  currentLoad = Promise.all([
+    section(listArticles({ limit: 12 }), 'articles'),
+    section(listHighlights({ limit: 10 }), 'highlights'),
+    section(listAnnouncements({ limit: 8 }), 'announcements'),
+    section(listTutorials({ limit: 10 }), 'tutorials'),
+    section(listCommunityReviews({ limit: 10 }), 'examCommunityReviews'),
+    section(listDiscussions({ limit: 6 }), 'discussions'),
+  ]).then(groups => {
     cache = groups.flat(); cacheAt = Date.now(); return cache;
   }).finally(() => { currentLoad = null; });
   return currentLoad;
@@ -114,11 +137,34 @@ export function resourceSuggestions(documents, request, max = 4) {
   }).filter(x => x.score > 0 && x.url).sort((a,b) => b.score - a.score)
     .slice(0,max).map(({title,url,subject,folder}) => ({ title, url, subject, folder }));
 }
+// Related articles for the asked subject/topic, shown in the same resources
+// box as files. Only adapter-fetched articles with a real constructed URL.
+export function articleSuggestions(documents, request, max = 2) {
+  const words = String(request || '').toLowerCase().match(/[a-z0-9]{3,}|[\u0600-\u06FF]{3,}/g) || [];
+  if (!words.length) return [];
+  return (documents || []).filter(item => item.section === 'articles').map(item => {
+    const x = recordFor('articles', item.data || {});
+    const haystack = [x.title, x.description].join(' ').toLowerCase();
+    const score = words.reduce((total, word) => total + (haystack.includes(word) ? 2 : 0), 0);
+    return { ...x, url: articleUrl(item.data || {}), score };
+  }).filter(x => x.score > 0 && x.url).sort((a,b) => b.score - a.score)
+    .slice(0,max).map(({title,url}) => ({ title, url, subject: '', folder: '' }));
+}
 export function verifiedResourceUrls(documents) {
   const safe = new Set([EDUNEXUS_GROUP, ...SITE_GUIDE.map(x => EDUNEXUS_SITE.replace(/\/$/, '') + x.url)]);
-  (documents || []).filter(x => x.section === 'files').forEach(({ data }) => {
-    const link = recordFor('files', data || {}).url;
-    if (link) safe.add(link);
+  (documents || []).forEach(({ section, data }) => {
+    if (section === 'files') {
+      const link = recordFor('files', data || {}).url;
+      if (link) safe.add(link);
+    } else if (section === 'articles') {
+      // Article pages live on this site, so their constructed URLs are safe.
+      const link = articleUrl(data || {});
+      if (link) safe.add(link);
+    } else if (section === 'highlights' || section === 'tutorials') {
+      // Admin-published links from the site's own data (not AI-invented).
+      const raw = String(data?.link || data?.url || '');
+      if (/^https:\/\//.test(raw)) safe.add(raw.split('#')[0].slice(0, 350));
+    }
   });
   return [...safe];
 }
@@ -177,7 +223,7 @@ export function makeEduBotPrompt(message, history, knowledge) {
     ({ speaker: entry.role === 'user' ? 'Student' : 'Assistant', text: text(entry.text, 400) }));
   return [
     'You are EduBot, a friendly, careful EduNexus website and academic guide with full access to the public EduNexus library and live web search.',
-    'Speak naturally in the language of the question: simple Roman Urdu for Roman Urdu queries, Urdu script for Urdu script, and English for English. Understand everyday Pakistani phrasing and informal spelling. Ask only a necessary clarification and suggest relevant next steps.',
+    'The snapshot covers EVERYTHING public on the site: study files, MCQ bank counts, articles, highlights, announcements, tutorials and community paper reviews. When asked about news, announcements, articles or tutorials, answer from those snapshot items and give their exact snapshot URLs where available.',,    'Speak naturally in the language of the question: simple Roman Urdu for Roman Urdu queries, Urdu script for Urdu script, and English for English. Understand everyday Pakistani phrasing and informal spelling. Ask only a necessary clarification and suggest relevant next steps.',
     'Respond as a short conversational paragraph or two. Do NOT write Markdown: no asterisks, headings, quote blocks, square-bracket link syntax or numbered lists. For a real link, write its complete https:// URL on a separate line. Do not repeat the same URL.',
     'Use ONLY the verified page catalogue and available PUBLIC database snapshot for claims about actual EduNexus files, links and MCQ bank counts. For general study questions and current information you may also use live web search results supplied with this prompt (Google grounding): name the source briefly when you use one. Never mix the two: a web result never proves an EduNexus file exists.',
     'A file exists only when a matching public item explicitly appears in the snapshot. If there is no exact file match, say it could not be verified and suggest Academic Hub search. NEVER create or guess Google Drive IDs, filenames, past paper ranges, file contents or links.',
