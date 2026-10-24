@@ -114,9 +114,9 @@ export default function EduBotAssistant() {
     if (!speechText) return;
     // Split only at natural sentence boundaries; preserve the actual answer.
     const segments = speechText.match(/[^.!?۔؟\n]+[.!?۔؟]?/g)?.map(part => part.trim()).filter(Boolean) || [speechText];
-    // Human female voice first: Gemini TTS ("Kore") via the server endpoint.
-    // On-device speechSynthesis stays as the fallback — phone voices are the
-    // robotic ones, because real neural voices are not installed on devices.
+    // Human female voice first: Gemini TTS ("Kore") via the same /api/gemini
+    // endpoint (voice mode), not a separate function — the Hobby plan caps
+    // Serverless Functions per deployment. On-device speech stays fallback.
     try {
       let spoken = '';
       for (const segment of segments) {
@@ -125,9 +125,9 @@ export default function EduBotAssistant() {
         spoken = next;
       }
       if (!spoken) spoken = segments[0].slice(0, 1100);
-      const response = await fetch('/api/tts', {
+      const response = await fetch('/api/gemini', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: spoken }),
+        body: JSON.stringify({ ttsText: spoken }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body.audio) throw new Error('server voice unavailable');

@@ -49,6 +49,38 @@ export default async function handler(req, res) {
   }
 
   const prompt = req.body?.prompt;
+  // Voice mode (EduBot Listen button): same Gemini key, same endpoint, so the
+  // site stays under Vercel's Hobby 12-function limit — a separate /api/tts
+  // file pushed the deployment over the limit and failed it (2026-10-24).
+  // Body: { ttsText }. Returns { audio (base64 PCM), sampleRate }.
+  const ttsText = typeof req.body?.ttsText === 'string' ? req.body.ttsText.replace(/\s+/g, ' ').trim().slice(0, 1200) : '';
+  if (ttsText) {
+    const ttsController = new AbortController();
+    const ttsTimer = setTimeout(() => ttsController.abort(), 25000);
+    try {
+      const ttsResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: ttsText }] }],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+          },
+        }),
+        signal: ttsController.signal,
+      }).finally(() => clearTimeout(ttsTimer));
+      const ttsData = await ttsResponse.json().catch(() => ({}));
+      if (!ttsResponse.ok || ttsData?.error) {
+        return res.status(ttsResponse.status === 429 ? 429 : 502).json({ error: 'Voice service could not generate audio.' });
+      }
+      const part = ttsData?.candidates?.[0]?.content?.parts?.find((entry) => entry?.inlineData?.data);
+      if (!part?.inlineData?.data) return res.status(502).json({ error: 'Voice service returned no audio.' });
+      return res.status(200).json({ audio: part.inlineData.data, sampleRate: 24000 });
+    } catch (error) {
+      return res.status(502).json({ error: 'Voice service is temporarily unavailable.' });
+    }
+  }
   if (typeof prompt !== 'string' || !prompt.trim()) {
     return res.status(400).json({ error: 'A non-empty prompt is required.' });
   }
