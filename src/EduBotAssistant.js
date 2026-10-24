@@ -253,7 +253,7 @@ export default function EduBotAssistant() {
   return <div className="edx-bot-root">
     <div className="edx-bot-fab">
       <a href={EDUNEXUS_GROUP} rel="noopener noreferrer"
-        className="edx-bot-group-button" aria-label="Open the EduNexus WhatsApp group" title="EduNexus WhatsApp group"><MessageCircle size={25}/></a>
+        className="edx-bot-group-button" aria-label="Message EduNexus on WhatsApp" title="Message EduNexus on WhatsApp"><MessageCircle size={25}/></a>
       <button type="button" className="edx-bot-open-button" onClick={() => setOpen(v => !v)}
         aria-expanded={open} aria-controls="edx-bot-chat" aria-label={open ? 'Close EduBot' : 'Open EduBot'}><Bot size={24}/></button>
     </div>
