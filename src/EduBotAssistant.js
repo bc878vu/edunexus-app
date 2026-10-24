@@ -256,8 +256,11 @@ export default function EduBotAssistant() {
       if (typeof body.text !== 'string' || !body.text.trim()) throw new Error('No answer was returned. Try again.');
       const reply = cleanEduBotText(body.text.slice(0, 4500));
       // Web actions show ONLY when the student asks for Google/YouTube, or
-      // when a course query found no file on the site (fallback route).
-      const webActions = /\bgoogle\b|\byoutube\b/i.test(question) || Boolean(course && suggestions.length === 0);
+      // when a course query found no FILE on the site (fallback route).
+      // Article suggestions must not count here: a generic article match
+      // is not a found file, and it wrongly hid the fallback (CS999 case).
+      const fileSuggestions = resourceSuggestions(records, question);
+      const webActions = /\bgoogle\b|\byoutube\b/i.test(question) || Boolean(course && fileSuggestions.length === 0);
       if (!controller.signal.aborted) {
         setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), { role: 'ai', text: reply, approvedUrls: allowed, suggestions, question, webActions,
           sources: Array.isArray(body.sources) ? body.sources.slice(0, 5) : [] }]);
@@ -270,7 +273,7 @@ export default function EduBotAssistant() {
         : 'The AI service is temporarily unavailable. You can still browse Academic Hub, Exam Prep and Articles, or try your question again shortly.';
       setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), {
         role: 'ai', text: fallback, approvedUrls: verifiedResourceUrls([]), question,
-        webActions: /\bgoogle\b|\byoutube\b/i.test(question) || Boolean(course && suggestions.length === 0),
+        webActions: /\bgoogle\b|\byoutube\b/i.test(question) || Boolean(course && resourceSuggestions(records, question).length === 0),
         suggestions: suggestions.length ? suggestions : []
       }]);
     } finally {
