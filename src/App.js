@@ -150,7 +150,7 @@ console.log("CLOUDINARY ENV:", CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET);
 const appId = "edunexus-live"; // Static App ID for your live site
 
 // --- Constants ---
-const WHATSAPP_LINK = "https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW";
+const WHATSAPP_LINK = "https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye.";
 // 🔐 Admin credentials (email + password)
 const ADMIN_EMAIL = SECURE_ADMIN_EMAIL;
 
@@ -5681,10 +5681,10 @@ useEffect(() => {
             <Facebook size={16} />
           </a>
           <a
-            href="https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW"
+            href="https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye."
             target="_blank"
-            aria-label="Join the EduNexus WhatsApp group — VU past papers, handouts and study updates"
-            title="Join EduNexus WhatsApp Group"
+            aria-label="Message EduNexus on WhatsApp — VU past papers, handouts and study updates"
+            title="Message EduNexus on WhatsApp"
             rel="noreferrer"
             className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
           >
@@ -5877,11 +5877,11 @@ useEffect(() => {
         </a>
 
         <a
-          href="https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW"
+          href="https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye."
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="Join the EduNexus WhatsApp group for VU past papers, handouts and study updates"
-          title="Join EduNexus WhatsApp Group — VU Past Papers & Study Updates"
+          aria-label="Message EduNexus on WhatsApp for VU past papers, handouts and study updates"
+          title="Message EduNexus on WhatsApp — VU Past Papers & Study Updates"
           className={`${theme.textMuted} hover:text-indigo-500`}
         >
           WhatsApp

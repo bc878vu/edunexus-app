@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from './firebase-client';
 
-export const EDUNEXUS_GROUP = 'https://chat.whatsapp.com/D6KjNsaW4aK0dMnxzodSYW';
+export const EDUNEXUS_GROUP = 'https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye.';
 export const EDUNEXUS_SITE = 'https://edunexus-app.vercel.app/';
 export const SITE_GUIDE = Object.freeze([
   { name: 'Home', url: '/?page=home', detail: 'Main study dashboard and navigation to EduNexus tools.' },
@@ -71,8 +71,8 @@ export function assemblePublicKnowledge(documents, request, page) {
   return [
     'Verified navigation catalogue (pages may have changed since last deployment):',
     ...SITE_GUIDE.map(x => x.name + ': ' + x.url + ' — ' + x.detail),
-    'EduNexus student WhatsApp group JOIN LINK: ' + EDUNEXUS_GROUP,
-    'The assistant CANNOT read group chat messages, see its members, determine group rules or verify current WhatsApp posts. Do not claim otherwise.',
+    'EduNexus WhatsApp contact (direct message): ' + EDUNEXUS_GROUP,
+    'The assistant CANNOT read WhatsApp messages, see contacts or verify current WhatsApp posts. Do not claim otherwise.',
     'Current page: ' + text(page, 90),
     'PUBLIC LIVE FIRESTORE SNAPSHOT (partial; listings may be incomplete; never claim this is the entire database):',
     selected.length ? JSON.stringify(selected).slice(0, 5200) : 'No public listings retrieved. Say when specific resource availability is unverified.'
