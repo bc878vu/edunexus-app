@@ -35,6 +35,10 @@ export default function EduBotAssistant() {
   const panelRef = useRef(null);
   const speechRef = useRef(null);
   const audioRef = useRef(null);
+  // Replay cache: one successful Listen stores its audio per message, so
+  // tapping Listen again replays without burning voice quota a second time.
+  // The voice model's free quota is tight — repeat taps must not re-spend it.
+  const audioCacheRef = useRef(new Map());
   const requestRef = useRef(null);
   const bottomRef = useRef(null);
   const openRef = useRef(open);
@@ -99,6 +103,15 @@ export default function EduBotAssistant() {
       spoken = next;
     }
     if (!spoken) spoken = segments[0].slice(0, 700);
+    // Replay without spending quota: this message already played once.
+    const cachedUrl = audioCacheRef.current.get(messageId);
+    if (cachedUrl) {
+      const replay = new Audio(cachedUrl);
+      audioRef.current = replay;
+      replay.onended = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
+      replay.onerror = () => { audioCacheRef.current.delete(messageId); if (speechTokenRef.current === token) { setSpeakingId(null); if (!silent) setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.'); } };
+      try { await replay.play(); return; } catch (_) { audioCacheRef.current.delete(messageId); }
+    }
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const response = await fetch('/api/gemini', {
@@ -106,13 +119,27 @@ export default function EduBotAssistant() {
           body: JSON.stringify({ ttsText: spoken }),
         });
         const body = await response.json().catch(() => ({}));
+        // 429 = voice quota spent: retrying within seconds cannot help and
+        // only burns more quota, so fail fast with an honest quota message.
+        if (response.status === 429) {
+          setSpeakingId(null);
+          if (!silent) setVoiceError('Awaz ki limit khatam ho gayi hai. Thodi der baad dobara Listen dabayein.');
+          return;
+        }
         if (!response.ok || !body.audio) throw new Error('server voice unavailable');
         if (speechTokenRef.current !== token) return;
         const url = pcmToWavUrl(body.audio, body.sampleRate || 24000);
+        audioCacheRef.current.set(messageId, url);
+        if (audioCacheRef.current.size > 8) {
+          const oldest = audioCacheRef.current.keys().next().value;
+          const oldestUrl = audioCacheRef.current.get(oldest);
+          audioCacheRef.current.delete(oldest);
+          if (oldestUrl && oldestUrl !== url) URL.revokeObjectURL(oldestUrl);
+        }
         const audio = new Audio(url);
         audioRef.current = audio;
-        audio.onended = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) setSpeakingId(null); };
-        audio.onerror = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) { setSpeakingId(null); if (!silent) setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.'); } };
+        audio.onended = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
+        audio.onerror = () => { if (speechTokenRef.current === token) { setSpeakingId(null); if (!silent) setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.'); } };
         await audio.play();
         return;
       } catch (_) {

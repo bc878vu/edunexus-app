@@ -72,7 +72,7 @@ export default async function handler(req, res) {
       }).finally(() => clearTimeout(ttsTimer));
       const ttsData = await ttsResponse.json().catch(() => ({}));
       if (!ttsResponse.ok || ttsData?.error) {
-        return res.status(ttsResponse.status === 429 ? 429 : 502).json({ error: 'Voice service could not generate audio.' });
+        return res.status(ttsResponse.status === 429 ? 429 : 502).json({ error: ttsResponse.status === 429 ? 'Voice quota reached. Please try again later.' : 'Voice service could not generate audio.' });
       }
       const part = ttsData?.candidates?.[0]?.content?.parts?.find((entry) => entry?.inlineData?.data);
       if (!part?.inlineData?.data) return res.status(502).json({ error: 'Voice service returned no audio.' });
