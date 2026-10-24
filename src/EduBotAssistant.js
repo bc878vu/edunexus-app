@@ -75,8 +75,11 @@ export default function EduBotAssistant() {
   // Human female voice ONLY (Gemini TTS "Kore" via /api/gemini voice mode).
   // No on-device speechSynthesis fallback: phone voices are the robotic
   // ones the user rejected, and a fallback would silently reintroduce them.
-  // On failure the button resets and a retry message shows instead.
-  const speak = async (text, messageId) => {
+  // The request retries internally (up to 3 attempts) so one tap is enough
+  // even when the voice service is briefly busy — the user should never
+  // have to hammer Listen. `silent` suppresses the error banner (used by
+  // the automatic first-open greeting).
+  const speak = async (text, messageId, silent = false) => {
     stopSpeech();
     const token = speechTokenRef.current;
     const speechText = plainSpeechText(text).trim();
@@ -88,37 +91,52 @@ export default function EduBotAssistant() {
     // the voice sounded irregular, cutting in and out.
     setSpeakingId(messageId);
     setVoiceError('');
-    try {
-      // Shorter text synthesizes faster (first ~700 chars carry the answer).
-      let spoken = '';
-      for (const segment of segments) {
-        const next = (spoken + ' ' + segment).trim();
-        if (next.length > 700) break;
-        spoken = next;
-      }
-      if (!spoken) spoken = segments[0].slice(0, 700);
-      const response = await fetch('/api/gemini', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ttsText: spoken }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok || !body.audio) throw new Error('server voice unavailable');
-      if (speechTokenRef.current !== token) return;
-      const url = pcmToWavUrl(body.audio, body.sampleRate || 24000);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) setSpeakingId(null); };
-      audio.onerror = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) { setSpeakingId(null); setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.'); } };
-      await audio.play();
-    } catch (_) {
-      if (speechTokenRef.current !== token) return;
-      setSpeakingId(null);
-      setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.');
+    // Shorter text synthesizes faster (first ~700 chars carry the answer).
+    let spoken = '';
+    for (const segment of segments) {
+      const next = (spoken + ' ' + segment).trim();
+      if (next.length > 700) break;
+      spoken = next;
     }
+    if (!spoken) spoken = segments[0].slice(0, 700);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await fetch('/api/gemini', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ttsText: spoken }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || !body.audio) throw new Error('server voice unavailable');
+        if (speechTokenRef.current !== token) return;
+        const url = pcmToWavUrl(body.audio, body.sampleRate || 24000);
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) setSpeakingId(null); };
+        audio.onerror = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) { setSpeakingId(null); if (!silent) setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.'); } };
+        await audio.play();
+        return;
+      } catch (_) {
+        if (speechTokenRef.current !== token) return;
+        if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt === 1 ? 1500 : 3000));
+      }
+    }
+    setSpeakingId(null);
+    if (!silent) setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.');
   };
 
   useEffect(() => {
-    if (open) bottomRef.current?.scrollIntoView({ block: 'end' });
+    if (open) {
+      bottomRef.current?.scrollIntoView({ block: 'end' });
+      // First-ever open: the predefined welcome message speaks itself
+      // automatically. Opening the panel is a user gesture, so playback
+      // is allowed; failures stay silent (the user can still tap Listen).
+      try {
+        if (!window.localStorage.getItem('edubot-auto-greeted') && messages.length <= 1) {
+          window.localStorage.setItem('edubot-auto-greeted', '1');
+          speak(HELLO.text, 0, true);
+        }
+      } catch (_) {}
+    }
   }, [messages, busy, open]);
   useEffect(() => {
     if (!open) {
@@ -246,6 +264,7 @@ export default function EduBotAssistant() {
       const knowledge = assemblePublicKnowledge(records, question, pageName());
       allowed = verifiedResourceUrls(records);
       suggestions = [...resourceSuggestions(records, question), ...articleSuggestions(records, question)];
+      const fileSuggestions = resourceSuggestions(records, question);
       const response = await fetch('/api/gemini', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: makeEduBotPrompt(question, next, knowledge) }),
@@ -255,11 +274,9 @@ export default function EduBotAssistant() {
       if (!response.ok) throw new Error(body.error || 'AI service returned HTTP ' + response.status + '.');
       if (typeof body.text !== 'string' || !body.text.trim()) throw new Error('No answer was returned. Try again.');
       const reply = cleanEduBotText(body.text.slice(0, 4500));
-      // Web actions show ONLY when the student asks for Google/YouTube, or
-      // when a course query found no FILE on the site (fallback route).
-      // Article suggestions must not count here: a generic article match
-      // is not a found file, and it wrongly hid the fallback (CS999 case).
-      const fileSuggestions = resourceSuggestions(records, question);
+      // Re-run article matching against the reply itself: any article the
+      // answer names must appear as a clickable card below it.
+      suggestions = [...fileSuggestions, ...articleSuggestions(records, question, reply)];
       const webActions = /\bgoogle\b|\byoutube\b/i.test(question) || Boolean(course && fileSuggestions.length === 0);
       if (!controller.signal.aborted) {
         setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), { role: 'ai', text: reply, approvedUrls: allowed, suggestions, question, webActions,

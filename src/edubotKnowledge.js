@@ -139,13 +139,21 @@ export function resourceSuggestions(documents, request, max = 4) {
 }
 // Related articles for the asked subject/topic, shown in the same resources
 // box as files. Only adapter-fetched articles with a real constructed URL.
-export function articleSuggestions(documents, request, max = 2) {
+// Two guarantees the user demanded: (1) an article the reply itself names
+// MUST appear as a card (title match against the reply text); (2) a generic
+// "article suggestions" question gets the most recent articles even with no
+// word matches (adapter lists newest first).
+export function articleSuggestions(documents, request, replyText = '', max = 3) {
   const words = String(request || '').toLowerCase().match(/[a-z0-9]{3,}|[\u0600-\u06FF]{3,}/g) || [];
-  if (!words.length) return [];
+  const reply = String(replyText || '').toLowerCase();
+  const isArticleQuery = /\barticles?\b/i.test(request || '');
   return (documents || []).filter(item => item.section === 'articles').map(item => {
     const x = recordFor('articles', item.data || {});
     const haystack = [x.title, x.description].join(' ').toLowerCase();
-    const score = words.reduce((total, word) => total + (haystack.includes(word) ? 2 : 0), 0);
+    let score = words.reduce((total, word) => total + (haystack.includes(word) ? 2 : 0), 0);
+    const title = x.title.toLowerCase();
+    if (title && reply && (reply.includes(title) || (title.length > 40 && reply.includes(title.slice(0, 40))))) score += 10;
+    if (isArticleQuery) score += 1;
     return { ...x, url: articleUrl(item.data || {}), score };
   }).filter(x => x.score > 0 && x.url).sort((a,b) => b.score - a.score)
     .slice(0,max).map(({title,url}) => ({ title, url, subject: '', folder: '' }));

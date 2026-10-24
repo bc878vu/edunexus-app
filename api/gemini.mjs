@@ -1,6 +1,6 @@
 // edunexus-app/api/gemini.mjs
 export const runtime = 'nodejs';
-export const maxDuration = 25;
+export const maxDuration = 60;
 
 const MAX_PROMPT_LENGTH = 17000;
 const WINDOW_MS = 60000;
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
   const ttsText = typeof req.body?.ttsText === 'string' ? req.body.ttsText.replace(/\s+/g, ' ').trim().slice(0, 1200) : '';
   if (ttsText) {
     const ttsController = new AbortController();
-    const ttsTimer = setTimeout(() => ttsController.abort(), 25000);
+    const ttsTimer = setTimeout(() => ttsController.abort(), 55000);
     try {
       const ttsResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent', {
         method: 'POST',

@@ -21,6 +21,14 @@ export function cleanEduBotText(raw) {
 }
 export function renderableLinks(text, approvedUrls = []) {
   const known = new Set(approvedUrls.map(s => normalizePublicUrl(s)).filter(Boolean));
+  // WhatsApp direct-chat links: the AI may encode the prefilled message
+  // differently, so wa.me links match by host + path, ignoring the query.
+  // Drive/Supabase file links still need an exact match (their IDs matter).
+  const waBases = new Set([...known].map(u => { try { const x = new URL(u); return x.hostname === 'wa.me' ? x.origin + x.pathname : ''; } catch (_) { return ''; } }).filter(Boolean));
+  const isApproved = (normalized) => {
+    if (known.has(normalized)) return true;
+    try { const u = new URL(normalized); return waBases.has(u.origin + u.pathname); } catch (_) { return false; }
+  };
   // Unknown or made-up AI URLs remain plain text, not clickable endorsements.
   const chunks = [];
   const re = /https:\/\/[^\s<>"'\]\[()]+/g;
@@ -30,7 +38,7 @@ export function renderableLinks(text, approvedUrls = []) {
     const raw = match[0], url = raw.replace(/[.,;:!?]+$/, '');
     const tail = raw.slice(url.length);
     const normalized = normalizePublicUrl(url);
-    if (normalized && known.has(normalized)) chunks.push({ text: url, url: normalized });
+    if (isApproved(normalized)) chunks.push({ text: url, url: normalized });
     else {
       // Unverified URLs vanish silently — never show a placeholder line.
       // Trim a dangling colon left behind (e.g. "file bhi hai: <dropped url>").
