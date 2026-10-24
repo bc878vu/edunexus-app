@@ -31,7 +31,12 @@ export function renderableLinks(text, approvedUrls = []) {
     const tail = raw.slice(url.length);
     const normalized = normalizePublicUrl(url);
     if (normalized && known.has(normalized)) chunks.push({ text: url, url: normalized });
-    else chunks.push({ text: '[Link could not be verified. Please check Academic Hub.]' });
+    else {
+      // Unverified URLs vanish silently — never show a placeholder line.
+      // Trim a dangling colon left behind (e.g. "file bhi hai: <dropped url>").
+      const prev = chunks[chunks.length - 1];
+      if (prev && !prev.url) prev.text = prev.text.replace(/:\s*$/, '');
+    }
     if (tail) chunks.push({ text: tail });
     pos = match.index + raw.length;
   }

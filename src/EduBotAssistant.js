@@ -27,7 +27,6 @@ export default function EduBotAssistant() {
   const [listening, setListening] = useState(false);
   const [voiceError, setVoiceError] = useState('');
   const [language, setLanguage] = useState('ur-PK');
-  const [availableVoices, setAvailableVoices] = useState([]);
   const [speakingId, setSpeakingId] = useState(null);
   const speechTokenRef = useRef(0);
   const [expanded, setExpanded] = useState(false);
@@ -42,40 +41,6 @@ export default function EduBotAssistant() {
   openRef.current = open;
   const canListen = Boolean(speechApi());
   const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
-  useEffect(() => {
-    if (!canSpeak) return undefined;
-    const refreshVoices = () => setAvailableVoices(window.speechSynthesis.getVoices());
-    refreshVoices();
-    window.speechSynthesis.addEventListener?.('voiceschanged', refreshVoices);
-    return () => window.speechSynthesis.removeEventListener?.('voiceschanged', refreshVoices);
-  }, [canSpeak]);
-  const detectSpeechLanguage = value => {
-    if (/[\u0600-\u06FF]/.test(value)) return 'ur';
-    if (/\b(hai|hain|kya|kaise|mujhe|aap|ap|mera|meri|nahi|nahin|batao|btao|karo|kro|chahiye|raha|rha|theek|acha)\b/i.test(value)) return 'ur';
-    return 'en';
-  };
-  // Prefer genuinely natural voices first (neural / natural / Google premium),
-  // then warm human-named voices. Roman Urdu is spoken best by an Urdu voice,
-  // falling back to Hindi, then English — never a robotic default.
-  const voiceScore = voice => {
-    const name = String(voice.name || '').toLowerCase();
-    let score = 0;
-    if (/natural|neural|wavenet|premium|aria|jenny|guy/i.test(name)) score += 6;
-    if (/google/.test(name)) score += 3;
-    if (/zira|samantha|sara|heera|ayesha|neerja|susan|hazel|natasha|female/i.test(name)) score += 2;
-    if (voice.default) score += 1;
-    return score;
-  };
-  const pickVoice = lang => {
-    const prefix = String(lang || 'en').toLowerCase().split('-')[0];
-    const chains = { ur: ['ur', 'hi', 'en'], hi: ['hi', 'ur', 'en'] };
-    const order = chains[prefix] || [prefix, 'en'];
-    for (const p of order) {
-      const voices = availableVoices.filter(voice => voice.lang.toLowerCase().split('-')[0] === p);
-      if (voices.length) return voices.sort((a, b) => voiceScore(b) - voiceScore(a))[0];
-    }
-    return availableVoices.sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null;
-  };
 
   const stopSpeech = () => {
     speechTokenRef.current += 1;
@@ -107,6 +72,10 @@ export default function EduBotAssistant() {
     write(36, 'data'); view.setUint32(40, pcm.length, true);
     return URL.createObjectURL(new Blob([header, pcm], { type: 'audio/wav' }));
   };
+  // Human female voice ONLY (Gemini TTS "Kore" via /api/gemini voice mode).
+  // No on-device speechSynthesis fallback: phone voices are the robotic
+  // ones the user rejected, and a fallback would silently reintroduce them.
+  // On failure the button resets and a retry message shows instead.
   const speak = async (text, messageId) => {
     stopSpeech();
     const token = speechTokenRef.current;
@@ -114,17 +83,20 @@ export default function EduBotAssistant() {
     if (!speechText) return;
     // Split only at natural sentence boundaries; preserve the actual answer.
     const segments = speechText.match(/[^.!?۔؟\n]+[.!?۔؟]?/g)?.map(part => part.trim()).filter(Boolean) || [speechText];
-    // Human female voice first: Gemini TTS ("Kore") via the same /api/gemini
-    // endpoint (voice mode), not a separate function — the Hobby plan caps
-    // Serverless Functions per deployment. On-device speech stays fallback.
+    // Show Stop immediately: the old flow only changed state after audio
+    // started, so a second tap during synthesis restarted the request and
+    // the voice sounded irregular, cutting in and out.
+    setSpeakingId(messageId);
+    setVoiceError('');
     try {
+      // Shorter text synthesizes faster (first ~700 chars carry the answer).
       let spoken = '';
       for (const segment of segments) {
         const next = (spoken + ' ' + segment).trim();
-        if (next.length > 1100) break;
+        if (next.length > 700) break;
         spoken = next;
       }
-      if (!spoken) spoken = segments[0].slice(0, 1100);
+      if (!spoken) spoken = segments[0].slice(0, 700);
       const response = await fetch('/api/gemini', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ttsText: spoken }),
@@ -136,41 +108,12 @@ export default function EduBotAssistant() {
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.onended = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) setSpeakingId(null); };
-      audio.onerror = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) speakOnDevice(); };
-      setSpeakingId(messageId);
+      audio.onerror = () => { URL.revokeObjectURL(url); if (speechTokenRef.current === token) { setSpeakingId(null); setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.'); } };
       await audio.play();
-      return;
     } catch (_) {
       if (speechTokenRef.current !== token) return;
-      // Fall through to on-device speech below.
-    }
-    speakOnDevice();
-    function speakOnDevice() {
-      if (!canSpeak) { setVoiceError('Speech output is not supported by this browser.'); return; }
-      if (speechTokenRef.current !== token) return;
-      let position = 0;
-      const playNext = () => {
-        if (speechTokenRef.current !== token) return;
-        if (position >= segments.length) { setSpeakingId(null); return; }
-        const segment = segments[position++];
-        const utterance = new window.SpeechSynthesisUtterance(segment);
-        const detectedLanguage = detectSpeechLanguage(segment);
-        const voice = pickVoice(detectedLanguage);
-        if (voice) utterance.voice = voice;
-        utterance.lang = voice?.lang || detectedLanguage;
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.volume = 1;
-        utterance.onstart = () => { if (speechTokenRef.current === token) setSpeakingId(messageId); };
-        // A short breath between sentences sounds far more natural than
-        // chaining utterances back-to-back.
-        utterance.onend = () => { if (speechTokenRef.current === token) setTimeout(playNext, 180); };
-        utterance.onerror = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
-        try { window.speechSynthesis.speak(utterance); }
-        catch (_) { if (speechTokenRef.current === token) setSpeakingId(null); setVoiceError('Speech output is unavailable on this device.'); }
-      };
-      setSpeakingId(messageId);
-      playNext();
+      setSpeakingId(null);
+      setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.');
     }
   };
 
@@ -312,8 +255,11 @@ export default function EduBotAssistant() {
       if (!response.ok) throw new Error(body.error || 'AI service returned HTTP ' + response.status + '.');
       if (typeof body.text !== 'string' || !body.text.trim()) throw new Error('No answer was returned. Try again.');
       const reply = cleanEduBotText(body.text.slice(0, 4500));
+      // Web actions show ONLY when the student asks for Google/YouTube, or
+      // when a course query found no file on the site (fallback route).
+      const webActions = /\bgoogle\b|\byoutube\b/i.test(question) || Boolean(course && suggestions.length === 0);
       if (!controller.signal.aborted) {
-        setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), { role: 'ai', text: reply, approvedUrls: allowed, suggestions, question,
+        setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), { role: 'ai', text: reply, approvedUrls: allowed, suggestions, question, webActions,
           sources: Array.isArray(body.sources) ? body.sources.slice(0, 5) : [] }]);
       }
     } catch (error) {
@@ -324,6 +270,7 @@ export default function EduBotAssistant() {
         : 'The AI service is temporarily unavailable. You can still browse Academic Hub, Exam Prep and Articles, or try your question again shortly.';
       setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), {
         role: 'ai', text: fallback, approvedUrls: verifiedResourceUrls([]), question,
+        webActions: /\bgoogle\b|\byoutube\b/i.test(question) || Boolean(course && suggestions.length === 0),
         suggestions: suggestions.length ? suggestions : []
       }]);
     } finally {
@@ -357,12 +304,12 @@ export default function EduBotAssistant() {
         {messages.map((message, index) => <div key={index} className={'edx-bot-message ' + message.role}>
           <p>{renderableLinks(message.text, message.approvedUrls || []).map((chunk, part) => chunk.url ? <a key={part} href={chunk.url} rel="noopener noreferrer">{chunk.text}<ExternalLink size={12} aria-hidden="true"/></a> : <React.Fragment key={part}>{chunk.text}</React.Fragment>)}</p>
           {message.suggestions?.length > 0 && <div className="edx-bot-resources" aria-label="Verified public study resources"><strong>Available public resources</strong>{message.suggestions.map((file, i) => <a key={file.url + i} href={file.url} rel="noopener noreferrer"><BookOpen size={14}/>{file.title || file.subject || 'Study resource'} <ExternalLink size={13}/></a>)}</div>}
-          {message.role === 'ai' && message.question && <div className="edx-bot-web-actions" aria-label="Search the web for this question">
+          {message.role === 'ai' && message.question && message.webActions && <div className="edx-bot-web-actions" aria-label="Search the web for this question">
             <a href={'https://www.google.com/search?q=' + encodeURIComponent(message.question)} target="_blank" rel="noreferrer">Google par search karein <ExternalLink size={12}/></a>
             <a href={'https://www.youtube.com/results?search_query=' + encodeURIComponent(message.question)} target="_blank" rel="noreferrer">YouTube par dekhein <ExternalLink size={12}/></a>
           </div>}
           {message.sources?.length > 0 && <div className="edx-bot-sources" aria-label="Web sources used for this answer"><strong>Web sources</strong>{message.sources.map((s, i) => <a key={s.uri + i} href={s.uri} target="_blank" rel="noreferrer">{s.title} <ExternalLink size={12}/></a>)}</div>}
-          {message.role === 'ai' && canSpeak && <button type="button" className="edx-bot-speak"
+          {message.role === 'ai' && <button type="button" className="edx-bot-speak"
             onClick={() => speakingId === index ? stopSpeech() : speak(message.text, index)}
             title={speakingId === index ? 'Stop this response' : 'Read this response aloud'} aria-label={speakingId === index ? 'Stop this response' : 'Read this response aloud'} aria-pressed={speakingId === index}>
             {speakingId === index ? <VolumeX size={15}/> : <Volume2 size={15}/>} {speakingId === index ? 'Stop' : 'Listen'}
