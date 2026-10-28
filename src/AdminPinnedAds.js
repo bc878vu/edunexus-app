@@ -228,6 +228,25 @@ export default function AdminPinnedAds({ showToast }) {
     <div className="space-y-6">
       <ConfirmUI />
 
+      {(() => { const totalAds = ads.length; const counts = { Live: 0, Scheduled: 0, Expired: 0, Disabled: 0 }; ads.forEach(ad => { const s = statusOf(ad).label; if (counts[s] !== undefined) counts[s]++; }); const maxAd = Math.max(1, totalAds); const barRow = (label, n, color) => (<div className="flex items-center gap-3"><span className="w-20 text-xs font-bold text-slate-500">{label}</span><div className="flex-1 h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden"><div className="h-full rounded-full" style={{ background: color, width: (n / maxAd * 100) + '%' }} /></div><span className="text-xs font-bold">{n}</span></div>); return (
+      <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-white dark:bg-slate-900 p-5 shadow-sm">
+        <div className="h-1.5 -mx-5 -mt-5 mb-5 rounded-t-2xl bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-amber-400" />
+        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white mb-4 flex items-center gap-2"><Megaphone size={18} className="text-indigo-500" /> Pinned ads stats</h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+          <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-4"><p className="text-2xl font-black">{totalAds}</p><p className="text-xs font-bold text-slate-500">Total ads</p></div>
+          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-4"><p className="text-2xl font-black">{counts.Live}</p><p className="text-xs font-bold text-slate-500">Live</p></div>
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-4"><p className="text-2xl font-black">{counts.Scheduled}</p><p className="text-xs font-bold text-slate-500">Scheduled</p></div>
+          <div className="rounded-xl bg-slate-100 dark:bg-slate-800 p-4"><p className="text-2xl font-black">{counts.Expired}</p><p className="text-xs font-bold text-slate-500">Expired</p></div>
+          <div className="rounded-xl bg-slate-100 dark:bg-slate-800 p-4"><p className="text-2xl font-black">{counts.Disabled}</p><p className="text-xs font-bold text-slate-500">Disabled</p></div>
+        </div>
+        <div className="space-y-2">
+          {barRow('Live', counts.Live, '#10b981')}
+          {barRow('Scheduled', counts.Scheduled, '#f59e0b')}
+          {barRow('Expired', counts.Expired, '#94a3b8')}
+          {barRow('Disabled', counts.Disabled, '#94a3b8')}
+        </div>
+      </div>); })()}
+
       {/* Create / Edit form */}
       <form onSubmit={handleSave} className="rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-white dark:bg-slate-900 p-5 shadow-sm">
         <h3 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">

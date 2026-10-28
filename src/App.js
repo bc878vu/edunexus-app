@@ -127,6 +127,7 @@ import {
 import {
   listArticles, createArticle, updateArticle, deleteArticle, countArticles, subscribeArticles
 } from './db/articles';
+import { readCatalogFromSupabase } from './examCatalogCounts';
 
 // This declaration must follow all static imports (CRA enforces import/first).
 import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, ADMIN_TAB_SINCE_KEY, adminLoginStarted, adminLoginFinished, isAdminLoginPending, grantAdminTab, clearAdminTab, clearAdminSession, adminTabIsActive, adminPanelAccess, currentPageIsAdmin, verifiedAdmin, broadcastAdminLogout, touchAdminSession, adminSessionAlive } from './adminSession';
@@ -2478,6 +2479,8 @@ const AcademicTab = ({ theme, user, showToast }) => {
 
   return (
     <div className="space-y-6">
+      {/* Library graphs — top of the Academic page */}
+      {files.length > 0 && <AcademicStatsCard files={files} theme={theme} />}
       {/* Upload + Folder controls */}
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
         <h3 className={`font-bold ${theme.text} mb-4`}>Upload & Folders</h3>
@@ -2617,7 +2620,6 @@ const AcademicTab = ({ theme, user, showToast }) => {
         </div>
       </div>
 
-      {files.length > 0 && <AcademicStatsCard files={files} theme={theme} />}
       {/* Existing file records stay in the same collection; manage metadata only. */}
       <section className={`${theme.card} p-5 md:p-6 rounded-2xl border ${theme.border} edx-admin-file-manager`}>
         <div className="edx-admin-file-toolbar">
@@ -2751,8 +2753,44 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
         showToast(unread.length + ' messages marked as read.', 'success');
       } catch (_) { showToast('Could not mark messages as read.', 'error'); }
     };
+    // Overview graphs (top of Dashboard): live totals across all sections.
+    const [overview, setOverview] = useState(null);
+    useEffect(() => {
+      let alive = true;
+      (async () => {
+        try {
+          const [artItems, fileRes, cat] = await Promise.all([
+            listArticles(),
+            listFiles({ limit: 10000, activeOnly: false }),
+            readCatalogFromSupabase().catch(() => ({ bySubject: {} })),
+          ]);
+          if (!alive) return;
+          const bySubject = cat.bySubject || {};
+          const mcqTotal = Object.values(bySubject).reduce((n, c) => n + (c.quiz || 0) + (c.midterm || 0) + (c.finalterm || 0), 0);
+          setOverview({
+            articles: (artItems || []).length,
+            files: (fileRes.items || []).length,
+            mcqTotal,
+            mcqSubjects: Object.keys(bySubject).length,
+          });
+        } catch (_) {}
+      })();
+      return () => { alive = false; };
+    }, []);
     return (
     <div className="grid md:grid-cols-2 gap-6">
+      {overview && (
+      <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} md:col-span-2`}>
+        <div className="h-1.5 -mx-6 -mt-6 mb-5 rounded-t-2xl bg-gradient-to-r from-indigo-500 via-violet-500 to-cyan-400" />
+        <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><LayoutDashboard className="text-indigo-500" /> Overview — all content at a glance</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{overview.articles}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Articles</p></div>
+          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{overview.mcqTotal.toLocaleString('en-US')}</p><p className={`text-xs font-bold ${theme.textMuted}`}>MCQ questions · {overview.mcqSubjects} subjects</p></div>
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{overview.files}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Study files</p></div>
+          <div className="rounded-xl bg-rose-50 dark:bg-rose-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{unreadCount}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Unread inbox messages</p></div>
+        </div>
+      </div>
+      )}
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
         <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Activity className="text-indigo-500"/> Recent Activity</h3>
         <div className="space-y-4">{recentActivity.length > 0 ? recentActivity.map((act, i) => (<div key={i} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 text-sm`}><p className={`${theme.text}`}>{String(act.msg)}</p><p className={`text-xs ${theme.textMuted}`}>{formatDate(act.createdAt)}</p></div>)) : <p className={theme.textMuted}>No recent system activity.</p>}</div>
@@ -2958,6 +2996,21 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
     return (
         <div className="space-y-6">
+            {(() => { const totalHl = highlights.length; const activeHl = highlights.filter(h => h.isActive !== false).length; const disabledHl = totalHl - activeHl; const withImg = highlights.filter(h => h.imageUrl).length; const maxHl = Math.max(1, totalHl); return (
+            <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+                <div className="h-1.5 -mx-6 -mt-6 mb-5 rounded-t-2xl bg-gradient-to-r from-rose-500 via-orange-400 to-amber-400" />
+                <h3 className={`font-bold ${theme.text} text-lg mb-4`}>📊 Highlights stats</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="rounded-xl bg-rose-50 dark:bg-rose-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{totalHl}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Total highlights</p></div>
+                    <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{activeHl}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Active</p></div>
+                    <div className="rounded-xl bg-slate-100 dark:bg-slate-800 p-4"><p className={`text-2xl font-black ${theme.text}`}>{disabledHl}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Disabled</p></div>
+                    <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{withImg}</p><p className={`text-xs font-bold ${theme.textMuted}`}>With image</p></div>
+                </div>
+                <div className="space-y-2">
+                    <div className="flex items-center gap-3"><span className={`w-20 text-xs font-bold ${theme.textMuted}`}>Active</span><div className="flex-1 h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: (activeHl / maxHl * 100) + '%' }} /></div><span className={`text-xs font-bold ${theme.text}`}>{activeHl}</span></div>
+                    <div className="flex items-center gap-3"><span className={`w-20 text-xs font-bold ${theme.textMuted}`}>Disabled</span><div className="flex-1 h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden"><div className="h-full bg-slate-400 rounded-full" style={{ width: (disabledHl / maxHl * 100) + '%' }} /></div><span className={`text-xs font-bold ${theme.text}`}>{disabledHl}</span></div>
+                </div>
+            </div>); })()}
             <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} flex flex-col md:flex-row justify-between items-center shadow-sm gap-4`}>
                 <div>
                     <h3 className={`font-bold ${theme.text} text-lg`}>Highlights Section Visibility</h3>
@@ -3854,6 +3907,22 @@ const ForumTab = ({ theme, showToast }) => {
   };
 
   return (
+    <>
+    {(() => { const totalP = posts.length; const pinnedP = posts.filter(p => p.pinned).length; const hiddenP = posts.filter(p => p.isActive === false).length; const repliedP = posts.filter(p => p.adminReply).length; const maxP = Math.max(1, totalP); return (
+    <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} mb-6`}>
+      <div className="h-1.5 -mx-6 -mt-6 mb-5 rounded-t-2xl bg-gradient-to-r from-violet-500 via-indigo-500 to-cyan-400" />
+      <h3 className={`font-bold text-lg mb-4 ${theme.text}`}>📊 Forum stats</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="rounded-xl bg-violet-50 dark:bg-violet-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{totalP}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Total posts</p></div>
+        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{pinnedP}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Pinned</p></div>
+        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{repliedP}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Admin replied</p></div>
+        <div className="rounded-xl bg-slate-100 dark:bg-slate-800 p-4"><p className={`text-2xl font-black ${theme.text}`}>{hiddenP}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Hidden</p></div>
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center gap-3"><span className={`w-24 text-xs font-bold ${theme.textMuted}`}>Admin replied</span><div className="flex-1 h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: (repliedP / maxP * 100) + '%' }} /></div><span className={`text-xs font-bold ${theme.text}`}>{repliedP}</span></div>
+        <div className="flex items-center gap-3"><span className={`w-24 text-xs font-bold ${theme.textMuted}`}>Pinned</span><div className="flex-1 h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden"><div className="h-full bg-amber-500 rounded-full" style={{ width: (pinnedP / maxP * 100) + '%' }} /></div><span className={`text-xs font-bold ${theme.text}`}>{pinnedP}</span></div>
+      </div>
+    </div>); })()}
     <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
       <h3 className={`font-bold text-lg mb-4 ${theme.text}`}>
         Moderate Discussions
@@ -3965,6 +4034,7 @@ const ForumTab = ({ theme, showToast }) => {
       </div>
       <ConfirmUI />
     </div>
+    </>
   );
 };
 

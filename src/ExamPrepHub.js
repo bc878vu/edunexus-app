@@ -127,6 +127,57 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
   </div>;
 }
 
+// Bank-wide graph at the TOP of the Exam admin page: one cheap read of the
+// pre-computed exam catalogue (Quiz / Midterm / Finalterm per subject).
+function ExamBankStatsCard({ user }) {
+  const [bankStats, setBankStats] = React.useState(null);
+  const [bankStatsError, setBankStatsError] = React.useState('');
+  const [refreshing, setRefreshing] = React.useState(false);
+  const load = React.useCallback(async () => {
+    if (!adminPanelAccess(user)) { setBankStats(null); return; }
+    setRefreshing(true);
+    try {
+      const { bySubject, updatedAt } = await readCatalogFromSupabase();
+      setBankStats({ bySubject: bySubject || {}, updatedAt: updatedAt || null });
+      setBankStatsError('');
+    } catch (_) { setBankStatsError('Stats unavailable right now.'); }
+    finally { setRefreshing(false); }
+  }, [user]);
+  React.useEffect(() => { load(); }, [load]);
+  if (bankStatsError) return <div style={{border:'1px solid #e2e8f0', borderRadius:12, padding:16, background:'#fff', marginBottom:16}}><h3 style={{margin:'0 0 6px'}}>📊 MCQ bank stats</h3><p style={{margin:0}}>{bankStatsError}</p></div>;
+  if (!bankStats) return <div style={{border:'1px solid #e2e8f0', borderRadius:12, padding:16, background:'#fff', marginBottom:16}}><h3 style={{margin:'0 0 6px'}}>📊 MCQ bank stats</h3><p style={{margin:0}}>Loading bank totals…</p></div>;
+  const entries = Object.entries(bankStats.bySubject).map(([code, c]) => ({ code, quiz: c.quiz || 0, midterm: c.midterm || 0, finalterm: c.finalterm || 0, total: (c.quiz || 0) + (c.midterm || 0) + (c.finalterm || 0) })).filter((e) => e.total > 0);
+  const total = entries.reduce((n, e) => n + e.total, 0);
+  const quiz = entries.reduce((n, e) => n + e.quiz, 0);
+  const midterm = entries.reduce((n, e) => n + e.midterm, 0);
+  const finalterm = entries.reduce((n, e) => n + e.finalterm, 0);
+  const top = [...entries].sort((a, b) => b.total - a.total).slice(0, 8);
+  const maxTop = top.length ? top[0].total : 1;
+  const bar = (n, color) => <div style={{height:8, borderRadius:99, background:'#e2e8f0', overflow:'hidden', marginTop:6}}><div style={{height:'100%', borderRadius:99, background:color, width: (total ? (n / total * 100) : 0) + '%'}} /></div>;
+  return <div style={{border:'1px solid #e2e8f0', borderRadius:12, padding:16, background:'#fff', marginBottom:16, overflow:'hidden'}} aria-label="MCQ bank stats">
+    <div style={{height:4, margin:'-16px -16px 14px', background:'linear-gradient(90deg,#4C4FE0,#8b5cf6,#10b981)'}} />
+    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap'}}>
+      <h3 style={{margin:0}}>📊 MCQ bank stats ({total.toLocaleString()} questions · {entries.length} subjects)</h3>
+      <button type="button" className="edx-exam-secondary" onClick={load} disabled={refreshing} style={{padding:'6px 14px'}}>{refreshing ? 'Refreshing…' : 'Refresh stats'}</button>
+    </div>
+    <p style={{margin:'6px 0 12px', fontSize:13, color:'#64748b'}}>Public catalogue counts{bankStats.updatedAt ? ' · last recount ' + new Date(bankStats.updatedAt).toLocaleString() : ''}. Refresh stats after imports or deletions.</p>
+    <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10, marginBottom:14}}>
+      <div><strong style={{fontSize:20}}>{quiz.toLocaleString()}</strong><div style={{fontSize:12, color:'#64748b', fontWeight:700}}>Quiz</div>{bar(quiz, '#8b5cf6')}</div>
+      <div><strong style={{fontSize:20}}>{midterm.toLocaleString()}</strong><div style={{fontSize:12, color:'#64748b', fontWeight:700}}>Midterm</div>{bar(midterm, '#4C4FE0')}</div>
+      <div><strong style={{fontSize:20}}>{finalterm.toLocaleString()}</strong><div style={{fontSize:12, color:'#64748b', fontWeight:700}}>Finalterm</div>{bar(finalterm, '#10b981')}</div>
+    </div>
+    <p style={{margin:'0 0 8px', fontSize:12, color:'#64748b', fontWeight:700}}>Top subjects by question count</p>
+    <div style={{display:'grid', gap:8}}>
+      {top.map((e) => <div key={e.code} style={{display:'flex', alignItems:'center', gap:10}}>
+        <span style={{width:90, flexShrink:0, fontSize:12, fontWeight:700}}>{e.code}</span>
+        <div style={{flex:1, height:12, borderRadius:99, background:'#e2e8f0', overflow:'hidden'}}><div style={{height:'100%', borderRadius:99, background:'#4C4FE0', width: (e.total / maxTop * 100) + '%'}} /></div>
+        <span style={{fontSize:12, fontWeight:700}}>{e.total.toLocaleString()}</span>
+      </div>)}
+      {!top.length && <p style={{margin:0, fontSize:13}}>No catalogue subjects yet.</p>}
+    </div>
+  </div>;
+}
+
 function AdminTools({ user, onView }) {
   const [adminSubTab, setAdminSubTab] = useState('import');
   const [draft, setDraft] = useState(EMPTY_MCQ);
@@ -179,6 +230,7 @@ function AdminTools({ user, onView }) {
   };
   if (!isAdmin(user)) return null;
   return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Exam content management</h2><p>Only publish original or properly licensed questions and completed-exam guidance.</p></div><ShieldCheck size={28} /></div>
+    <ExamBankStatsCard user={user} />
     {message && <p role="status" className="edx-exam-alert">{message}</p>}
     {lastPublished && <div className="edx-exam-publish-actions">
       <a className="edx-exam-primary" href={'/?page=exam-prep&subject=' + encodeURIComponent(lastPublished.subject) + '&term=' + encodeURIComponent(lastPublished.term)} target="_blank" rel="noopener noreferrer">Open published {lastPublished.subject} {lastPublished.term} quiz <ChevronRight size={16}/></a>
