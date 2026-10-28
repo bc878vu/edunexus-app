@@ -322,6 +322,7 @@ function detectSectionFromUrl() {
   const path = window.location.pathname || '';
   if (/^\/mcq-bank(\/|$)/i.test(path)) return 'mcqs';
   if (/^\/paper-reviews(\/|$)/i.test(path)) return 'reviews';
+  if (/^\/r\/[^/]+/i.test(path)) return 'reviews';
   const m = path.match(/^\/exam-prep\/[^/]+\/[^/]+\/(mcqs|reviews|files)/i);
   if (m && ['mcqs', 'reviews', 'files'].includes(m[1].toLowerCase())) return m[1].toLowerCase();
   return '';
@@ -335,6 +336,16 @@ function detectReviewIdFromUrl() {
     if (q) return q.slice(0, 80);
     const m = (window.location.pathname || '').match(/^\/paper-reviews\/([^/]+)/i);
     if (m) return decodeURIComponent(m[1]).slice(0, 80);
+  } catch (_) {}
+  return '';
+}
+
+// detectShortCodeFromUrl: a short review share link (/r/<code>) — resolved
+// to the full review id by ExamPaperCommunity once the feed loads.
+function detectShortCodeFromUrl() {
+  try {
+    const m = (window.location.pathname || '').match(/^\/r\/([^/]+)/i);
+    if (m) return decodeURIComponent(m[1]).slice(0, 16);
   } catch (_) {}
   return '';
 }
@@ -530,12 +541,14 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     return detectSectionFromUrl() || 'mcqs';
   });
   const [reviewId, setReviewId] = useState(() => adminWorkspace ? '' : detectReviewIdFromUrl());
+  const [reviewShortCode, setReviewShortCode] = useState(() => adminWorkspace ? '' : detectShortCodeFromUrl());
   useEffect(() => {
     if (adminWorkspace) return;
     const syncSection = () => {
       const requested = detectSectionFromUrl();
       if (requested) setTab(requested);
       setReviewId(detectReviewIdFromUrl());
+      setReviewShortCode(detectShortCodeFromUrl());
     };
     window.addEventListener('popstate', syncSection);
     window.addEventListener('edunexus:navigation', syncSection);
@@ -703,7 +716,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     {((tab === "mcqs" && searchedSubject) || tab === "reviews") && <ShareBar tab={tab} subject={subject} term={term} />}
     {tab === "mcqs" && searchedSubject && searchStatus === "found" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={[searchedSubject]} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm}/></React.Suspense>}
     {tab === "mcqs" && !searchedSubject && <SampleMcqs />}
-    {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} highlightReviewId={reviewId} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
+    {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} highlightReviewId={reviewId} highlightShortCode={reviewShortCode} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} onSubjectChange={selectSubject} subjects={catalogSubjects} />}
     {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { selectSubject(code); selectTerm(examType); setTab("mcqs"); }} />}
     <section className="edx-exam-seo" aria-label="About VU exam preparation"><h2>Free VU MCQ Practice, Paper Reviews and Study Files</h2><div className="edx-exam-seo-text"><p>EduNexus Exam Prep is the most comprehensive free practice platform for Virtual University students. Our MCQ bank contains thousands of solved multiple-choice questions across all major VU subjects — from CS101 and MTH301 to ENG201 and PAK301. Each question includes the correct answer and a detailed explanation, helping you understand the concept instead of just memorizing.</p><p>Choose your subject, select Midterm or Finalterm, and start practicing instantly. Our practice mode simulates real VU exam conditions with timed quizzes, instant scoring, and progress tracking. You can practice all available questions or customize the count to fit your study session. Every attempt is saved, so you can review your mistakes and focus on weak areas.</p><p>Beyond MCQs, explore real paper reviews shared by VU students who recently appeared in exams. These first-hand experiences reveal which topics appeared, how difficult the paper was, and what to prioritize. Combined with our study files library of handouts and solved papers, you get a complete exam preparation system — all free, all in one place.</p></div></section>

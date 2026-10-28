@@ -79,6 +79,39 @@ export async function getPublicPaperReview(id) {
   }
   return null;
 }
+
+// Short review codes — MUST stay identical to shortReviewCode in
+// src/examReviewFormat.js (client share text + highlight) and to the copy
+// in ExamPaperCommunity. FNV-1a 32-bit hash of the review id, base36.
+export const shortReviewCode = (id) => {
+  let h = 0x811c9dc5;
+  const s = String(id || '');
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36).padStart(7, '0');
+};
+
+// Resolve a short code (/r/<code>) to its review, for the OG handler.
+// Scans both review tables newest-first (same active-only visibility as
+// getPublicPaperReview); returns null when no active review matches.
+export async function getPaperReviewByShortCode(code) {
+  if (!code || !USE_SUPABASE) return null;
+  const target = String(code).toLowerCase();
+  for (const table of ['exam_community_reviews', 'exam_reviews']) {
+    try {
+      for (let page = 0; page < 10; page += 1) {
+        const rows = await postgrestGet(table,
+          'select=*&order=created_at.desc&limit=100&offset=' + (page * 100));
+        if (!rows || rows.length === 0) break;
+        for (const row of rows) {
+          const active = table === 'exam_community_reviews' ? row.is_active === true : row.is_active !== false;
+          if (active && shortReviewCode(row.id) === target) return toCamel(row);
+        }
+        if (rows.length < 100) break;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
 export async function listPublicFiles(maxPages = 30) {
   if (USE_SUPABASE) {
     const result = [];

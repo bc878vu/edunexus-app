@@ -1,6 +1,20 @@
 export const EXAM_REVIEW_URL = 'https://edunexus-app.vercel.app/paper-reviews';
 export const EDUNEXUS_WHATSAPP_GROUP = 'https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye.';
 
+// Short review codes: a deterministic 7-char base36 (FNV-1a hash) of the
+// review id, e.g. https://edunexus-app.vercel.app/r/xxxxxxx — far shorter
+// than the full /paper-reviews/<id> URL, but it still previews the review:
+// the vercel.json bot rewrite sends /r/<code> to the OG handler, which
+// resolves the code (api/resource-data.mjs), and the hub resolves it to the
+// full review id for the highlight (ExamPaperCommunity). This exact function
+// runs in all three places, so all copies must stay identical.
+export const shortReviewCode = (id) => {
+  let h = 0x811c9dc5;
+  const s = String(id || '');
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36).padStart(7, '0');
+};
+
 export const formatExamDate = (iso) => {
   const match = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return match ? match[3] + '-' + match[2] + '-' + match[1] : 'Not provided';
@@ -46,7 +60,7 @@ export const examReviewText = (review) => {
     ...(safePaperUrl(review) ? ['', '*Shared paper:*', safePaperUrl(review)] : []),
     '> EduNexus',
     '',
-    ...(review.id ? ['View this review 👇', 'https://edunexus-app.vercel.app/paper-reviews/' + encodeURIComponent(review.id), ''] : []),
+    ...(review.id ? ['View this review 👇', 'https://edunexus-app.vercel.app/r/' + shortReviewCode(review.id), ''] : []),
     'Share Your Paper Review Here 👇',
     EXAM_REVIEW_URL,
     '',

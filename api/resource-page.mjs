@@ -1,6 +1,6 @@
 import { standaloneAdScript, standaloneContentSecurityPolicy } from './ad-support.mjs';
 import { renderNavbar, renderFooter, renderThemeToggle, shellThemeBoot, navStyles } from './site-shell.mjs';
-import { escapeHtml as h, getPublicFile, getPublicHighlight, getPublicPaperReview, listPublicFiles, listApprovedReviews, resourcePath, highlightPath, SITE, slugFor, validId } from './resource-data.mjs';
+import { escapeHtml as h, getPublicFile, getPublicHighlight, getPublicPaperReview, getPaperReviewByShortCode, listPublicFiles, listApprovedReviews, resourcePath, highlightPath, SITE, slugFor, validId } from './resource-data.mjs';
 import { guideForFile, SUBJECT_GUIDES } from './subject-guides.mjs';
 import { SUBJECTS } from './subjects-sitemap.mjs';
 
@@ -120,12 +120,19 @@ export default async function handler(req, res) {
   // never back to this function).
   if (ogPage === 'paperreview') {
     const rid = String(req.query?.id || '').slice(0, 80);
+    const code = String(req.query?.code || '').slice(0, 16);
     const ua = String(req.headers['user-agent'] || '').toLowerCase();
     const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
-    const appUrl = SITE + '/paper-reviews/' + encodeURIComponent(rid);
-    if (!isCrawler) return res.redirect(302, appUrl);
     let rv = null;
-    try { rv = await getPublicPaperReview(rid); } catch (_) {}
+    try { rv = rid ? await getPublicPaperReview(rid) : (code ? await getPaperReviewByShortCode(code) : null); } catch (_) {}
+    // Full-id links keep their exact old behaviour (browser lands on the
+    // /paper-reviews/<id> page, which shows the not-found notice when the
+    // id is gone). Short-code links land on the resolved review, or on the
+    // reviews list when the code matches nothing.
+    const appUrl = rid
+      ? SITE + '/paper-reviews/' + encodeURIComponent(rid)
+      : (rv ? SITE + '/paper-reviews/' + encodeURIComponent(rv.id) : SITE + '/paper-reviews');
+    if (!isCrawler) return res.redirect(302, appUrl);
     const subj = rv && rv.subject ? String(rv.subject).toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
     const termLabel = rv && String(rv.term || '').toLowerCase() === 'finalterm' ? 'Finalterm' : 'Midterm';
     const snippet = rv ? String(rv.summary || rv.topics || '').replace(/\s+/g, ' ').trim().slice(0, 150) : '';

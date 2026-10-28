@@ -4,7 +4,7 @@ import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileTe
 import { db, auth } from './firebase-client';
 import { signInAnonymously } from 'firebase/auth';
 import { submitCommunityReview, listCommunityReviews, listLegacyReviews } from './db/examReviews';
-import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
+import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, shortReviewCode, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import RichContent from './RichContent';
 import './exam-paper-community.css';
 
@@ -249,7 +249,7 @@ function EarlierSubmissions({ user, onReuse }) {
   </section>;
 }
 
-export default function ExamPaperCommunity({ user, subject, term, onPublished, highlightReviewId }) {
+export default function ExamPaperCommunity({ user, subject, term, onPublished, highlightReviewId, highlightShortCode }) {
   const [community, setCommunity] = useState([]);
   const [legacy, setLegacy] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -306,7 +306,15 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished, h
     ? dateValue(a.createdAt)-dateValue(b.createdAt)
     : dateValue(b.createdAt)-dateValue(a.createdAt)),
   [community,legacy,allSubjects,browseSubject,browseTerm,reviewSearch,sortBy]);
-  const highlighted = highlightReviewId ? reviews.find((r) => String(r.id) === String(highlightReviewId)) : null;
+  // Short-code links (/r/<code>) resolve to the full review id once the
+  // feed loads; the existing highlight + not-found logic then runs
+  // unchanged. Resolved against the unfiltered feed so a linked review is
+  // found even if a browse filter is active.
+  const allReviews = useMemo(() => [...community, ...legacy], [community, legacy]);
+  const resolvedHighlightId = highlightReviewId || (highlightShortCode && !loading
+    ? (allReviews.find((r) => shortReviewCode(r.id) === highlightShortCode)?.id || '__shortcode_not_found__')
+    : '');
+  const highlighted = resolvedHighlightId ? reviews.find((r) => String(r.id) === String(resolvedHighlightId)) : null;
   const submitTerm = browseTerm === 'all' ? (term === 'finalterm' ? 'finalterm' : 'midterm') : browseTerm;
   const reuse = item => {
     setBrowseSubject(courseCode(item.subject));
@@ -349,8 +357,8 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished, h
       {loading && <div className="edx-paper-skeleton" role="status">Loading student reviews…</div>}
       {errors.map(error => <div key={error.key} className="edx-paper-alert" role="alert">{error.message} <button type="button" onClick={()=>setReloadKey(n=>n+1)}>Retry</button></div>)}
       {!loading && !reviews.length && !errors.length && <div className="edx-paper-empty"><MessageCircle size={28}/><h3>{allSubjects?'No published paper reviews yet':'No reviews match these filters'}</h3><p>{allSubjects?'If you shared a review earlier, check Your earlier submissions above.':'Try All subjects, All exam types, or another keyword.'}</p></div>}
-      {highlightReviewId && !loading && !highlighted && <div className="edx-paper-alert" role="alert">This shared review could not be found — it may have been removed. Showing all reviews below.</div>}
-      <div className="edx-paper-review-list">{reviews.map(review=><ReviewCard key={review.collectionName+':'+review.id} review={review} user={user} highlight={highlightReviewId ? String(review.id) === String(highlightReviewId) : false}/>)}</div>
+      {resolvedHighlightId && !loading && !highlighted && <div className="edx-paper-alert" role="alert">This shared review could not be found — it may have been removed. Showing all reviews below.</div>}
+      <div className="edx-paper-review-list">{reviews.map(review=><ReviewCard key={review.collectionName+':'+review.id} review={review} user={user} highlight={resolvedHighlightId ? String(review.id) === String(resolvedHighlightId) : false}/>)}</div>
       <section className="edx-paper-seo" aria-label="About VU paper reviews"><h2>Real VU Paper Reviews Shared by Students</h2><div className="edx-paper-seo-text"><p>EduNexus Paper Reviews is a community platform where Virtual University students share their real exam experiences. After appearing in a midterm or final term paper, students describe which topics appeared, how difficult the questions were, and what future students should focus on. This first-hand information is incredibly valuable because VU often repeats question patterns across semesters.</p><p>Browse reviews by subject code, exam type (midterm or finalterm), or semester. Each review includes the course code, exam date, difficulty rating, important topics, and the student's detailed experience. You can copy any review, share it on WhatsApp with classmates, or report inappropriate content. Sharing your own paper experience takes less than two minutes and helps thousands of fellow VU students prepare better.</p><p>Unlike generic past papers, these reviews capture the actual exam day experience — which chapters were emphasized, whether MCQs were conceptual or factual, and how much time each section took. Use these insights alongside our MCQ practice bank and study files for the most effective VU exam preparation strategy.</p></div></section>
       <p className="edx-paper-disclaimer">Only share material you are allowed to discuss. Reviews containing spam or private exam material may be removed.</p>
     </section>

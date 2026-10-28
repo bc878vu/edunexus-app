@@ -60,6 +60,11 @@ export function routeParamsFromPath(pathname) {
   if (parts[0] === 'paper-reviews' && !parts[1]) {
     return { page: 'exam-prep', subject: '', term: '', section: 'reviews' };
   }
+  // /r/<code> — short paper-review share link (exam-prep hub, reviews tab;
+  // the hub resolves the code to the full review id for the highlight).
+  if (parts[0] === 'r' && parts[1]) {
+    return { page: 'exam-prep', subject: '', term: '', section: 'reviews', reviewShortCode: parts[1].slice(0, 16) };
+  }
   // /exam-prep/<subject>/<term> e.g. /exam-prep/CS609/Finalterm
   // /exam-prep/<subject>/<term>/<section> e.g. /exam-prep/CS609/Finalterm/mcqs (share links)
   if (parts[0] === 'exam-prep' && parts[1] && parts[2]) {
