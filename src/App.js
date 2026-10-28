@@ -3714,6 +3714,8 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                     <th className="p-2">Contact</th>
                     <th className="p-2">Article</th>
                     <th className="p-2">Submitted</th>
+                    <th className="p-2">Location</th>
+                    <th className="p-2">IP address</th>
                     <th className="p-2">Scan</th>
                     <th className="p-2">Status</th>
                   </tr>
@@ -3730,6 +3732,8 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                         <td className="p-2">{sub.contact || '—'}</td>
                         <td className="p-2">{String(a.title)}</td>
                         <td className="p-2">{sub.submitted_at ? formatDate(sub.submitted_at) : formatDate(a.createdAt)}</td>
+                        <td className="p-2">{[sub.city, sub.country].filter(Boolean).join(', ') || '—'}</td>
+                        <td className="p-2">{sub.ip || '—'}</td>
                         <td className="p-2">{scan}</td>
                         <td className="p-2">{status}</td>
                       </tr>

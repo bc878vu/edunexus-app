@@ -184,9 +184,15 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
       <div className="p-6 md:p-8">
         {/* Meta row */}
         <div className={`flex flex-wrap items-center gap-2 text-xs ${theme.textMuted} mb-3`}>
-          <span className="bg-gradient-to-r from-red-500 to-rose-500 text-white px-2.5 py-1 rounded-full font-bold text-[10px] tracking-wide uppercase">
-            Official
-          </span>
+          {art.extra && art.extra.submitted_by ? (
+            <span className="bg-gradient-to-r from-violet-500 to-purple-500 text-white px-2.5 py-1 rounded-full font-bold text-[10px] tracking-wide uppercase">
+              Visitor Article
+            </span>
+          ) : (
+            <span className="bg-gradient-to-r from-red-500 to-rose-500 text-white px-2.5 py-1 rounded-full font-bold text-[10px] tracking-wide uppercase">
+              Official
+            </span>
+          )}
           {isPinned(art) && (
             <span className="bg-amber-400 text-amber-950 px-2.5 py-1 rounded-full font-bold text-[10px] tracking-wide uppercase">
               📌 Pinned

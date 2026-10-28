@@ -204,6 +204,24 @@ export default function ShareArticleForm({ theme, showToast }) {
       return;
     }
     setSending(true);
+    // Visitor network details (admin eyes only, never shown publicly):
+    // the article is submitted straight from the browser to Supabase, so the
+    // site server never sees the request — resolve IP/city/country via a
+    // public lookup. Fail-soft: if the lookup fails or times out, the
+    // submission still goes through without these fields.
+    let visitorNet = {};
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 3500);
+      const res = await fetch('https://ipapi.co/json/', { signal: ctl.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const j = await res.json();
+        if (j.ip) visitorNet.ip = String(j.ip);
+        if (j.city) visitorNet.city = String(j.city);
+        if (j.country_name || j.country) visitorNet.country = String(j.country_name || j.country);
+      }
+    } catch (e) { visitorNet = {}; }
     try {
       const html = editorHtml();
       // Scan the plain text (same scan categories + flow as before).
@@ -216,6 +234,7 @@ export default function ShareArticleForm({ theme, showToast }) {
           email: email.trim(),
           contact: contact.trim(),
           submitted_at: new Date().toISOString(),
+          ...visitorNet,
         },
         scan: { status: scan.status, categories: scan.categories },
       };
