@@ -328,6 +328,25 @@ const Navbar = ({
   // A single shared nav contract also powers the SSR resource, article and guide pages.
   const ALL_ITEMS = MOBILE_ITEMS;
 
+  // Navbar active state must follow the URL even when the App page state
+  // does not change: MCQ Bank and Paper Reviews both live under page
+  // 'exam-prep', so switching between them calls setPage('exam-prep') with
+  // the same value, React bails out, and the Navbar never re-renders from
+  // App — leaving the highlight stuck on the previous item while the page
+  // content already changed. Track the path in the Navbar's own state,
+  // synced on every navigation event and on back/forward, so the highlight
+  // always matches the page actually shown (desktop + mobile menu).
+  const [navPath, setNavPath] = useState(() => (typeof window !== 'undefined' ? window.location.pathname : '/') || '/');
+  useEffect(() => {
+    const syncNavPath = () => setNavPath(window.location.pathname || '/');
+    window.addEventListener('popstate', syncNavPath);
+    window.addEventListener('edunexus:navigation', syncNavPath);
+    return () => {
+      window.removeEventListener('popstate', syncNavPath);
+      window.removeEventListener('edunexus:navigation', syncNavPath);
+    };
+  }, []);
+
   const handleNavClick = (targetPage) => {
     if (targetPage === 'mcq-bank' || targetPage === 'paper-reviews') {
       setPage('exam-prep');
@@ -341,7 +360,7 @@ const Navbar = ({
 
   const isActive = (id) => {
     if (id === 'mcq-bank' || id === 'paper-reviews') {
-      try { return page === 'exam-prep' && new RegExp('^/' + id + '(\\/|$)').test(window.location.pathname || ''); } catch (_) { return false; }
+      try { return page === 'exam-prep' && new RegExp('^/' + id + '(\\/|$)').test(navPath || ''); } catch (_) { return false; }
     }
     return navActivePage(page) === id;
   };
