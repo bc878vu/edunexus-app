@@ -2753,6 +2753,12 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
   const DashboardTab = () => {
     const [inboxVisible, setInboxVisible] = useState(20);
+    const [folderSort, setFolderSort] = useState('count-desc');
+    const [activitySort, setActivitySort] = useState('newest');
+    const [inboxSort, setInboxSort] = useState('newest');
+    const [mcqSort, setMcqSort] = useState({ key: 'total', dir: -1 });
+    const [overviewRefresh, setOverviewRefresh] = useState(0);
+    const [overviewUpdatedAt, setOverviewUpdatedAt] = useState(null);
     const unreadCount = feedbacks.filter(m => !m.read).length;
     const markAsRead = async (msg) => {
       if (msg.read) return;
@@ -2792,17 +2798,25 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             artItems: artItems || [],
             fileItems: fileRes.items || [],
             mcqByTerm,
+            mcqBySubject: bySubject,
           });
+          setOverviewUpdatedAt(new Date());
         } catch (_) {}
       })();
       return () => { alive = false; };
-    }, []);
+    }, [overviewRefresh]);
     return (
     <div className="grid md:grid-cols-2 gap-6">
       {overview && (
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} md:col-span-2`}>
         <div className="h-1.5 -mx-6 -mt-6 mb-5 rounded-t-2xl bg-gradient-to-r from-indigo-500 via-violet-500 to-cyan-400" />
-        <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><LayoutDashboard className="text-indigo-500" /> Overview — all content at a glance</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3 className={`text-xl font-bold ${theme.text} flex items-center gap-2`}><LayoutDashboard className="text-indigo-500" /> Overview — all content at a glance</h3>
+          <div className="flex items-center gap-2">
+            {overviewUpdatedAt && <span className={`text-xs ${theme.textMuted}`}>Updated {overviewUpdatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>}
+            <button type="button" onClick={() => setOverviewRefresh((n) => n + 1)} className="text-xs font-bold px-3 py-1.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">↻ Refresh</button>
+          </div>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{overview.articles}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Articles</p></div>
           <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{overview.mcqTotal.toLocaleString('en-US')}</p><p className={`text-xs font-bold ${theme.textMuted}`}>MCQ questions · {overview.mcqSubjects} subjects</p></div>
@@ -2825,8 +2839,9 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           ];
           const byFolder = {};
           (overview.fileItems || []).forEach((f) => { const k = String(f.subject || 'General').trim() || 'General'; byFolder[k] = (byFolder[k] || 0) + 1; });
-          const topFolders = Object.entries(byFolder).sort((a, b) => b[1] - a[1]).slice(0, 5);
-          const maxFolder = topFolders.length ? topFolders[0][1] : 1;
+          const folderSorted = [...Object.entries(byFolder)].sort((a, b) => folderSort === 'count-asc' ? a[1] - b[1] : folderSort === 'name-asc' ? String(a[0]).localeCompare(String(b[0])) : folderSort === 'name-desc' ? String(b[0]).localeCompare(String(a[0])) : b[1] - a[1]);
+          const topFolders = folderSorted.slice(0, 5);
+          const maxFolder = topFolders.length ? Math.max(...topFolders.map(([, n]) => n)) : 1;
           const now = Date.now();
           const buckets = [0, 0, 0, 0];
           arts.forEach((a) => { const raw = (a.extra && a.extra.submitted_by && a.extra.submitted_by.submitted_at) || a.createdAt; const d = raw ? new Date(raw).getTime() : 0; if (!d) return; const days = (now - d) / 86400000; if (days >= 0 && days < 30) buckets[Math.min(3, Math.floor(days / 7))]++; });
@@ -2851,7 +2866,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             <div className="grid md:grid-cols-2 gap-4">
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60">
                 <p className={`font-bold ${theme.text} mb-3`}>🍩 Articles by status</p>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                   <div className="w-28 h-28 rounded-full relative shrink-0" style={{ background: dArt.bg }}>
                     <div className="absolute inset-4 rounded-full bg-white dark:bg-slate-900 flex flex-col items-center justify-center">
                       <span className={`text-lg font-black ${theme.text}`}>{dArt.tot}</span>
@@ -2863,7 +2878,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               </div>
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60">
                 <p className={`font-bold ${theme.text} mb-3`}>🍩 MCQ bank by term</p>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                   <div className="w-28 h-28 rounded-full relative shrink-0" style={{ background: dMcq.bg }}>
                     <div className="absolute inset-4 rounded-full bg-white dark:bg-slate-900 flex flex-col items-center justify-center">
                       <span className={`text-lg font-black ${theme.text}`}>{dMcq.tot.toLocaleString('en-US')}</span>
@@ -2874,7 +2889,15 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-                <p className={`font-bold ${theme.text} mb-3`}>📊 Top study folders</p>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <p className={`font-bold ${theme.text}`}>📊 Top study folders</p>
+                  <select value={folderSort} onChange={(e) => setFolderSort(e.target.value)} aria-label="Sort folders" className="text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+                    <option value="count-desc">Most files</option>
+                    <option value="count-asc">Fewest files</option>
+                    <option value="name-asc">Name A–Z</option>
+                    <option value="name-desc">Name Z–A</option>
+                  </select>
+                </div>
                 <div className="flex items-end gap-2 h-28">
                   {topFolders.map(([name, n]) => (
                     <div key={name} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
@@ -2899,20 +2922,60 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                 </div>
               </div>
             </div>
+            <div className="mt-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+              <p className={`font-bold ${theme.text} mb-3`}>📊 MCQ subjects — click a column to sort</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[520px]">
+                  <thead><tr className={`text-left ${theme.textMuted}`}>
+                    {[['subject', 'Subject'], ['quiz', 'Quiz'], ['midterm', 'Midterm'], ['finalterm', 'Finalterm'], ['total', 'Total']].map(([key, label]) => (
+                      <th key={key} className="py-1.5 pr-3 font-bold"><button type="button" onClick={() => setMcqSort((cur) => cur.key === key ? { key, dir: -cur.dir } : { key, dir: key === 'subject' ? 1 : -1 })} className="hover:underline">{label} {mcqSort.key === key ? (mcqSort.dir === -1 ? '▼' : '▲') : ''}</button></th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {(() => {
+                      const rows = Object.entries(overview.mcqBySubject || {}).map(([subject, c]) => ({ subject, quiz: c.quiz || 0, midterm: c.midterm || 0, finalterm: c.finalterm || 0, total: (c.quiz || 0) + (c.midterm || 0) + (c.finalterm || 0) }));
+                      const sorted = [...rows].sort((a, b) => mcqSort.key === 'subject' ? String(a.subject).localeCompare(String(b.subject)) * mcqSort.dir : (a[mcqSort.key] - b[mcqSort.key]) * mcqSort.dir);
+                      return sorted.slice(0, 10).map((r) => (
+                        <tr key={r.subject} className={`border-t ${theme.border}`}>
+                          <td className={`py-1.5 pr-3 font-bold ${theme.text}`}>{r.subject}</td>
+                          <td className={`py-1.5 pr-3 ${theme.textMuted}`}>{r.quiz.toLocaleString('en-US')}</td>
+                          <td className={`py-1.5 pr-3 ${theme.textMuted}`}>{r.midterm.toLocaleString('en-US')}</td>
+                          <td className={`py-1.5 pr-3 ${theme.textMuted}`}>{r.finalterm.toLocaleString('en-US')}</td>
+                          <td className={`py-1.5 font-bold ${theme.text}`}>{r.total.toLocaleString('en-US')}</td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+              <p className={`text-xs ${theme.textMuted} mt-2`}>Top 10 of {overview.mcqSubjects} subjects by the current sort.</p>
+            </div>
           </>);
         })()}
       </div>
       )}
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-        <h3 className={`text-xl font-bold ${theme.text} mb-4 flex items-center gap-2`}><Activity className="text-indigo-500"/> Recent Activity</h3>
-        <div className="space-y-4">{recentActivity.length > 0 ? recentActivity.map((act, i) => (<div key={i} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 text-sm`}><p className={`${theme.text}`}>{String(act.msg)}</p><p className={`text-xs ${theme.textMuted}`}>{formatDate(act.createdAt)}</p></div>)) : <p className={theme.textMuted}>No recent system activity.</p>}</div>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3 className={`text-xl font-bold ${theme.text} flex items-center gap-2`}><Activity className="text-indigo-500"/> Recent Activity</h3>
+          <select value={activitySort} onChange={(e) => setActivitySort(e.target.value)} aria-label="Sort recent activity" className="text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </div>
+        <div className="space-y-4">{recentActivity.length > 0 ? [...recentActivity].sort((a, b) => { const tv = (t) => { try { const d = t && t.toDate ? t.toDate() : new Date(t); const v = d.getTime(); return Number.isNaN(v) ? 0 : v; } catch (_) { return 0; } }; const va = tv(a ? a.createdAt : 0); const vb = tv(b ? b.createdAt : 0); return activitySort === 'oldest' ? va - vb : vb - va; }).map((act, i) => (<div key={i} className={`p-3 rounded-lg border ${theme.border} bg-slate-50 dark:bg-slate-900 text-sm`}><p className={`${theme.text}`}>{String(act.msg)}</p><p className={`text-xs ${theme.textMuted}`}>{formatDate(act.createdAt)}</p></div>)) : <p className={theme.textMuted}>No recent system activity.</p>}</div>
       </div>
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h3 className={`text-xl font-bold ${theme.text} flex items-center gap-2`}><Inbox className="text-green-500"/> Inbox ({feedbacks.length}){unreadCount > 0 && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full font-bold">{unreadCount} new</span>}</h3>
-          {unreadCount > 0 && <button onClick={markAllRead} className="text-xs text-indigo-500 hover:underline font-bold">Mark all read</button>}
+          <div className="flex items-center gap-2">
+            <select value={inboxSort} onChange={(e) => setInboxSort(e.target.value)} aria-label="Sort inbox" className="text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+            {unreadCount > 0 && <button onClick={markAllRead} className="text-xs text-indigo-500 hover:underline font-bold">Mark all read</button>}
+          </div>
         </div>
-        <div className="h-64 overflow-y-auto space-y-2">{feedbacks.slice(0, inboxVisible).map(msg => {
+        <div className="h-64 overflow-y-auto space-y-2">{[...feedbacks].sort((a, b) => { const tv = (t) => { try { const d = t && t.toDate ? t.toDate() : new Date(t); const v = d.getTime(); return Number.isNaN(v) ? 0 : v; } catch (_) { return 0; } }; const va = tv(a ? a.createdAt : 0); const vb = tv(b ? b.createdAt : 0); return inboxSort === 'oldest' ? va - vb : vb - va; }).slice(0, inboxVisible).map(msg => {
           const mName = msg.name || msg.displayName || 'Anonymous';
           const mEmail = msg.email || msg.mail || '';
           const mMsg = msg.msg || msg.message || msg.query || '';
