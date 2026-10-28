@@ -2165,6 +2165,55 @@ const HomePage = ({setPage, theme, showToast, user}) => {
 
 // 14. Floating AI Chat (Updated: Draggable & Resizable)
 // 15. ADMIN PANEL
+
+// Admin graph: Academic library stats, computed from the already-loaded file
+// list (no extra query) — same CSS-bar style as the BlogTab article stats.
+const AcademicStatsCard = ({ files, theme }) => {
+  const total = files.length;
+  const disabled = files.filter((f) => f.isActive === false).length;
+  const active = total - disabled;
+  const bySubject = {};
+  files.forEach((f) => {
+    const key = String(f.subject || 'General').trim() || 'General';
+    bySubject[key] = (bySubject[key] || 0) + 1;
+  });
+  const top = Object.entries(bySubject).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const maxTop = top.length ? top[0][1] : 1;
+  return (
+    <section className={`${theme.card} p-5 md:p-6 rounded-2xl border ${theme.border} mb-6`}>
+      <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>📊 Academic library stats ({total} total)</h3>
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        {[
+          ['Total files', total, 'bg-indigo-500'],
+          ['Active', active, 'bg-emerald-500'],
+          ['Disabled', disabled, 'bg-slate-400'],
+        ].map(([label, count, barCls]) => (
+          <div key={label} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+            <p className={`text-2xl font-extrabold ${theme.text}`}>{count}</p>
+            <p className={`text-xs font-bold ${theme.textMuted}`}>{label}</p>
+            <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 mt-2 overflow-hidden">
+              <div className={`h-full rounded-full ${barCls}`} style={{ width: (total ? (count / total * 100) : 0) + '%' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className={`text-xs font-bold ${theme.textMuted} mb-2`}>Top folders by file count</p>
+      <div className="grid gap-2">
+        {top.map(([subject, count]) => (
+          <div key={subject} className="flex items-center gap-3">
+            <span className={`w-40 shrink-0 truncate text-xs font-bold ${theme.text}`} title={subject}>{subject}</span>
+            <div className="flex-1 h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+              <div className="h-full rounded-full bg-indigo-500" style={{ width: (count / maxTop * 100) + '%' }} />
+            </div>
+            <span className={`text-xs font-bold ${theme.text}`}>{count}</span>
+          </div>
+        ))}
+        {!top.length && <p className={`text-sm ${theme.textMuted}`}>No files yet.</p>}
+      </div>
+    </section>
+  );
+};
+
 const AcademicTab = ({ theme, user, showToast }) => {
   const { requestConfirm, ConfirmUI } = useConfirm();
   const [uName, setUName] = useState("");
@@ -2568,6 +2617,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
         </div>
       </div>
 
+      {files.length > 0 && <AcademicStatsCard files={files} theme={theme} />}
       {/* Existing file records stay in the same collection; manage metadata only. */}
       <section className={`${theme.card} p-5 md:p-6 rounded-2xl border ${theme.border} edx-admin-file-manager`}>
         <div className="edx-admin-file-toolbar">
