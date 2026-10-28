@@ -3449,6 +3449,82 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           </div>
         </div>
 
+        {/* Approval queue (user article moderation, added 2026-10-28):
+            user-submitted articles the pre-upload scan flagged. Approve
+            publishes them, Reject keeps them unpublished. Existing list
+            below is untouched. */}
+        {arts.some(a => a.extra && a.extra.moderation_status === 'pending') && (
+          <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+            <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>⏳ Approval queue — flagged user articles ({arts.filter(a => a.extra && a.extra.moderation_status === 'pending').length})</h3>
+            <div className="space-y-3">
+              {arts.filter(a => a.extra && a.extra.moderation_status === 'pending').map(a => {
+                const sub = (a.extra && a.extra.submitted_by) || {};
+                const cats = (a.extra && a.extra.scan && a.extra.scan.categories) || [];
+                const decide = async (ok) => {
+                  await updateArticle(a.id, {
+                    isActive: ok,
+                    extra: { ...(a.extra || {}), moderation_status: ok ? 'published' : 'rejected', decided_at: new Date().toISOString() },
+                  });
+                  showToast(ok ? 'Article approved and published' : 'Article rejected', 'success');
+                };
+                return (
+                  <div key={a.id} className="p-3 border rounded-xl bg-amber-50 dark:bg-amber-900/20">
+                    <p className={`font-bold ${theme.text}`}>{String(a.title)}</p>
+                    <p className={`text-xs ${theme.textMuted}`}>By: {sub.name || '—'} · Email: {sub.email || '—'} · Contact: {sub.contact || '—'}</p>
+                    <p className={`text-xs ${theme.textMuted}`}>Submitted: {sub.submitted_at ? formatDate(sub.submitted_at) : formatDate(a.createdAt)} · Flagged for: {cats.length ? cats.join(', ') : 'review'}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <button onClick={() => decide(true)} className="text-green-600 text-xs font-bold hover:underline">✓ Approve & publish</button>
+                      <button onClick={() => decide(false)} className="text-red-500 text-xs font-bold hover:underline">✕ Reject</button>
+                      <button onClick={() => handleEdit(a)} className="text-indigo-500 text-xs font-bold hover:underline">Edit</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* User details table (added 2026-10-28): full information of every
+            user who submitted an article, as saved in the database. */}
+        {arts.some(a => a.extra && a.extra.submitted_by) && (
+          <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+            <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>👥 User details — article submissions ({arts.filter(a => a.extra && a.extra.submitted_by).length})</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className={`${theme.textMuted} text-left`}>
+                    <th className="p-2">Name</th>
+                    <th className="p-2">Email</th>
+                    <th className="p-2">Contact</th>
+                    <th className="p-2">Article</th>
+                    <th className="p-2">Submitted</th>
+                    <th className="p-2">Scan</th>
+                    <th className="p-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {arts.filter(a => a.extra && a.extra.submitted_by).map(a => {
+                    const sub = a.extra.submitted_by || {};
+                    const scan = (a.extra.scan && a.extra.scan.status) || '—';
+                    const status = a.extra.moderation_status || (a.isActive === false ? 'disabled' : 'published');
+                    return (
+                      <tr key={a.id} className="border-t">
+                        <td className="p-2 font-bold">{sub.name || '—'}</td>
+                        <td className="p-2">{sub.email || '—'}</td>
+                        <td className="p-2">{sub.contact || '—'}</td>
+                        <td className="p-2">{String(a.title)}</td>
+                        <td className="p-2">{sub.submitted_at ? formatDate(sub.submitted_at) : formatDate(a.createdAt)}</td>
+                        <td className="p-2">{scan}</td>
+                        <td className="p-2">{status}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
           <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>Existing Articles ({arts.length})</h3>
           <div className="space-y-3 max-h-[700px] overflow-y-auto pr-1">

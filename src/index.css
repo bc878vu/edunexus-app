@@ -45,3 +45,25 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 /* Screen: hide print sheet */
 .edx-cgpa #cgpa-print-sheet{display:none}
 @media print{.edx-cgpa #cgpa-print-sheet{display:block!important}}
+
+/* Shared article-body link/font rules (added 2026-10-28).
+   SPA list cards render bodies with .edx-article-body; the server article
+   page uses .article-body with the identical link style, so links look the
+   same on every page: indigo #4f46e5, semibold, underlined, font inherited. */
+.edx-article-body { overflow-wrap: anywhere; line-height: 1.85; }
+.edx-article-body h2 { font-size: 1.35em; font-weight: 800; margin: 1.5em 0 .6em; line-height: 1.3; }
+.edx-article-body h3 { font-size: 1.15em; font-weight: 700; margin: 1.3em 0 .5em; }
+.edx-article-body h4 { font-size: 1.05em; font-weight: 700; margin: 1.1em 0 .4em; }
+.edx-article-body p { margin: .8em 0; }
+.edx-article-body ul, .edx-article-body ol { margin: .8em 0; padding-left: 1.5em; }
+.edx-article-body ul { list-style: disc; }
+.edx-article-body ol { list-style: decimal; }
+.edx-article-body li { margin: .4em 0; }
+.edx-article-body a { color: #4f46e5; font-weight: 600; font: inherit; text-decoration: underline; }
+.edx-article-body a:hover { color: #4338ca; }
+.edx-article-body blockquote { margin: 1em 0; padding: .8em 1.2em; border-left: 4px solid #6366f1; font-style: italic; }
+.edx-article-body hr { margin: 1.5em 0; border: none; border-top: 1px solid #cbd5e1; }
+.edx-article-body table { border-collapse: collapse; margin: 1em 0; width: 100%; }
+.edx-article-body th, .edx-article-body td { border: 1px solid #cbd5e1; padding: .5em .7em; text-align: left; }
+.edx-article-body th { background: #eef2ff; }
+.edx-article-body img { max-width: 100%; height: auto; border-radius: 12px; }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { listArticles, toggleLike, subscribeArticles, hasLiked as dbHasLiked } from './db/articles';
+import ShareArticleForm from './ShareArticleForm';
 import { ensureAnon } from './db/auth';
 import { Heart, BookOpen, Share2, MessageCircle, ChevronDown, ChevronUp, Clock, Maximize2, X } from 'lucide-react';
 import { sanitizeArticleHtml, articlePlainText, articleExcerpt } from './article-sanitize.mjs';
@@ -307,6 +308,8 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
     return () => { alive = false; };
   }, []);
   const [visibleCount, setVisibleCount] = useState(10);
+  // Top tabs (added 2026-10-28): Articles list vs Publish-your-own form.
+  const [tab, setTab] = useState('articles');
 
   useEffect(() => {
     let alive = true;
@@ -369,6 +372,27 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
         </svg>
       </div>
 
+      {/* Top tabs: Articles | Publish your own article (khayalat) */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setTab('articles')}
+          className={`px-5 py-2.5 rounded-xl font-bold transition-colors ${tab === 'articles' ? 'bg-indigo-600 text-white' : `${theme.card} border ${theme.border}`}`}
+        >
+          📚 All Articles
+        </button>
+        <button
+          onClick={() => setTab('publish')}
+          className={`px-5 py-2.5 rounded-xl font-bold transition-colors ${tab === 'publish' ? 'bg-indigo-600 text-white' : `${theme.card} border ${theme.border}`}`}
+        >
+          ✍️ Publish Your Own Article — Khayalat
+        </button>
+      </div>
+
+      {/* Publish form (public, scanned before publishing) */}
+      {tab === 'publish' && (
+        <ShareArticleForm theme={theme} showToast={showToast} />
+      )}
+
       {/* Skeletons */}
       {loading && (
         <div className="space-y-6">
@@ -387,7 +411,7 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
       )}
 
       {/* Articles */}
-      {!loading && (
+      {tab === 'articles' && !loading && (
         <div className="space-y-6">
           {visibleArticles.map((art, idx) => (
             <ArticleCard

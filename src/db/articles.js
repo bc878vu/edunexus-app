@@ -42,6 +42,11 @@ const ARTICLE_SPEC = {
   keywords: null,
   hiddenLinks: null,
   isActive: 'is_active',
+  // Added 2026-10-28 (user article moderation): jsonb holding uploader
+  // info + moderation state. Requires: ALTER TABLE articles ADD COLUMN
+  // extra jsonb (see workspace/edunexus-article-moderation/SUPABASE.sql).
+  // The code push must land AFTER that column exists.
+  extra: 'extra',
   rightsConfirmed: null,
   originalContentConfirmed: null,
   likedBy: null,

@@ -16,6 +16,9 @@ const ALLOWED_TAGS = new Set([
   'ul', 'ol', 'li',
   'strong', 'b', 'em', 'i', 'u',
   'blockquote', 'div', 'span', 'a',
+  // Added 2026-10-28 (user article feature): tables + inline pictures.
+  // img is handled specially below (https src + alt only, all else stripped).
+  'table', 'thead', 'tbody', 'tr', 'th', 'td', 'img',
 ]);
 
 // Unwrap headings that wrongly wrap whole blocks — a paste artifact from the
@@ -27,7 +30,7 @@ export function unwrapNestedHeadings(input) {
 }
 const DANGEROUS_BLOCK = /<(script|style|iframe|object|embed|form|input|button|textarea|select|option|link|meta|base|noscript|template|frame|frameset|applet|canvas|svg|math|video|audio|picture)\b[\s\S]*?<\/\1\s*>/gi;
 // Stray dangerous tags (self-closed or unclosed).
-const DANGEROUS_TAG = /<(script|style|iframe|object|embed|link|meta|base|img|video|audio|source|track|form|input|button|textarea|select|option|canvas|svg)\b[^>]*\/?>/gi;
+const DANGEROUS_TAG = /<(script|style|iframe|object|embed|link|meta|base|video|audio|source|track|form|input|button|textarea|select|option|canvas|svg)\b[^>]*\/?>/gi;
 
 const BLOCK_CLOSE = /<\/(h2|h3|h4|p|li|ul|ol|div|blockquote|tr|table)>/gi;
 
@@ -57,6 +60,14 @@ export function sanitizeArticleHtml(input) {
     if (!ALLOWED_TAGS.has(t)) return '';
     if (isClose) return '</' + t + '>';
     if (t === 'br' || t === 'hr') return '<' + t + '>';
+    if (t === 'img') {
+      const sm = /\bsrc\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
+      const src = sm ? (sm[2] ?? sm[3] ?? sm[4] ?? '') : '';
+      if (!/^https?:\/\//i.test(src.trim())) return '';
+      const am = /\balt\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
+      const alt = am ? (am[2] ?? am[3] ?? am[4] ?? '') : '';
+      return '<img src="' + escapeAttr(src.trim()) + '" alt="' + escapeAttr(alt) + '">';
+    }
     if (t === 'a') {
       const hm = /\bhref\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
       const href = hm ? (hm[2] ?? hm[3] ?? hm[4] ?? '') : '';
