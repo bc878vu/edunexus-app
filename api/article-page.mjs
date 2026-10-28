@@ -5,7 +5,7 @@ import { getPublicArticle, listPublicArticles, articlePath, escapeHtml as h, slu
 import { sanitizeArticleHtml, articlePlainText } from '../src/article-sanitize.mjs';
 
 // Bump when the article HTML rendering changes, so old cached pages refresh.
-const RENDER_VERSION = 'v18-csp-connect';
+const RENDER_VERSION = 'v19-csp-connect-fix';
 // Compact view counts: 999 -> "999", 1000 -> "1k", 1500 -> "1.5k", 26442 -> "26.4k".
 const fmtViews = (n) => { n = Number(n) || 0; if (n < 1000) return String(n); if (n >= 1000000) { const m = Math.round(n / 100000) / 10; return (m % 1 === 0 ? String(Math.round(m)) : String(m)) + 'M'; } const k = Math.round(n / 100) / 10; return (k % 1 === 0 ? String(Math.round(k)) : String(k)) + 'k'; };
 
@@ -20,7 +20,7 @@ const articleContentSecurityPolicyBase = standaloneContentSecurityPolicy.include
 // in real browsers (curl ignores CSP, which is why server-side tests passed
 // while every browser attempt failed). Keep this allowlist tight: only our
 // Supabase host, nothing else.
-const articleContentSecurityPolicy = articleContentSecurityPolicyBase + " connect-src 'self' https://cprpndovdfnkvekewstv.supabase.co;";
+const articleContentSecurityPolicy = articleContentSecurityPolicyBase + "; connect-src 'self' https://cprpndovdfnkvekewstv.supabase.co;";
 
 const articlePageStyles = `
 html{color-scheme:light}html.dark{color-scheme:dark}
