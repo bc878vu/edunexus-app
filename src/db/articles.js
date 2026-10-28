@@ -89,6 +89,29 @@ export async function listArticles({ limit: max = 100 } = {}) {
     );});
 }
 
+export async function listArticleSummaries({ limit: max = 100 } = {}) {
+  // Lightweight list for admin tables + dashboard: every field the admin UI
+  // filters, sorts or counts on — but NOT the full HTML bodies, which were
+  // the main render delay (51 full articles on every admin load). Cache key
+  // starts with CACHE_PREFIX so create/update/delete clear it too.
+  const key = CACHE_PREFIX + 'sum|' + max;
+  return cachedList(key, async () => {
+    return withFallback(
+      async () => {
+        const { data, error } = await supabase.from('articles')
+          .select('id,title,cover_url,author,likes,created_at,updated_at,is_active,extra')
+          .order('created_at', { ascending: false }).limit(max);
+        if (error) throw error;
+        return (data || []).map(toArticle);
+      },
+      async () => {
+        const snap = await getDocs(query(ARTICLES(), orderBy('createdAt', 'desc'), limit(max)));
+        return snap.docs.map(fbItem);
+      },
+      { cacheKeys: ['articles_'] }
+    );});
+}
+
 export async function getArticle(id) {
   return withFallback(
     async () => {

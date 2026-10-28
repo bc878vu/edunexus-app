@@ -125,7 +125,7 @@ import {
   setHighlightActive, countHighlights, subscribeHighlights
 } from './db/highlights';
 import {
-  listArticles, createArticle, updateArticle, deleteArticle, countArticles, subscribeArticles
+  listArticles, listArticleSummaries, getArticle, createArticle, updateArticle, deleteArticle, countArticles, subscribeArticles
 } from './db/articles';
 import { readCatalogFromSupabase } from './examCatalogCounts';
 
@@ -2781,7 +2781,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       (async () => {
         try {
           const [artItems, fileRes, cat] = await Promise.all([
-            listArticles(),
+            listArticleSummaries(),
             listFiles({ limit: 10000, activeOnly: false }),
             readCatalogFromSupabase().catch(() => ({ bySubject: {} })),
           ]);
@@ -3315,7 +3315,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       let alive = true;
       const refresh = async () => {
         try {
-          const items = await listArticles();
+          const items = await listArticleSummaries();
           if (!alive) return;
           // Never let a transient empty fetch wipe a populated list: a mass
           // delete cannot happen through this UI, so [] here means the fetch
@@ -3526,15 +3526,19 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       if (editorRef.current) editorRef.current.innerHTML = '';
     };
 
-    const handleEdit = (art) => {
-      setEditId(art.id);
-      setTitle(art.title || '');
-      const cleanBody = unwrapNestedHeadings(art.content || '');
+    const handleEdit = async (art) => {
+      // Admin lists now load summaries (no bodies) — fetch the full article
+      // before filling the editor; fall back to the summary on any error.
+      let full = art;
+      try { const got = await getArticle(art.id); if (got) full = got; } catch (_) {}
+      setEditId(full.id);
+      setTitle(full.title || '');
+      const cleanBody = unwrapNestedHeadings(full.content || '');
       setContent(cleanBody);
-      setImageUrl(art.imageUrl || ''); coverFileRef.current = null;
-      setKeywords(art.keywords || '');
-      setHiddenLinks(art.hiddenLinks || '');
-      setIsActive(art.isActive !== false);
+      setImageUrl(full.imageUrl || ''); coverFileRef.current = null;
+      setKeywords(full.keywords || '');
+      setHiddenLinks(full.hiddenLinks || '');
+      setIsActive(full.isActive !== false);
       if (editorRef.current) editorRef.current.innerHTML = cleanBody;
       window.scrollTo({top: 0, behavior: 'smooth'});
     };
@@ -3864,7 +3868,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                     <div className="flex flex-wrap gap-2 mt-2">
                       <button onClick={() => decide(true)} className="text-green-600 text-xs font-bold hover:underline">✓ Approve & publish</button>
                       <button onClick={() => decide(false)} className="text-red-500 text-xs font-bold hover:underline">✕ Reject</button>
-                      <button onClick={() => setPreviewArt(a)} className="text-violet-600 text-xs font-bold hover:underline">👁 Full preview</button>
+                      <button onClick={async () => { try { const got = await getArticle(a.id); setPreviewArt(got || a); } catch (_) { setPreviewArt(a); } }} className="text-violet-600 text-xs font-bold hover:underline">👁 Full preview</button>
                       <button onClick={() => handleEdit(a)} className="text-indigo-500 text-xs font-bold hover:underline">Edit</button>
                     </div>
                   </div>

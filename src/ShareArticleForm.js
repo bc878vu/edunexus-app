@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { createArticle } from './db/articles';
+import { supabase } from './db/_common.js';
 import { scanArticleContent } from './article-scan.mjs';
 import { sanitizeArticleHtml, articlePlainText } from './article-sanitize.mjs';
 
@@ -51,6 +52,32 @@ export default function ShareArticleForm({ theme, showToast }) {
   const [title, setTitle] = useState('');
   const [tableText, setTableText] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
+  const [guestFile, setGuestFile] = useState(null);
+  const [guestFileUrl, setGuestFileUrl] = useState('');
+  const guestFileRef = useRef(null);
+  const onGuestFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const ext = String(f.name || '').split('.').pop().toLowerCase();
+    if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext) || !String(f.type || '').startsWith('image/')) {
+      showToast('Please choose a picture file (JPG, PNG, WebP or GIF).', 'error');
+      e.target.value = '';
+      return;
+    }
+    if (f.size > 1000000) {
+      showToast('Picture must be 1MB or smaller.', 'error');
+      e.target.value = '';
+      return;
+    }
+    if (guestFileUrl) { try { URL.revokeObjectURL(guestFileUrl); } catch (_) {} }
+    setGuestFile(f);
+    setGuestFileUrl(URL.createObjectURL(f));
+  };
+  const clearGuestFile = () => {
+    if (guestFileUrl) { try { URL.revokeObjectURL(guestFileUrl); } catch (_) {} }
+    setGuestFile(null); setGuestFileUrl('');
+    if (guestFileRef.current) guestFileRef.current.value = '';
+  };
   const [declared, setDeclared] = useState(false);
   const [sending, setSending] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -207,28 +234,54 @@ export default function ShareArticleForm({ theme, showToast }) {
     // Visitor network details (admin eyes only, never shown publicly):
     // the article is submitted straight from the browser to Supabase, so the
     // site server never sees the request — resolve IP/city/country via a
-    // public lookup. Fail-soft: if the lookup fails or times out, the
-    // submission still goes through without these fields.
+    // public lookup, ipapi.co first with ipwho.is as fallback (the live test
+    // showed ipapi.co alone can return nothing). Fail-soft: if every lookup
+    // fails or times out, the submission still goes through without these
+    // fields.
     let visitorNet = {};
-    try {
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 3500);
-      const res = await fetch('https://ipapi.co/json/', { signal: ctl.signal });
-      clearTimeout(timer);
-      if (res.ok) {
+    const netProviders = [
+      { url: 'https://ipapi.co/json/', pick: (j) => ({ ip: j.ip, city: j.city, country: j.country_name || j.country }) },
+      { url: 'https://ipwho.is/', pick: (j) => ({ ip: j.ip, city: j.city, country: j.country }) },
+    ];
+    for (const p of netProviders) {
+      try {
+        const ctl = new AbortController();
+        const timer = setTimeout(() => ctl.abort(), 3500);
+        const res = await fetch(p.url, { signal: ctl.signal });
+        clearTimeout(timer);
+        if (!res.ok) continue;
         const j = await res.json();
-        if (j.ip) visitorNet.ip = String(j.ip);
-        if (j.city) visitorNet.city = String(j.city);
-        if (j.country_name || j.country) visitorNet.country = String(j.country_name || j.country);
-      }
-    } catch (e) { visitorNet = {}; }
+        const got = p.pick(j) || {};
+        if (got.ip) visitorNet.ip = String(got.ip);
+        if (got.city) visitorNet.city = String(got.city);
+        if (got.country) visitorNet.country = String(got.country);
+        if (visitorNet.ip) break;
+      } catch (e) { /* try the next provider; submission is never blocked */ }
+    }
     try {
+      // Direct guest picture upload (needs SUPABASE-guest-upload.sql run once
+      // by the admin; until then the upload fails with a clear message and
+      // the form keeps its text). Uploaded pictures always go to pending so
+      // the admin reviews the image content first.
+      let uploadedImageUrl = '';
+      if (guestFile) {
+        const ext = String(guestFile.name || '').split('.').pop().toLowerCase();
+        const uid = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : ('g' + Date.now() + Math.random().toString(36).slice(2));
+        const path = 'guest-covers/' + uid + '.' + ext;
+        const { error: upErr } = await supabase.storage.from('edunexus-public-files').upload(path, guestFile, { contentType: guestFile.type || undefined, upsert: false });
+        if (upErr) throw new Error('UPLOAD_FAILED');
+        const { data: pub } = supabase.storage.from('edunexus-public-files').getPublicUrl(path);
+        uploadedImageUrl = (pub && pub.publicUrl) || '';
+        if (!uploadedImageUrl) throw new Error('UPLOAD_FAILED');
+      }
       const html = editorHtml();
       // Scan the plain text (same scan categories + flow as before).
-      const scan = scanArticleContent({ title, body: articlePlainText(html), imageName: coverUrl });
+      const scan = scanArticleContent({ title, body: articlePlainText(html), imageName: guestFile ? guestFile.name : coverUrl });
       const clean = scan.status === 'clean';
+      const hasUpload = Boolean(uploadedImageUrl);
+      const publishedNow = clean && !hasUpload;
       const extra = {
-        moderation_status: clean ? 'published' : 'pending',
+        moderation_status: publishedNow ? 'published' : 'pending',
         submitted_by: {
           name: name.trim(),
           email: email.trim(),
@@ -241,21 +294,28 @@ export default function ShareArticleForm({ theme, showToast }) {
       await createArticle({
         title: title.trim(),
         content: html,
-        imageUrl: coverUrl.trim() || undefined,
+        imageUrl: uploadedImageUrl || coverUrl.trim() || undefined,
         author: name.trim(),
-        isActive: clean,
+        isActive: publishedNow,
         extra,
       });
-      if (clean) {
+      if (publishedNow) {
         showToast('Your article is published!', 'success');
+      } else if (hasUpload) {
+        showToast('Your article was sent for admin approval — uploaded pictures are reviewed by the admin first.', 'info');
       } else {
         showToast('Your article was sent for admin approval and will appear after review.', 'info');
       }
       setName(''); setEmail(''); setContact(''); setTitle('');
       setTableText(''); setCoverUrl(''); setDeclared(false); setOpen(false);
+      clearGuestFile();
       clearEditor();
     } catch (e) {
-      showToast('Could not submit your article. Please try again.', 'error');
+      if (e && e.message === 'UPLOAD_FAILED') {
+        showToast('Picture upload needs the guest-upload rule (SUPABASE-guest-upload.sql) — please ask the admin to run it once. Your text is still here.', 'error');
+      } else {
+        showToast('Could not submit your article. Please try again.', 'error');
+      }
     }
     setSending(false);
   };
@@ -273,6 +333,7 @@ export default function ShareArticleForm({ theme, showToast }) {
           <p className={`text-sm ${theme.textMuted} mb-4`}>
             Anyone can share an article. Every article is scanned before publishing:
             clean articles publish immediately, flagged ones go to admin approval.
+            Uploaded pictures are reviewed by the admin first.
             No Islamophobic, sexual, political, anti-country, anti-army or
             personal-attack content is published.
           </p>
@@ -382,6 +443,15 @@ export default function ShareArticleForm({ theme, showToast }) {
           <input value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} placeholder="https://.../cover.jpg" className={inputCls} />
           {coverUrl && /^https?:\/\//i.test(coverUrl.trim()) && (
             <div className="mt-0 mb-3 h-24 w-full overflow-hidden rounded-lg bg-slate-100"><img src={coverUrl.trim()} alt="Cover preview" loading="lazy" className="h-full w-full object-cover opacity-80" /></div>
+          )}
+          <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Or upload a cover picture (Max 1MB)</label>
+          <input ref={guestFileRef} type="file" accept="image/*" onChange={onGuestFile} className="mb-2 text-sm" />
+          {guestFileUrl && (
+            <div className="mb-3">
+              <div className="h-24 w-full overflow-hidden rounded-lg bg-slate-100"><img src={guestFileUrl} alt="Uploaded cover preview" loading="lazy" className="h-full w-full object-cover opacity-80" /></div>
+              <p className={`text-xs ${theme.textMuted} mt-1`}>Uploaded picture will be used instead of the URL above.</p>
+              <button type="button" onClick={clearGuestFile} className="text-xs font-bold text-red-500 hover:underline mt-1">Remove uploaded picture</button>
+            </div>
           )}
           <label className={`flex items-start gap-2 text-sm ${theme.textMuted} mb-4 cursor-pointer`}>
             <input type="checkbox" checked={declared} onChange={(e) => setDeclared(e.target.checked)} className="w-4 h-4 mt-0.5" />
