@@ -3,7 +3,6 @@
 export const MAIN_ITEMS = Object.freeze([
   { id: 'home', label: 'Home', href: '/' },
   { id: 'academic', label: 'Academic Hub', href: '/?page=academic' },
-  { id: 'exam-prep', label: 'Exam Prep', href: '/?page=exam-prep' },
   { id: 'mcq-bank', label: 'MCQ Bank', href: '/mcq-bank' },
   { id: 'paper-reviews', label: 'Paper Reviews', href: '/paper-reviews' },
   { id: 'cgpa', label: 'CGPA Calc', href: '/?page=cgpa' },

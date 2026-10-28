@@ -335,12 +335,6 @@ const Navbar = ({
       if (isMenuOpen) toggleMenu();
       return;
     }
-    if (targetPage === 'exam-prep') {
-      setPage('exam-prep');
-      try { window.history.pushState({}, '', '/exam-prep'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {}
-      if (isMenuOpen) toggleMenu();
-      return;
-    }
     setPage(targetPage);
     if (isMenuOpen) toggleMenu();
   };
@@ -348,9 +342,6 @@ const Navbar = ({
   const isActive = (id) => {
     if (id === 'mcq-bank' || id === 'paper-reviews') {
       try { return page === 'exam-prep' && new RegExp('^/' + id + '(\\/|$)').test(window.location.pathname || ''); } catch (_) { return false; }
-    }
-    if (id === 'exam-prep') {
-      try { if (/^\/(mcq-bank|paper-reviews)(\/|$)/i.test(window.location.pathname || '')) return false; } catch (_) {}
     }
     return navActivePage(page) === id;
   };
