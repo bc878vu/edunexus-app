@@ -132,7 +132,7 @@ function updateSeo() {
   const ogImage = page === 'portfolio' ? SITE + '/portfolio-og.jpg?v=2'
     : pathname === '/mcq-bank' ? SITE + '/mcq-bank-og.jpg'
     : pathname === '/paper-reviews' ? SITE + '/paper-reviews-og.jpg'
-    : SITE + '/logo512.png';
+    : SITE + '/logo-wide.jpg';
   setProp('og:image', ogImage);
   setMeta('twitter:title', title);
   setMeta('twitter:description', description);

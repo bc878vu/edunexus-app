@@ -124,7 +124,7 @@ function routeSeo(route) {
   const image = page === 'portfolio' ? SITE + '/portfolio-og.jpg?v=2'
     : pathname === '/mcq-bank' ? SITE + '/mcq-bank-og.jpg'
     : pathname === '/paper-reviews' ? SITE + '/paper-reviews-og.jpg'
-    : SITE + '/logo512.png';
+    : SITE + '/logo-wide.jpg';
   return { page, pathParams, title, description, keywords, canonical, image, schemaType: data[3], bank, subjectRaw };
 }
 
