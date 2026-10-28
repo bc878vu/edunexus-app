@@ -2771,11 +2771,16 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           if (!alive) return;
           const bySubject = cat.bySubject || {};
           const mcqTotal = Object.values(bySubject).reduce((n, c) => n + (c.quiz || 0) + (c.midterm || 0) + (c.finalterm || 0), 0);
+          const mcqByTerm = { quiz: 0, midterm: 0, finalterm: 0 };
+          Object.values(bySubject).forEach((c) => { mcqByTerm.quiz += c.quiz || 0; mcqByTerm.midterm += c.midterm || 0; mcqByTerm.finalterm += c.finalterm || 0; });
           setOverview({
             articles: (artItems || []).length,
             files: (fileRes.items || []).length,
             mcqTotal,
             mcqSubjects: Object.keys(bySubject).length,
+            artItems: artItems || [],
+            fileItems: fileRes.items || [],
+            mcqByTerm,
           });
         } catch (_) {}
       })();
@@ -2793,6 +2798,98 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{overview.files}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Study files</p></div>
           <div className="rounded-xl bg-rose-50 dark:bg-rose-900/20 p-4"><p className={`text-2xl font-black ${theme.text}`}>{unreadCount}</p><p className={`text-xs font-bold ${theme.textMuted}`}>Unread inbox messages</p></div>
         </div>
+        {(() => {
+          const arts = overview.artItems || [];
+          const st = (a) => (a.extra && a.extra.moderation_status) || (a.isActive === false ? 'disabled' : 'published');
+          const artSegs = [
+            { label: 'Published', value: arts.filter((a) => st(a) === 'published').length, color: '#10b981' },
+            { label: 'Pending review', value: arts.filter((a) => st(a) === 'pending').length, color: '#f59e0b' },
+            { label: 'Rejected', value: arts.filter((a) => st(a) === 'rejected').length, color: '#ef4444' },
+            { label: 'Disabled', value: arts.filter((a) => st(a) === 'disabled').length, color: '#94a3b8' },
+          ];
+          const mcqSegs = [
+            { label: 'Midterm', value: overview.mcqByTerm.midterm, color: '#6366f1' },
+            { label: 'Finalterm', value: overview.mcqByTerm.finalterm, color: '#8b5cf6' },
+            { label: 'Quiz', value: overview.mcqByTerm.quiz, color: '#0ea5e9' },
+          ];
+          const byFolder = {};
+          (overview.fileItems || []).forEach((f) => { const k = String(f.subject || 'General').trim() || 'General'; byFolder[k] = (byFolder[k] || 0) + 1; });
+          const topFolders = Object.entries(byFolder).sort((a, b) => b[1] - a[1]).slice(0, 5);
+          const maxFolder = topFolders.length ? topFolders[0][1] : 1;
+          const now = Date.now();
+          const buckets = [0, 0, 0, 0];
+          arts.forEach((a) => { const raw = (a.extra && a.extra.submitted_by && a.extra.submitted_by.submitted_at) || a.createdAt; const d = raw ? new Date(raw).getTime() : 0; if (!d) return; const days = (now - d) / 86400000; if (days >= 0 && days < 30) buckets[Math.min(3, Math.floor(days / 7))]++; });
+          const maxBucket = Math.max(1, ...buckets);
+          const pending = artSegs[1].value, disabled = artSegs[3].value;
+          const donut = (segs) => { const tot = segs.reduce((n, s) => n + s.value, 0); let acc = 0; const stops = []; segs.forEach((s) => { if (!s.value) return; const a0 = acc / (tot || 1) * 360; acc += s.value; stops.push(s.color + ' ' + a0 + 'deg ' + (acc / (tot || 1) * 360) + 'deg'); }); return { bg: stops.length ? 'conic-gradient(' + stops.join(', ') + ')' : '#e2e8f0', tot }; };
+          const dArt = donut(artSegs), dMcq = donut(mcqSegs);
+          const legend = (segs, tot) => segs.map((s) => (
+            <div key={s.label} className="flex items-center gap-2 text-xs">
+              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: s.color }} />
+              <span className={`${theme.text} font-bold`}>{s.label}</span>
+              <span className={theme.textMuted}>{s.value.toLocaleString('en-US')} ({tot ? Math.round(s.value / tot * 100) : 0}%)</span>
+            </div>
+          ));
+          return (<>
+            <div className="flex flex-wrap gap-2 mt-5 mb-5">
+              <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${pending ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'}`}>⏳ {pending} pending review</span>
+              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">🚫 {disabled} disabled articles</span>
+              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200">✉️ {unreadCount} unread inbox</span>
+              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">📚 {overview.articles} articles · {overview.mcqTotal.toLocaleString('en-US')} MCQs · {overview.files} files</span>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                <p className={`font-bold ${theme.text} mb-3`}>🍩 Articles by status</p>
+                <div className="flex items-center gap-4">
+                  <div className="w-28 h-28 rounded-full relative shrink-0" style={{ background: dArt.bg }}>
+                    <div className="absolute inset-4 rounded-full bg-white dark:bg-slate-900 flex flex-col items-center justify-center">
+                      <span className={`text-lg font-black ${theme.text}`}>{dArt.tot}</span>
+                      <span className={`text-[10px] ${theme.textMuted}`}>articles</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">{legend(artSegs, dArt.tot)}</div>
+                </div>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                <p className={`font-bold ${theme.text} mb-3`}>🍩 MCQ bank by term</p>
+                <div className="flex items-center gap-4">
+                  <div className="w-28 h-28 rounded-full relative shrink-0" style={{ background: dMcq.bg }}>
+                    <div className="absolute inset-4 rounded-full bg-white dark:bg-slate-900 flex flex-col items-center justify-center">
+                      <span className={`text-lg font-black ${theme.text}`}>{dMcq.tot.toLocaleString('en-US')}</span>
+                      <span className={`text-[10px] ${theme.textMuted}`}>questions</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">{legend(mcqSegs, dMcq.tot)}</div>
+                </div>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                <p className={`font-bold ${theme.text} mb-3`}>📊 Top study folders</p>
+                <div className="flex items-end gap-2 h-28">
+                  {topFolders.map(([name, n]) => (
+                    <div key={name} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                      <span className={`text-xs font-bold ${theme.text}`}>{n}</span>
+                      <div className="w-full rounded-t-lg bg-indigo-500" style={{ height: Math.max(n > 0 ? 8 : 2, (n / maxFolder) * 72) + 'px' }} />
+                      <span className={`text-[10px] ${theme.textMuted} truncate max-w-full`} title={name}>{name}</span>
+                    </div>
+                  ))}
+                  {!topFolders.length && <p className={`text-sm ${theme.textMuted}`}>No files yet.</p>}
+                </div>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                <p className={`font-bold ${theme.text} mb-3`}>📊 Articles — last 30 days</p>
+                <div className="flex items-end gap-2 h-28">
+                  {buckets.map((n, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                      <span className={`text-xs font-bold ${theme.text}`}>{n}</span>
+                      <div className="w-full rounded-t-lg bg-violet-500" style={{ height: Math.max(n > 0 ? 8 : 2, (n / maxBucket) * 72) + 'px' }} />
+                      <span className={`text-[10px] ${theme.textMuted}`}>{['This week', 'Last week', '2 wks ago', '3 wks ago'][i]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>);
+        })()}
       </div>
       )}
       <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
@@ -3115,6 +3212,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
   const BlogTab = () => {
     const [arts, setArts] = useState([]);
     const [editId, setEditId] = useState(null);
+    const [previewArt, setPreviewArt] = useState(null);
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [imageUrl, setImageUrl] = useState('');
@@ -3688,9 +3786,11 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                     <p className={`font-bold ${theme.text}`}>{String(a.title)}</p>
                     <p className={`text-xs ${theme.textMuted}`}>By: {sub.name || '—'} · Email: {sub.email || '—'} · Contact: {sub.contact || '—'}</p>
                     <p className={`text-xs ${theme.textMuted}`}>Submitted: {sub.submitted_at ? formatDate(sub.submitted_at) : formatDate(a.createdAt)} · Flagged for: {cats.length ? cats.join(', ') : 'review'}</p>
+                    <p className={`text-xs ${theme.textMuted} break-all`}>ID: {a.id}</p>
                     <div className="flex flex-wrap gap-2 mt-2">
                       <button onClick={() => decide(true)} className="text-green-600 text-xs font-bold hover:underline">✓ Approve & publish</button>
                       <button onClick={() => decide(false)} className="text-red-500 text-xs font-bold hover:underline">✕ Reject</button>
+                      <button onClick={() => setPreviewArt(a)} className="text-violet-600 text-xs font-bold hover:underline">👁 Full preview</button>
                       <button onClick={() => handleEdit(a)} className="text-indigo-500 text-xs font-bold hover:underline">Edit</button>
                     </div>
                   </div>
@@ -3700,19 +3800,60 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           </div>
         )}
 
+        {previewArt && (() => {
+          const psub = (previewArt.extra && previewArt.extra.submitted_by) || {};
+          const pcats = (previewArt.extra && previewArt.extra.scan && previewArt.extra.scan.categories) || [];
+          const pscan = (previewArt.extra && previewArt.extra.scan && previewArt.extra.scan.status) || '—';
+          const pstatus = (previewArt.extra && previewArt.extra.moderation_status) || (previewArt.isActive === false ? 'disabled' : 'published');
+          const pdecide = async (ok) => {
+            await updateArticle(previewArt.id, { isActive: ok, extra: { ...(previewArt.extra || {}), moderation_status: ok ? 'published' : 'rejected', decided_at: new Date().toISOString() } });
+            showToast(ok ? 'Article approved and published' : 'Article rejected', 'success');
+            setPreviewArt(null);
+          };
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setPreviewArt(null)}>
+              <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <h3 className={`text-lg font-bold ${theme.text}`}>{String(previewArt.title)}</h3>
+                  <button onClick={() => setPreviewArt(null)} className={`text-2xl leading-none ${theme.textMuted}`}>×</button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mb-4">
+                  <p className={`${theme.textMuted} break-all sm:col-span-2`}><b className={theme.text}>ID:</b> {previewArt.id}</p>
+                  <p className={theme.textMuted}><b className={theme.text}>Name:</b> {psub.name || '—'}</p>
+                  <p className={theme.textMuted}><b className={theme.text}>Email:</b> {psub.email || '—'}</p>
+                  <p className={theme.textMuted}><b className={theme.text}>Contact:</b> {psub.contact || '—'}</p>
+                  <p className={theme.textMuted}><b className={theme.text}>Submitted:</b> {psub.submitted_at ? formatDate(psub.submitted_at) : formatDate(previewArt.createdAt)}</p>
+                  <p className={theme.textMuted}><b className={theme.text}>Location:</b> {[psub.city, psub.country].filter(Boolean).join(', ') || '—'}</p>
+                  <p className={theme.textMuted}><b className={theme.text}>IP address:</b> {psub.ip || '—'}</p>
+                  <p className={theme.textMuted}><b className={theme.text}>Scan:</b> {pscan}{pcats.length ? ' (' + pcats.join(', ') + ')' : ''}</p>
+                  <p className={theme.textMuted}><b className={theme.text}>Status:</b> {pstatus}</p>
+                </div>
+                {previewArt.imageUrl && <img src={previewArt.imageUrl} alt="Cover" className="w-full rounded-xl mb-4 max-h-64 object-cover" />}
+                <div className={`text-sm leading-relaxed ${theme.text} mb-5`} dangerouslySetInnerHTML={{ __html: previewArt.content || '' }} />
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => pdecide(true)} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm">✓ Approve & publish</button>
+                  <button onClick={() => pdecide(false)} className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold text-sm">✕ Reject</button>
+                  <button onClick={() => { handleEdit(previewArt); setPreviewArt(null); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Edit</button>
+                  <button onClick={() => setPreviewArt(null)} className="bg-slate-500 text-white px-4 py-2 rounded-lg font-bold text-sm">Close</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         {/* User details table (added 2026-10-28): full information of every
             user who submitted an article, as saved in the database. */}
         {arts.some(a => a.extra && a.extra.submitted_by) && (
-          <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
+          <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} lg:col-span-2`}>
             <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>👥 User details — article submissions ({arts.filter(a => a.extra && a.extra.submitted_by).length})</h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-xs min-w-[1000px]">
                 <thead>
                   <tr className={`${theme.textMuted} text-left`}>
                     <th className="p-2">Name</th>
                     <th className="p-2">Email</th>
                     <th className="p-2">Contact</th>
                     <th className="p-2">Article</th>
+                    <th className="p-2">Article ID</th>
                     <th className="p-2">Submitted</th>
                     <th className="p-2">Location</th>
                     <th className="p-2">IP address</th>
@@ -3731,6 +3872,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                         <td className="p-2">{sub.email || '—'}</td>
                         <td className="p-2">{sub.contact || '—'}</td>
                         <td className="p-2">{String(a.title)}</td>
+                        <td className="p-2 font-mono" title={a.id}>{String(a.id).slice(0, 8)}…</td>
                         <td className="p-2">{sub.submitted_at ? formatDate(sub.submitted_at) : formatDate(a.createdAt)}</td>
                         <td className="p-2">{[sub.city, sub.country].filter(Boolean).join(', ') || '—'}</td>
                         <td className="p-2">{sub.ip || '—'}</td>
