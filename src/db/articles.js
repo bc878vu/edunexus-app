@@ -213,7 +213,7 @@ export async function listComments(articleId) {
       const { data, error } = await supabase.from('article_comments').select('*')
         .eq('article_id', articleId).order('created_at', { ascending: true });
       if (error) throw error;
-      sbItems = (data || []).map(row => ({ ...toComment(row), _backend: 'supabase' }));
+      sbItems = (data || []).filter(row => !row.moderation_status || row.moderation_status === 'published').map(row => ({ ...toComment(row), _backend: 'supabase' }));
     } catch (_) { /* Firestore comments can still load below. */ }
     let fbItems = [];
     try {
@@ -230,22 +230,22 @@ export async function listComments(articleId) {
   });
 }
 
-export async function addComment(articleId, { userId, userName, text }) {
+export async function addComment(articleId, { userId, userName, text, moderationStatus }) {
   clearCachedPrefix(COMMENT_PREFIX + articleId);
   const cleanText = String(text || '').trim();
   if (!cleanText) throw new Error('Comment text is required');
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) throw sessionError;
-  const session = sessionData?.session;
-  if (!session?.access_token || session.user?.id !== userId) throw new Error('Authenticated Supabase session required');
-  const { data, error } = await supabase.functions.invoke('article-social', {
-    headers: { Authorization: 'Bearer ' + session.access_token },
-    body: { action: 'comment', articleId, userName: userName || 'Student', text: cleanText.slice(0, 1000) },
-  });
+  // Guest comments write directly with the anon key (the site is sign-in-free;
+  // the old edge-function path required a Supabase session no guest has).
+  // The anon insert policy allows moderation_status 'pending' or 'published';
+  // flagged comments go pending, clean ones publish immediately.
+  const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'c-' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const { data, error } = await supabase.from('article_comments').insert({
+    id, article_id: articleId, user_id: userId || null, user_name: userName || 'Student',
+    text: cleanText.slice(0, 1000), moderation_status: moderationStatus || 'published',
+  }).select().single();
   if (error) throw error;
-  if (data?.error) throw new Error(data.error);
   clearCachedPrefix(COMMENT_PREFIX + articleId);
-  return data?.comment || { id: data?.id };
+  return toComment(data);
 }
 
 export async function updateComment(articleId, commentId, data) {

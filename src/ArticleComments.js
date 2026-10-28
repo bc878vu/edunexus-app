@@ -8,11 +8,11 @@ export default function ArticleComments({ articleId, user, sessionUid, isAdmin, 
   const [newComment, setNewComment] = useState('');
   const [posting, setPosting] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  // Supabase RLS requires user_id == auth.uid() (the Supabase session uid),
-  // but the app's `user` prop comes from Firebase auth only. The page prepares
-  // a Supabase (anon) session and passes its uid down; fall back to the
-  // Firebase uid only when no session exists.
+  // Guest comments write with the anon key (site is sign-in-free). The anon
+  // insert policy allows moderation_status 'pending' or 'published': flagged
+  // comments go to the admin approval queue, clean ones publish immediately.
   const uid = sessionUid || user?.uid || null;
+  const COMMENT_FLAGGED = ['islam murdabad', 'muslim murdabad', 'pakistan murdabad', 'army murdabad', 'fauj murdabad', 'pak army murdabad', 'porn', 'sex video', 'xxx video', 'vote for pti', 'vote for pmln', 'vote for ppp', 'lanat ho', 'beghairat'];
 
   useEffect(() => {
     if (!articleId) return;
@@ -43,17 +43,19 @@ export default function ArticleComments({ articleId, user, sessionUid, isAdmin, 
     }
     setPosting(true);
     try {
+      const flagged = COMMENT_FLAGGED.some(p => text.toLowerCase().includes(p));
       const saved = await addComment(articleId, {
         userId: uid,
         userName: user.displayName || user.email?.split('@')[0] || 'Student',
         text: text.slice(0, 1000),
+        moderationStatus: flagged ? 'pending' : 'published',
       });
-      if (saved?.id) {
+      if (saved?.id && !flagged) {
         setComments(prev => prev.some(item => item.id === saved.id) ? prev : [...prev, saved]);
         window.dispatchEvent(new CustomEvent('edunexus:article-comment-changed', { detail: { articleId } }));
       }
       setNewComment('');
-      showToast('Comment posted', 'success');
+      showToast(flagged ? 'Comment sent for admin approval' : 'Comment posted', 'success');
     } catch (e) {
       console.log('Comment post failed', e);
       showToast('Could not post comment', 'error');
@@ -184,15 +186,7 @@ export function useCommentCount(articleId) {
     };
     refresh();
     const unsub = subscribeComments(articleId, { onInvalidate: refresh });
-    const onChanged = (event) => {
-      if (!event?.detail?.articleId || event.detail.articleId === articleId) refresh();
-    };
-    window.addEventListener('edunexus:article-comment-changed', onChanged);
-    return () => {
-      alive = false;
-      unsub();
-      window.removeEventListener('edunexus:article-comment-changed', onChanged);
-    };
+    return () => { alive = false; unsub(); };
   }, [articleId]);
   return count;
 }
