@@ -5,7 +5,7 @@ import { getPublicArticle, listPublicArticles, articlePath, escapeHtml as h, slu
 import { sanitizeArticleHtml, articlePlainText } from '../src/article-sanitize.mjs';
 
 // Bump when the article HTML rendering changes, so old cached pages refresh.
-const RENDER_VERSION = 'v19-csp-connect-fix';
+const RENDER_VERSION = 'v20-article-cache-ttl';
 // Compact view counts: 999 -> "999", 1000 -> "1k", 1500 -> "1.5k", 26442 -> "26.4k".
 const fmtViews = (n) => { n = Number(n) || 0; if (n < 1000) return String(n); if (n >= 1000000) { const m = Math.round(n / 100000) / 10; return (m % 1 === 0 ? String(Math.round(m)) : String(m)) + 'M'; } const k = Math.round(n / 100) / 10; return (k % 1 === 0 ? String(Math.round(k)) : String(k)) + 'k'; };
 
@@ -45,12 +45,12 @@ html{color-scheme:light}html.dark{color-scheme:dark}
 
 // In-memory cache: survives Firestore quota outages so shared article links keep working.
 const pageCache = new Map(); // id -> { html, at }
-const CACHE_TTL = 60 * 60 * 1000;
+const CACHE_TTL = 5 * 60 * 1000;
 const MAX_CACHE = 200;
 function cacheGet(id) {
   const e = pageCache.get(RENDER_VERSION + ':' + id);
   if (!e) return null;
-  if (Date.now() - e.at > CACHE_TTL) { pageCache.delete(id); return null; }
+  if (Date.now() - e.at > CACHE_TTL) { pageCache.delete(RENDER_VERSION + ':' + id); return null; }
   return e.html;
 }
 function cacheSet(id, html) {
