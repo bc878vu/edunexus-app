@@ -327,17 +327,6 @@ function detectSectionFromUrl() {
   return '';
 }
 
-// detectDedicatedFromUrl: the standalone pages /mcq-bank and /paper-reviews
-// (and /paper-reviews/<id>) render only their own section — no tab bar.
-function detectDedicatedFromUrl() {
-  try {
-    const path = window.location.pathname || '';
-    if (/^\/mcq-bank(\/|$)/i.test(path)) return 'mcqs';
-    if (/^\/paper-reviews(\/|$)/i.test(path)) return 'reviews';
-  } catch (_) {}
-  return '';
-}
-
 // detectReviewIdFromUrl: a shared per-review link (/paper-reviews/<id>) or
 // ?review=<id> — the reviews feed highlights and scrolls to that card.
 function detectReviewIdFromUrl() {
@@ -540,14 +529,12 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     if (adminWorkspace) return initialTab === "admin" ? "admin" : "mcqs";
     return detectSectionFromUrl() || 'mcqs';
   });
-  const [dedicated, setDedicated] = useState(() => adminWorkspace ? '' : detectDedicatedFromUrl());
   const [reviewId, setReviewId] = useState(() => adminWorkspace ? '' : detectReviewIdFromUrl());
   useEffect(() => {
     if (adminWorkspace) return;
     const syncSection = () => {
       const requested = detectSectionFromUrl();
       if (requested) setTab(requested);
-      setDedicated(detectDedicatedFromUrl());
       setReviewId(detectReviewIdFromUrl());
     };
     window.addEventListener('popstate', syncSection);
@@ -708,11 +695,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     {tab === "mcqs" && <><section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><GraduationCap size={14} /> MCQ Bank</span><h1>Practice smarter. Prepare with confidence.</h1><p>Type your subject code in the search box below, pick Quiz, Midterm or Finalterm, and hit Search — practice the most important &amp; repeated MCQs for your paper.</p><div className="edx-exam-hero-links"><button onClick={() => { const el = document.querySelector(".edx-search-card"); if (el) el.scrollIntoView({behavior:"smooth",block:"start"}); }}>Find my subject <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
     {!adminWorkspace && <PracticeSearchCard searchText={searchText} onSearchTextChange={setSearchText} term={term} onTermChange={handleSearchTerm} onSearch={() => runSubjectSearch()} counts={searchCounts} subjects={catalogSubjects} status={searchStatus} searchedSubject={searchedSubject} loading={catalogLoading} total={catalog.total} subjectCount={catalog.subjects.length} />}
     {catalogError && <p className="edx-exam-alert" role="alert">{catalogError}</p>}</>}
-    {dedicated ? (
-      <div className="edx-exam-tabs" aria-label="Dedicated page">
-        <button type="button" onClick={() => { try { window.history.pushState({}, '', '/exam-prep'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }}><span>← All Exam Prep</span><small>MCQ Bank, reviews &amp; files</small></button>
-      </div>
-    ) : (
+    {adminWorkspace && (
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
       {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
     </nav>
