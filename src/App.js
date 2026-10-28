@@ -329,11 +329,31 @@ const Navbar = ({
   const ALL_ITEMS = MOBILE_ITEMS;
 
   const handleNavClick = (targetPage) => {
+    if (targetPage === 'mcq-bank' || targetPage === 'paper-reviews') {
+      setPage('exam-prep');
+      try { window.history.pushState({}, '', '/' + targetPage); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {}
+      if (isMenuOpen) toggleMenu();
+      return;
+    }
+    if (targetPage === 'exam-prep') {
+      setPage('exam-prep');
+      try { window.history.pushState({}, '', '/exam-prep'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {}
+      if (isMenuOpen) toggleMenu();
+      return;
+    }
     setPage(targetPage);
     if (isMenuOpen) toggleMenu();
   };
 
-  const isActive = (id) => navActivePage(page) === id;
+  const isActive = (id) => {
+    if (id === 'mcq-bank' || id === 'paper-reviews') {
+      try { return page === 'exam-prep' && new RegExp('^/' + id + '(\\/|$)').test(window.location.pathname || ''); } catch (_) { return false; }
+    }
+    if (id === 'exam-prep') {
+      try { if (/^\/(mcq-bank|paper-reviews)(\/|$)/i.test(window.location.pathname || '')) return false; } catch (_) {}
+    }
+    return navActivePage(page) === id;
+  };
 
   return (
     <>

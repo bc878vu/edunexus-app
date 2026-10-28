@@ -327,6 +327,29 @@ function detectSectionFromUrl() {
   return '';
 }
 
+// detectDedicatedFromUrl: the standalone pages /mcq-bank and /paper-reviews
+// (and /paper-reviews/<id>) render only their own section — no tab bar.
+function detectDedicatedFromUrl() {
+  try {
+    const path = window.location.pathname || '';
+    if (/^\/mcq-bank(\/|$)/i.test(path)) return 'mcqs';
+    if (/^\/paper-reviews(\/|$)/i.test(path)) return 'reviews';
+  } catch (_) {}
+  return '';
+}
+
+// detectReviewIdFromUrl: a shared per-review link (/paper-reviews/<id>) or
+// ?review=<id> — the reviews feed highlights and scrolls to that card.
+function detectReviewIdFromUrl() {
+  try {
+    const q = new URLSearchParams(window.location.search).get('review');
+    if (q) return q.slice(0, 80);
+    const m = (window.location.pathname || '').match(/^\/paper-reviews\/([^/]+)/i);
+    if (m) return decodeURIComponent(m[1]).slice(0, 80);
+  } catch (_) {}
+  return '';
+}
+
 // SampleMcqs: 5 interactive sample questions shown by default so the MCQ Bank
 // page never looks empty. Fully client-side, no database reads.
 const SAMPLE_MCQS = [
@@ -517,11 +540,15 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     if (adminWorkspace) return initialTab === "admin" ? "admin" : "mcqs";
     return detectSectionFromUrl() || 'mcqs';
   });
+  const [dedicated, setDedicated] = useState(() => adminWorkspace ? '' : detectDedicatedFromUrl());
+  const [reviewId, setReviewId] = useState(() => adminWorkspace ? '' : detectReviewIdFromUrl());
   useEffect(() => {
     if (adminWorkspace) return;
     const syncSection = () => {
       const requested = detectSectionFromUrl();
       if (requested) setTab(requested);
+      setDedicated(detectDedicatedFromUrl());
+      setReviewId(detectReviewIdFromUrl());
     };
     window.addEventListener('popstate', syncSection);
     window.addEventListener('edunexus:navigation', syncSection);
@@ -681,13 +708,19 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     {tab === "mcqs" && <><section className="edx-exam-hero"><div><span className="edx-exam-hero-tag"><GraduationCap size={14} /> MCQ Bank</span><h1>Practice smarter. Prepare with confidence.</h1><p>Type your subject code in the search box below, pick Quiz, Midterm or Finalterm, and hit Search — practice the most important &amp; repeated MCQs for your paper.</p><div className="edx-exam-hero-links"><button onClick={() => { const el = document.querySelector(".edx-search-card"); if (el) el.scrollIntoView({behavior:"smooth",block:"start"}); }}>Find my subject <ChevronRight size={16} /></button></div></div><GraduationCap size={68} aria-hidden="true" /></section>
     {!adminWorkspace && <PracticeSearchCard searchText={searchText} onSearchTextChange={setSearchText} term={term} onTermChange={handleSearchTerm} onSearch={() => runSubjectSearch()} counts={searchCounts} subjects={catalogSubjects} status={searchStatus} searchedSubject={searchedSubject} loading={catalogLoading} total={catalog.total} subjectCount={catalog.subjects.length} />}
     {catalogError && <p className="edx-exam-alert" role="alert">{catalogError}</p>}</>}
+    {dedicated ? (
+      <div className="edx-exam-tabs" aria-label="Dedicated page">
+        <button type="button" onClick={() => { try { window.history.pushState({}, '', '/exam-prep'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }}><span>← All Exam Prep</span><small>MCQ Bank, reviews &amp; files</small></button>
+      </div>
+    ) : (
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
       {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
     </nav>
+    )}
     {((tab === "mcqs" && searchedSubject) || tab === "reviews") && <ShareBar tab={tab} subject={subject} term={term} />}
     {tab === "mcqs" && searchedSubject && searchStatus === "found" && <React.Suspense fallback={<div className="edx-exam-card" role="status">Loading practice workspace…</div>}><ExamMcqPractice user={user} subject={subject} term={term} subjects={[searchedSubject]} onSubjectChange={selectSubject} categoryCounts={availableCounts} onTermChange={selectTerm}/></React.Suspense>}
     {tab === "mcqs" && !searchedSubject && <SampleMcqs />}
-    {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
+    {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} highlightReviewId={reviewId} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} onSubjectChange={selectSubject} subjects={catalogSubjects} />}
     {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { selectSubject(code); selectTerm(examType); setTab("mcqs"); }} />}
     <section className="edx-exam-seo" aria-label="About VU exam preparation"><h2>Free VU MCQ Practice, Paper Reviews and Study Files</h2><div className="edx-exam-seo-text"><p>EduNexus Exam Prep is the most comprehensive free practice platform for Virtual University students. Our MCQ bank contains thousands of solved multiple-choice questions across all major VU subjects — from CS101 and MTH301 to ENG201 and PAK301. Each question includes the correct answer and a detailed explanation, helping you understand the concept instead of just memorizing.</p><p>Choose your subject, select Midterm or Finalterm, and start practicing instantly. Our practice mode simulates real VU exam conditions with timed quizzes, instant scoring, and progress tracking. You can practice all available questions or customize the count to fit your study session. Every attempt is saved, so you can review your mistakes and focus on weak areas.</p><p>Beyond MCQs, explore real paper reviews shared by VU students who recently appeared in exams. These first-hand experiences reveal which topics appeared, how difficult the paper was, and what to prioritize. Combined with our study files library of handouts and solved papers, you get a complete exam preparation system — all free, all in one place.</p></div></section>

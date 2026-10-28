@@ -1,4 +1,4 @@
-export const EXAM_REVIEW_URL = 'https://edunexus-app.vercel.app/exam-prep';
+export const EXAM_REVIEW_URL = 'https://edunexus-app.vercel.app/paper-reviews';
 export const EDUNEXUS_WHATSAPP_GROUP = 'https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye.';
 
 export const formatExamDate = (iso) => {
@@ -46,6 +46,7 @@ export const examReviewText = (review) => {
     ...(safePaperUrl(review) ? ['', '*Shared paper:*', safePaperUrl(review)] : []),
     '> EduNexus',
     '',
+    ...(review.id ? ['View this review 👇', 'https://edunexus-app.vercel.app/paper-reviews/' + encodeURIComponent(review.id), ''] : []),
     'Share Your Paper Review Here 👇',
     EXAM_REVIEW_URL,
     '',

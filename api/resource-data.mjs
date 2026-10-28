@@ -62,6 +62,23 @@ export async function getPublicFile(id) {
   const doc = await getJson(endpoint(ROOT + '/' + encodeURIComponent(id)));
   return doc ? decodeDoc(doc) : null;
 }
+export async function getPublicPaperReview(id) {
+  if (!id) return null;
+  if (USE_SUPABASE) {
+    try {
+      const rows = await postgrestGet('exam_community_reviews',
+        'select=*&id=eq.' + encodeURIComponent(id) + '&is_active=eq.true&limit=1');
+      if (rows && rows[0]) return toCamel(rows[0]);
+    } catch (_) {}
+    try {
+      const rows = await postgrestGet('exam_reviews',
+        'select=*&id=eq.' + encodeURIComponent(id) + '&limit=1');
+      if (rows && rows[0] && rows[0].is_active !== false && rows[0].isActive !== false) return toCamel(rows[0]);
+    } catch (_) {}
+    return null;
+  }
+  return null;
+}
 export async function listPublicFiles(maxPages = 30) {
   if (USE_SUPABASE) {
     const result = [];

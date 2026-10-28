@@ -54,6 +54,9 @@ export function routeParamsFromPath(pathname) {
     return { page: 'exam-prep', subject: '', term: '', section: 'mcqs' };
   }
   // /paper-reviews — dedicated Paper Reviews page (exam-prep hub, reviews tab)
+  if (parts[0] === 'paper-reviews' && parts[1]) {
+    return { page: 'exam-prep', subject: '', term: '', section: 'reviews', reviewId: parts[1].slice(0, 80) };
+  }
   if (parts[0] === 'paper-reviews' && !parts[1]) {
     return { page: 'exam-prep', subject: '', term: '', section: 'reviews' };
   }

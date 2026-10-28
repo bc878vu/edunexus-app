@@ -177,9 +177,11 @@ function renderReviewContent(value) {
   });
 }
 
-function ReviewCard({ review, user }) {
+function ReviewCard({ review, user, highlight }) {
   const [notice, setNotice] = useState('');
   const [working, setWorking] = useState(false);
+  const cardRef = useRef(null);
+  useEffect(() => { if (highlight && cardRef.current) { try { cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {} } }, [highlight]);
   const text = useMemo(() => examReviewText(review), [review]);
   const shareLink = useMemo(() => whatsAppReviewUrl(review), [review]);
   const copy = async () => {
@@ -205,8 +207,8 @@ function ReviewCard({ review, user }) {
   };
   const legacy = review.collectionName === LEGACY_COLLECTION;
   const paperUrl = safePaperUrl(review);
-  return <article className="edx-paper-card">
-    <div className="edx-paper-card-head"><div className="edx-paper-course"><GraduationCap size={18} /><strong>{safe(review.subject, 12)}</strong><span>{review.term === 'midterm' ? 'Midterm' : 'Finalterm'}{review.semester ? ' · ' + safe(review.semester, 20) : ''}</span></div><span className="edx-paper-chip">{legacy ? 'Previous paper' : 'Shared experience'}</span></div>
+  return <article ref={cardRef} id={'edx-review-' + review.id} className="edx-paper-card" style={highlight ? { outline: '3px solid #6366f1', outlineOffset: '2px' } : undefined}>
+    <div className="edx-paper-card-head"><div className="edx-paper-course"><GraduationCap size={18} /><strong>{safe(review.subject, 12)}</strong><span>{review.term === 'midterm' ? 'Midterm' : 'Finalterm'}{review.semester ? ' · ' + safe(review.semester, 20) : ''}</span></div><span className="edx-paper-chip">{legacy ? 'Previous paper' : 'Shared experience'}</span>{highlight && <span className="edx-paper-chip">🔗 Linked review</span>}</div>
     <div className="edx-paper-card-meta"><span><CalendarDays size={15} /> {formatExamDate(review.examDate)}</span>{review.examTime && <span><Clock3 size={15} /> {formatExamTime(review.examTime)}</span>}<span><Users size={15} /> {safe(review.sharedBy, 60) || 'Student'}</span><span className="edx-paper-difficulty">{safe(review.difficulty, 20) || 'Unrated'}</span></div>
     <div className="edx-paper-content"><strong><FileText size={17} /> Paper content & preparation advice</strong>{review.topics && <p className="edx-paper-topics">Topics: {safe(review.topics, 400)}</p>}<p>{renderReviewContent(review.summary)}</p>{paperUrl && <a className="edx-paper-file-link" href={paperUrl} target="_blank" rel="noopener noreferrer"><FileText size={16}/> View shared paper ({safe(review.paperName,95) || 'PDF or image'}) <ExternalLink size={14}/></a>}</div>
     <div className="edx-paper-card-bottom"><span>Shared by a student</span><div className="edx-paper-card-actions"><button type="button" onClick={copy} className="edx-paper-copy"><ClipboardCopy size={16} /> Copy</button><a href={shareLink} target="_blank" rel="noopener noreferrer" className="edx-paper-whatsapp"><Share2 size={16} /> Share on WhatsApp</a></div></div>
@@ -247,7 +249,7 @@ function EarlierSubmissions({ user, onReuse }) {
   </section>;
 }
 
-export default function ExamPaperCommunity({ user, subject, term, onPublished }) {
+export default function ExamPaperCommunity({ user, subject, term, onPublished, highlightReviewId }) {
   const [community, setCommunity] = useState([]);
   const [legacy, setLegacy] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -304,6 +306,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
     ? dateValue(a.createdAt)-dateValue(b.createdAt)
     : dateValue(b.createdAt)-dateValue(a.createdAt)),
   [community,legacy,allSubjects,browseSubject,browseTerm,reviewSearch,sortBy]);
+  const highlighted = highlightReviewId ? reviews.find((r) => String(r.id) === String(highlightReviewId)) : null;
   const submitTerm = browseTerm === 'all' ? (term === 'finalterm' ? 'finalterm' : 'midterm') : browseTerm;
   const reuse = item => {
     setBrowseSubject(courseCode(item.subject));
@@ -346,7 +349,8 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished })
       {loading && <div className="edx-paper-skeleton" role="status">Loading student reviews…</div>}
       {errors.map(error => <div key={error.key} className="edx-paper-alert" role="alert">{error.message} <button type="button" onClick={()=>setReloadKey(n=>n+1)}>Retry</button></div>)}
       {!loading && !reviews.length && !errors.length && <div className="edx-paper-empty"><MessageCircle size={28}/><h3>{allSubjects?'No published paper reviews yet':'No reviews match these filters'}</h3><p>{allSubjects?'If you shared a review earlier, check Your earlier submissions above.':'Try All subjects, All exam types, or another keyword.'}</p></div>}
-      <div className="edx-paper-review-list">{reviews.map(review=><ReviewCard key={review.collectionName+':'+review.id} review={review} user={user}/>)}</div>
+      {highlightReviewId && !loading && !highlighted && <div className="edx-paper-alert" role="alert">This shared review could not be found — it may have been removed. Showing all reviews below.</div>}
+      <div className="edx-paper-review-list">{reviews.map(review=><ReviewCard key={review.collectionName+':'+review.id} review={review} user={user} highlight={highlightReviewId ? String(review.id) === String(highlightReviewId) : false}/>)}</div>
       <section className="edx-paper-seo" aria-label="About VU paper reviews"><h2>Real VU Paper Reviews Shared by Students</h2><div className="edx-paper-seo-text"><p>EduNexus Paper Reviews is a community platform where Virtual University students share their real exam experiences. After appearing in a midterm or final term paper, students describe which topics appeared, how difficult the questions were, and what future students should focus on. This first-hand information is incredibly valuable because VU often repeats question patterns across semesters.</p><p>Browse reviews by subject code, exam type (midterm or finalterm), or semester. Each review includes the course code, exam date, difficulty rating, important topics, and the student's detailed experience. You can copy any review, share it on WhatsApp with classmates, or report inappropriate content. Sharing your own paper experience takes less than two minutes and helps thousands of fellow VU students prepare better.</p><p>Unlike generic past papers, these reviews capture the actual exam day experience — which chapters were emphasized, whether MCQs were conceptual or factual, and how much time each section took. Use these insights alongside our MCQ practice bank and study files for the most effective VU exam preparation strategy.</p></div></section>
       <p className="edx-paper-disclaimer">Only share material you are allowed to discuss. Reviews containing spam or private exam material may be removed.</p>
     </section>

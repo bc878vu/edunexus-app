@@ -1,6 +1,6 @@
 import { standaloneAdScript, standaloneContentSecurityPolicy } from './ad-support.mjs';
 import { renderNavbar, renderFooter, renderThemeToggle, shellThemeBoot, navStyles } from './site-shell.mjs';
-import { escapeHtml as h, getPublicFile, getPublicHighlight, listPublicFiles, listApprovedReviews, resourcePath, highlightPath, SITE, slugFor, validId } from './resource-data.mjs';
+import { escapeHtml as h, getPublicFile, getPublicHighlight, getPublicPaperReview, listPublicFiles, listApprovedReviews, resourcePath, highlightPath, SITE, slugFor, validId } from './resource-data.mjs';
 import { guideForFile, SUBJECT_GUIDES } from './subject-guides.mjs';
 import { SUBJECTS } from './subjects-sitemap.mjs';
 
@@ -107,6 +107,34 @@ export default async function handler(req, res) {
     const subjectLinks = ogPage === 'academic' ? '<nav aria-label="Browse VU subjects"><h2>Explore subjects</h2><ul>' + SUBJECTS.map(code => '<li><a href="' + h(SITE + '/academic/' + encodeURIComponent(code)) + '">' + h(code) + ' study resources</a></li>').join('') + '</ul></nav>' : '';
     if (!isCrawler) return res.redirect(302, pg.appUrl);
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(pg.title)}</title><meta name="description" content="${h(pg.desc)}"><meta name="robots" content="index,follow"><link rel="canonical" href="${h(pg.appUrl)}"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(pg.title)}"><meta property="og:description" content="${h(pg.desc)}"><meta property="og:url" content="${h(pg.appUrl)}"><meta property="og:image" content="${h(pg.image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(pg.title)}"><meta name="twitter:description" content="${h(pg.desc)}"><meta name="twitter:image" content="${h(pg.image)}"><meta http-equiv="refresh" content="0;url=${h(pg.appUrl)}"></head><body><main><h1>${h(pg.title)}</h1><p>${h(pg.desc)}</p><p><a href="${h(pg.appUrl)}">Open EduNexus</a></p>${subjectLinks}</main></body></html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(html);
+  }
+
+  // Single paper-review share links: /paper-reviews/<id> (via a crawler-gated
+  // vercel.json rewrite). Crawlers (WhatsApp etc.) get the review's own title
+  // + short description so the preview card shows that review; browsers get
+  // a 302 to the dedicated reviews page, which highlights the review
+  // (loop-free: the browser rewrite sends /paper-reviews/:id to /index.html,
+  // never back to this function).
+  if (ogPage === 'paperreview') {
+    const rid = String(req.query?.id || '').slice(0, 80);
+    const ua = String(req.headers['user-agent'] || '').toLowerCase();
+    const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
+    const appUrl = SITE + '/paper-reviews/' + encodeURIComponent(rid);
+    if (!isCrawler) return res.redirect(302, appUrl);
+    let rv = null;
+    try { rv = await getPublicPaperReview(rid); } catch (_) {}
+    const subj = rv && rv.subject ? String(rv.subject).toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
+    const termLabel = rv && String(rv.term || '').toLowerCase() === 'finalterm' ? 'Finalterm' : 'Midterm';
+    const snippet = rv ? String(rv.summary || rv.topics || '').replace(/\s+/g, ' ').trim().slice(0, 150) : '';
+    const title = rv && subj ? subj + ' ' + termLabel + ' Paper Review | EduNexus' : 'Paper Reviews | EduNexus';
+    const desc = rv && subj
+      ? subj + ' ' + termLabel + ' paper review' + (rv.sharedBy ? ' by ' + rv.sharedBy : '') + (snippet ? ': ' + snippet : '') + ' \u2014 read it on EduNexus.'
+      : 'Read real paper reviews by VU students on EduNexus \u2014 paper patterns, important topics, difficulty level and exam tips. Share your own paper review.';
+    const image = SITE + '/paper-reviews-og.jpg';
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><link rel="canonical" href="${h(appUrl)}"><meta name="robots" content="noindex,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><main><h1>${h(title)}</h1><p>${h(desc)}</p><p><a href="${h(appUrl)}">Open EduNexus</a></p></main></body></html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     return res.status(200).send(html);

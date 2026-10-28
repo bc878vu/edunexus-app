@@ -328,6 +328,21 @@
       "destination": "/index.html"
     },
     {
+      "source": "/paper-reviews/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Ww]hats[Aa]pp|[Ff]acebookexternalhit|[Ff]acebookcatalog|[Tt]witterbot|[Ll]inkedin[Bb]ot|[Tt]elegrambot|[Dd]iscordbot|[Ss]lackbot|[Ss]kypeuripreview|[Gg]ooglebot|[Bb]ingbot|[Pp]interest|[Ee]mbedly|[Qq]uora|[Vv]k[Ss]hare).*"
+        }
+      ],
+      "destination": "/api/resource-page?ogpage=paperreview&id=:id"
+    },
+    {
+      "source": "/paper-reviews/:id",
+      "destination": "/index.html"
+    },
+    {
       "source": "/paper-reviews",
       "destination": "/index.html"
     }
