@@ -9,6 +9,7 @@ import { listMcqs } from './db/examMcqs.js';
 import { CATEGORY_NAMES, answerKeyStats, attemptMessage, buildPracticeAttempt, canAdvance, isVerifiedAnswer, orderedQuestions, progressKey, QUESTION_LIMIT, recordAnswer, restoreAttemptIds, sanitizeProgress } from './examPractice';
 import RichContent from './RichContent';
 import { useConfirm } from './ConfirmDialog';
+import NotFoundHelp from './NotFoundHelp';
 import './exam-mcq-practice.css';
 
 const MCQS = ['artifacts', 'edunexus-live', 'public', 'data', 'examMcqs'];
@@ -424,7 +425,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       <CircleHelp size={29}/><h3>No questions found for {subject} · {CATEGORY_NAMES[term]}</h3>
       <p>No published questions were found for this combination. Quiz questions are listed separately from Midterm and Finalterm, even if their legacy Firestore records use the Midterm field.</p>
       <div className="edx-practice-empty-actions">{[["quiz", "Quiz"], ["midterm", "Midterm"], ["finalterm", "Finalterm"]].filter(([kind]) => kind !== term && categoryCounts[kind] > 0).map(([kind, label]) => <button type="button" key={kind} className="edx-exam-primary" onClick={() => onTermChange?.(kind)}>Open {label} · {categoryCounts[kind]} available</button>)}
-      <button type="button" className="edx-exam-secondary" onClick={() => (()=>{questionCache.delete(subject + ':' + term); setRefresh(v => v + 1);})()}>Check for new questions</button></div></div>}
+      <button type="button" className="edx-exam-secondary" onClick={() => (()=>{questionCache.delete(subject + ':' + term); setRefresh(v => v + 1);})()}>Check for new questions</button></div><NotFoundHelp /></div>}
     {!loading && !restoring && !loadError && !!actualQuestions.length && !finished && current && <>
       <QuestionReview question={current} number={index+1} total={actualQuestions.length} selected={answers[current.id]}
         onSelect={select} onPrevious={() => goTo(actualQuestions[index-1])} onNext={nextQuestion}

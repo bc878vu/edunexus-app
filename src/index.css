@@ -67,3 +67,10 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 .edx-article-body th, .edx-article-body td { border: 1px solid #cbd5e1; padding: .5em .7em; text-align: left; }
 .edx-article-body th { background: #eef2ff; }
 .edx-article-body img { max-width: 100%; height: auto; border-radius: 12px; }
+
+/* Shared "data not found" helper (NotFoundHelp.js): shown in public search
+   empty states instead of a bare "not found", with the admin WhatsApp button. */
+.edx-notfound-help { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.edx-notfound-help .edx-notfound-text { margin: 0; font-weight: 700; }
+.edx-notfound-whatsapp { display: inline-flex; align-items: center; gap: 7px; background: #25d366; color: #fff; font-weight: 700; padding: 9px 16px; border-radius: 999px; text-decoration: none; box-shadow: 0 4px 14px rgba(37, 211, 102, .35); }
+.edx-notfound-whatsapp:hover { filter: brightness(1.05); }

@@ -8,6 +8,7 @@ import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, publishedExamCa
 import { readCatalogFromSupabase } from "./examCatalogCounts";
 import { routeParamsFromPath } from "./app-routes.mjs";
 import { adminPanelAccess } from './adminSession';
+import NotFoundHelp from './NotFoundHelp';
 
 import "./exam-prep-hub.css";
 const ExamPaperCommunity = React.lazy(() => import("./ExamPaperCommunity"));
@@ -116,7 +117,7 @@ function StudyFiles({ subject, onSubjectChange, subjects }) {
       <div className="edx-exam-between"><h2>{subject} study files</h2><span className="edx-exam-pill">{visible.length} {visible.length === 1 ? 'file' : 'files'}</span></div>
       {loading && <p role="status">Loading study files…</p>}
       {error && <p role="alert">{error}</p>}
-      {!loading && !error && !visible.length && <div className="edx-study-empty"><FileText size={26}/><h3>{search ? 'No matching files' : 'No files shared for this subject yet'}</h3><p>{search ? 'Try another search or clear the search box.' : 'Browse the Academic Hub to find resources for other subjects.'}</p>{search && <button type="button" className="edx-exam-secondary" onClick={()=>setSearch('')}>Clear search</button>}</div>}
+      {!loading && !error && !visible.length && <div className="edx-study-empty"><FileText size={26}/><h3>{search ? 'No matching files' : 'No files shared for this subject yet'}</h3><p>{search ? 'Try another search or clear the search box.' : 'Browse the Academic Hub to find resources for other subjects.'}</p>{search && <button type="button" className="edx-exam-secondary" onClick={()=>setSearch('')}>Clear search</button>}{search && <NotFoundHelp />}</div>}
       {!loading && !!visible.length && <div className="edx-study-grid">{visible.map(file =>
         <article className="edx-study-file" key={file.id}><div className="edx-study-icon"><FileText size={21}/></div>
           <div><strong>{safe(file.name || file.title,120) || 'Study resource'}</strong><small>{safe(file.ext,10).toUpperCase() || 'RESOURCE'} · {subject}</small></div>
