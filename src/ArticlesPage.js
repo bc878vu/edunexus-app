@@ -41,6 +41,8 @@ const articleSharePath = (article) => articlePublicPath(article); // short clean
 
 // Views live in extra.views (no new column); pinned flag too (extra.pinned).
 const articleViews = (art) => Number(art.views ?? art.extra?.views ?? 0) || 0;
+// Compact counts: 999 -> "999", 1000 -> "1k", 1500 -> "1.5k", 26442 -> "26.4k".
+const fmtViews = (n) => { n = Number(n) || 0; if (n < 1000) return String(n); if (n >= 1000000) { const m = Math.round(n / 100000) / 10; return (m % 1 === 0 ? String(Math.round(m)) : String(m)) + 'M'; } const k = Math.round(n / 100) / 10; return (k % 1 === 0 ? String(Math.round(k)) : String(k)) + 'k'; };
 const isPinned = (art) => !!(art.extra && art.extra.pinned);
 
 // Excerpt + plain-text helpers (shared sanitizer understands the stored HTML)
@@ -194,7 +196,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
             <Clock size={12} /> {formatDate(art.createdAt)}
           </span>
           <span className="flex items-center gap-1">
-            <Eye size={12} /> {articleViews(art)} views
+            <Eye size={12} /> {fmtViews(articleViews(art))} views
           </span>
           {art.author && art.author !== 'Admin' && (
             <span>• By {art.author}</span>

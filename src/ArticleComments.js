@@ -92,7 +92,98 @@ export default function ArticleComments({ articleId, user, sessionUid, isAdmin, 
     return d.toLocaleDateString();
   };
 
-  const visibleComments = showAll ? comments : comments.slice(0, 3);
+  // Facebook-style threads: replies attach to their top-level comment and
+  // render indented beneath it. Anyone signed in can reply to anyone.
+  const [replyTo, setReplyTo] = useState(null); // { inputId, parentId, name }
+  const [replyText, setReplyText] = useState('');
+  const [replying, setReplying] = useState(false);
+  const commentIds = new Set(comments.map(c => c.id));
+  const topComments = comments.filter(c => !c.parentCommentId || !commentIds.has(c.parentCommentId));
+  const repliesOf = (pid) => comments.filter(c => c.parentCommentId === pid);
+  const visibleComments = showAll ? topComments : topComments.slice(0, 3);
+
+  const handleReplyPost = async () => {
+    const text = replyText.trim();
+    if (!text || !replyTo || !user) return;
+    setReplying(true);
+    try {
+      const flagged = COMMENT_FLAGGED.some(p => text.toLowerCase().includes(p));
+      const saved = await addComment(articleId, {
+        userId: uid,
+        userName: user.displayName || user.email?.split('@')[0] || 'Student',
+        text: text.slice(0, 1000),
+        moderationStatus: flagged ? 'pending' : 'published',
+        parentCommentId: replyTo.parentId,
+      });
+      if (saved?.id && !flagged) {
+        setComments(prev => prev.some(item => item.id === saved.id) ? prev : [...prev, saved]);
+        window.dispatchEvent(new CustomEvent('edunexus:article-comment-changed', { detail: { articleId } }));
+      }
+      setReplyText('');
+      setReplyTo(null);
+      showToast(flagged ? 'Reply sent for admin approval' : 'Reply posted', 'success');
+    } catch (e) {
+      console.log('Reply post failed', e);
+      showToast('Could not post reply', 'error');
+    }
+    setReplying(false);
+  };
+
+  const renderCommentRow = (c, indented) => (
+    <div key={c.id} className={`flex gap-3 ${indented ? 'ml-11' : ''}`}>
+      <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0">
+        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300">
+          {(c.userName || 'S')[0].toUpperCase()}
+        </span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className={`rounded-2xl px-3 py-2 ${theme.input || 'bg-slate-100 dark:bg-slate-800'}`}>
+          <p className={`text-xs font-bold ${theme.text}`}>{c.userName || 'Student'}</p>
+          <p className={`text-sm ${theme.text} break-words`} style={{overflowWrap: 'anywhere'}}>{c.text}</p>
+        </div>
+        <div className="flex items-center gap-3 mt-1 ml-1">
+          <span className={`text-[11px] ${theme.textMuted}`}>{formatTime(c.createdAt)}</span>
+          {user && (
+            <button
+              onClick={() => { setReplyTo({ inputId: c.id, parentId: c.parentCommentId || c.id, name: c.userName || 'Student' }); setReplyText(''); }}
+              className="text-[11px] text-indigo-500 hover:underline font-semibold"
+            >
+              Reply
+            </button>
+          )}
+          {(isAdmin || (uid && c.userId === uid)) && (
+            <button
+              onClick={() => handleDelete(c)}
+              className="text-[11px] text-red-500 hover:underline font-semibold flex items-center gap-1"
+            >
+              <Trash2 size={11} /> Delete
+            </button>
+          )}
+        </div>
+        {user && replyTo?.inputId === c.id && (
+          <div className="flex gap-2 items-center mt-2">
+            <input
+              value={replyText}
+              onChange={e => setReplyText(e.target.value)}
+              onKeyPress={e => e.key === 'Enter' && handleReplyPost()}
+              placeholder={`Reply to ${replyTo.name}...`}
+              maxLength={1000}
+              className={`flex-1 ${theme.input} rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500`}
+              disabled={replying}
+            />
+            <button
+              onClick={handleReplyPost}
+              disabled={replying || !replyText.trim()}
+              className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Post reply"
+            >
+              <Send size={16} />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className={`mt-4 pt-4 border-t ${theme.border}`}>
@@ -100,37 +191,17 @@ export default function ArticleComments({ articleId, user, sessionUid, isAdmin, 
       {comments.length > 0 && (
         <div className="space-y-3 mb-4">
           {visibleComments.map(c => (
-            <div key={c.id} className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                  {(c.userName || 'S')[0].toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className={`rounded-2xl px-3 py-2 ${theme.input || 'bg-slate-100 dark:bg-slate-800'}`}>
-                  <p className={`text-xs font-bold ${theme.text}`}>{c.userName || 'Student'}</p>
-                  <p className={`text-sm ${theme.text} break-words`} style={{overflowWrap: 'anywhere'}}>{c.text}</p>
-                </div>
-                <div className="flex items-center gap-3 mt-1 ml-1">
-                  <span className={`text-[11px] ${theme.textMuted}`}>{formatTime(c.createdAt)}</span>
-                  {(isAdmin || (uid && c.userId === uid)) && (
-                    <button
-                      onClick={() => handleDelete(c)}
-                      className="text-[11px] text-red-500 hover:underline font-semibold flex items-center gap-1"
-                    >
-                      <Trash2 size={11} /> Delete
-                    </button>
-                  )}
-                </div>
-              </div>
+            <div key={c.id} className="space-y-3">
+              {renderCommentRow(c, false)}
+              {repliesOf(c.id).map(r => renderCommentRow(r, true))}
             </div>
           ))}
-          {comments.length > 3 && (
+          {topComments.length > 3 && (
             <button
               onClick={() => setShowAll(!showAll)}
               className="text-xs font-bold text-indigo-500 hover:underline ml-11"
             >
-              {showAll ? 'Show less' : `View all ${comments.length} comments`}
+              {showAll ? 'Show less' : `View all ${topComments.length} comments`}
             </button>
           )}
         </div>

@@ -63,6 +63,7 @@ const COMMENT_SPEC = {
   userId: 'user_id',
   userName: 'user_name',
   text: 'text',
+  parentCommentId: 'parent_comment_id',
   createdAt: { col: 'created_at', ts: true },
   updatedAt: { col: 'updated_at', ts: true },
 };
@@ -230,7 +231,7 @@ export async function listComments(articleId) {
   });
 }
 
-export async function addComment(articleId, { userId, userName, text, moderationStatus }) {
+export async function addComment(articleId, { userId, userName, text, moderationStatus, parentCommentId }) {
   clearCachedPrefix(COMMENT_PREFIX + articleId);
   const cleanText = String(text || '').trim();
   if (!cleanText) throw new Error('Comment text is required');
@@ -239,10 +240,14 @@ export async function addComment(articleId, { userId, userName, text, moderation
   // The anon insert policy allows moderation_status 'pending' or 'published';
   // flagged comments go pending, clean ones publish immediately.
   const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'c-' + Date.now().toString(36) + Math.random().toString(36).slice(2);
-  const { data, error } = await supabase.from('article_comments').insert({
+  const row = {
     id, article_id: articleId, user_id: userId || null, user_name: userName || 'Student',
     text: cleanText.slice(0, 1000), moderation_status: moderationStatus || 'published',
-  }).select().single();
+  };
+  // Only send parent_comment_id for actual replies: older deployments without
+  // the column reject any insert that names it, even when it is null.
+  if (parentCommentId) row.parent_comment_id = parentCommentId;
+  const { data, error } = await supabase.from('article_comments').insert(row).select().single();
   if (error) throw error;
   clearCachedPrefix(COMMENT_PREFIX + articleId);
   return toComment(data);
