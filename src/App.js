@@ -3302,6 +3302,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const [fontFamily, setFontFamily] = useState('inherit');
     const [fontSize, setFontSize] = useState('16');
     const editorRef = React.useRef(null);
+    const [htmlMode, setHtmlMode] = useState(false);
     const coverFileRef = React.useRef(null); // freshly-picked cover file, uploaded on publish
     // Inline link box (replaces the old native prompt() link flow): lets the
     // author add a real clickable link inside the article content.
@@ -3344,6 +3345,21 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
     const handleEditorInput = () => {
       setContent(editorRef.current?.innerHTML || '');
+    };
+
+    // HTML source mode for the admin editor: the rich-text area cannot accept
+    // pasted HTML source (it lands as literal tags). In HTML mode a textarea
+    // shows the raw innerHTML; leaving the mode writes it back into the
+    // editor, so the normal save path (which reads the editor's innerHTML)
+    // persists exactly what was pasted, tables included.
+    const toggleHtmlMode = () => {
+      if (htmlMode) {
+        if (editorRef.current) editorRef.current.innerHTML = content;
+        setHtmlMode(false);
+      } else {
+        setContent(editorRef.current?.innerHTML || content);
+        setHtmlMode(true);
+      }
     };
 
     // Clean pasted HTML before it lands in the editor: unwraps headings that
@@ -3467,14 +3483,14 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     };
 
     const handleSubmit = async () => {
-      const textContent = editorRef.current?.innerText?.trim() || content.replace(/<[^>]*>/g, '').trim();
+      const textContent = htmlMode ? content.replace(/<[^>]*>/g, '').trim() : (editorRef.current?.innerText?.trim() || content.replace(/<[^>]*>/g, '').trim());
       if(!title.trim() || !textContent) return;
       if (!editId && (textContent.length < 450 || !originalConfirmed)) {
         showToast('New articles need meaningful original content (at least 450 characters) and an authorship/permission declaration.', 'error');
         return;
       }
       // Never persist headings that wrap whole blocks (paste artifact).
-      const htmlContent = unwrapNestedHeadings(editorRef.current?.innerHTML || content);
+      const htmlContent = unwrapNestedHeadings(htmlMode ? content : (editorRef.current?.innerHTML || content));
       let finalImageUrl = imageUrl;
       try {
         finalImageUrl = await uploadCoverIfNeeded();
@@ -3520,7 +3536,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     };
 
     const resetForm = () => {
-      setEditId(null); setTitle(''); setContent(''); setImageUrl(''); coverFileRef.current = null;
+      setEditId(null); setHtmlMode(false); setTitle(''); setContent(''); setImageUrl(''); coverFileRef.current = null;
       setKeywords(''); setHiddenLinks(''); setIsActive(true);
       setOriginalConfirmed(false); setFontFamily('inherit'); setFontSize('16');
       if (editorRef.current) editorRef.current.innerHTML = '';
@@ -3532,6 +3548,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       let full = art;
       try { const got = await getArticle(art.id); if (got) full = got; } catch (_) {}
       setEditId(full.id);
+      setHtmlMode(false);
       setTitle(full.title || '');
       const cleanBody = unwrapNestedHeadings(full.content || '');
       setContent(cleanBody);
@@ -3750,7 +3767,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             {imageUrl && <div className="mt-2 h-20 w-full overflow-hidden rounded-lg bg-slate-100"><img src={imageUrl} alt="Preview" loading="lazy" className="h-full w-full object-cover opacity-80" /></div>}
           </div>
 
-          <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Content <span className="font-normal">(rich text editor)</span></label>
+          <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Content <span className="font-normal">(rich text editor — the &lt;/&gt; button switches to HTML source)</span></label>
           <div className={`border rounded-lg mb-3 overflow-hidden ${theme.border}`}>
             <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
               <select value={fontFamily} onChange={e=>applyFontFamily(e.target.value)} className="text-xs p-1 rounded border bg-white dark:bg-slate-700" title="Font family">
@@ -3785,6 +3802,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               <button type="button" onMouseDown={(e)=>e.preventDefault()} onClick={openLinkBox} className={toolbarBtn} title="Insert link">🔗</button>
               <button type="button" onClick={removeLink} className={toolbarBtn} title="Remove link">⛓️‍💥</button>
               <button type="button" onClick={()=>execCmd('removeFormat')} className={toolbarBtn} title="Clear formatting">✕</button>
+              <button type="button" onClick={toggleHtmlMode} className={htmlMode ? "px-2 py-1 rounded bg-indigo-600 text-white text-xs font-bold" : toolbarBtn} title="Edit HTML source">&lt;/&gt;</button>
             </div>
             {showLinkBox && (
               <div className="flex flex-wrap items-center gap-2 mt-2 p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
@@ -3813,10 +3831,20 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               contentEditable
               onInput={handleEditorInput}
               onPaste={handleEditorPaste}
-              className={`min-h-[180px] p-3 outline-none ${theme.text} bg-white dark:bg-slate-900`}
+              className={`min-h-[180px] p-3 outline-none ${theme.text} bg-white dark:bg-slate-900 ${htmlMode ? 'hidden' : ''}`}
               style={{fontSize: '15px', lineHeight: '1.6'}}
               data-placeholder="Write article content here..."
             />
+            {htmlMode && (
+              <textarea
+                value={content}
+                onChange={e=>setContent(e.target.value)}
+                className={`min-h-[180px] w-full p-3 outline-none ${theme.text} bg-white dark:bg-slate-900 font-mono text-xs`}
+                style={{lineHeight: '1.6'}}
+                placeholder="Paste HTML source here, then press the </> button again to return to the visual editor before saving..."
+                spellCheck={false}
+              />
+            )}
           </div>
 
           <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Hidden SEO Keywords <span className="font-normal">(comma separated, not shown on page)</span></label>
