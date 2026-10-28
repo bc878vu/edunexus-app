@@ -340,7 +340,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished, h
     <EarlierSubmissions user={user} onReuse={reuse}/>
     <section className="edx-paper-feed" id="edx-paper-feed" aria-labelledby="edx-paper-feed-title">
       <div className="edx-paper-feed-head"><div><span className="edx-paper-kicker"><MessageCircle size={16} /> Shared by students</span><h2 id="edx-paper-feed-title">{allSubjects ? 'Latest paper experiences' : 'Paper experiences for '+browseSubject}</h2><p>Browse shared completed-exam experiences or search for a specific subject.</p></div><span className="edx-paper-feed-count">{reviews.length} {reviews.length===1?'review':'reviews'}</span></div>
-      {!showForm && <button type="button" className="edx-exam-secondary" onClick={()=>setShowForm(true)}>Write a review</button>}
+      {!showForm && <button type="button" className="edx-paper-write-cta" onClick={()=>setShowForm(true)}><Send size={17}/> Write a review</button>}
       <div className="edx-paper-feed-controls">
         <label><Search size={17}/><input type="search" value={reviewSearch} onChange={e=>setReviewSearch(e.target.value)} placeholder="Find a subject, topic or keyword…" aria-label="Search paper reviews"/></label>
         <select value={sortBy} onChange={e=>setSortBy(e.target.value)} aria-label="Sort paper reviews"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
