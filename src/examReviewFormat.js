@@ -62,10 +62,7 @@ export const examReviewText = (review) => {
     '',
     ...(review.id ? ['View this review 👇', 'https://edunexus-app.vercel.app/r/' + shortReviewCode(review.id), ''] : []),
     'Share Your Paper Review Here 👇',
-    EXAM_REVIEW_URL,
-    '',
-    'Message EduNexus for more Papers 👇',
-    EDUNEXUS_WHATSAPP_GROUP
+    EXAM_REVIEW_URL
   ].join('\n');
 };
 

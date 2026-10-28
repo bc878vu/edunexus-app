@@ -6,7 +6,7 @@ const example = {
   sharedBy: 'Hifza', summary: 'I revised the handouts and found the general preparation useful.'
 };
 
-test('formats a student review with EduNexus branding and WhatsApp group link', () => {
+test('formats a student review with EduNexus branding and no trailing WhatsApp link', () => {
   const text = examReviewText(example);
   expect(text).toContain('📖 *Course Code:* CS101');
   expect(text).toContain('📚 *Exam:* Finalterm (Spring 2026)');
@@ -16,7 +16,8 @@ test('formats a student review with EduNexus branding and WhatsApp group link', 
   expect(text).toContain('*Paper Content:*');
   expect(text).toContain('> EduNexus');
   expect(text).toContain(EXAM_REVIEW_URL);
-  expect(text).toContain(EDUNEXUS_WHATSAPP_GROUP);
+  expect(text).not.toContain(EDUNEXUS_WHATSAPP_GROUP);
+  expect(text.trimEnd().endsWith(EXAM_REVIEW_URL)).toBe(true);
   expect(text.indexOf('Paper Content')).toBeLessThan(text.indexOf('Share Your Paper Review Here'));
 });
 
