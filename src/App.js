@@ -624,7 +624,10 @@ const Forum = ({ user, theme, showToast }) => {
       try {
         const items = await listDiscussions({ includeHidden: false });
         if (!alive) return;
-        setPosts(items.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)));
+        // Pinned first, then newest first inside each group (explicit, so a
+        // pinned post can never sink below newer posts on the user side).
+        const dateOf = (p) => { const t = p.createdAt; const d = t?.toDate ? t.toDate() : new Date(t); return Number.isNaN(d.getTime()) ? 0 : d.getTime(); };
+        setPosts(items.sort((a, b) => ((b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)) || (dateOf(b) - dateOf(a))));
       } catch (_) {}
     };
     refresh();
@@ -736,12 +739,13 @@ const Forum = ({ user, theme, showToast }) => {
         {posts.map((p) => (
           <div
             key={p.id}
-            className={`${theme.card} p-4 rounded-2xl border ${theme.border} space-y-3`}
+            className={`${theme.card} p-4 rounded-2xl border ${theme.border} space-y-3 ${p.pinned ? 'ring-2 ring-amber-400/60 bg-amber-50/40 dark:bg-amber-900/10' : ''}`}
           >
             <div className="flex justify-between gap-3">
               <div>
-                <p className={`font-semibold ${theme.text}`}>
+                <p className={`font-semibold ${theme.text} flex items-center gap-2 flex-wrap`}>
                   {String(p.userName || "Student")}
+                  {p.pinned && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-amber-950 text-[11px] font-extrabold">📌 Pinned</span>}
                 </p>
                 <p className={`text-xs ${theme.textMuted}`}>
 
