@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { listArticles, toggleLike, subscribeArticles, hasLiked as dbHasLiked } from './db/articles';
 import ShareArticleForm from './ShareArticleForm';
 import { ensureAnon } from './db/auth';
-import { Heart, BookOpen, Share2, MessageCircle, ChevronDown, ChevronUp, Clock, Maximize2, X } from 'lucide-react';
+import { Heart, BookOpen, Share2, MessageCircle, ChevronDown, ChevronUp, Clock, Maximize2, X, Eye } from 'lucide-react';
 import { sanitizeArticleHtml, articlePlainText, articleExcerpt } from './article-sanitize.mjs';
 import ArticleComments, { useCommentCount } from './ArticleComments';
 
@@ -38,6 +38,10 @@ const articlePublicPath = (article) => {
 };
 
 const articleSharePath = (article) => articlePublicPath(article); // short clean link; OG comes from the article API
+
+// Views live in extra.views (no new column); pinned flag too (extra.pinned).
+const articleViews = (art) => Number(art.views ?? art.extra?.views ?? 0) || 0;
+const isPinned = (art) => !!(art.extra && art.extra.pinned);
 
 // Excerpt + plain-text helpers (shared sanitizer understands the stored HTML)
 const getExcerpt = (content, maxLen = 280) => articleExcerpt(content, maxLen);
@@ -181,8 +185,16 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
           <span className="bg-gradient-to-r from-red-500 to-rose-500 text-white px-2.5 py-1 rounded-full font-bold text-[10px] tracking-wide uppercase">
             Official
           </span>
+          {isPinned(art) && (
+            <span className="bg-amber-400 text-amber-950 px-2.5 py-1 rounded-full font-bold text-[10px] tracking-wide uppercase">
+              📌 Pinned
+            </span>
+          )}
           <span className="flex items-center gap-1">
             <Clock size={12} /> {formatDate(art.createdAt)}
+          </span>
+          <span className="flex items-center gap-1">
+            <Eye size={12} /> {articleViews(art)} views
           </span>
           {art.author && art.author !== 'Admin' && (
             <span>• By {art.author}</span>
@@ -334,7 +346,10 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
     return () => { alive = false; unsubscribe(); };
   }, []);
 
-  const visibleArticles = articles.slice(0, visibleCount);
+  // Pinned articles always sort first (stable sort keeps date order inside
+  // each group); everything else is unchanged.
+  const sortedArticles = [...articles].sort((a, b) => (isPinned(b) ? 1 : 0) - (isPinned(a) ? 1 : 0));
+  const visibleArticles = sortedArticles.slice(0, visibleCount);
   const hasMore = visibleCount < articles.length;
 
   return (
@@ -372,25 +387,50 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
         </svg>
       </div>
 
-      {/* Top tabs: Articles | Publish your own article (khayalat) */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setTab('articles')}
-          className={`px-5 py-2.5 rounded-xl font-bold transition-colors ${tab === 'articles' ? 'bg-indigo-600 text-white' : `${theme.card} border ${theme.border}`}`}
-        >
-          📚 All Articles
-        </button>
-        <button
-          onClick={() => setTab('publish')}
-          className={`px-5 py-2.5 rounded-xl font-bold transition-colors ${tab === 'publish' ? 'bg-indigo-600 text-white' : `${theme.card} border ${theme.border}`}`}
-        >
-          ✍️ Publish Your Own Article — Khayalat
-        </button>
-      </div>
+      {/* BIG Publish card (replaces the cramped tab button, which the
+          floating bot button could cover): a large gradient card like the
+          Knowledge Base hero, fully responsive — stacks on mobile, no
+          truncation, button always reachable. All Articles stays one tap
+          away via the list below and the back button on the form. */}
+      {tab === 'articles' && (
+        <div className="relative overflow-hidden rounded-3xl shadow-lg">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-500" />
+          <div className="absolute inset-0 opacity-20" style={{
+            backgroundImage: 'radial-gradient(circle at 20% 30%, white 1px, transparent 1px), radial-gradient(circle at 80% 70%, white 1px, transparent 1px)',
+            backgroundSize: '40px 40px'
+          }} />
+          <div className="relative px-5 py-7 sm:px-8 sm:py-9 md:py-10 text-center sm:text-left flex flex-col sm:flex-row sm:items-center gap-5">
+            <div className="flex-1 min-w-0">
+              <p className="text-white/85 text-[11px] sm:text-xs font-bold tracking-wide uppercase mb-2">✍️ Your voice matters</p>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight break-words">
+                Publish Your Own Article — Khayalat
+              </h2>
+              <p className="text-white/85 text-sm sm:text-base mt-2 max-w-xl">
+                Share your knowledge, tips and thoughts with thousands of VU students.
+                Clean articles publish instantly — flagged ones go to admin review.
+              </p>
+            </div>
+            <button
+              onClick={() => setTab('publish')}
+              className="shrink-0 w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white text-indigo-700 font-extrabold text-sm sm:text-base shadow-xl hover:bg-indigo-50 hover:scale-[1.02] active:scale-95 transition-all"
+            >
+              ✍️ Write your article →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Publish form (public, scanned before publishing) */}
       {tab === 'publish' && (
-        <ShareArticleForm theme={theme} showToast={showToast} />
+        <>
+          <button
+            onClick={() => setTab('articles')}
+            className={`px-5 py-2.5 rounded-xl font-bold transition-colors ${theme.card} border ${theme.border}`}
+          >
+            ← 📚 Back to All Articles
+          </button>
+          <ShareArticleForm theme={theme} showToast={showToast} />
+        </>
       )}
 
       {/* Skeletons */}

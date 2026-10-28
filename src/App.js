@@ -3016,6 +3016,10 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const [isActive, setIsActive] = useState(true);
     const [originalConfirmed, setOriginalConfirmed] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+    // Article admin upgrades (added 2026-10-28): stats, sorting, filtering.
+    const [artSort, setArtSort] = useState('newest');
+    const [artStatus, setArtStatus] = useState('all');
+    const [artSearch, setArtSearch] = useState('');
     const [fontFamily, setFontFamily] = useState('inherit');
     const [fontSize, setFontSize] = useState('16');
     const editorRef = React.useRef(null);
@@ -3287,6 +3291,17 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       showToast(next ? "Article activated" : "Article disabled", "success");
     };
 
+    // Pin toggle (added 2026-10-28): stored in extra.pinned (existing jsonb
+    // column, no new column). Pinned articles sort first on the public list.
+    const togglePin = async (art) => {
+      const pinned = !(art.extra && art.extra.pinned);
+      await updateArticle(art.id, {
+        isActive: art.isActive === false ? false : true,
+        extra: { ...(art.extra || {}), pinned },
+      });
+      showToast(pinned ? 'Article pinned to top' : 'Article unpinned', 'success');
+    };
+
     const handleImageUpload = (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -3337,9 +3352,78 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
     const toolbarBtn = "p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm min-w-[32px] text-center";
 
+    // --- Admin article stats / sort / filter (added 2026-10-28) ---
+    // Status derivation (same rule as the user-details table below).
+    const artStatusOf = (a) => (a.extra && a.extra.moderation_status) || (a.isActive === false ? 'disabled' : 'published');
+    const artDateOf = (a) => {
+      const raw = (a.extra && a.extra.submitted_by && a.extra.submitted_by.submitted_at) || a.createdAt;
+      const d = raw && raw.toDate ? raw.toDate() : new Date(raw);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+    const statusCounts = { published: 0, pending: 0, rejected: 0, disabled: 0 };
+    arts.forEach((a) => { const s = artStatusOf(a); if (statusCounts[s] !== undefined) statusCounts[s]++; });
+    const totalArts = arts.length || 1;
+    // Submissions in the last 30 days, in 4 weekly buckets (CSS bars).
+    const weekBuckets = [0, 0, 0, 0];
+    const nowMs = Date.now();
+    arts.forEach((a) => {
+      const d = artDateOf(a);
+      if (!d) return;
+      const days = Math.floor((nowMs - d.getTime()) / 86400000);
+      if (days >= 0 && days < 30) weekBuckets[Math.min(3, Math.floor(days / 7))]++;
+    });
+    const maxBucket = Math.max(1, ...weekBuckets);
+    const filteredArts = arts.filter((a) => {
+      if (artStatus !== 'all' && artStatusOf(a) !== artStatus) return false;
+      if (artSearch.trim()) {
+        const q = artSearch.trim().toLowerCase();
+        const hay = String(a.title || '').toLowerCase() + ' ' +
+          String(a.author || '').toLowerCase() + ' ' +
+          String((a.extra && a.extra.submitted_by && a.extra.submitted_by.name) || '').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    }).sort((a, b) => {
+      if (artSort === 'title') return String(a.title || '').localeCompare(String(b.title || ''));
+      if (artSort === 'status') return artStatusOf(a).localeCompare(artStatusOf(b));
+      const da = artDateOf(a)?.getTime() || 0;
+      const db = artDateOf(b)?.getTime() || 0;
+      return artSort === 'oldest' ? da - db : db - da;
+    });
+
     return (
       <>
       <div className="grid lg:grid-cols-2 gap-6">
+        {/* Article stats + 30-day graph (CSS-only bars, no new library) */}
+        <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} lg:col-span-2`}>
+          <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>📊 Article stats ({arts.length} total)</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            {[
+              ['Published', statusCounts.published, 'bg-emerald-500'],
+              ['Pending review', statusCounts.pending, 'bg-amber-500'],
+              ['Rejected', statusCounts.rejected, 'bg-red-500'],
+              ['Disabled', statusCounts.disabled, 'bg-slate-400'],
+            ].map(([label, count, barCls]) => (
+              <div key={label} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                <p className={`text-2xl font-extrabold ${theme.text}`}>{count}</p>
+                <p className={`text-xs font-bold ${theme.textMuted}`}>{label}</p>
+                <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 mt-2 overflow-hidden">
+                  <div className={`h-full rounded-full ${barCls}`} style={{ width: (count / totalArts * 100) + '%' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className={`text-xs font-bold ${theme.textMuted} mb-2`}>Submissions — last 30 days (weekly buckets)</p>
+          <div className="flex items-end gap-2 h-20">
+            {weekBuckets.map((n, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                <span className={`text-xs font-bold ${theme.text}`}>{n}</span>
+                <div className="w-full rounded-t-lg bg-indigo-500" style={{ height: Math.max(n > 0 ? 8 : 2, (n / maxBucket) * 56) + 'px' }} />
+                <span className={`text-[10px] ${theme.textMuted}`}>{['This week', 'Last week', '2 wks ago', '3 wks ago'][i]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
         <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
           <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>{editId ? 'Edit Article' : 'New Article'}</h3>
 
@@ -3526,23 +3610,47 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
         )}
 
         <div className={`${theme.card} p-6 rounded-2xl border ${theme.border}`}>
-          <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>Existing Articles ({arts.length})</h3>
+          <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>Existing Articles ({filteredArts.length} of {arts.length})</h3>
+          {/* Sort + filter controls (added 2026-10-28) */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <select value={artSort} onChange={(e) => setArtSort(e.target.value)} className={`text-xs p-2 rounded-lg border ${theme.input}`} title="Sort articles">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="title">Title A–Z</option>
+              <option value="status">Status</option>
+            </select>
+            <select value={artStatus} onChange={(e) => setArtStatus(e.target.value)} className={`text-xs p-2 rounded-lg border ${theme.input}`} title="Filter by status">
+              <option value="all">All statuses</option>
+              <option value="published">Published</option>
+              <option value="pending">Pending review</option>
+              <option value="rejected">Rejected</option>
+              <option value="disabled">Disabled</option>
+            </select>
+            <input
+              value={artSearch}
+              onChange={(e) => setArtSearch(e.target.value)}
+              placeholder="Search title, author or submitter…"
+              className={`flex-1 min-w-[160px] text-xs p-2 rounded-lg border ${theme.input}`}
+            />
+          </div>
           <div className="space-y-3 max-h-[700px] overflow-y-auto pr-1">
-            {arts.map(a => (
+            {filteredArts.map(a => (
               <div key={a.id} className={`p-3 border rounded-xl ${a.isActive === false ? 'opacity-60 bg-slate-50 dark:bg-slate-800/50' : ''}`}>
                 <div className="flex items-start justify-between gap-2">
-                  <p className={`font-bold ${theme.text} flex-1`}>{String(a.title)}</p>
+                  <p className={`font-bold ${theme.text} flex-1`}>{a.extra && a.extra.pinned ? '📌 ' : ''}{String(a.title)}</p>
                   {a.isActive === false && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Disabled</span>}
+                  {a.extra && a.extra.pinned && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Pinned</span>}
                 </div>
-                <p className={`text-xs ${theme.textMuted}`}>{formatDate(a.createdAt)}{a.keywords ? ' · Has keywords' : ''}</p>
+                <p className={`text-xs ${theme.textMuted}`}>{formatDate(a.createdAt)}{a.keywords ? ' · Has keywords' : ''} · {artStatusOf(a)} · 👁 {Number(a.views ?? (a.extra && a.extra.views) ?? 0) || 0} views</p>
                 <div className="flex flex-wrap gap-2 mt-2">
                   <button onClick={()=>handleEdit(a)} className="text-indigo-500 text-xs font-bold flex items-center gap-1 hover:underline"><Edit size={12}/> Edit</button>
                   <button onClick={()=>toggleActive(a)} className="text-amber-600 text-xs font-bold flex items-center gap-1 hover:underline">{a.isActive === false ? 'Activate' : 'Disable'}</button>
+                  <button onClick={()=>togglePin(a)} className="text-amber-700 text-xs font-bold flex items-center gap-1 hover:underline">{a.extra && a.extra.pinned ? 'Unpin' : '📌 Pin'}</button>
                   <button onClick={()=>handleDelete(a)} className="text-red-500 text-xs font-bold flex items-center gap-1 hover:underline"><Trash2 size={12}/> Delete</button>
                 </div>
               </div>
             ))}
-            {!arts.length && <p className={theme.textMuted}>No articles yet.</p>}
+            {!filteredArts.length && <p className={theme.textMuted}>{arts.length ? 'No articles match this filter.' : 'No articles yet.'}</p>}
           </div>
         </div>
       </div>

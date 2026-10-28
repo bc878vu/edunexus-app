@@ -14,7 +14,7 @@ const ALLOWED_TAGS = new Set([
   'h2', 'h3', 'h4',
   'p', 'br', 'hr',
   'ul', 'ol', 'li',
-  'strong', 'b', 'em', 'i', 'u',
+  'strong', 'b', 'em', 'i', 'u', 's', 'strike',
   'blockquote', 'div', 'span', 'a',
   // Added 2026-10-28 (user article feature): tables + inline pictures.
   // img is handled specially below (https src + alt only, all else stripped).
@@ -67,6 +67,15 @@ export function sanitizeArticleHtml(input) {
       const am = /\balt\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
       const alt = am ? (am[2] ?? am[3] ?? am[4] ?? '') : '';
       return '<img src="' + escapeAttr(src.trim()) + '" alt="' + escapeAttr(alt) + '">';
+    }
+    if (t === 'span') {
+      // User/admin editors set font size via <span style="font-size:16px">.
+      // Keep ONLY a bare font-size declaration; any other style (colour,
+      // positioning, ...) is dropped so style cannot smuggle layout tricks.
+      const sty = /\bstyle\s*=\s*"([^"]*)"|'([^']*)'/.exec(attrs || '');
+      const styleVal = sty ? (sty[1] ?? sty[2] ?? '') : '';
+      const fm = /^\s*font-size\s*:\s*(\d+(?:\.\d+)?(?:px|pt|em|rem|%))\s*;?\s*$/i.exec(styleVal);
+      return fm ? '<span style="font-size:' + fm[1] + '">' : '<span>';
     }
     if (t === 'a') {
       const hm = /\bhref\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
