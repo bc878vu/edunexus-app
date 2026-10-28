@@ -3470,6 +3470,11 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const statusCounts = { published: 0, pending: 0, rejected: 0, disabled: 0 };
     arts.forEach((a) => { const s = artStatusOf(a); if (statusCounts[s] !== undefined) statusCounts[s]++; });
     const totalArts = arts.length || 1;
+    const guestPublished = arts.filter((a) => a.extra && a.extra.submitted_by && artStatusOf(a) === 'published').length;
+    const adminPublished = Math.max(0, statusCounts.published - guestPublished);
+    const guestAuthorCounts = {};
+    arts.forEach((a) => { if (a.extra && a.extra.submitted_by && artStatusOf(a) === 'published') { const nm = ((a.extra.submitted_by.name || 'Visitor').trim() || 'Visitor'); guestAuthorCounts[nm] = (guestAuthorCounts[nm] || 0) + 1; } });
+    const topGuestAuthors = Object.entries(guestAuthorCounts).sort((x, y) => y[1] - x[1]).slice(0, 3);
     // Submissions in the last 30 days, in 4 weekly buckets (CSS bars).
     const weekBuckets = [0, 0, 0, 0];
     const nowMs = Date.now();
@@ -3520,6 +3525,26 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               </div>
             ))}
           </div>
+          <p className={`text-xs font-bold ${theme.textMuted} mb-2`}>Published by source — visitors vs admin</p>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+              <p className={`text-2xl font-extrabold ${theme.text}`}>{guestPublished}</p>
+              <p className={`text-xs font-bold ${theme.textMuted}`}>Published by visitors</p>
+              <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 mt-2 overflow-hidden">
+                <div className="h-full rounded-full bg-violet-500" style={{ width: (statusCounts.published ? (guestPublished / statusCounts.published * 100) : 0) + '%' }} />
+              </div>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+              <p className={`text-2xl font-extrabold ${theme.text}`}>{adminPublished}</p>
+              <p className={`text-xs font-bold ${theme.textMuted}`}>Published by admin</p>
+              <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 mt-2 overflow-hidden">
+                <div className="h-full rounded-full bg-sky-500" style={{ width: (statusCounts.published ? (adminPublished / statusCounts.published * 100) : 0) + '%' }} />
+              </div>
+            </div>
+          </div>
+          {topGuestAuthors.length > 0 && (
+            <p className={`text-xs ${theme.textMuted} mb-5`}>Top visitor authors: {topGuestAuthors.map(([nm, n]) => nm + ' (' + n + ')').join(' · ')}</p>
+          )}
           <p className={`text-xs font-bold ${theme.textMuted} mb-2`}>Submissions — last 30 days (weekly buckets)</p>
           <div className="flex items-end gap-2 h-20">
             {weekBuckets.map((n, i) => (
