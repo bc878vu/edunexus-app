@@ -134,7 +134,7 @@ export function highlightArticleCode(html) {
     return (
       '<div class="edx-code-wrap"><pre>' +
       highlightCodeText(raw) +
-      '</pre><button type="button" class="edx-code-copy">Copy</button></div>'
+      '</pre><button type="button" class="edx-code-copy">📋 Copy</button></div>'
     );
   });
 }

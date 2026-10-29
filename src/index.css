@@ -101,9 +101,9 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 .edx-article-body .tok-com { color: #6A9955; }
 .edx-article-body .tok-fn { color: #DCDCAA; }
 .edx-code-wrap { position: relative; }
-.edx-code-copy { position: absolute; top: 8px; right: 8px; padding: 4px 10px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font: 600 .75rem/1.4 ui-sans-serif, system-ui, sans-serif; cursor: pointer; opacity: 0; transition: opacity .15s; }
-.edx-code-wrap:hover .edx-code-copy, .edx-code-copy:focus-visible { opacity: 1; }
-@media (hover: none) { .edx-code-copy { opacity: 1; } }
+.edx-code-copy { position: absolute; top: 8px; right: 8px; padding: 4px 10px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font: 600 .75rem/1.4 ui-sans-serif, system-ui, sans-serif; cursor: pointer; }
+.edx-code-copy:hover { background: #334155; }
+@media (max-width: 480px) { .edx-code-copy { top: 6px; right: 6px; padding: 3px 8px; font-size: .7rem; } }
 
 /* Shared "data not found" helper (NotFoundHelp.js): shown in public search
    empty states instead of a bare "not found", with the admin WhatsApp button. */
