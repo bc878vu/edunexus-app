@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { listArticles, toggleLike, subscribeArticles, hasLiked as dbHasLiked } from './db/articles';
+import { listArticles, toggleLike, unlikeArticle, refreshArticles, getArticle, subscribeArticles, hasLiked as dbHasLiked } from './db/articles';
 import ShareArticleForm from './ShareArticleForm';
 import { ensureAnon } from './db/auth';
 import { Heart, BookOpen, Share2, MessageCircle, ChevronDown, ChevronUp, Clock, Maximize2, X, Eye } from 'lucide-react';
@@ -80,23 +80,49 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
     setLikedNow(false);
   }, [art.id, art.likes]);
 
+  const [liking, setLiking] = useState(false);
+  // Like toggle (2026-10-29): one like per user per article — click to like,
+  // click again to unlike, again to like. Success is silent (no popup);
+  // only a genuine failure shows an error toast.
   const handleLike = async () => {
-    if (!user) {
-      showToast("Please sign in to like", "error");
+    if (liking) return;
+    if (!art.id || !uid) {
+      showToast("Could not update like", "error");
       return;
     }
-    if (hasLiked) return;
+    setLiking(true);
     try {
-      const res = await toggleLike(art.id, uid);
-      if (res && res.liked === false) {
-        showToast("Already liked", "error");
-        return;
+      if (hasLiked) {
+        const res = await unlikeArticle(art.id, uid);
+        if (res.unliked) {
+          setLikedNow(false);
+          setLikedDb(false);
+          setLikeCount(count => Math.max(0, (Number(count) || 0) - 1));
+        } else {
+          // Delete removed nothing: re-sync from server truth instead of
+          // guessing (covers a missing unlike policy + stale local state).
+          const still = await dbHasLiked(art.id, uid);
+          if (still) {
+            showToast("Could not unlike", "error");
+          } else {
+            setLikedNow(false);
+            setLikedDb(false);
+            try { const fresh = await getArticle(art.id); if (fresh) setLikeCount(Number(fresh.likes) || 0); } catch (_) {}
+          }
+        }
+      } else {
+        const res = await toggleLike(art.id, uid);
+        // Edge reports already-liked instead of toggling: sync to liked
+        // silently (the goal state is already true, no popup).
+        setLikedNow(true);
+        setLikedDb(true);
+        if (Number.isFinite(Number(res?.likes)) && Number(res.likes) > 0) setLikeCount(Number(res.likes));
+        else setLikeCount(count => count + 1);
       }
-      setLikedNow(true);
-      setLikeCount(Number.isFinite(Number(res?.likes)) && Number(res.likes) > 0 ? Number(res.likes) : count => count + 1);
-      showToast("Liked!", "success");
     } catch (e) {
-      showToast("Could not like", "error");
+      showToast("Could not update like", "error");
+    } finally {
+      setLiking(false);
     }
   };
 
@@ -247,7 +273,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
         <div className={`flex flex-wrap items-center gap-1 md:gap-2 border-t ${theme.border} pt-3`}>
           <button
             onClick={handleLike}
-            disabled={hasLiked}
+            disabled={liking}
             className={`flex shrink-0 items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
               hasLiked
                 ? "text-red-500 cursor-default"
@@ -336,7 +362,12 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
     let alive = true;
     const load = async () => {
       try {
-        const all = await listArticles({ limit: 100 });
+        // A full-article view sets this flag when it counts a view or a
+        // like toggle, so the list refreshes past its 5-min cache on return.
+        let dirty = false;
+        try { dirty = localStorage.getItem("edunexus_articles_dirty") === "1"; } catch (e) {}
+        const all = dirty ? await refreshArticles({ limit: 100 }) : await listArticles({ limit: 100 });
+        if (dirty) { try { localStorage.removeItem("edunexus_articles_dirty"); } catch (e) {} }
         if (!alive) return;
         // Hide disabled articles from public
         const visible = all.filter(a => a.isActive !== false);
@@ -353,6 +384,32 @@ const ArticlesPage = ({ user, isAdmin, theme, showToast }) => {
     load();
     const unsubscribe = subscribeArticles({ onInvalidate: load });
     return () => { alive = false; unsubscribe(); };
+  }, []);
+
+  // Back/forward (bfcache) restores the page without re-running the load
+  // effect, and tab switches don't either — force a fresh fetch so view
+  // and like counts update the moment the list is visible again.
+  useEffect(() => {
+    let lastRefresh = 0;
+    const forceRefresh = async () => {
+      try {
+        const all = await refreshArticles({ limit: 100 });
+        const visible = all.filter(a => a.isActive !== false);
+        setArticles(visible);
+        try { localStorage.setItem("edunexus_articles", JSON.stringify(visible)); } catch (e) {}
+      } catch (_) {}
+    };
+    const onPageShow = (e) => { if (e.persisted) forceRefresh(); };
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefresh < 60000) return;
+      lastRefresh = now;
+      forceRefresh();
+    };
+    window.addEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.removeEventListener('pageshow', onPageShow); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
   // Pinned articles always sort first (stable sort keeps date order inside

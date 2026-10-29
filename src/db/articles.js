@@ -89,6 +89,15 @@ export async function listArticles({ limit: max = 100 } = {}) {
     );});
 }
 
+/** Force a fresh list fetch, bypassing the 5-min list cache. Used when the
+ *  page returns from a full-article view, where views/likes may have moved
+ *  since the list was last fetched (bfcache + cache would otherwise keep
+ *  showing stale counts on the list page). */
+export async function refreshArticles({ limit: max = 100 } = {}) {
+  clearCachedPrefix(CACHE_PREFIX);
+  return listArticles({ limit: max });
+}
+
 export async function listArticleSummaries({ limit: max = 100 } = {}) {
   // Lightweight list for admin tables + dashboard: every field the admin UI
   // filters, sorts or counts on — but NOT the full HTML bodies, which were
@@ -203,6 +212,28 @@ export async function toggleLike(articleId, userId) {
   if (data?.error) throw new Error(data.error);
   clearCachedPrefix(CACHE_PREFIX);
   return { liked: !!data?.liked, alreadyLiked: !!data?.alreadyLiked, likes: Number(data?.likes) || 0 };
+}
+
+/**
+ * Remove the user's like (the second click of the like toggle). The
+ * article-social edge function supports 'like' only, so unlike goes through
+ * a direct row delete under the user's own session. Requires the
+ * SUPABASE-likes-unlike.sql policy (owner DELETE) + decrement trigger;
+ * without them the delete removes 0 rows and unliked is false, which the
+ * caller must treat as "not unliked" (re-sync from server truth).
+ * Returns { unliked } — true only when a row was actually removed.
+ */
+export async function unlikeArticle(articleId, userId) {
+  if (!articleId || !userId) throw new Error('articleId and userId are required');
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  const session = sessionData?.session;
+  if (!session?.access_token || session.user?.id !== userId) throw new Error('Authenticated Supabase session required');
+  const { data, error } = await supabase.from('article_likes').delete()
+    .eq('article_id', articleId).eq('user_id', userId).select('article_id');
+  if (error) throw error;
+  clearCachedPrefix(CACHE_PREFIX);
+  return { unliked: (data || []).length > 0, deleted: (data || []).length };
 }
 
 /** Whether userId already liked articleId (drives the hasLiked UI state). */
