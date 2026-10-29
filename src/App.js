@@ -3362,6 +3362,23 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       setContent(editorRef.current?.innerHTML || '');
     };
 
+    // Code block toggle: wraps the current block in <pre> (renders in code
+    // font via .edx-article-body pre), or back to a paragraph when already
+    // inside one. The article sanitizer keeps pre/code on display.
+    const toggleCodeBlock = () => {
+      const ed = editorRef.current;
+      if (!ed) return;
+      ed.focus();
+      const sel = window.getSelection();
+      let node = sel?.anchorNode;
+      let inPre = false;
+      while (node && node !== ed) {
+        if (node.nodeName === 'PRE') { inPre = true; break; }
+        node = node.parentNode;
+      }
+      execCmd('formatBlock', inPre ? 'p' : 'pre');
+    };
+
     const handleEditorInput = () => {
       setContent(editorRef.current?.innerHTML || '');
     };
@@ -3820,6 +3837,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               <button type="button" onClick={()=>execCmd('insertOrderedList')} className={toolbarBtn} title="Numbered list">1.</button>
               <button type="button" onMouseDown={(e)=>e.preventDefault()} onClick={openLinkBox} className={toolbarBtn} title="Insert link">🔗</button>
               <button type="button" onClick={removeLink} className={toolbarBtn} title="Remove link">⛓️‍💥</button>
+              <button type="button" onClick={toggleCodeBlock} className={toolbarBtn} title="Code block"><span style={{fontFamily:'ui-monospace, monospace'}}>{'{ }'}</span></button>
               <button type="button" onClick={()=>execCmd('removeFormat')} className={toolbarBtn} title="Clear formatting">✕</button>
               <button type="button" onClick={toggleHtmlMode} className={htmlMode ? "px-2 py-1 rounded bg-indigo-600 text-white text-xs font-bold" : toolbarBtn} title="Edit HTML source">&lt;/&gt;</button>
             </div>

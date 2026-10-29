@@ -19,6 +19,9 @@ const ALLOWED_TAGS = new Set([
   // Added 2026-10-28 (user article feature): tables + inline pictures.
   // img is handled specially below (https src + alt only, all else stripped).
   'table', 'thead', 'tbody', 'tr', 'th', 'td', 'img',
+  // Added 2026-10-29 (code articles): pre + code blocks render in code
+  // font via the article-body pre/code styles (editor-like code blocks).
+  'pre', 'code',
 ]);
 
 // Unwrap headings that wrongly wrap whole blocks — a paste artifact from the

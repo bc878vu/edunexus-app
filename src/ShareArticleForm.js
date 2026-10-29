@@ -110,6 +110,23 @@ export default function ShareArticleForm({ theme, showToast }) {
     syncCount();
   };
 
+  // Code block toggle: wraps the current block in <pre> (renders in code
+  // font via .edx-article-body pre), or back to a paragraph when already
+  // inside one. The article sanitizer keeps pre/code on display.
+  const toggleCodeBlock = () => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    ed.focus();
+    const sel = window.getSelection();
+    let node = sel?.anchorNode;
+    let inPre = false;
+    while (node && node !== ed) {
+      if (node.nodeName === 'PRE') { inPre = true; break; }
+      node = node.parentNode;
+    }
+    execCmd('formatBlock', inPre ? 'p' : 'pre');
+  };
+
   const applyFontFamily = (family) => {
     editorRef.current?.focus();
     document.execCommand('fontName', false, family);
@@ -378,6 +395,7 @@ export default function ShareArticleForm({ theme, showToast }) {
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={openLinkBox} className={toolbarBtn} title="Insert link">🔗</button>
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execCmd('unlink')} className={toolbarBtn} title="Remove link">⛓️‍💥</button>
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setShowLinkBox(false); setShowImageBox(!showImageBox); }} className={toolbarBtn} title="Insert image from URL">🖼️</button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={toggleCodeBlock} className={toolbarBtn} title="Code block"><span style={{ fontFamily: 'ui-monospace, monospace' }}>{'{ }'}</span></button>
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execCmd('removeFormat')} className={toolbarBtn} title="Clear formatting">✕</button>
             </div>
             {showLinkBox && (
