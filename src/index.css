@@ -68,6 +68,16 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 .edx-article-body th { background: #eef2ff; }
 .edx-article-body img { max-width: 100%; height: auto; border-radius: 12px; }
 
+/* Dark theme: article tables must keep readable text on dark surfaces.
+   Without these, th keeps its light #eef2ff background while inheriting
+   light theme text in dark mode, so the header row renders as a blank
+   white bar (seen on the CS619 article, 2026-10-29). */
+.dark .edx-article-body th { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.dark .edx-article-body td { border-color: #334155; }
+.dark .edx-article-body a { color: #a5b4fc; }
+.dark .edx-article-body a:hover { color: #c7d2fe; }
+.dark .edx-article-body hr { border-top-color: #334155; }
+
 /* Shared "data not found" helper (NotFoundHelp.js): shown in public search
    empty states instead of a bare "not found", with the admin WhatsApp button. */
 .edx-notfound-help { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
