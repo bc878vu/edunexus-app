@@ -79,18 +79,13 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 .dark .edx-article-body hr { border-top-color: #334155; }
 
 /* Tables keep their natural column widths and scroll horizontally
-   inside this wrapper when wider than the screen — headers never
+   inside this wrapper when wider than the screen (desktop) — headers never
    squeeze mid-word. The wrapper is added at render time (see
-   enhanceArticleBodyHtml), so it covers every article automatically. */
+   enhanceArticleBodyHtml), so it covers every article automatically.
+   On phones the override at the end of this file fits tables to the
+   screen instead, so no column is ever cut off. */
 .edx-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .edx-table-wrap table { width: max-content; min-width: 100%; }
-
-/* Phones: code wraps instead of scrolling, so no line is ever cut off;
-   the Copy button sits below the block instead of covering code. */
-@media (max-width: 767px) {
-  .edx-article-body pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: visible; }
-  .edx-code-copy { position: static; display: block; margin: 6px 0 0 auto; }
-}
 
 /* Code blocks render like a code editor (VS Code / Sublime style): dark
    editor surface, monospace font, preserved indentation, horizontal scroll.
@@ -119,3 +114,17 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 .edx-notfound-help .edx-notfound-text { margin: 0; font-weight: 700; }
 .edx-notfound-whatsapp { display: inline-flex; align-items: center; gap: 7px; background: #25d366; color: #fff; font-weight: 700; padding: 9px 16px; border-radius: 999px; text-decoration: none; box-shadow: 0 4px 14px rgba(37, 211, 102, .35); }
 .edx-notfound-whatsapp:hover { filter: brightness(1.05); }
+
+/* Phones override — MUST stay at the end of this file, after the base
+   code/table rules above. CSS rules of equal specificity are won by the
+   LATER one, so a phone block placed above the base rules is silently
+   overridden on phones (that was the 2026-10-29 bug: code never wrapped
+   and the Copy button stayed overlaid in the app view). On phones, tables
+   fit the screen instead of scrolling, so no column is ever cut off. */
+@media (max-width: 767px) {
+  .edx-article-body pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: visible; }
+  .edx-code-copy { position: static; display: block; margin: 6px 0 0 auto; }
+  .edx-table-wrap { overflow-x: visible; }
+  .edx-table-wrap table { width: 100%; table-layout: fixed; }
+  .edx-article-body th, .edx-article-body td { overflow-wrap: anywhere; word-break: break-word; padding: .45em .5em; font-size: .85em; }
+}
