@@ -89,8 +89,10 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 
 /* Code blocks render like a code editor (VS Code / Sublime style): dark
    editor surface, monospace font, preserved indentation, horizontal scroll.
-   The dark surface is used in both site themes, like editor apps. */
-.edx-article-body pre { display: block; box-sizing: border-box; max-width: 100%; margin: 1em 0; padding: 14px 16px; border-radius: 12px; border: 1px solid #1e293b; background: #0f172a; color: #e2e8f0; font: 400 .9em/1.6 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; white-space: pre; overflow-x: auto; overflow-wrap: normal; word-break: normal; tab-size: 4; -webkit-overflow-scrolling: touch; }
+   The dark surface is used in both site themes, like editor apps.
+   The 88px right padding reserves the Copy button's own top-right corner
+   space, so code never runs under the button. */
+.edx-article-body pre { display: block; box-sizing: border-box; max-width: 100%; margin: 1em 0; padding: 14px 88px 14px 16px; border-radius: 12px; border: 1px solid #1e293b; background: #0f172a; color: #e2e8f0; font: 400 .9em/1.6 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; white-space: pre; overflow-x: auto; overflow-wrap: normal; word-break: normal; tab-size: 4; -webkit-overflow-scrolling: touch; }
 .edx-article-body code { font: 400 .92em/1.6 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; background: #f1f5f9; color: #1e293b; padding: .1em .35em; border-radius: 6px; overflow-wrap: anywhere; }
 .edx-article-body pre code { background: none; padding: 0; border: 0; color: inherit; font-size: inherit; }
 .dark .edx-article-body code { background: #1e293b; color: #e2e8f0; }
@@ -119,11 +121,13 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
    code/table rules above. CSS rules of equal specificity are won by the
    LATER one, so a phone block placed above the base rules is silently
    overridden on phones (that was the 2026-10-29 bug: code never wrapped
-   and the Copy button stayed overlaid in the app view). On phones, tables
-   fit the screen instead of scrolling, so no column is ever cut off. */
+   in the app view). On phones, tables fit the screen instead of
+   scrolling, so no column is ever cut off. The Copy button stays
+   INSIDE the block at the top-right corner (absolute, not below the
+   block, so it adds no vertical gap to the article); the pre reserves
+   an 88px strip on the right so code never runs under the button. */
 @media (max-width: 767px) {
   .edx-article-body pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: visible; }
-  .edx-code-copy { position: static; display: block; margin: 6px 0 0 auto; }
   .edx-table-wrap { overflow-x: visible; }
   .edx-table-wrap table { width: 100%; table-layout: fixed; }
   .edx-article-body th, .edx-article-body td { overflow-wrap: anywhere; word-break: break-word; padding: .45em .5em; font-size: .85em; }
