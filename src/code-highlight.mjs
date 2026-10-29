@@ -139,7 +139,24 @@ export function highlightArticleCode(html) {
   });
 }
 
-// Click delegation for copy buttons rendered by highlightArticleCode.
+// Wrap every <table> in a horizontal-scroll container. This is what
+// makes tables responsive: the table keeps its natural column widths
+// (headers never squeeze mid-word) and scrolls inside its container
+// when it is wider than the screen. Applied at render time, so every
+// article's tables — past and future — get it with no re-save. Runs on
+// already-sanitized HTML, which never contains edx-table-wrap, so a
+// table is wrapped exactly once.
+export function wrapArticleTables(html) {
+  return String(html ?? '').replace(/<table[\s\S]*?<\/table>/g, (m) => {
+    return '<div class="edx-table-wrap">' + m + '</div>';
+  });
+}
+
+// Full render-time enhancement for an article body: syntax-coloured
+// code blocks with Copy buttons, plus scrollable table wrappers.
+export function enhanceArticleBodyHtml(html) {
+  return wrapArticleTables(highlightArticleCode(html));
+}
 // Attach to a container (React onClick) or to document (SSR inline
 // script uses its own copy of this logic). Safe to call for any click:
 // it no-ops unless the click landed on a .edx-code-copy button.

@@ -3,7 +3,7 @@ import { createArticle } from './db/articles';
 import { supabase } from './db/_common.js';
 import { scanArticleContent } from './article-scan.mjs';
 import { sanitizeArticleHtml, articlePlainText } from './article-sanitize.mjs';
-import { highlightArticleCode, handleCodeCopyClick } from './code-highlight.mjs';
+import { enhanceArticleBodyHtml, handleCodeCopyClick } from './code-highlight.mjs';
 
 // Public "Share your article" form (sign-in-free, like the rest of the site).
 // Flow (user-approved 2026-10-28) — UNCHANGED:
@@ -451,7 +451,7 @@ export default function ShareArticleForm({ theme, showToast }) {
               </span>
             </div>
             {showPreview && (
-              <div className={`p-4 border-t border-slate-200 dark:border-slate-700 ${theme.text} edx-article-body`} onClick={handleCodeCopyClick} dangerouslySetInnerHTML={{ __html: highlightArticleCode(sanitizeArticleHtml(editorHtml())) }} />
+              <div className={`p-4 border-t border-slate-200 dark:border-slate-700 ${theme.text} edx-article-body`} onClick={handleCodeCopyClick} dangerouslySetInnerHTML={{ __html: enhanceArticleBodyHtml(sanitizeArticleHtml(editorHtml())) }} />
             )}
           </div>
 

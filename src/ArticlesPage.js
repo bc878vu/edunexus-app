@@ -4,7 +4,7 @@ import ShareArticleForm from './ShareArticleForm';
 import { ensureAnon } from './db/auth';
 import { Heart, BookOpen, Share2, MessageCircle, ChevronDown, ChevronUp, Clock, Maximize2, X, Eye } from 'lucide-react';
 import { sanitizeArticleHtml, articlePlainText, articleExcerpt } from './article-sanitize.mjs';
-import { highlightArticleCode, handleCodeCopyClick } from './code-highlight.mjs';
+import { enhanceArticleBodyHtml, handleCodeCopyClick } from './code-highlight.mjs';
 import ArticleComments, { useCommentCount } from './ArticleComments';
 
 // Local date formatter (matches App.js formatDate)
@@ -222,7 +222,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
           {expanded ? (
             <div
               className="edx-article-body"
-              dangerouslySetInnerHTML={{ __html: highlightArticleCode(sanitizeArticleHtml(art.content)) }}
+              dangerouslySetInnerHTML={{ __html: enhanceArticleBodyHtml(sanitizeArticleHtml(art.content)) }}
             />
           ) : (
             <p className="whitespace-pre-wrap">{excerpt}</p>

@@ -78,10 +78,18 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 .dark .edx-article-body a:hover { color: #c7d2fe; }
 .dark .edx-article-body hr { border-top-color: #334155; }
 
-/* Mobile: wide article tables (e.g. the CS619 schedule) scroll horizontally
-   inside the article instead of squeezing or breaking the page layout. */
+/* Tables keep their natural column widths and scroll horizontally
+   inside this wrapper when wider than the screen — headers never
+   squeeze mid-word. The wrapper is added at render time (see
+   enhanceArticleBodyHtml), so it covers every article automatically. */
+.edx-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.edx-table-wrap table { width: max-content; min-width: 100%; }
+
+/* Phones: code wraps instead of scrolling, so no line is ever cut off;
+   the Copy button sits below the block instead of covering code. */
 @media (max-width: 767px) {
-  .edx-article-body table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .edx-article-body pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: visible; }
+  .edx-code-copy { position: static; display: block; margin: 6px 0 0 auto; }
 }
 
 /* Code blocks render like a code editor (VS Code / Sublime style): dark
