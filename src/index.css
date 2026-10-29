@@ -78,6 +78,12 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 .dark .edx-article-body a:hover { color: #c7d2fe; }
 .dark .edx-article-body hr { border-top-color: #334155; }
 
+/* Mobile: wide article tables (e.g. the CS619 schedule) scroll horizontally
+   inside the article instead of squeezing or breaking the page layout. */
+@media (max-width: 767px) {
+  .edx-article-body table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
 /* Shared "data not found" helper (NotFoundHelp.js): shown in public search
    empty states instead of a bare "not found", with the admin WhatsApp button. */
 .edx-notfound-help { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }

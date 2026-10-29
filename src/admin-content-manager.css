@@ -11,3 +11,7 @@
 .edx-admin-hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
 .edx-admin-hero-actions button{display:inline-flex;align-items:center;gap:8px;border:1px solid #c7d2fe;border-radius:12px;padding:10px 14px;background:#eef2ff;color:#4338ca;font-weight:800;cursor:pointer}
 .edx-admin-hero-actions button:hover{background:#e0e7ff}
+
+/* Mobile: stack the floating-resource editor rows so label + URL inputs stay
+   fully usable on phones instead of squeezing into 5 fixed columns. */
+@media(max-width:640px){.edx-resource-row{grid-template-columns:32px minmax(0,1fr) auto}.edx-resource-row>:nth-child(1){grid-row:1/span 2}.edx-resource-row>:nth-child(2){grid-column:2;grid-row:1}.edx-resource-row>:nth-child(3){grid-column:2;grid-row:2}.edx-resource-row>:nth-child(4){grid-column:3;grid-row:1}.edx-resource-row>:nth-child(5){grid-column:3;grid-row:2}}
