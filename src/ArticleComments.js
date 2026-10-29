@@ -168,13 +168,13 @@ export default function ArticleComments({ articleId, user, sessionUid, isAdmin, 
               onKeyPress={e => e.key === 'Enter' && handleReplyPost()}
               placeholder={`Reply to ${replyTo.name}...`}
               maxLength={1000}
-              className={`flex-1 ${theme.input} rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500`}
+              className={`flex-1 min-w-0 ${theme.input} rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500`}
               disabled={replying}
             />
             <button
               onClick={handleReplyPost}
               disabled={replying || !replyText.trim()}
-              className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-2 shrink-0 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               aria-label="Post reply"
             >
               <Send size={16} />
@@ -221,13 +221,13 @@ export default function ArticleComments({ articleId, user, sessionUid, isAdmin, 
             onKeyPress={e => e.key === 'Enter' && handlePost()}
             placeholder="Write a comment..."
             maxLength={1000}
-            className={`flex-1 ${theme.input} rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500`}
+            className={`flex-1 min-w-0 ${theme.input} rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500`}
             disabled={posting}
           />
           <button
             onClick={handlePost}
             disabled={posting || !newComment.trim()}
-            className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-2 shrink-0 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             aria-label="Post comment"
           >
             <Send size={16} />

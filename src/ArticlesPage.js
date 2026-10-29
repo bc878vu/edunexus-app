@@ -244,11 +244,11 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
         )}
 
         {/* Action bar - Facebook style */}
-        <div className={`flex items-center gap-1 md:gap-2 border-t ${theme.border} pt-3`}>
+        <div className={`flex flex-wrap items-center gap-1 md:gap-2 border-t ${theme.border} pt-3`}>
           <button
             onClick={handleLike}
             disabled={hasLiked}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            className={`flex shrink-0 items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
               hasLiked
                 ? "text-red-500 cursor-default"
                 : `${theme.textMuted} hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500`
@@ -261,7 +261,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
 
           <button
             onClick={() => setShowComments(!showComments)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            className={`flex shrink-0 items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
               showComments
                 ? "text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
                 : `${theme.textMuted} hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-500`
@@ -274,7 +274,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
 
           <button
             onClick={handleShare}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold ${theme.textMuted} hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-500 transition-colors`}
+            className={`flex shrink-0 items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-semibold ${theme.textMuted} hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-500 transition-colors`}
           >
             <Share2 size={18} />
             <span className="hidden sm:inline">Share</span>
@@ -282,7 +282,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
 
           <a
             href={articlePublicPath(art)}
-            className={`ml-auto flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors`}
+            className={`ml-auto flex shrink-0 items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors`}
           >
             <BookOpen size={16} />
             <span className="hidden sm:inline">Full Article</span>
