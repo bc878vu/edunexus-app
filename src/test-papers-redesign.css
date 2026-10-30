@@ -628,3 +628,290 @@ body:has(.edx-paper-runner) .edx-free-orb {
   margin-bottom: 8px;
   color: var(--pp-ink);
 }
+
+/* ---------- Polish pass 2: more professional, attractive, user-friendly ---------- */
+
+/* Buttons (scoped to paper pages only) */
+.edx-paper-page .edx-exam-primary {
+  background: linear-gradient(100deg, #4f46e5, #7c3aed);
+  border: 1px solid transparent;
+  box-shadow: 0 12px 26px -16px rgba(79, 70, 229, .8);
+  transition: filter .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.edx-paper-page .edx-exam-primary:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.edx-paper-page .edx-exam-secondary {
+  border: 1px solid var(--pp-line);
+  background: var(--pp-card);
+  color: var(--pp-ink);
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.edx-paper-page .edx-exam-secondary:hover {
+  border-color: var(--pp-accent);
+  background: var(--pp-soft);
+}
+
+/* Cards: gradient top accent + hover lift */
+.edx-paper-page .edx-paper-card,
+.edx-paper-page .edx-paper-details-card,
+.edx-paper-page .edx-paper-last-card,
+.edx-paper-page .edx-paper-question-card {
+  position: relative;
+  overflow: hidden;
+}
+.edx-paper-page .edx-paper-card::before,
+.edx-paper-page .edx-paper-details-card::before,
+.edx-paper-page .edx-paper-question-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #4f46e5, #7c3aed, #2563eb);
+}
+.edx-paper-page .edx-paper-last-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #10b981, #06b6d4);
+}
+
+/* Student details box: bigger, friendlier inputs */
+.edx-paper-page .edx-paper-details-card .edx-exam-field {
+  font-weight: 800;
+  color: var(--pp-ink);
+}
+.edx-paper-page .edx-paper-details-card .edx-exam-field input {
+  padding: 14px 15px;
+  border-radius: 14px;
+  font-size: 1rem;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.edx-paper-page .edx-paper-details-card .edx-exam-field input:focus {
+  border-color: var(--pp-accent);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, .18);
+}
+
+/* Sticky bar: timer pill + progress bar */
+.edx-paper-page .edx-paper-progress-text {
+  font-weight: 900;
+  color: var(--pp-ink);
+}
+.edx-paper-page .edx-paper-timer {
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: var(--pp-soft);
+  font-weight: 900;
+  color: var(--pp-ink);
+}
+.edx-paper-page .edx-paper-timer-low {
+  background: rgba(244, 63, 94, .14);
+  color: #dc2626;
+  animation: edx-paper-pulse 1s infinite;
+}
+.dark .edx-paper-page .edx-paper-timer-low {
+  color: #fda4af;
+}
+.edx-paper-page .edx-paper-progress {
+  flex: 1 1 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--pp-line);
+  overflow: hidden;
+}
+.edx-paper-page .edx-paper-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4f46e5, #7c3aed, #2563eb);
+  transition: width .35s ease;
+}
+
+/* Palette: modern chips + legend */
+.edx-paper-page .edx-paper-palette button {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  font-size: .95rem;
+  box-shadow: 0 2px 8px -4px rgba(30, 41, 59, .3);
+}
+.edx-paper-page .edx-paper-palette button.answered {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  border-color: transparent;
+  color: #fff;
+}
+.edx-paper-page .edx-paper-palette button.current {
+  background: var(--pp-card);
+  border-color: var(--pp-accent);
+  color: var(--pp-accent);
+  outline: 2px solid var(--pp-accent);
+  outline-offset: 1px;
+  transform: scale(1.1);
+}
+.edx-paper-page .edx-paper-palette-legend {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: -4px 0 2px;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--pp-muted);
+}
+.edx-paper-page .edx-paper-palette-legend .sw {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  background: var(--pp-card);
+  border: 1px solid var(--pp-line);
+  margin-left: 8px;
+}
+.edx-paper-page .edx-paper-palette-legend .sw:first-child {
+  margin-left: 0;
+}
+.edx-paper-page .edx-paper-palette-legend .sw.answered {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  border-color: transparent;
+}
+.edx-paper-page .edx-paper-palette-legend .sw.current {
+  border: 2px solid var(--pp-accent);
+  background: var(--pp-card);
+}
+
+/* Question card: bigger type, gradient part pill */
+.edx-paper-page .edx-paper-question-card h3 {
+  font-size: clamp(1.2rem, 3vw, 1.45rem);
+  line-height: 1.45;
+  color: var(--pp-ink);
+}
+.edx-paper-page .edx-paper-part {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: linear-gradient(100deg, #4f46e5, #7c3aed);
+  color: #fff;
+  font-size: .78rem;
+}
+
+/* MCQ options: circular letter badges */
+.edx-paper-page .edx-paper-options button {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.edx-paper-page .edx-paper-options button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -18px rgba(30, 41, 59, .5);
+}
+.edx-paper-page .edx-paper-options button strong {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 29px;
+  height: 29px;
+  border-radius: 50%;
+  background: var(--pp-soft);
+  color: var(--pp-accent);
+  font-size: .85rem;
+}
+.edx-paper-page .edx-paper-options button.selected strong {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+}
+
+/* Editor: ribbon feel + paper sheet shadow */
+.edx-paper-page .edx-word-toolbar {
+  background: linear-gradient(180deg, var(--pp-soft), var(--pp-card));
+}
+.edx-paper-page .edx-word-toolbar button {
+  border-radius: 10px;
+}
+.edx-paper-page .edx-word-page {
+  box-shadow: inset 0 1px 0 var(--pp-line), 0 2px 14px -10px rgba(30, 41, 59, .35);
+}
+.edx-paper-page .edx-word-math-presets button:hover {
+  border-color: var(--pp-accent);
+}
+
+/* Result: score ring */
+.edx-paper-page .edx-paper-result-score {
+  background: rgba(255, 255, 255, .14);
+  border: 1px solid rgba(255, 255, 255, .22);
+}
+.edx-paper-page .edx-paper-ring {
+  position: relative;
+  width: 132px;
+  height: 132px;
+}
+.edx-paper-page .edx-paper-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.edx-paper-page .edx-paper-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, .28);
+  stroke-width: 10;
+}
+.edx-paper-page .edx-paper-ring-fg {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset .6s ease;
+}
+.edx-paper-page .edx-paper-ring-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.edx-paper-page .edx-paper-ring-text strong {
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+.edx-paper-page .edx-paper-ring-text small {
+  font-size: .95rem;
+  font-weight: 800;
+  opacity: .9;
+}
+
+/* Review + focus cards: gentle hover */
+.edx-paper-page .edx-paper-focus-item,
+.edx-paper-page .edx-paper-review-row {
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.edx-paper-page .edx-paper-focus-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px -20px rgba(30, 41, 59, .5);
+}
+
+/* Responsive polish */
+@media (max-width: 640px) {
+  .edx-paper-page .edx-paper-palette button {
+    width: 38px;
+    height: 38px;
+  }
+  .edx-paper-page .edx-paper-ring {
+    width: 112px;
+    height: 112px;
+  }
+  .edx-paper-page .edx-paper-question-card h3 {
+    font-size: 1.18rem;
+  }
+  .edx-paper-page .edx-paper-stickybar {
+    gap: 8px;
+  }
+}

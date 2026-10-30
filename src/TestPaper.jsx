@@ -251,8 +251,14 @@ export function PaperRunner({ paper, onBack }) {
       <div className="edx-exam-stack edx-paper-page edx-paper-runner">
         <section className="edx-paper-result-hero">
           <div className="edx-paper-result-score">
-            <span className="edx-paper-score-big">{submitted.mcqScore}<small>/{paper.mcqs.length}</small></span>
-            <span className="edx-paper-score-label">MCQ score · {mcqPct}%</span>
+            <div className="edx-paper-ring" role="img" aria-label={'MCQ score ' + mcqPct + ' percent'}>
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle className="edx-paper-ring-bg" cx="60" cy="60" r="52" />
+                <circle className="edx-paper-ring-fg" cx="60" cy="60" r="52" strokeDasharray={2 * Math.PI * 52} strokeDashoffset={2 * Math.PI * 52 * (1 - mcqPct / 100)} />
+              </svg>
+              <span className="edx-paper-ring-text"><strong>{submitted.mcqScore}/{paper.mcqs.length}</strong><small>{mcqPct}%</small></span>
+            </div>
+            <span className="edx-paper-score-label">MCQ score</span>
           </div>
           <div className="edx-paper-result-info">
             <h2>Paper submitted</h2>
@@ -350,7 +356,7 @@ export function PaperRunner({ paper, onBack }) {
             <span>{paper.minutes} minutes</span>
           </div>
         </section>
-        <section className="edx-exam-card edx-exam-form">
+        <section className="edx-exam-card edx-exam-form edx-paper-details-card">
           <h3>Your details</h3>
           <p>Your name and VU ID are shown to the teacher with your attempt. Your answers are never shown to other students.</p>
           <label className="edx-exam-field">Name<input maxLength={80} value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="Your full name" /></label>
@@ -360,7 +366,7 @@ export function PaperRunner({ paper, onBack }) {
           <button type="button" className="edx-exam-secondary" onClick={onBack}>Back to Test Papers</button>
         </section>
         {savedAttempt && (
-          <section className="edx-exam-card">
+          <section className="edx-exam-card edx-paper-last-card">
             <h3>Your last attempt on this device</h3>
             <p>{savedAttempt.studentName} · VU ID {savedAttempt.studentVuId} · MCQ {savedAttempt.mcqScore}/{paper.mcqs.length}
               {savedAttempt.status === 'reviewed' && savedAttempt.teacherMarks ? ' · Teacher marks received' : ' · Submitted to teacher'}</p>
@@ -374,10 +380,11 @@ export function PaperRunner({ paper, onBack }) {
   return (
     <div className="edx-exam-stack edx-paper-page edx-paper-runner">
       <div className="edx-paper-stickybar" role="status">
-        <span>{attempted} of {total} attempted</span>
-        <span className={secondsLeft < 300 ? 'edx-paper-timer-low' : ''}>⏱ {fmtTime(secondsLeft)}</span>
+        <span className="edx-paper-progress-text">{attempted} of {total} attempted</span>
+        <span className={'edx-paper-timer' + (secondsLeft < 300 ? ' edx-paper-timer-low' : '')}>⏱ {fmtTime(secondsLeft)}</span>
         <button type="button" className="edx-exam-secondary" onClick={() => setPaused((p) => !p)}>{paused ? 'Resume' : 'Pause'}</button>
         <button type="button" className="edx-exam-primary" onClick={handleSubmit}>Finish &amp; submit</button>
+        <span className="edx-paper-progress" aria-hidden="true"><span style={{ width: (total ? Math.round((attempted / total) * 100) : 0) + '%' }} /></span>
       </div>
       {timeUp && <p role="alert" className="edx-exam-alert">Time is up. You can still submit your paper.</p>}
       <nav className="edx-paper-palette" aria-label="Question palette">
@@ -398,7 +405,8 @@ export function PaperRunner({ paper, onBack }) {
           );
         })}
       </nav>
-      <section className="edx-exam-card">
+      <p className="edx-paper-palette-legend"><span className="sw answered" /> Answered <span className="sw current" /> Current <span className="sw" /> Unanswered</p>
+      <section className="edx-exam-card edx-paper-question-card">
         <p><span className="edx-paper-part">{partLabel}</span> · {partMarks} mark{partMarks > 1 ? 's' : ''}</p>
         <h3>Q{index + 1}. {current.data.q}</h3>
         {current.kind === 'mcq' && (
