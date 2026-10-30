@@ -5563,117 +5563,102 @@ const CGPACalculator = ({ theme, isDark }) => {
         </div>
       </div>
 
-      {/* 🔹 PRINT ONLY – Modern professional A4 result card */}
+      {/* 🔹 PRINT ONLY – Certificate-style A4 result document */}
       <div id="cgpa-print-sheet" className="print-only">
-        <div className="cgpa-a4 mx-auto bg-white text-slate-900 p-8" style={{ maxWidth: '210mm', minHeight: '297mm' }}>
-          {/* Header with accent bar */}
-          <div className="border-b-4 border-indigo-600 pb-5 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-black tracking-wide text-slate-900">
-                  VIRTUAL UNIVERSITY OF PAKISTAN
+        <div className="cgpa-a4 mx-auto bg-white text-slate-900 p-2.5" style={{ maxWidth: '210mm', minHeight: '297mm' }}>
+          <div className="border-[3px] border-indigo-950 p-1.5">
+            <div className="border border-amber-600 px-8 py-7">
+              {/* Certificate header */}
+              <div className="text-center">
+                <p className="text-[11px] font-bold uppercase tracking-[0.35em] text-indigo-950">
+                  Virtual University of Pakistan
+                </p>
+                <div className="flex items-center justify-center gap-3 my-3">
+                  <span className="h-px w-16 bg-amber-600" />
+                  <span className="text-amber-600 text-xs">◆</span>
+                  <span className="h-px w-16 bg-amber-600" />
+                </div>
+                <h1 className="font-serif font-bold text-slate-900 text-[30px] tracking-wide">
+                  Certificate of Academic Achievement
                 </h1>
-                <p className="text-sm text-slate-500 mt-1">
-                  CGPA / Result Summary
+                <p className="text-sm italic text-slate-500 mt-1">This is proudly presented to</p>
+                <p className="font-serif font-bold text-indigo-950 text-[26px] mt-2">
+                  {studentName || "—"}
+                </p>
+                <p className="text-sm text-slate-600 mt-1">
+                  for coursework in <span className="font-semibold text-slate-800">{program || "—"}</span>
+                  {semester ? ` — ${semester}` : ""}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Student ID: {studentId || "—"} · Date: {new Date().toLocaleDateString()}
                 </p>
               </div>
-              <div className="text-right">
-                <div className="inline-block rounded-lg bg-indigo-600 px-4 py-2">
-                  <p className="text-2xl font-black text-white">{overallGPA.toFixed(2)}</p>
-                  <p className="text-[10px] text-indigo-100 uppercase tracking-wider">CGPA</p>
+
+              {/* CGPA seal + stats */}
+              <div className="flex items-center justify-center gap-8 my-6">
+                <div className="text-center">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Percentage</p>
+                  <p className="text-2xl font-black text-emerald-600 mt-1">{overallPercent.toFixed(1)}%</p>
+                  <p className="text-[10px] text-slate-400 mt-1">weighted average</p>
+                </div>
+                <div className="w-32 h-32 rounded-full border-4 border-double border-amber-600 bg-amber-50 flex flex-col items-center justify-center text-center shrink-0">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-950">CGPA</p>
+                  <p className="font-serif font-black leading-none text-indigo-950 text-[34px]">{overallGPA.toFixed(2)}</p>
+                  <p className="text-[10px] text-slate-500 mt-1">out of 4.00</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Credits</p>
+                  <p className="text-2xl font-black text-slate-700 mt-1">{totalCredits}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">total hours</p>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Student info grid */}
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm mb-6">
-            <div className="flex">
-              <span className="w-32 font-semibold text-slate-500">Student Name</span>
-              <span className="font-medium">{studentName || "—"}</span>
-            </div>
-            <div className="flex">
-              <span className="w-32 font-semibold text-slate-500">Student ID</span>
-              <span className="font-medium">{studentId || "—"}</span>
-            </div>
-            <div className="flex">
-              <span className="w-32 font-semibold text-slate-500">Program</span>
-              <span className="font-medium">{program || "—"}</span>
-            </div>
-            <div className="flex">
-              <span className="w-32 font-semibold text-slate-500">Semester</span>
-              <span className="font-medium">{semester || "—"}</span>
-            </div>
-            <div className="flex">
-              <span className="w-32 font-semibold text-slate-500">Date</span>
-              <span className="font-medium">{new Date().toLocaleDateString()}</span>
-            </div>
-            <div className="flex">
-              <span className="w-32 font-semibold text-slate-500">Total Credits</span>
-              <span className="font-medium">{totalCredits}</span>
-            </div>
-          </div>
-
-          {/* Summary stats */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">CGPA</p>
-              <p className="text-3xl font-black text-indigo-600 mt-1">{overallGPA.toFixed(2)}</p>
-              <p className="text-[10px] text-slate-400 mt-1">out of 4.00</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Percentage</p>
-              <p className="text-3xl font-black text-emerald-600 mt-1">{overallPercent.toFixed(1)}%</p>
-              <p className="text-[10px] text-slate-400 mt-1">weighted average</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Credits</p>
-              <p className="text-3xl font-black text-slate-700 mt-1">{totalCredits}</p>
-              <p className="text-[10px] text-slate-400 mt-1">total hours</p>
-            </div>
-          </div>
-
-          {/* Subjects table */}
-          <table className="w-full text-sm border-collapse mb-6">
-            <thead>
-              <tr className="bg-indigo-600 text-white">
-                <th className="px-3 py-2.5 text-left font-semibold w-10">#</th>
-                <th className="px-3 py-2.5 text-left font-semibold">Course</th>
-                <th className="px-3 py-2.5 text-center font-semibold w-20">Credits</th>
-                <th className="px-3 py-2.5 text-center font-semibold w-20">Score</th>
-                <th className="px-3 py-2.5 text-center font-semibold w-20">Grade</th>
-                <th className="px-3 py-2.5 text-center font-semibold w-20">GPA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subjects.map((sub, idx) => {
-                const displayScore = sub.score === "" || sub.score === null ? 0 : Number(sub.score);
-                const displayCredits = sub.credits === "" || sub.credits === null ? 3 : Number(sub.credits);
-                const band = getBandForScore(displayScore);
-                return (
-                  <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                    <td className="px-3 py-2 border-b border-slate-200 text-center">{idx + 1}</td>
-                    <td className="px-3 py-2 border-b border-slate-200 font-medium">{sub.name || "—"}</td>
-                    <td className="px-3 py-2 border-b border-slate-200 text-center">{displayCredits}</td>
-                    <td className="px-3 py-2 border-b border-slate-200 text-center">{displayScore.toFixed(1)}</td>
-                    <td className="px-3 py-2 border-b border-slate-200 text-center font-bold">{band.label}</td>
-                    <td className="px-3 py-2 border-b border-slate-200 text-center">{band.gpa.toFixed(2)}</td>
+              {/* Subjects table */}
+              <table className="w-full text-sm border-collapse mb-6">
+                <thead>
+                  <tr className="bg-indigo-950 text-white">
+                    <th className="px-3 py-2.5 text-left font-semibold w-10">#</th>
+                    <th className="px-3 py-2.5 text-left font-semibold">Course</th>
+                    <th className="px-3 py-2.5 text-center font-semibold w-20">Credits</th>
+                    <th className="px-3 py-2.5 text-center font-semibold w-20">Score</th>
+                    <th className="px-3 py-2.5 text-center font-semibold w-20">Grade</th>
+                    <th className="px-3 py-2.5 text-center font-semibold w-20">GPA</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {subjects.map((sub, idx) => {
+                    const displayScore = sub.score === "" || sub.score === null ? 0 : Number(sub.score);
+                    const displayCredits = sub.credits === "" || sub.credits === null ? 3 : Number(sub.credits);
+                    const band = getBandForScore(displayScore);
+                    return (
+                      <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                        <td className="px-3 py-2 border-b border-slate-200 text-center">{idx + 1}</td>
+                        <td className="px-3 py-2 border-b border-slate-200 font-medium">{sub.name || "—"}</td>
+                        <td className="px-3 py-2 border-b border-slate-200 text-center">{displayCredits}</td>
+                        <td className="px-3 py-2 border-b border-slate-200 text-center">{displayScore.toFixed(1)}</td>
+                        <td className="px-3 py-2 border-b border-slate-200 text-center font-bold">{band.label}</td>
+                        <td className="px-3 py-2 border-b border-slate-200 text-center">{band.gpa.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-          {/* Footer */}
-          <div className="mt-10 pt-6 border-t border-slate-200 flex justify-between items-end text-xs text-slate-400">
-            <div>
-              <div className="w-48 border-t border-slate-400 pt-1 mt-8">
-                <p>Student Signature</p>
+              {/* Signatures */}
+              <div className="mt-8 flex justify-between items-end text-xs text-slate-500">
+                <div className="text-center">
+                  <div className="w-48 border-t border-slate-400 pt-1">Student Signature</div>
+                </div>
+                <div className="text-center">
+                  <div className="w-48 border-t border-slate-400 pt-1">Generated via EduNexus · {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
+                </div>
               </div>
-            </div>
-            <div className="text-right">
-              <p>Generated via EduNexus</p>
-              <p className="mt-1">{new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+
+              {/* Disclaimer — keeps the certificate look honest: an estimate, not an official VU document */}
+              <p className="text-center text-[10px] text-slate-400 mt-6 leading-relaxed">
+                This certificate-style summary is computer-generated from marks entered by the student and is an estimate only.
+                It is not an official Virtual University document — please verify with your official grade book.
+              </p>
             </div>
           </div>
         </div>
