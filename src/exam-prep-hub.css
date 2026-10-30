@@ -567,3 +567,12 @@
   .edx-paper-stickybar{position:fixed;left:12px;right:12px;bottom:12px;top:auto}
   .edx-paper-palette button{width:36px;height:36px}
 }
+
+/* Intelligent Paper Builder — lecture picker */
+.edx-paper-lecture-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin:14px 0}
+.edx-paper-lecture{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1px solid var(--ex-line);border-radius:12px;cursor:pointer}
+.edx-paper-lecture.disabled{opacity:.55;cursor:not-allowed}
+.edx-paper-lecture input{width:18px;height:18px;accent-color:#6366f1}
+.edx-paper-count{font-size:.8rem;color:var(--ex-muted);font-weight:700}
+.edx-paper-meta-line{color:var(--ex-muted)}
+.edx-paper-note{color:var(--ex-muted);font-size:.9rem}

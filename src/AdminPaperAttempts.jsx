@@ -91,7 +91,7 @@ export default function AdminPaperAttempts({ user }) {
   }
 
   if (selected) {
-    const paper = getTestPaper(selected.paperSlug);
+    const paper = attempt.paperSnapshot || getTestPaper(selected.paperSlug);
     const subjQuestions = paper ? [...paper.shorts.map((q) => ({ ...q, marks: 3 })), ...paper.longs.map((q) => ({ ...q, marks: 5 }))]
       : [...(selected.shortAnswers || []).map((_, i) => ({ q: 'Short Q' + (i + 1), marks: 3 })),
          ...(selected.longAnswers || []).map((_, i) => ({ q: 'Long Q' + (i + 1), marks: 5 }))];

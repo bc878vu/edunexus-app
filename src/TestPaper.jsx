@@ -12,6 +12,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from './firebase-client';
 import { TEST_PAPERS, getTestPaper, paperQuestionCount } from './testPapersData';
+import { BANK_SUBJECTS } from './testPapersBank';
+import PaperBuilder from './PaperBuilder';
 import {
   submitPaperAttempt,
   getPaperAttempt,
@@ -60,7 +62,7 @@ function PaperCard({ paper, onStart }) {
   );
 }
 
-function PaperRunner({ paper, onBack }) {
+export function PaperRunner({ paper, onBack }) {
   const total = paperQuestionCount(paper);
   const [started, setStarted] = useState(false);
   const [studentName, setStudentName] = useState('');
@@ -68,8 +70,8 @@ function PaperRunner({ paper, onBack }) {
   const [coverError, setCoverError] = useState('');
   const [index, setIndex] = useState(0);
   const [mcqAnswers, setMcqAnswers] = useState({});
-  const [shortAnswers, setShortAnswers] = useState(['', '', '']);
-  const [longAnswers, setLongAnswers] = useState(['', '', '']);
+  const [shortAnswers, setShortAnswers] = useState(() => Array(paper.shorts.length).fill(''));
+  const [longAnswers, setLongAnswers] = useState(() => Array(paper.longs.length).fill(''));
   const [secondsLeft, setSecondsLeft] = useState(paper.minutes * 60);
   const [paused, setPaused] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
@@ -157,6 +159,12 @@ function PaperRunner({ paper, onBack }) {
         mcqTotal: paper.mcqs.length,
         shortAnswers: result.shortAnswers,
         longAnswers: result.longAnswers,
+        // Custom (builder) papers are not in the registry, so the generated
+        // paper travels with the attempt — otherwise the teacher could not
+        // review its questions, correct answers or model answers.
+        ...(paper.isCustom ? { paperSnapshot: {
+          code: paper.code, term: paper.term, lectures: paper.lectures, marks: paper.marks,
+          mcqs: paper.mcqs, shorts: paper.shorts, longs: paper.longs } } : {}),
       });
       const withId = { ...result, attemptId: id, status: 'submitted' };
       setSaveState('saved');
@@ -195,8 +203,8 @@ function PaperRunner({ paper, onBack }) {
     setStarted(false);
     setIndex(0);
     setMcqAnswers({});
-    setShortAnswers(['', '', '']);
-    setLongAnswers(['', '', '']);
+    setShortAnswers(Array(paper.shorts.length).fill(''));
+    setLongAnswers(Array(paper.longs.length).fill(''));
     setSecondsLeft(paper.minutes * 60);
     setPaused(false);
     setTimeUp(false);
@@ -213,12 +221,26 @@ function PaperRunner({ paper, onBack }) {
     const teacherTotal = submitted.teacherMarks
       ? Object.values(submitted.teacherMarks).reduce((a, b) => a + (Number(b) || 0), 0)
       : null;
+    // Weak-lecture report: wrong MCQ answers grouped by first lecture tag.
+    const weakMap = {};
+    paper.mcqs.forEach((q, i) => {
+      const lec = (q.lectures && q.lectures[0]) || null;
+      if (!lec) return;
+      weakMap[lec] = weakMap[lec] || { n: lec, wrong: 0, total: 0 };
+      weakMap[lec].total += 1;
+      if (submitted.mcqAnswers[i] !== q.answer) weakMap[lec].wrong += 1;
+    });
+    const weakLectures = Object.values(weakMap).filter((w) => w.wrong > 0).sort((a, b) => b.wrong - a.wrong || a.n - b.n);
     return (
       <div className="edx-exam-stack">
         <section className="edx-exam-card edx-paper-result">
           <h2>Paper submitted</h2>
           <p><strong>{submitted.studentName}</strong> · VU ID {submitted.studentVuId}</p>
           <p className="edx-paper-score">MCQ score: {submitted.mcqScore} / {paper.mcqs.length}</p>
+          <p>{paper.lectures}</p>
+          {weakLectures.length > 0 && (
+            <p><strong>Focus lectures (most MCQ mistakes):</strong> {weakLectures.map((w) => 'Lecture ' + w.n + ' (' + w.wrong + '/' + w.total + ' wrong)').join(', ')} — revise these first.</p>
+          )}
           {teacherTotal === null
             ? <p>Subjective answers are submitted to the teacher for review. Teacher marks will appear here after review.</p>
             : <p className="edx-paper-score">Teacher marks (subjective): {teacherTotal} / {paper.marks.short + paper.marks.long} · Total: {submitted.mcqScore + teacherTotal} / {paper.marks.total}</p>}
@@ -244,7 +266,7 @@ function PaperRunner({ paper, onBack }) {
             const correct = mine === q.answer;
             return (
               <div key={i} className="edx-paper-review-row">
-                <p><strong>Q{i + 1}.</strong> {q.q}</p>
+                <p><strong>Q{i + 1}{q.lectures ? ' (Lecture ' + q.lectures.join('/') + ')' : ''}.</strong> {q.q}</p>
                 <p>Your answer: {mine ? mine + '. ' + (q.options.find((o) => o.letter === mine) || {}).text : 'Not answered'} — {correct ? 'Correct' : 'Wrong'}</p>
                 {!correct && <p>Correct answer: {q.answer}. {(q.options.find((o) => o.letter === q.answer) || {}).text}</p>}
                 <p className="edx-paper-explanation">{q.explanation}</p>
@@ -376,8 +398,10 @@ function PaperRunner({ paper, onBack }) {
 }
 
 export default function TestPapersHome({ paperSlug, onSelectPaper }) {
+  const [builderCode, setBuilderCode] = useState(null);
   const paper = paperSlug ? getTestPaper(paperSlug) : null;
   if (paper) return <PaperRunner paper={paper} onBack={() => onSelectPaper('')} />;
+  if (builderCode) return <PaperBuilder subjectCode={builderCode} onBack={() => setBuilderCode(null)} />;
   return (
     <div className="edx-exam-stack">
       <section className="edx-paper-cover">
@@ -391,6 +415,16 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           <strong>How it works</strong>
           <p>Open a paper, enter your name and VU ID, answer every question, then submit. Your MCQ score shows immediately. Your subjective answers are saved for the teacher — other students never see them.</p>
         </div>
+      </section>
+      <section className="edx-exam-card">
+        <h2>Build your own paper (Intelligent)</h2>
+        <p>Choose a subject, tick the lectures you want, and get a paper built only from verified questions for those lectures — most-repeated concepts first, balanced across lectures, never padded with guesses.</p>
+        {BANK_SUBJECTS.map((s) => (
+          <div key={s.code} className="edx-exam-actions">
+            <span><strong>{s.code}</strong> — {s.title} ({s.term}, {s.scope}): {s.bank.mcqs.length} MCQs + {s.bank.shorts.length} shorts + {s.bank.longs.length} longs, lecture-mapped</span>
+            <button type="button" className="edx-exam-primary" onClick={() => setBuilderCode(s.code)}>Build custom paper</button>
+          </div>
+        ))}
       </section>
       {TEST_PAPERS.map((p) => (
         <PaperCard key={p.slug} paper={p} onStart={() => onSelectPaper(p.slug)} />

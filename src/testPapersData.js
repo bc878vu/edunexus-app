@@ -9,7 +9,7 @@ export const TEST_PAPERS = [
     "code": "PHY101",
     "title": "Introduction to Physics",
     "term": "Midterm",
-    "lectures": "Lectures 1–9",
+    "lectures": "Lectures 1\u20139",
     "minutes": 90,
     "marks": {
       "mcq": 20,
@@ -17,7 +17,7 @@ export const TEST_PAPERS = [
       "long": 15,
       "total": 44
     },
-    "scopeNote": "Units, vectors, motion, Newton's laws, friction, apparent weight, work–energy, momentum. Nothing from lecture 10 or later is included.",
+    "scopeNote": "Units, vectors, motion, Newton's laws, friction, apparent weight, work\u2013energy, momentum. Nothing from lecture 10 or later is included.",
     "sourceNote": "MCQs verbatim from the verified midterm MCQ bank (145 questions); shorts/longs from the verified midterm subjective bank (35 questions); answers checked against the course handout. No per-question past-paper appearance is claimed anywhere.",
     "mcqs": [
       {
@@ -41,7 +41,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "C",
-        "explanation": "Mass is a fundamental quantity; the kilogram is its SI base unit. Newton, joule and watt are derived units."
+        "explanation": "Mass is a fundamental quantity; the kilogram is its SI base unit. Newton, joule and watt are derived units.",
+        "lectures": [
+          1
+        ]
       },
       {
         "q": "The number of significant figures in 0.00450 is:",
@@ -64,7 +67,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "Leading zeros are not significant; the trailing zero after the 5 is significant, so 4, 5 and 0 give 3 significant figures."
+        "explanation": "Leading zeros are not significant; the trailing zero after the 5 is significant, so 4, 5 and 0 give 3 significant figures.",
+        "lectures": [
+          1
+        ]
       },
       {
         "q": "Which of the following is a vector quantity?",
@@ -87,10 +93,13 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "C",
-        "explanation": "Force has both magnitude and direction, so it is a vector."
+        "explanation": "Force has both magnitude and direction, so it is a vector.",
+        "lectures": [
+          1
+        ]
       },
       {
-        "q": "Two vectors A and B are perpendicular. Their dot product A · B equals:",
+        "q": "Two vectors A and B are perpendicular. Their dot product A \u00b7 B equals:",
         "options": [
           {
             "letter": "A",
@@ -110,7 +119,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "A · B = AB cos θ; with θ = 90°, cos 90° = 0."
+        "explanation": "A \u00b7 B = AB cos \u03b8; with \u03b8 = 90\u00b0, cos 90\u00b0 = 0.",
+        "lectures": [
+          2
+        ]
       },
       {
         "q": "The slope of a displacement-time graph gives:",
@@ -133,30 +145,36 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "Slope = change in displacement / change in time = velocity."
+        "explanation": "Slope = change in displacement / change in time = velocity.",
+        "lectures": [
+          2
+        ]
       },
       {
         "q": "Which equation of motion is correct for constant acceleration?",
         "options": [
           {
             "letter": "A",
-            "text": "v = u + at²"
+            "text": "v = u + at\u00b2"
           },
           {
             "letter": "B",
-            "text": "s = ut + at²"
+            "text": "s = ut + at\u00b2"
           },
           {
             "letter": "C",
-            "text": "v² = u² + 2as"
+            "text": "v\u00b2 = u\u00b2 + 2as"
           },
           {
             "letter": "D",
-            "text": "s = ut − 2as"
+            "text": "s = ut \u2212 2as"
           }
         ],
         "answer": "C",
-        "explanation": "The standard equations are v = u + at, s = ut + ½at², v² = u² + 2as."
+        "explanation": "The standard equations are v = u + at, s = ut + \u00bdat\u00b2, v\u00b2 = u\u00b2 + 2as.",
+        "lectures": [
+          3
+        ]
       },
       {
         "q": "The range of a projectile is maximum when the angle of projection is:",
@@ -179,7 +197,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "Range = (u² sin 2θ)/g, maximum when sin 2θ = 1, i.e. θ = 45 degrees."
+        "explanation": "Range = (u\u00b2 sin 2\u03b8)/g, maximum when sin 2\u03b8 = 1, i.e. \u03b8 = 45 degrees.",
+        "lectures": [
+          3
+        ]
       },
       {
         "q": "The trajectory of a projectile (ignoring air resistance) is:",
@@ -202,7 +223,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "Constant horizontal velocity plus uniformly accelerated vertical motion traces a parabola."
+        "explanation": "Constant horizontal velocity plus uniformly accelerated vertical motion traces a parabola.",
+        "lectures": [
+          3
+        ]
       },
       {
         "q": "Newton's first law of motion is also called the law of:",
@@ -225,30 +249,36 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "The first law states a body keeps its state of rest or uniform motion unless acted upon, the law of inertia."
+        "explanation": "The first law states a body keeps its state of rest or uniform motion unless acted upon, the law of inertia.",
+        "lectures": [
+          4
+        ]
       },
       {
         "q": "A force of 10 N acts on a 2 kg mass. The acceleration produced is:",
         "options": [
           {
             "letter": "A",
-            "text": "20 m/s²"
+            "text": "20 m/s\u00b2"
           },
           {
             "letter": "B",
-            "text": "5 m/s²"
+            "text": "5 m/s\u00b2"
           },
           {
             "letter": "C",
-            "text": "0.2 m/s²"
+            "text": "0.2 m/s\u00b2"
           },
           {
             "letter": "D",
-            "text": "12 m/s²"
+            "text": "12 m/s\u00b2"
           }
         ],
         "answer": "B",
-        "explanation": "a = F/m = 10/2 = 5 m/s²."
+        "explanation": "a = F/m = 10/2 = 5 m/s\u00b2.",
+        "lectures": [
+          4
+        ]
       },
       {
         "q": "Newton's third law states:",
@@ -271,7 +301,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "Action and reaction are equal in magnitude, opposite in direction, acting on different bodies."
+        "explanation": "Action and reaction are equal in magnitude, opposite in direction, acting on different bodies.",
+        "lectures": [
+          4
+        ]
       },
       {
         "q": "Static friction is:",
@@ -294,7 +327,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "Static friction self-adjusts to match the applied force until the limiting value μs·N is reached."
+        "explanation": "Static friction self-adjusts to match the applied force until the limiting value \u03bcs\u00b7N is reached.",
+        "lectures": [
+          5
+        ]
       },
       {
         "q": "Mass and weight differ because:",
@@ -317,7 +353,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "Mass is intrinsic matter content; weight = mg varies with local gravity."
+        "explanation": "Mass is intrinsic matter content; weight = mg varies with local gravity.",
+        "lectures": [
+          4
+        ]
       },
       {
         "q": "Tension in a string supporting a stationary mass m is:",
@@ -340,10 +379,13 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "For equilibrium, upward tension balances downward weight: T = mg."
+        "explanation": "For equilibrium, upward tension balances downward weight: T = mg.",
+        "lectures": [
+          5
+        ]
       },
       {
-        "q": "A 70 kg person stands on a weighing scale in a lift accelerating upward at 2 m/s². The scale reads: (g = 10 m/s²)",
+        "q": "A 70 kg person stands on a weighing scale in a lift accelerating upward at 2 m/s\u00b2. The scale reads: (g = 10 m/s\u00b2)",
         "options": [
           {
             "letter": "A",
@@ -363,7 +405,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "C",
-        "explanation": "Apparent weight = m(g + a) = 70 × 12 = 840 N, i.e. 84 kg equivalent."
+        "explanation": "Apparent weight = m(g + a) = 70 \u00d7 12 = 840 N, i.e. 84 kg equivalent.",
+        "lectures": [
+          6
+        ]
       },
       {
         "q": "If the speed of a body is doubled, its kinetic energy becomes:",
@@ -386,7 +431,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "KE is proportional to v², so doubling speed quadruples KE."
+        "explanation": "KE is proportional to v\u00b2, so doubling speed quadruples KE.",
+        "lectures": [
+          7
+        ]
       },
       {
         "q": "Work is done when:",
@@ -409,7 +457,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "W = F·d·cos θ; no displacement (or perpendicular force) means no work."
+        "explanation": "W = F\u00b7d\u00b7cos \u03b8; no displacement (or perpendicular force) means no work.",
+        "lectures": [
+          7
+        ]
       },
       {
         "q": "Conservation of mechanical energy holds when:",
@@ -432,7 +483,10 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "With only conservative forces (like gravity), KE + PE stays constant."
+        "explanation": "With only conservative forces (like gravity), KE + PE stays constant.",
+        "lectures": [
+          8
+        ]
       },
       {
         "q": "Impulse is equal to:",
@@ -447,15 +501,18 @@ export const TEST_PAPERS = [
           },
           {
             "letter": "C",
-            "text": "Force × distance"
+            "text": "Force \u00d7 distance"
           },
           {
             "letter": "D",
-            "text": "Mass × acceleration"
+            "text": "Mass \u00d7 acceleration"
           }
         ],
         "answer": "B",
-        "explanation": "Impulse J = F × t = change in momentum (Δp)."
+        "explanation": "Impulse J = F \u00d7 t = change in momentum (\u0394p).",
+        "lectures": [
+          9
+        ]
       },
       {
         "q": "A 1000 kg car moving at 20 m/s has momentum:",
@@ -478,35 +535,57 @@ export const TEST_PAPERS = [
           }
         ],
         "answer": "B",
-        "explanation": "p = mv = 1000 × 20 = 20000 kg m/s."
+        "explanation": "p = mv = 1000 \u00d7 20 = 20000 kg m/s.",
+        "lectures": [
+          9
+        ]
       }
     ],
     "shorts": [
       {
         "q": "Define scalar and vector quantities. Give two examples of each.",
-        "model_answer": "A scalar quantity has only magnitude, for example mass and temperature. A vector quantity has both magnitude and direction, for example velocity and force. Scalars add by ordinary arithmetic, while vectors follow the triangle or parallelogram law of addition."
+        "model_answer": "A scalar quantity has only magnitude, for example mass and temperature. A vector quantity has both magnitude and direction, for example velocity and force. Scalars add by ordinary arithmetic, while vectors follow the triangle or parallelogram law of addition.",
+        "lectures": [
+          1
+        ]
       },
       {
         "q": "Define static and kinetic friction.",
-        "model_answer": "Static friction acts between surfaces at rest and adjusts up to a maximum (μs·N) to prevent motion. Kinetic friction acts during sliding and is nearly constant (μk·N), usually smaller than maximum static friction. Both oppose relative motion."
+        "model_answer": "Static friction acts between surfaces at rest and adjusts up to a maximum (\u03bcs\u00b7N) to prevent motion. Kinetic friction acts during sliding and is nearly constant (\u03bck\u00b7N), usually smaller than maximum static friction. Both oppose relative motion.",
+        "lectures": [
+          5
+        ]
       },
       {
         "q": "Define impulse and state its relation with momentum.",
-        "model_answer": "Impulse is the product of force and the time it acts: J = F·t. It equals the change in linear momentum: J = Δp = m(v − u). Its SI unit is newton-second (N·s)."
+        "model_answer": "Impulse is the product of force and the time it acts: J = F\u00b7t. It equals the change in linear momentum: J = \u0394p = m(v \u2212 u). Its SI unit is newton-second (N\u00b7s).",
+        "lectures": [
+          9
+        ]
       }
     ],
     "longs": [
       {
         "q": "Derive the three equations of motion for a body moving with uniform acceleration.",
-        "model_answer": "Consider a body with initial velocity u and constant acceleration a. (1) By definition a = (v − u)/t, so v = u + at. (2) Average velocity = (u + v)/2; displacement s = average velocity × t = (u + v)t/2. Substituting v = u + at gives s = ut + ½at². (3) From v = u + at, t = (v − u)/a; putting this in s = (u + v)t/2 gives 2as = v² − u², i.e. v² = u² + 2as."
+        "model_answer": "Consider a body with initial velocity u and constant acceleration a. (1) By definition a = (v \u2212 u)/t, so v = u + at. (2) Average velocity = (u + v)/2; displacement s = average velocity \u00d7 t = (u + v)t/2. Substituting v = u + at gives s = ut + \u00bdat\u00b2. (3) From v = u + at, t = (v \u2212 u)/a; putting this in s = (u + v)t/2 gives 2as = v\u00b2 \u2212 u\u00b2, i.e. v\u00b2 = u\u00b2 + 2as.",
+        "lectures": [
+          3
+        ]
       },
       {
         "q": "Explain Newton's second law of motion and derive F = ma.",
-        "model_answer": "The second law states that the rate of change of momentum of a body is proportional to the applied force and occurs in the direction of the force. Momentum p = mv, so dp/dt = m(dv/dt) = ma for constant mass. Hence F is proportional to ma; choosing units so the constant is 1 gives F = ma. One newton is the force that gives 1 kg mass an acceleration of 1 m/s². This law defines force quantitatively and explains why heavier objects need larger forces for the same acceleration."
+        "model_answer": "The second law states that the rate of change of momentum of a body is proportional to the applied force and occurs in the direction of the force. Momentum p = mv, so dp/dt = m(dv/dt) = ma for constant mass. Hence F is proportional to ma; choosing units so the constant is 1 gives F = ma. One newton is the force that gives 1 kg mass an acceleration of 1 m/s\u00b2. This law defines force quantitatively and explains why heavier objects need larger forces for the same acceleration.",
+        "lectures": [
+          4
+        ]
       },
       {
         "q": "State and prove the work-energy theorem.",
-        "model_answer": "The work-energy theorem states that the net work done on a body equals its change in kinetic energy. Proof: for constant force F over displacement s, W = F·s. Using F = ma and v² = u² + 2as, we get W = ma × (v² − u²)/(2a) = ½mv² − ½mu² = KE(final) − KE(initial). Thus work done by the net force appears as a change in kinetic energy. Example: brakes do negative work on a car, reducing its kinetic energy to zero."
+        "model_answer": "The work-energy theorem states that the net work done on a body equals its change in kinetic energy. Proof: for constant force F over displacement s, W = F\u00b7s. Using F = ma and v\u00b2 = u\u00b2 + 2as, we get W = ma \u00d7 (v\u00b2 \u2212 u\u00b2)/(2a) = \u00bdmv\u00b2 \u2212 \u00bdmu\u00b2 = KE(final) \u2212 KE(initial). Thus work done by the net force appears as a change in kinetic energy. Example: brakes do negative work on a car, reducing its kinetic energy to zero.",
+        "lectures": [
+          7,
+          8
+        ]
       }
     ]
   }
