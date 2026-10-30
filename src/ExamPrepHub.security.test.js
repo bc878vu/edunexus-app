@@ -35,6 +35,7 @@ test('PUBLIC Exam Prep never renders Admin tools, even with a previously authent
   window.sessionStorage.setItem(ADMIN_TAB_KEY, admin.uid);
   render(<ExamPrepHub user={admin} initialTab="admin" />);
   expect(screen.queryByRole('button', { name: 'Admin tools' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Paper Test' })).toBeNull();
   expect(screen.queryByText('Exam content management')).toBeNull();
   expect(screen.queryByRole('button', { name: /Admin Panel/i })).toBeNull();
   await waitFor(() => expect(screen.getByText('Public exam practice')).toBeTruthy());
@@ -45,6 +46,7 @@ test('PUBLIC Exam Prep still hides management if the URL is manually changed to 
   grantAdminTab(admin);
   render(<ExamPrepHub user={admin} initialTab="admin" />);
   expect(screen.queryByRole('button', { name: 'Admin tools' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Paper Test' })).toBeNull();
   expect(screen.queryByText('Exam content management')).toBeNull();
   expect(screen.queryByRole('button', { name: /Admin Panel/i })).toBeNull();
 });

@@ -256,9 +256,6 @@ function AdminTools({ user, onView }) {
         {id:'import',label:'📥 Import JSON'},
         {id:'manage',label:'📝 Manage MCQs'},
         {id:'reviews',label:'📄 Paper Reviews'},
-        {id:'attempts',label:'📊 Paper Attempts'},
-        {id:'patterns',label:'📋 Paper Patterns'},
-        {id:'tpadmin',label:'🎓 Course Tests Admin'},
       ].map(t => (
         <button key={t.id} type="button" onClick={()=>setAdminSubTab(t.id)}
           className={adminSubTab===t.id ? 'edx-exam-primary' : 'edx-exam-secondary'}
@@ -270,13 +267,38 @@ function AdminTools({ user, onView }) {
     {adminSubTab==='import' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading JSON importer…</section>}><McqBulkImporter user={user} onView={onView}/></React.Suspense>}
     {adminSubTab==='manage' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading question manager…</section>}><ExamMcqAdminManager user={user} initialSubject={draft.subject}/></React.Suspense>}
     {adminSubTab==='reviews' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper review manager…</section>}><ExamPaperReviewManager user={user}/></React.Suspense>}
-    {adminSubTab==='attempts' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper attempts…</section>}><AdminPaperAttempts user={user}/></React.Suspense>}
-    {adminSubTab==='patterns' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper patterns…</section>}><AdminPaperPatterns user={user}/></React.Suspense>}
-    {adminSubTab==='tpadmin' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading course tests admin…</section>}><TpAdmin user={user}/></React.Suspense>}
     <section className="edx-exam-card edx-exam-form"><div className="edx-exam-between"><h3>Legacy pending paper reviews ({pending.filter((r) => r.status === "pending").length})</h3><button className="edx-exam-secondary" onClick={reload} disabled={busy}>Refresh</button></div>
       {pending.filter((r) => r.status === "pending").map((r) => <div className="edx-exam-pending" key={r.id}><p><strong>{safe(r.subject, 12)} · {safe(r.term, 10)} · {safe(r.examDate, 10)}</strong></p><p>{safe(r.topics, 400)}</p><p>{safe(r.summary, 1500)}</p><div className="edx-exam-actions"><button className="edx-exam-primary" disabled={busy} onClick={() => moderate(r, true)}>Approve</button><button className="edx-exam-secondary" disabled={busy} onClick={() => moderate(r, false)}>Reject</button></div></div>)}
       {!pending.some((r) => r.status === "pending") && <p>No pending reviews in the latest 100 submissions.</p>}
     </section>
+  </div>;
+}
+
+
+// PaperTestAdmin: the paper-test portal, positioned like every other admin
+// portal (its own top-level card, not a sub-tab buried under Admin tools).
+// Paper Attempts, Paper Patterns and Course Tests Admin live here together,
+// so the admin reaches all three in one place with one clean sub-navigation.
+function PaperTestAdmin({ user }) {
+  const [paperSubTab, setPaperSubTab] = useState('attempts');
+  if (!isAdmin(user)) return null;
+  return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Paper Test management</h2><p>Student test papers and login-gated course tests, in one place: check attempts and teacher marks, share paper links, and manage course-test subjects and questions.</p></div><ShieldCheck size={28} /></div>
+    <div className="edx-admin-subtabs" style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+      {[
+        {id:'attempts',label:'📊 Paper Attempts'},
+        {id:'patterns',label:'📋 Paper Patterns'},
+        {id:'tpadmin',label:'🎓 Course Tests Admin'},
+      ].map(t => (
+        <button key={t.id} type="button" onClick={()=>setPaperSubTab(t.id)}
+          className={paperSubTab===t.id ? 'edx-exam-primary' : 'edx-exam-secondary'}
+          style={{padding:'10px 18px',borderRadius:10,fontWeight:700}}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+    {paperSubTab==='attempts' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper attempts…</section>}><AdminPaperAttempts user={user}/></React.Suspense>}
+    {paperSubTab==='patterns' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper patterns…</section>}><AdminPaperPatterns user={user}/></React.Suspense>}
+    {paperSubTab==='tpadmin' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading course tests admin…</section>}><TpAdmin user={user}/></React.Suspense>}
   </div>;
 }
 
@@ -714,6 +736,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
 
   const changeTab = (next) => {
     if (next === "admin" && !showAdmin) return;
+    if (next === "papertest" && !showAdmin) return;
     if (next === "reviews" && term === "quiz") selectTerm("midterm");
     setTab(next);
     // Keep the address bar on the dedicated page URL when switching between
@@ -737,7 +760,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     {catalogError && <p className="edx-exam-alert" role="alert">{catalogError}</p>}</>}
     {adminWorkspace && (
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
-      {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
+      {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["papertest", "Paper Test", "Attempts & course tests"]] : []), ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
     </nav>
     )}
     {((tab === "mcqs" && searchedSubject) || tab === "reviews") && <ShareBar tab={tab} subject={subject} term={term} />}
@@ -748,6 +771,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     {tab === "papers" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading test papers…</div>}><TestPapersHome paperSlug={paperSlug} onSelectPaper={(slug) => { setPaperSlug(slug); try { window.history.pushState({}, '', slug ? '/test-papers/' + encodeURIComponent(slug) : '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }} /></React.Suspense>}
     {tab === "course" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading course tests…</div>}><TpStudent /></React.Suspense>}
     {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { selectSubject(code); selectTerm(examType); setTab("mcqs"); }} />}
+    {showAdmin && tab === "papertest" && <PaperTestAdmin user={user} />}
     <section className="edx-exam-seo" aria-label="About VU exam preparation"><h2>Free VU MCQ Practice, Paper Reviews and Study Files</h2><div className="edx-exam-seo-text"><p>EduNexus Exam Prep is the most comprehensive free practice platform for Virtual University students. Our MCQ bank contains thousands of solved multiple-choice questions across all major VU subjects — from CS101 and MTH301 to ENG201 and PAK301. Each question includes the correct answer and a detailed explanation, helping you understand the concept instead of just memorizing.</p><p>Choose your subject, select Midterm or Finalterm, and start practicing instantly. Our practice mode simulates real VU exam conditions with timed quizzes, instant scoring, and progress tracking. You can practice all available questions or customize the count to fit your study session. Every attempt is saved, so you can review your mistakes and focus on weak areas.</p><p>Beyond MCQs, explore real paper reviews shared by VU students who recently appeared in exams. These first-hand experiences reveal which topics appeared, how difficult the paper was, and what to prioritize. Combined with our study files library of handouts and solved papers, you get a complete exam preparation system — all free, all in one place.</p></div></section>
     <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Shared reviews and study materials are not official exam papers.</p>
   </div>;
