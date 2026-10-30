@@ -3,7 +3,7 @@ import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, query, ser
 import { CalendarDays, CheckCircle2, ClipboardCopy, Clock3, ExternalLink, FileText, GraduationCap, MessageCircle, Send, Share2, ShieldAlert, Search, Users, BookOpen } from 'lucide-react';
 import { db, auth } from './firebase-client';
 import { signInAnonymously } from 'firebase/auth';
-import { submitCommunityReview, listCommunityReviews, listLegacyReviews } from './db/examReviews';
+import { submitCommunityReview, listCommunityReviews, listLegacyReviews, countCommunityReviews, countLegacyReviews } from './db/examReviews';
 import { examReviewText, formatExamDate, formatExamTime, safePaperUrl, whatsAppReviewUrl, shortReviewCode, EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 import NotFoundHelp from './NotFoundHelp';
 import RichContent from './RichContent';
@@ -253,6 +253,7 @@ function EarlierSubmissions({ user, onReuse }) {
 export default function ExamPaperCommunity({ user, subject, term, onPublished, highlightReviewId, highlightShortCode }) {
   const [community, setCommunity] = useState([]);
   const [legacy, setLegacy] = useState([]);
+  const [totalCount, setTotalCount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
@@ -265,7 +266,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished, h
   const [reuseDraft, setReuseDraft] = useState(null);
   useEffect(() => {
     let active = true;
-    setCommunity([]); setLegacy([]); setLoading(true); setErrors([]);
+    setCommunity([]); setLegacy([]); setTotalCount(null); setLoading(true); setErrors([]);
     const pending = { community:true, legacy:true };
     const done = key => {
       pending[key] = false;
@@ -277,8 +278,10 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished, h
       try {
         let items;
         if (name === REVIEW_COLLECTION) {
-          // Community reviews: Supabase-primary via adapter.
-          items = (await listCommunityReviews({ activeOnly: true, limit: 200 })).map(r => ({ ...r, collectionName: name }));
+          // Community reviews: Supabase-primary via adapter, newest
+          // submissions first so newly published reviews surface at the top
+          // instead of being buried under the 200-item window.
+          items = (await listCommunityReviews({ activeOnly: true, limit: 200, order: 'created_at' })).map(r => ({ ...r, collectionName: name }));
         } else {
           // Legacy published reviews use the same Supabase-primary adapter.
           items = (await listLegacyReviews({ limit: 200 })).map(r => ({ ...r, collectionName: name })).filter(r => r.isActive !== false);
@@ -296,6 +299,16 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished, h
     };
     observe(REVIEW_COLLECTION,setCommunity,'community');
     observe(LEGACY_COLLECTION,setLegacy,'legacy');
+    // Live total for the feed badge. The feed loads only a capped window
+    // (200 newest), so reviews.length can never be the true total — the
+    // badge must come from these counts. Any failure keeps totalCount null
+    // and the badge falls back to the loaded length (never a wrong number).
+    (async () => {
+      try {
+        const [c, l] = await Promise.all([countCommunityReviews({ activeOnly: true }), countLegacyReviews()]);
+        if (active && Number.isFinite(c) && Number.isFinite(l)) setTotalCount(c + l);
+      } catch (_) { /* badge fallback: loaded length */ }
+    })();
     return () => {active=false;};
   }, [reloadKey]);
   const reviews = useMemo(() => [...community,...legacy].filter(r =>
@@ -348,7 +361,7 @@ export default function ExamPaperCommunity({ user, subject, term, onPublished, h
     {showForm && <ReviewSubmission user={user} subject={browseSubject} term={submitTerm} reuseDraft={reuseDraft} onPublished={onSuccessfullyPublished} />}
     <EarlierSubmissions user={user} onReuse={reuse}/>
     <section className="edx-paper-feed" id="edx-paper-feed" aria-labelledby="edx-paper-feed-title">
-      <div className="edx-paper-feed-head"><div><span className="edx-paper-kicker"><MessageCircle size={16} /> Shared by students</span><h2 id="edx-paper-feed-title">{allSubjects ? 'Latest paper experiences' : 'Paper experiences for '+browseSubject}</h2><p>Browse shared completed-exam experiences or search for a specific subject.</p></div><span className="edx-paper-feed-count">{reviews.length} {reviews.length===1?'review':'reviews'}</span></div>
+      <div className="edx-paper-feed-head"><div><span className="edx-paper-kicker"><MessageCircle size={16} /> Shared by students</span><h2 id="edx-paper-feed-title">{allSubjects ? 'Latest paper experiences' : 'Paper experiences for '+browseSubject}</h2><p>Browse shared completed-exam experiences or search for a specific subject.</p></div><span className="edx-paper-feed-count">{(allSubjects && browseTerm==='all' && !reviewSearch.trim() && totalCount!=null ? totalCount : reviews.length)} {(allSubjects && browseTerm==='all' && !reviewSearch.trim() && totalCount!=null ? totalCount : reviews.length)===1?'review':'reviews'}</span></div>
       {!showForm && <button type="button" className="edx-paper-write-cta" onClick={()=>setShowForm(true)}><Send size={17}/> Write a review</button>}
       <div className="edx-paper-feed-controls">
         <label><Search size={17}/><input type="search" value={reviewSearch} onChange={e=>setReviewSearch(e.target.value)} placeholder="Find a subject, topic or keyword…" aria-label="Search paper reviews"/></label>

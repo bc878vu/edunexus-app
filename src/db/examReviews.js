@@ -124,9 +124,12 @@ export async function submitCommunityReview(data) {
   );
 }
 
-/** Public listing (ExamPaperCommunity). */
-export async function listCommunityReviews({ subject, term, activeOnly = true, limit: max = 200 } = {}) {
-  const key = CACHE_PREFIX + 'community|' + (subject || '-') + '|' + (term || '-') + '|' + max;
+/** Public listing (ExamPaperCommunity).
+ *  order: 'exam_date' (default, kept for admin/bot callers) or 'created_at'
+ *  (newest submissions first — used by the public feed so newly published
+ *  reviews surface immediately instead of being buried under the limit). */
+export async function listCommunityReviews({ subject, term, activeOnly = true, limit: max = 200, order = 'exam_date' } = {}) {
+  const key = CACHE_PREFIX + 'community|' + (subject || '-') + '|' + (term || '-') + '|' + max + '|' + order;
   return cachedList(key, async () => {
     return withFallback(
       async () => {
@@ -134,7 +137,8 @@ export async function listCommunityReviews({ subject, term, activeOnly = true, l
         if (subject) q = q.eq('subject', subject);
         if (term) q = q.eq('term', term);
         if (activeOnly) q = q.eq('is_active', true);
-        const { data, error } = await q.order('exam_date', { ascending: false }).limit(max);
+        const orderCol = order === 'created_at' ? 'created_at' : 'exam_date';
+        const { data, error } = await q.order(orderCol, { ascending: false }).limit(max);
         if (error) throw error;
         return (data || []).map(toCommunity);
       },
@@ -150,6 +154,39 @@ export async function listCommunityReviews({ subject, term, activeOnly = true, l
       },
       { cacheKeys: ['exam_reviews_'] }
     );});
+}
+
+/** Live totals for the public feed badge. The feed only loads a capped
+ *  window (200 newest), so the badge must come from a count query, not
+ *  from the loaded list length — otherwise the page keeps showing a stale
+ *  number (e.g. 201) while the database holds 1,300+ reviews. Not cached:
+ *  a count query is cheap and must reflect new submissions immediately.
+ *  Firestore fallback returns null (no count API wired) so the caller
+ *  falls back to the loaded list length. */
+export async function countCommunityReviews({ activeOnly = true } = {}) {
+  return withFallback(
+    async () => {
+      let q = supabase.from('exam_community_reviews').select('id', { count: 'exact', head: true });
+      if (activeOnly) q = q.eq('is_active', true);
+      const { count, error } = await q;
+      if (error) throw error;
+      return count ?? 0;
+    },
+    async () => null,
+    { cacheKeys: [] },
+  );
+}
+
+export async function countLegacyReviews() {
+  return withFallback(
+    async () => {
+      const { count, error } = await supabase.from('exam_reviews').select('id', { count: 'exact', head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+    async () => null,
+    { cacheKeys: [] },
+  );
 }
 
 export async function getCommunityReview(id) {
