@@ -147,6 +147,63 @@ export default async function handler(req, res) {
     return res.status(200).send(html);
   }
 
+  // Test-paper share links: /test-papers?subject=PHY101&lectures=1,2,... and
+  // /test-papers/<slug> (via crawler-gated vercel.json rewrites). Crawlers
+  // (WhatsApp etc.) get the paper's own title + subject-related description
+  // so the preview card shows that paper; browsers get a 302 to the SPA
+  // paper page (loop-free: the browser rewrite sends /test-papers to
+  // /index.html, never back to this function).
+  // Data note: only the lecture-mapped bank can build a pattern paper, and
+  // today that bank holds exactly one subject (PHY101, Introduction to
+  // Physics, Midterm). The fixed-paper registry holds the same paper as
+  // phy101-lec1-9. Anything else falls back to the generic Test Papers
+  // preview — never a made-up subject title or topic list.
+  if (ogPage === 'testpaper' || ogPage === 'testpaperslug') {
+    const ua = String(req.headers['user-agent'] || '').toLowerCase();
+    const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
+    const clamp = (v, d, lo, hi) => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+    const TOPICS_1_9 = "Units, vectors, motion, Newton's laws, friction, apparent weight, work\u2013energy, momentum";
+    let appUrl = SITE + '/test-papers';
+    let title = 'Test Papers \u2014 Free VU Mock Papers | EduNexus';
+    let desc = 'Take a full VU test paper online on EduNexus \u2014 MCQs are checked instantly and subjective answers go to the teacher. Build your own paper from verified questions, free.';
+    if (ogPage === 'testpaperslug') {
+      const slug = String(req.query?.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 60);
+      if (slug === 'phy101-lec1-9') {
+        appUrl = SITE + '/test-papers/phy101-lec1-9';
+        title = 'PHY101 Introduction to Physics Test Paper \u2014 Lectures 1\u20139 | EduNexus';
+        desc = 'Take the PHY101 Introduction to Physics midterm test paper online \u2014 Lectures 1\u20139: ' + TOPICS_1_9 + '. 20 MCQs, 3 short and 3 long questions (44 marks, 90 minutes). MCQs are checked instantly and subjective answers go to the teacher \u2014 free on EduNexus.';
+      }
+    } else {
+      const code = String(req.query?.subject || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+      const lectures = String(req.query?.lectures || '').split(',').map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n >= 1 && n <= 22);
+      const uniqLectures = [...new Set(lectures)].sort((a, b) => a - b);
+      if (code === 'PHY101' && uniqLectures.length > 0) {
+        const mcq = clamp(req.query?.mcqs, 20, 1, 50);
+        const short = clamp(req.query?.shorts, 3, 0, 5);
+        const long = clamp(req.query?.longs, 3, 0, 5);
+        const marks = mcq + short * 3 + long * 5;
+        const consecutive = uniqLectures.length > 1 && uniqLectures.every((n, i) => i === 0 || n === uniqLectures[i - 1] + 1);
+        const lecturesLabel = uniqLectures.length === 1
+          ? 'Lecture ' + uniqLectures[0]
+          : consecutive ? 'Lectures ' + uniqLectures[0] + '\u2013' + uniqLectures[uniqLectures.length - 1] : 'Lectures ' + uniqLectures.join(', ');
+        const isFull19 = consecutive && uniqLectures[0] === 1 && uniqLectures[uniqLectures.length - 1] === 9;
+        appUrl = SITE + '/test-papers?subject=' + encodeURIComponent(code)
+          + '&lectures=' + encodeURIComponent(uniqLectures.join(','))
+          + '&mcqs=' + mcq + '&shorts=' + short + '&longs=' + long;
+        title = 'PHY101 Introduction to Physics Test Paper \u2014 ' + lecturesLabel + ' | EduNexus';
+        desc = 'Take the PHY101 Introduction to Physics midterm test paper online \u2014 ' + lecturesLabel
+          + (isFull19 ? ': ' + TOPICS_1_9 + '. ' : '. ')
+          + mcq + ' MCQs, ' + short + ' short and ' + long + ' long questions (' + marks + ' marks, 90 minutes). MCQs are checked instantly and subjective answers go to the teacher \u2014 free on EduNexus.';
+      }
+    }
+    if (!isCrawler) return res.redirect(302, appUrl);
+    const image = SITE + '/logo-wide.jpg';
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><meta name="robots" content="noindex,follow"><link rel="canonical" href="${h(appUrl)}"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><main><h1>${h(title)}</h1><p>${h(desc)}</p><p><a href="${h(appUrl)}">Open EduNexus</a></p></main></body></html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(html);
+  }
+
   // Academic subject pages: /academic/CS101 (via a crawler-gated vercel.json
   // rewrite). Crawlers get a subject-specific preview; normal browsers get a
   // 302 to the SPA subject page (loop-free: the rewrite only fires for crawlers).

@@ -16,6 +16,9 @@ import { SUBJECT_CATALOG, SUBJECT_STATUS_NOTE } from './testPaperSubjects';
 import { BANK_SUBJECTS, buildPaper } from './testPapersBank';
 import PaperPopup from './PaperPopup';
 import PaperBuilder from './PaperBuilder';
+import PaperAnswerEditor from './PaperAnswerEditor';
+import SafeHtml, { stripHtmlToText } from './PaperSafeHtml';
+import './test-papers-redesign.css';
 import {
   submitPaperAttempt,
   getPaperAttempt,
@@ -79,12 +82,13 @@ export function PaperRunner({ paper, onBack }) {
   const [submitted, setSubmitted] = useState(null);
   const [saveState, setSaveState] = useState('idle'); // idle | saving | saved | failed
   const [savedAttempt, setSavedAttempt] = useState(() => readSavedAttempt(paper.slug));
+  const [confirmModal, setConfirmModal] = useState(null); // null | 'submit' | 'retake'
   const timerRef = useRef(null);
 
   const attempted = useMemo(() => {
     let n = Object.keys(mcqAnswers).length;
-    shortAnswers.forEach((a) => { if (a.trim()) n += 1; });
-    longAnswers.forEach((a) => { if (a.trim()) n += 1; });
+    shortAnswers.forEach((a) => { if (stripHtmlToText(a).trim()) n += 1; });
+    longAnswers.forEach((a) => { if (stripHtmlToText(a).trim()) n += 1; });
     return n;
   }, [mcqAnswers, shortAnswers, longAnswers]);
 
@@ -118,6 +122,15 @@ export function PaperRunner({ paper, onBack }) {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [paper.slug, savedAttempt, submitted]);
+
+  const unanswered = total - attempted;
+
+  useEffect(() => {
+    if (!confirmModal) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setConfirmModal(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [confirmModal]);
 
   const startPaper = () => {
     if (!studentName.trim() || !studentVuId.trim()) {
@@ -178,14 +191,10 @@ export function PaperRunner({ paper, onBack }) {
     }
   };
 
-  const handleSubmit = async () => {
-    const unanswered = total - attempted;
-    const ok = window.confirm(
-      unanswered > 0
-        ? 'You still have ' + unanswered + ' unanswered question(s). Submit anyway?'
-        : 'Submit this paper? You cannot change answers after submitting.'
-    );
-    if (!ok) return;
+  const handleSubmit = () => { setConfirmModal('submit'); };
+
+  const doSubmit = async () => {
+    setConfirmModal(null);
     const result = {
       studentName: studentName.trim(),
       studentVuId: studentVuId.trim(),
@@ -199,8 +208,10 @@ export function PaperRunner({ paper, onBack }) {
     await persistAttempt(result);
   };
 
-  const handleRetake = () => {
-    if (!window.confirm('Start this paper again? Your current answers on this screen will be cleared.')) return;
+  const handleRetake = () => { setConfirmModal('retake'); };
+
+  const doRetake = () => {
+    setConfirmModal(null);
     setStarted(false);
     setIndex(0);
     setMcqAnswers({});
@@ -235,45 +246,64 @@ export function PaperRunner({ paper, onBack }) {
     });
     const weakLectures = Object.values(weakMap).filter((w) => w.wrong > 0).sort((a, b) => b.wrong - a.wrong || a.n - b.n);
     const hasSubjective = paper.shorts.length + paper.longs.length > 0;
+    const mcqPct = paper.mcqs.length ? Math.round((submitted.mcqScore / paper.mcqs.length) * 100) : 0;
     return (
-      <div className="edx-exam-stack">
-        <section className="edx-exam-card edx-paper-result">
-          <h2>Paper submitted</h2>
-          <p><strong>{submitted.studentName}</strong> · VU ID {submitted.studentVuId}</p>
-          <p className="edx-paper-score">MCQ score: {submitted.mcqScore} / {paper.mcqs.length}</p>
-          <p>{paper.lectures}</p>
-          {weakLectures.length > 0 && (
-            <p><strong>Focus lectures (most MCQ mistakes):</strong> {weakLectures.map((w) => 'Lecture ' + w.n + ' (' + w.wrong + '/' + w.total + ' wrong)').join(', ')} — revise these first.</p>
-          )}
-          {teacherTotal === null
-            ? (!hasSubjective
-              ? <p>Is paper mein subjective sawal nahi the (selected lectures mein verified subjective sawal nahi mile).</p>
-              : <p>Subjective answers are submitted to the teacher for review. Teacher marks will appear here after review.</p>)
-            : <p className="edx-paper-score">Teacher marks (subjective): {teacherTotal} / {paper.marks.short + paper.marks.long} · Total: {submitted.mcqScore + teacherTotal} / {paper.marks.total}</p>}
-          {submitted.teacherFeedback && <p><strong>Teacher feedback:</strong> {submitted.teacherFeedback}</p>}
-          {saveState === 'saving' && <p role="status">Saving your attempt for the teacher…</p>}
-          {saveState === 'saved' && <p role="status">Saved for the teacher. Receipt: {savedAttempt && savedAttempt.attemptId ? savedAttempt.attemptId.slice(0, 8) : ''}</p>}
-          {saveState === 'failed' && (
-            <p role="alert" className="edx-exam-alert">
-              Your result below is correct, but it could not be saved for the teacher yet. Please try saving again.
-              <button type="button" className="edx-exam-secondary" onClick={() => persistAttempt(submitted)}>Save again</button>
-            </p>
-          )}
-          <div className="edx-exam-actions">
-            <a className="edx-exam-primary" href={whatsappUrl} target="_blank" rel="noopener noreferrer">Send result to EduNexus (WhatsApp)</a>
-            <button type="button" className="edx-exam-secondary" onClick={handleRetake}>Retake paper</button>
-            <button type="button" className="edx-exam-secondary" onClick={onBack}>Back to Test Papers</button>
+      <div className="edx-exam-stack edx-paper-page edx-paper-runner">
+        <section className="edx-paper-result-hero">
+          <div className="edx-paper-result-score">
+            <span className="edx-paper-score-big">{submitted.mcqScore}<small>/{paper.mcqs.length}</small></span>
+            <span className="edx-paper-score-label">MCQ score · {mcqPct}%</span>
+          </div>
+          <div className="edx-paper-result-info">
+            <h2>Paper submitted</h2>
+            <p><strong>{submitted.studentName}</strong> · VU ID {submitted.studentVuId} · {paper.lectures}</p>
+            {teacherTotal === null
+              ? (!hasSubjective
+                ? <p>Is paper mein subjective sawal nahi the (selected lectures mein verified subjective sawal nahi mile).</p>
+                : <p>Subjective answers are submitted to the teacher for review. Teacher marks will appear here after review.</p>)
+              : <p className="edx-paper-score">Teacher marks (subjective): {teacherTotal} / {paper.marks.short + paper.marks.long} · Total: {submitted.mcqScore + teacherTotal} / {paper.marks.total}</p>}
+            {submitted.teacherFeedback && <p><strong>Teacher feedback:</strong> {submitted.teacherFeedback}</p>}
+            {saveState === 'saving' && <span className="edx-paper-save-pill" role="status">Saving your attempt for the teacher…</span>}
+            {saveState === 'saved' && <span className="edx-paper-save-pill" role="status">Saved for the teacher. Receipt: {savedAttempt && savedAttempt.attemptId ? savedAttempt.attemptId.slice(0, 8) : ''}</span>}
+            {saveState === 'failed' && (
+              <p role="alert" className="edx-exam-alert">
+                Your result below is correct, but it could not be saved for the teacher yet. Please try saving again.
+                <button type="button" className="edx-exam-secondary" onClick={() => persistAttempt(submitted)}>Save again</button>
+              </p>
+            )}
           </div>
         </section>
+        {weakLectures.length > 0 && (
+          <section className="edx-exam-card">
+            <h3>Focus lectures — revise these first</h3>
+            <p>These lectures had the most MCQ mistakes.</p>
+            <div className="edx-paper-focus-grid">
+              {weakLectures.map((w) => (
+                <div key={w.n} className="edx-paper-focus-item">
+                  <strong>Lecture {w.n}</strong>
+                  <span>{w.wrong} / {w.total} wrong</span>
+                  <span className="edx-paper-focus-bar"><span style={{ width: Math.round((w.wrong / w.total) * 100) + '%' }} /></span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        <div className="edx-exam-actions edx-paper-result-actions">
+          <a className="edx-exam-primary" href={whatsappUrl} target="_blank" rel="noopener noreferrer">Send result to EduNexus (WhatsApp)</a>
+          <button type="button" className="edx-exam-secondary" onClick={handleRetake}>Retake paper</button>
+          <button type="button" className="edx-exam-secondary" onClick={onBack}>Back to Test Papers</button>
+        </div>
         <section className="edx-exam-card">
           <h3>MCQ review</h3>
           {paper.mcqs.map((q, i) => {
             const mine = submitted.mcqAnswers[i];
             const correct = mine === q.answer;
             return (
-              <div key={i} className="edx-paper-review-row">
-                <p><strong>Q{i + 1}{q.lectures ? ' (Lecture ' + q.lectures.join('/') + ')' : ''}.</strong> {q.q}</p>
-                <p>Your answer: {mine ? mine + '. ' + (q.options.find((o) => o.letter === mine) || {}).text : 'Not answered'} — {correct ? 'Correct' : 'Wrong'}</p>
+              <div key={i} className={'edx-paper-review-row ' + (correct ? 'correct' : 'wrong')}>
+                <p><strong>Q{i + 1}{q.lectures ? ' (Lecture ' + q.lectures.join('/') + ')' : ''}.</strong> {q.q}
+                  <span className={'edx-paper-review-badge ' + (correct ? 'correct' : 'wrong')}>{correct ? 'Correct' : 'Wrong'}</span>
+                </p>
+                <p>Your answer: {mine ? mine + '. ' + (q.options.find((o) => o.letter === mine) || {}).text : 'Not answered'}</p>
                 {!correct && <p>Correct answer: {q.answer}. {(q.options.find((o) => o.letter === q.answer) || {}).text}</p>}
                 <p className="edx-paper-explanation">{q.explanation}</p>
               </div>
@@ -286,18 +316,18 @@ export function PaperRunner({ paper, onBack }) {
             <div key={'s' + i} className="edx-paper-review-row">
               <p><strong>Short Q{i + 1}.</strong> {q.q}</p>
               <p><strong>Your answer:</strong></p>
-              <p className="edx-paper-answer-text">{submitted.shortAnswers[i] || 'Not answered'}</p>
+              <SafeHtml className="edx-paper-answer-text" html={submitted.shortAnswers[i] || 'Not answered'} />
               <p><strong>Model answer:</strong></p>
-              <p className="edx-paper-answer-text">{q.modelAnswer}</p>
+              <SafeHtml className="edx-paper-answer-text" html={q.modelAnswer} />
             </div>
           ))}
           {paper.longs.map((q, i) => (
             <div key={'l' + i} className="edx-paper-review-row">
               <p><strong>Long Q{i + 1}.</strong> {q.q}</p>
               <p><strong>Your answer:</strong></p>
-              <p className="edx-paper-answer-text">{submitted.longAnswers[i] || 'Not answered'}</p>
+              <SafeHtml className="edx-paper-answer-text" html={submitted.longAnswers[i] || 'Not answered'} />
               <p><strong>Model answer:</strong></p>
-              <p className="edx-paper-answer-text">{q.modelAnswer}</p>
+              <SafeHtml className="edx-paper-answer-text" html={q.modelAnswer} />
             </div>
           ))}
         </section>)}
@@ -307,11 +337,18 @@ export function PaperRunner({ paper, onBack }) {
 
   if (!started) {
     return (
-      <div className="edx-exam-stack">
+      <div className="edx-exam-stack edx-paper-page">
         <section className="edx-paper-cover">
           <span className="edx-paper-pill">{paper.code} | {paper.term}</span>
           <h1>{paper.code} — {paper.title} — Test Paper</h1>
-          <p>{paper.lectures} · {paper.mcqs.length} MCQs · {paper.shorts.length} Short · {paper.longs.length} Long · {paper.marks.total} marks · {paper.minutes} minutes</p>
+          <p>{paper.lectures}</p>
+          <div className="edx-paper-cover-meta">
+            <span>{paper.mcqs.length} MCQs</span>
+            <span>{paper.shorts.length} Short questions</span>
+            <span>{paper.longs.length} Long questions</span>
+            <span>{paper.marks.total} marks</span>
+            <span>{paper.minutes} minutes</span>
+          </div>
         </section>
         <section className="edx-exam-card edx-exam-form">
           <h3>Your details</h3>
@@ -335,7 +372,7 @@ export function PaperRunner({ paper, onBack }) {
   }
 
   return (
-    <div className="edx-exam-stack">
+    <div className="edx-exam-stack edx-paper-page edx-paper-runner">
       <div className="edx-paper-stickybar" role="status">
         <span>{attempted} of {total} attempted</span>
         <span className={secondsLeft < 300 ? 'edx-paper-timer-low' : ''}>⏱ {fmtTime(secondsLeft)}</span>
@@ -348,7 +385,7 @@ export function PaperRunner({ paper, onBack }) {
           const q = questionAt(i);
           const answered = q.kind === 'mcq'
             ? mcqAnswers[q.num] !== undefined
-            : q.kind === 'short' ? Boolean(shortAnswers[q.num].trim()) : Boolean(longAnswers[q.num].trim());
+            : q.kind === 'short' ? Boolean(stripHtmlToText(shortAnswers[q.num]).trim()) : Boolean(stripHtmlToText(longAnswers[q.num]).trim());
           return (
             <button
               key={i}
@@ -378,10 +415,16 @@ export function PaperRunner({ paper, onBack }) {
           </div>
         )}
         {current.kind === 'short' && (
-          <label className="edx-exam-field">Your answer<textarea rows={6} maxLength={2000} value={shortAnswers[current.num]} onChange={(e) => setShortAnswers((prev) => prev.map((v, j) => (j === current.num ? e.target.value : v)))} placeholder="Type your answer here…" /></label>
+          <div className="edx-exam-field">
+            <span className="edx-paper-answer-label">Your answer</span>
+            <PaperAnswerEditor key={'short-' + current.num} value={shortAnswers[current.num]} maxChars={2000} minHeight={160} placeholder="Type your answer here… Use the toolbar for formatting and Σ for equations." onChange={(nextHtml) => setShortAnswers((prev) => prev.map((v, j) => (j === current.num ? nextHtml : v)))} />
+          </div>
         )}
         {current.kind === 'long' && (
-          <label className="edx-exam-field">Your answer<textarea rows={12} maxLength={6000} value={longAnswers[current.num]} onChange={(e) => setLongAnswers((prev) => prev.map((v, j) => (j === current.num ? e.target.value : v)))} placeholder="Type your answer here…" /></label>
+          <div className="edx-exam-field">
+            <span className="edx-paper-answer-label">Your answer</span>
+            <PaperAnswerEditor key={'long-' + current.num} value={longAnswers[current.num]} maxChars={6000} minHeight={280} placeholder="Type your answer here… Use the toolbar for formatting and Σ for equations." onChange={(nextHtml) => setLongAnswers((prev) => prev.map((v, j) => (j === current.num ? nextHtml : v)))} />
+          </div>
         )}
         <div className="edx-exam-actions">
           <button type="button" className="edx-exam-secondary" disabled={index === 0} onClick={() => setIndex(index - 1)}>Previous</button>
@@ -390,6 +433,27 @@ export function PaperRunner({ paper, onBack }) {
             : <button type="button" className="edx-exam-primary" onClick={handleSubmit}>Finish &amp; submit</button>}
         </div>
       </section>
+      {confirmModal && (
+        <div className="edx-paper-modal-overlay" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirmModal(null); }}>
+          <div className="edx-paper-modal" role="dialog" aria-modal="true" aria-labelledby="edx-paper-modal-title">
+            <h3 id="edx-paper-modal-title">{confirmModal === 'submit' ? 'Submit paper?' : 'Retake paper?'}</h3>
+            <div className="edx-paper-modal-stats">
+              <span>{attempted} of {total} attempted</span>
+              {confirmModal === 'submit' && unanswered > 0 && <span>{unanswered} unanswered</span>}
+              <span>⏱ {fmtTime(secondsLeft)} left</span>
+            </div>
+            {confirmModal === 'submit' ? (
+              <p>{unanswered > 0 ? 'Unanswered questions will count as wrong. ' : ''}You cannot change answers after submitting.</p>
+            ) : (
+              <p>Start this paper again? Your current answers on this screen will be cleared.</p>
+            )}
+            <div className="edx-paper-modal-actions">
+              <button type="button" className="edx-exam-secondary" autoFocus onClick={() => setConfirmModal(null)}>{confirmModal === 'submit' ? 'Keep answering' : 'Cancel'}</button>
+              <button type="button" className="edx-exam-primary" onClick={confirmModal === 'submit' ? doSubmit : doRetake}>{confirmModal === 'submit' ? 'Submit paper' : 'Start again'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -435,10 +499,15 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   // every subject (with the admin-contact popup for non-live ones).
   const shownSubjects = subjectQuery.trim() ? filteredSubjects : filteredSubjects.filter((s) => s.status === 'live');
   return (
-    <div className="edx-exam-stack">
+    <div className="edx-exam-stack edx-paper-page">
       <section className="edx-paper-cover">
         <h1>Test Papers</h1>
         <p>Take a full paper online — MCQs are checked instantly, subjective answers go to the teacher.</p>
+        <div className="edx-paper-cover-meta">
+          <span>{TEST_PAPERS.length} ready-made paper</span>
+          <span>Build your own paper</span>
+          <span>Free for VU students</span>
+        </div>
       </section>
       {pattern && pattern.error && <PaperPopup code={pattern.error} note="Is subject ka paper data abhi available nahi hai, ya link mein lectures theek nahi hain. Admin se contact karein." onClose={clearPatternParams} />}
       <section className="edx-exam-card">

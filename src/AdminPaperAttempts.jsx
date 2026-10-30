@@ -13,6 +13,7 @@ import {
   reviewPaperAttempt,
 } from './db/paperAttempts';
 import { getTestPaper } from './testPapersData';
+import SafeHtml from './PaperSafeHtml';
 
 function fmtDate(ts) {
   try {
@@ -120,8 +121,8 @@ export default function AdminPaperAttempts({ user }) {
           <div key={i} className="edx-paper-review-row">
             <p><strong>{q.q}</strong> ({q.marks} marks)</p>
             <p><strong>Student answer:</strong></p>
-            <p className="edx-paper-answer-text">{subjAnswers[i] || 'Not answered'}</p>
-            {q.modelAnswer && (<><p><strong>Model answer:</strong></p><p className="edx-paper-answer-text">{q.modelAnswer}</p></>)}
+            <SafeHtml className="edx-paper-answer-text" html={subjAnswers[i] || 'Not answered'} />
+            {q.modelAnswer && (<><p><strong>Model answer:</strong></p><SafeHtml className="edx-paper-answer-text" html={q.modelAnswer} /></>)}
             <label className="edx-exam-field">Teacher marks (0–{q.marks})
               <input type="number" min={0} max={q.marks} value={marks[i] === undefined ? '' : marks[i]} onChange={(e) => setMarks((prev) => ({ ...prev, [i]: e.target.value }))} />
             </label>

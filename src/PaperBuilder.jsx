@@ -43,7 +43,7 @@ export default function PaperBuilder({ subjectCode, onBack }) {
   }
 
   return (
-    <section className="edx-exam-card edx-exam-form edx-paper-builder">
+    <section className="edx-exam-card edx-exam-form edx-paper-builder edx-paper-page">
       <button type="button" className="edx-exam-secondary" onClick={onBack}>Back to test papers</button>
       <h2>Build your own paper — {subject.code}</h2>
       <p>{subject.title} · {subject.term} · {subject.scope}. Pick any lectures you want; the paper is built only from verified bank questions for those lectures.</p>
@@ -64,7 +64,7 @@ export default function PaperBuilder({ subjectCode, onBack }) {
           );
         })}
       </div>
-      <p>{selected.length === 0 ? 'Select at least one lecture to build a paper.' : `Selected: lectures ${selected.join(', ')}`}</p>
+      <p className="edx-paper-selected-line">{selected.length === 0 ? 'Select at least one lecture to build a paper.' : `Selected: lectures ${selected.join(', ')}`}</p>
       <button type="button" className="edx-exam-primary" disabled={selected.length === 0}
         onClick={() => { const p = buildPaper(subject, selected); if (p.mcqs.length + p.shorts.length + p.longs.length === 0) { setNoData(true); return; } setPaper(p); }}>Generate my paper</button>
       {noData && <PaperPopup code={subject.code} note={'Selected lectures (' + selected.join(', ') + ') ke liye koi verified sawal nahi mila. Admin se contact karein.'} onClose={() => setNoData(false)} />}
