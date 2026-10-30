@@ -38,7 +38,17 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
   /* A4 page setup */
   @page{size:A4 portrait;margin:12mm}
   .edx-cgpa #cgpa-print-sheet{display:block!important}
-  .edx-cgpa #cgpa-print-sheet .cgpa-a4{max-width:100%!important;min-height:273mm!important;box-shadow:none!important;overflow:visible!important;print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
+  .edx-cgpa #cgpa-print-sheet .cgpa-a4{max-width:100%!important;min-height:268mm!important;box-shadow:none!important;overflow:visible!important;print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
+  /* Ancestor spacing must be zeroed in print, otherwise it stacks on top of
+     the sheet's own height: <main> carries py-8/pb-24 (32px top + 96px
+     bottom) and the section's space-y-8 puts margin-top:2rem on the sheet
+     (Tailwind's :not([hidden]) test is attribute-based, so the
+     display:none screen div still counts as a preceding sibling). That
+     stack — 273mm forced height + ~57mm ancestor spacing — is what pushed
+     the certificate to 3 pages (blank p1, cert p2, sliver p3). */
+  main:has(.edx-cgpa){padding:0!important;margin:0!important}
+  .edx-cgpa{margin:0!important;padding:0!important}
+  .edx-cgpa #cgpa-print-sheet{margin:0!important;padding:0!important}
   /* Hide screen-only content when printing */
   .edx-cgpa .print\:hidden{display:none!important}
   /* Global app chrome must never print: the CGPA result sheet is the only
@@ -48,8 +58,10 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
      and the footer/support section spills onto a second page. */
   .edx-free-orb,.edx-bot-root,.edx-bot-fab,.edx-page-pill,.edx-progress,.edx-ambient,.edx-grid,.edx-top-button{display:none!important}
   /* Keep each sheet block whole so no row ever slices across a page break;
-     the subjects table itself may span pages, but never mid-row. */
-  .edx-cgpa #cgpa-print-sheet .cgpa-a4>div{break-inside:avoid;page-break-inside:avoid}
+     the subjects table itself may span pages, but never mid-row.
+     NOTE: the frame div itself must NOT get break-inside:avoid — a
+     full-page frame that cannot break turns any 1px overflow into a whole
+     blank page (this caused the 3-page print). */
   .edx-cgpa #cgpa-print-sheet table tr{break-inside:avoid;page-break-inside:avoid}
 }
 /* Screen: hide print sheet */
