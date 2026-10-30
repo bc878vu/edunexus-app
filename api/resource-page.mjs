@@ -169,6 +169,7 @@ export default async function handler(req, res) {
       CS101: { title: 'Introduction to Computing', term: 'Midterm' },
       CS201: { title: 'Introduction to Programming', term: 'Midterm' },
       CS202: { title: 'Fundamentals of Front End Development', term: 'Midterm' },
+      CS301: { title: 'Data Structures', term: 'Midterm' },
     };
     const tpLabel = (uniq) => {
       if (uniq.length === 1) return 'Lecture ' + uniq[0];
