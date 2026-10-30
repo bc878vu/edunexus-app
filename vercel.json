@@ -317,7 +317,7 @@
     },
     {
       "source": "/exam-prep/:subject/:term",
-      "destination": "/index.html"
+      "destination": "/api/resource-page?examprep=1&subject=:subject&term=:term"
     },
     {
       "source": "/exam-prep",
@@ -390,6 +390,17 @@
     {
       "source": "/test-papers/:slug",
       "destination": "/index.html"
+    },
+    {
+      "source": "/course-tests",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Ww]hats[Aa]pp|[Ff]acebookexternalhit|[Ff]acebookcatalog|[Tt]witterbot|[Ll]inkedin[Bb]ot|[Tt]elegrambot|[Dd]iscordbot|[Ss]lackbot|[Ss]kypeuripreview|[Gg]ooglebot|[Bb]ingbot|[Pp]interest|[Ee]mbedly|[Qq]uora|[Vv]k[Ss]hare).*"
+        }
+      ],
+      "destination": "/api/resource-page?ogpage=testpaper"
     },
     {
       "source": "/course-tests",

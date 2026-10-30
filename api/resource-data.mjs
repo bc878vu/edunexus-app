@@ -98,7 +98,10 @@ export async function getPaperReviewByShortCode(code) {
   const target = String(code).toLowerCase();
   for (const table of ['exam_community_reviews', 'exam_reviews']) {
     try {
-      for (let page = 0; page < 10; page += 1) {
+      // No page cap: a short code must resolve for EVERY review, not just
+      // the newest 1000. The old 10-page cap made older reviews' /r/ links
+      // preview generic ("Paper Reviews") instead of the review itself.
+      for (let page = 0; ; page += 1) {
         const rows = await postgrestGet(table,
           'select=*&order=created_at.desc&limit=100&offset=' + (page * 100));
         if (!rows || rows.length === 0) break;

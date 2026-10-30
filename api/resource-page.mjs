@@ -257,28 +257,46 @@ export default async function handler(req, res) {
     return res.status(200).send(html);
   }
 
-  // Exam-prep share links: /exam-prep/CS101/midterm/mcqs (via vercel.json rewrite).
-  // Crawlers (WhatsApp etc.) get server-rendered OG tags so the preview shows the
-  // subject's MCQ bank / paper reviews. Browsers get a 302 to the SPA URL.
-  // Regular browsers never hit this branch for other URLs.
+  // Exam-prep share links: /exam-prep/<subject>/<term>[/<section>] (via
+  // vercel.json rewrites). Crawlers (WhatsApp etc.) get server-rendered OG
+  // tags for that subject+term+section; browsers get a 302 to the SPA URL.
+  // Every section (mcqs, reviews, files, papers) and the bare
+  // subject/term URL are handled — previously files/papers 404'd and the
+  // bare URL fell back to the generic home preview.
   const epShare = String(req.query?.examprep || '');
-  const epSection = String(req.query?.section || '');
-  if (epShare === '1' && (epSection === 'mcqs' || epSection === 'reviews')) {
+  const epSection = String(req.query?.section || '').toLowerCase();
+  if (epShare === '1') {
     const rawSubject = String(req.query?.subject || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'VU';
     const rawTerm = String(req.query?.term || '').toLowerCase();
     const term = rawTerm === 'quiz' ? 'Quiz' : rawTerm === 'finalterm' ? 'Finalterm' : 'Midterm';
     const isMcq = epSection === 'mcqs';
-    const appUrl = SITE + '/?page=exam-prep&section=' + epSection + '&subject=' + encodeURIComponent(rawSubject) + '&term=' + encodeURIComponent(rawTerm || 'midterm');
+    const isReviews = epSection === 'reviews';
+    const isFiles = epSection === 'files';
+    const isPapers = epSection === 'papers';
+    const sectionPart = epSection ? '&section=' + encodeURIComponent(epSection) : '';
+    const appUrl = SITE + '/?page=exam-prep' + sectionPart + '&subject=' + encodeURIComponent(rawSubject) + '&term=' + encodeURIComponent(rawTerm || 'midterm');
     const ua = String(req.headers['user-agent'] || '').toLowerCase();
     const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
     if (!isCrawler) return res.redirect(302, appUrl);
     const title = isMcq
       ? rawSubject + ' ' + term + ' Solved MCQs | EduNexus'
-      : 'Paper Reviews | EduNexus';
+      : isReviews
+        ? 'Paper Reviews | EduNexus'
+        : isFiles
+          ? rawSubject + ' ' + term + ' Study Files | EduNexus'
+          : isPapers
+            ? rawSubject + ' ' + term + ' Test Papers | EduNexus'
+            : rawSubject + ' ' + term + ' | EduNexus';
     const desc = isMcq
       ? 'Practice ' + rawSubject + ' ' + term + ' solved MCQs on EduNexus — important and repeated questions with answers, free for VU students.'
-      : 'Read real paper reviews by VU students on EduNexus — paper patterns, important topics, difficulty level and exam tips. Share your own paper review.';
-    const image = SITE + (isMcq ? '/mcq-bank-og.jpg' : '/paper-reviews-og.jpg');
+      : isReviews
+        ? 'Read real paper reviews by VU students on EduNexus — paper patterns, important topics, difficulty level and exam tips. Share your own paper review.'
+        : isFiles
+          ? 'Download ' + rawSubject + ' ' + term + ' study files on EduNexus — notes, handouts and solved material shared by VU students, free.'
+          : isPapers
+            ? 'Take ' + rawSubject + ' ' + term + ' test papers on EduNexus — MCQs checked instantly and subjective answers go to the teacher, free.'
+            : 'Explore ' + rawSubject + ' ' + term + ' on EduNexus — solved MCQs, paper reviews, study files and test papers for VU students, free.';
+    const image = SITE + (isMcq ? '/mcq-bank-og.jpg' : isReviews ? '/paper-reviews-og.jpg' : '/logo-wide.jpg');
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><meta name="robots" content="noindex,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><p><a href="${h(appUrl)}">${h(title)}</a></p></body></html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
