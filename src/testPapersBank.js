@@ -4640,9 +4640,4032 @@ export const PHY101_BANK = {
     }
   ]
 };
+export const ACC501_LECTURES = [
+  {
+    "n": 1,
+    "title": "Introduction"
+  },
+  {
+    "n": 2,
+    "title": "Why Study Finance?"
+  },
+  {
+    "n": 3,
+    "title": "The Corporate Firm"
+  },
+  {
+    "n": 4,
+    "title": "The Firm and The Financial Markets"
+  },
+  {
+    "n": 5,
+    "title": "The Income Statement"
+  },
+  {
+    "n": 6,
+    "title": "Depreciation as a Tax Shield"
+  },
+  {
+    "n": 7,
+    "title": "The Statement of Cash Flows"
+  },
+  {
+    "n": 8,
+    "title": "Common-Size Statements"
+  },
+  {
+    "n": 9,
+    "title": "Ratio Analysis"
+  },
+  {
+    "n": 10,
+    "title": "Ratio Analysis (Cont.)"
+  },
+  {
+    "n": 11,
+    "title": "The Du Pont Identity"
+  },
+  {
+    "n": 12,
+    "title": "Using Financial Statements Information"
+  },
+  {
+    "n": 13,
+    "title": "Future Value"
+  },
+  {
+    "n": 14,
+    "title": "Evaluating Investments"
+  },
+  {
+    "n": 15,
+    "title": "Annuities"
+  },
+  {
+    "n": 16,
+    "title": "Perpetuities"
+  },
+  {
+    "n": 17,
+    "title": "Bonds"
+  },
+  {
+    "n": 18,
+    "title": "Valuing a Bond"
+  },
+  {
+    "n": 19,
+    "title": "Bond Pricing Theorems"
+  },
+  {
+    "n": 20,
+    "title": "The Bond Indenture"
+  },
+  {
+    "n": 21,
+    "title": "Different Types of Bonds"
+  },
+  {
+    "n": 22,
+    "title": "Term Structure of Interest Rates"
+  }
+];
+
+export const ACC501_BANK = {
+  "mcqs": [
+    {
+      "id": "Q001",
+      "q": "Decisions about \"how to raise money\" and \"what to do with it\" are part of which of the following?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Business Finance"
+        },
+        {
+          "letter": "B",
+          "text": "Change management"
+        },
+        {
+          "letter": "C",
+          "text": "Costing for accounting"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Raising money (financing) and spending it (investing) are the core of business finance.",
+      "lectures": [
+        1
+      ],
+      "concept": "intro",
+      "repeated": false
+    },
+    {
+      "id": "Q002",
+      "q": "Which of the following area of finance deals with stocks and bonds?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Financial institutions"
+        },
+        {
+          "letter": "B",
+          "text": "International finance"
+        },
+        {
+          "letter": "C",
+          "text": "Investments"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given option"
+        }
+      ],
+      "answer": "C",
+      "explanation": "The investments area of finance deals with stocks, bonds, and other financial assets.",
+      "lectures": [
+        1
+      ],
+      "concept": "intro",
+      "repeated": false
+    },
+    {
+      "id": "Q003",
+      "q": "Business Finance addresses which of the following?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Capital budgeting"
+        },
+        {
+          "letter": "B",
+          "text": "Capital structure"
+        },
+        {
+          "letter": "C",
+          "text": "Working capital management"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Business finance covers all three: capital budgeting (investing), capital structure (financing), and working capital management.",
+      "lectures": [
+        1
+      ],
+      "concept": "intro",
+      "repeated": true
+    },
+    {
+      "id": "Q004",
+      "q": "Which of the following is(are) the basic area(s) of Finance?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Financial institutions"
+        },
+        {
+          "letter": "B",
+          "text": "International finance"
+        },
+        {
+          "letter": "C",
+          "text": "Investments"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given options"
+        }
+      ],
+      "answer": "D",
+      "explanation": "The basic areas of finance are corporate finance, investments, financial institutions, and international finance.",
+      "lectures": [
+        1
+      ],
+      "concept": "intro",
+      "repeated": false
+    },
+    {
+      "id": "Q005",
+      "q": "Which of the following issue is NOT covered by \"Investment\" area of finance?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Best mixture of financial investment"
+        },
+        {
+          "letter": "B",
+          "text": "International aspects of corporate finance"
+        },
+        {
+          "letter": "C",
+          "text": "Associated risks and rewards"
+        },
+        {
+          "letter": "D",
+          "text": "Pricing financial assets"
+        }
+      ],
+      "answer": "B",
+      "explanation": "The investments area covers portfolio mix, risk-reward, and asset pricing; international corporate finance is a separate area.",
+      "lectures": [
+        1
+      ],
+      "concept": "intro",
+      "repeated": false
+    },
+    {
+      "id": "Q006",
+      "q": "Which of the following best represents the term \"Financing\"?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "It means raising money to acquire something."
+        },
+        {
+          "letter": "B",
+          "text": "It is an object that provides services."
+        },
+        {
+          "letter": "C",
+          "text": "It is trade license to trade securities on behalf of investors."
+        },
+        {
+          "letter": "D",
+          "text": "It represents an ownership interest."
+        }
+      ],
+      "answer": "A",
+      "explanation": "Financing means raising money to acquire assets.",
+      "lectures": [
+        1
+      ],
+      "concept": "intro",
+      "repeated": false
+    },
+    {
+      "id": "Q007",
+      "q": "Which of the given area is NOT addressed by Business Finance?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Financing"
+        },
+        {
+          "letter": "B",
+          "text": "Investing"
+        },
+        {
+          "letter": "C",
+          "text": "Managing day today expenses"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given option"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Business finance addresses financing, investing, and working capital management — not day-to-day expense management.",
+      "lectures": [
+        1
+      ],
+      "concept": "intro",
+      "repeated": false
+    },
+    {
+      "id": "Q008",
+      "q": "The most common application of term \"Finance\" involves raising money to acquire _________.",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Land & Building"
+        },
+        {
+          "letter": "B",
+          "text": "Machinery & Equipment"
+        },
+        {
+          "letter": "C",
+          "text": "Inventory"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Finance means raising money to acquire assets of every kind: land, machinery, inventory, and more.",
+      "lectures": [
+        1
+      ],
+      "concept": "intro",
+      "repeated": false
+    },
+    {
+      "id": "Q009",
+      "q": "Which of the following is subcategory (ies) of finance department?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Accounting department only"
+        },
+        {
+          "letter": "B",
+          "text": "Treasury department only"
+        },
+        {
+          "letter": "C",
+          "text": "Accounting department and Treasury department"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given"
+        }
+      ],
+      "answer": "C",
+      "explanation": "The finance function splits into accounting (controller) and treasury departments.",
+      "lectures": [
+        2
+      ],
+      "concept": "why-study-finance",
+      "repeated": false
+    },
+    {
+      "id": "Q010",
+      "q": "Head of Treasury department reports to whom?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Financial and cost Accountant"
+        },
+        {
+          "letter": "B",
+          "text": "Chief of financial officer"
+        },
+        {
+          "letter": "C",
+          "text": "Cash and credit manager"
+        },
+        {
+          "letter": "D",
+          "text": "Board of directors"
+        }
+      ],
+      "answer": "B",
+      "explanation": "The treasurer reports to the chief financial officer (CFO).",
+      "lectures": [
+        2
+      ],
+      "concept": "why-study-finance",
+      "repeated": false
+    },
+    {
+      "id": "Q011",
+      "q": "The difference between current assets and current liabilities is known as:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Surplus Asset"
+        },
+        {
+          "letter": "B",
+          "text": "Short-term Ratio"
+        },
+        {
+          "letter": "C",
+          "text": "Working Capital"
+        },
+        {
+          "letter": "D",
+          "text": "Current Ratio"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Working capital = current assets - current liabilities.",
+      "lectures": [
+        2
+      ],
+      "concept": "why-study-finance",
+      "repeated": false
+    },
+    {
+      "id": "Q012",
+      "q": "Which of the following equation best represents Net Working Capital?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Current liabilities - current assets"
+        },
+        {
+          "letter": "B",
+          "text": "Current assets - current liabilities"
+        },
+        {
+          "letter": "C",
+          "text": "Current assets = current liabilities"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Net working capital = current assets minus current liabilities.",
+      "lectures": [
+        2
+      ],
+      "concept": "why-study-finance",
+      "repeated": false
+    },
+    {
+      "id": "Q013",
+      "q": "Finance is vital for which of the following business activity (activities)?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Marketing Research"
+        },
+        {
+          "letter": "B",
+          "text": "Product Pricing"
+        },
+        {
+          "letter": "C",
+          "text": "Design of marketing and distribution channels"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given options"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Finance supports all business activities, including marketing decisions.",
+      "lectures": [
+        2
+      ],
+      "concept": "why-study-finance",
+      "repeated": false
+    },
+    {
+      "id": "Q014",
+      "q": "Who of the following make a broader use of accounting information?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Accountants"
+        },
+        {
+          "letter": "B",
+          "text": "Financial Analysts"
+        },
+        {
+          "letter": "C",
+          "text": "Auditors"
+        },
+        {
+          "letter": "D",
+          "text": "Marketers"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Financial analysts use accounting information most broadly to evaluate and compare firms.",
+      "lectures": [
+        2
+      ],
+      "concept": "why-study-finance",
+      "repeated": true
+    },
+    {
+      "id": "Q015",
+      "q": "Finance is vital for which of the following business activity (activities)?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Marketing Research"
+        },
+        {
+          "letter": "B",
+          "text": "Product Pricing"
+        },
+        {
+          "letter": "C",
+          "text": "Design of marketing and distribution channels"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Finance supports every business activity, including marketing research, pricing, and distribution.",
+      "lectures": [
+        2
+      ],
+      "concept": "why-study-finance",
+      "repeated": false
+    },
+    {
+      "id": "Q016",
+      "q": "Which of the following forms of business organizations is created as a distinct legal entity owned by one or more individuals or entities?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Sole-proprietorship"
+        },
+        {
+          "letter": "B",
+          "text": "General Partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Limited Partnership"
+        },
+        {
+          "letter": "D",
+          "text": "Corporation"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Source marked 'Sole-proprietorship', which is wrong: only the corporation is a distinct legal entity separate from its owners.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q017",
+      "q": "Which of the following refers to a conflict of interest between principal and agent?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Management conflict"
+        },
+        {
+          "letter": "B",
+          "text": "Interest conflict"
+        },
+        {
+          "letter": "C",
+          "text": "Agency problem"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given option"
+        }
+      ],
+      "answer": "C",
+      "explanation": "A principal-agent conflict of interest is the agency problem.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q018",
+      "q": "In which form of business organizations, owners have limited liability?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Sole proprietorship"
+        },
+        {
+          "letter": "B",
+          "text": "Partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Joint stock company"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given"
+        }
+      ],
+      "answer": "C",
+      "explanation": "The joint stock company (corporation) is the form whose owners enjoy limited liability.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q019",
+      "q": "Which of the following form of business organization is least regulated?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Sole proprietorship"
+        },
+        {
+          "letter": "B",
+          "text": "General Partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Limited Partnership"
+        },
+        {
+          "letter": "D",
+          "text": "Corporation"
+        }
+      ],
+      "answer": "A",
+      "explanation": "A sole proprietorship has the fewest legal and regulatory requirements to start and run.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q020",
+      "q": "__________ is concerned with the branch of economics relating the behavior of principals and their agents.",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Financial management"
+        },
+        {
+          "letter": "B",
+          "text": "Profit maximization"
+        },
+        {
+          "letter": "C",
+          "text": "Agency theory"
+        },
+        {
+          "letter": "D",
+          "text": "Social responsibility"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Agency theory studies the behavior of principals and their agents.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q021",
+      "q": "In which of the following form of business \"All business income is not considered as personal income\"?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Corporate form"
+        },
+        {
+          "letter": "B",
+          "text": "Partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Sole proprietorship"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given"
+        }
+      ],
+      "answer": "A",
+      "explanation": "A corporation is a separate legal entity, so its income is not the owners' personal income (unlike sole proprietorships and partnerships).",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q022",
+      "q": "In which type of business, all owners share in gains and losses and all have unlimited liability for all business debts?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Sole-proprietorship"
+        },
+        {
+          "letter": "B",
+          "text": "General Partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Limited Partnerhsip"
+        },
+        {
+          "letter": "D",
+          "text": "Corporation"
+        }
+      ],
+      "answer": "B",
+      "explanation": "In a general partnership all partners share gains/losses and bear unlimited liability.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q023",
+      "q": "which of the following is not a form of business organozation",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Sole proprietorship"
+        },
+        {
+          "letter": "B",
+          "text": "Partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Joint stock company"
+        },
+        {
+          "letter": "D",
+          "text": "Cooperative society"
+        }
+      ],
+      "answer": "D",
+      "explanation": "The course's three standard forms are sole proprietorship, partnership, and (joint stock) company; a cooperative society is not one of them.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q024",
+      "q": "Mr. Y and Mr. Z are planning to share their capital to run a business. They are going to employ which of the following type of business?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Sole-proprietorship"
+        },
+        {
+          "letter": "B",
+          "text": "Partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Corporation"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Two people sharing capital and running a business together form a partnership.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q025",
+      "q": "Agency problems can be controlled by which of the way?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Monitor what the agent is doing?"
+        },
+        {
+          "letter": "B",
+          "text": "Employ auditors to review company books to make sure funds are used properly"
+        },
+        {
+          "letter": "C",
+          "text": "Pay bonus share to manager as compensation plan"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Agency costs are controlled by monitoring (audits, oversight) and by incentive compensation that aligns managers with owners.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q026",
+      "q": "The conflict of interest between stockholders and management is known as:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Agency problem"
+        },
+        {
+          "letter": "B",
+          "text": "Interest conflict"
+        },
+        {
+          "letter": "C",
+          "text": "Management conflict"
+        },
+        {
+          "letter": "D",
+          "text": "Agency cost"
+        }
+      ],
+      "answer": "A",
+      "explanation": "The stockholder-management conflict of interest is the agency problem (agency costs are what it costs to control).",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q027",
+      "q": "Which of the following is disadvantage of sole proprietor business?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Easy to start"
+        },
+        {
+          "letter": "B",
+          "text": "Business income is considered as personal income"
+        },
+        {
+          "letter": "C",
+          "text": "Limited sources"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "C",
+      "explanation": "A sole proprietor has limited sources of capital; easy start-up is an advantage and pass-through income is a tax feature.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q028",
+      "q": "Mr. A has just recently started a business by investing a capital of Rs. 500,000. He will be the only owner of the business and also enjoy all the profits of the business. Which type of business is being employed by Mr. A?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Sole-proprietorship"
+        },
+        {
+          "letter": "B",
+          "text": "Partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Corporation"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given"
+        }
+      ],
+      "answer": "A",
+      "explanation": "A single owner who keeps all profits is a sole proprietorship.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q029",
+      "q": "Which of the following has \"Limited liability\" for business debts?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Sole proprietorship"
+        },
+        {
+          "letter": "B",
+          "text": "General partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Corporation"
+        },
+        {
+          "letter": "D",
+          "text": "All of the givem"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Only the corporation gives owners limited liability; sole proprietors and general partners are personally liable.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q030",
+      "q": "Which of the following is the most significant financial advantage of corporate form?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Easy to raise money"
+        },
+        {
+          "letter": "B",
+          "text": "Double taxation"
+        },
+        {
+          "letter": "C",
+          "text": "Easy to start"
+        },
+        {
+          "letter": "D",
+          "text": "All business income is divided among shareholder"
+        }
+      ],
+      "answer": "A",
+      "explanation": "The corporation's key financial advantage is easy access to capital markets; double taxation and easy start-up belong elsewhere.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q031",
+      "q": "A business owned by a single person is known as:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Sole-proprietorship"
+        },
+        {
+          "letter": "B",
+          "text": "General partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Limited partnership"
+        },
+        {
+          "letter": "D",
+          "text": "Corporation"
+        }
+      ],
+      "answer": "A",
+      "explanation": "A one-owner business is a sole proprietorship.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q032",
+      "q": "In corporate form of business, what is the objective of shareholder?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Maximize current year income"
+        },
+        {
+          "letter": "B",
+          "text": "Delay in payment to supplier"
+        },
+        {
+          "letter": "C",
+          "text": "Reduce the expenditure on inventory maintenance"
+        },
+        {
+          "letter": "D",
+          "text": "Maximization of shareholder wealth"
+        }
+      ],
+      "answer": "D",
+      "explanation": "The basic goal of the corporation is maximization of shareholder wealth (current share value).",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": true
+    },
+    {
+      "id": "Q033",
+      "q": "Double taxation of earning is the major disadvantage of which of the following form of business?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Corporate form"
+        },
+        {
+          "letter": "B",
+          "text": "Partnership"
+        },
+        {
+          "letter": "C",
+          "text": "Sole proprietorship"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Corporate earnings are taxed at the company level and again as shareholder dividends: double taxation.",
+      "lectures": [
+        3
+      ],
+      "concept": "corporate-firm",
+      "repeated": false
+    },
+    {
+      "id": "Q034",
+      "q": "Which of the given is treated as financial asset?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Corporate bond"
+        },
+        {
+          "letter": "B",
+          "text": "Machinery"
+        },
+        {
+          "letter": "C",
+          "text": "Inventory"
+        },
+        {
+          "letter": "D",
+          "text": "Factory building"
+        }
+      ],
+      "answer": "A",
+      "explanation": "A corporate bond is a financial asset (a claim to income); machinery, inventory, and buildings are real assets.",
+      "lectures": [
+        4
+      ],
+      "concept": "financial-markets",
+      "repeated": false
+    },
+    {
+      "id": "Q035",
+      "q": "A ________ is an agent who arranges security transactions among investors.",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Broker"
+        },
+        {
+          "letter": "B",
+          "text": "Dealer"
+        },
+        {
+          "letter": "C",
+          "text": "Member"
+        },
+        {
+          "letter": "D",
+          "text": "Specialist"
+        }
+      ],
+      "answer": "A",
+      "explanation": "A broker arranges trades between investors; a dealer trades for its own account.",
+      "lectures": [
+        4
+      ],
+      "concept": "financial-markets",
+      "repeated": false
+    },
+    {
+      "id": "Q036",
+      "q": "In which type of market, new securities are traded?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Primary market"
+        },
+        {
+          "letter": "B",
+          "text": "Secondary market"
+        },
+        {
+          "letter": "C",
+          "text": "Tertiary market"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "A",
+      "explanation": "New securities are issued and sold in the primary market.",
+      "lectures": [
+        4
+      ],
+      "concept": "financial-markets",
+      "repeated": false
+    },
+    {
+      "id": "Q037",
+      "q": "In finance we refer to the market for relatively long-term financial instruments as the __________ market.",
+      "options": [
+        {
+          "letter": "A",
+          "text": "money"
+        },
+        {
+          "letter": "B",
+          "text": "capital"
+        },
+        {
+          "letter": "C",
+          "text": "primary"
+        },
+        {
+          "letter": "D",
+          "text": "secondary"
+        }
+      ],
+      "answer": "B",
+      "explanation": "The capital market is the market for long-term financial instruments.",
+      "lectures": [
+        4
+      ],
+      "concept": "financial-markets",
+      "repeated": false
+    },
+    {
+      "id": "Q038",
+      "q": "In which type of market, used securities are traded?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Primary market"
+        },
+        {
+          "letter": "B",
+          "text": "Secondary market"
+        },
+        {
+          "letter": "C",
+          "text": "Tertiary market"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Previously issued (used) securities trade in the secondary market.",
+      "lectures": [
+        4
+      ],
+      "concept": "financial-markets",
+      "repeated": false
+    },
+    {
+      "id": "Q039",
+      "q": "Which of the given is correct?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Financial asset is a document representing a claim to income"
+        },
+        {
+          "letter": "B",
+          "text": "Real asset is a document representing a claim to income"
+        },
+        {
+          "letter": "C",
+          "text": "Financial asset is an object that provides a service"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "A",
+      "explanation": "A financial asset (e.g. a bond) is a claim to income; a real asset is a physical object that provides services.",
+      "lectures": [
+        4
+      ],
+      "concept": "financial-markets",
+      "repeated": false
+    },
+    {
+      "id": "Q040",
+      "q": "Which of the following is the amount of cash we would get if we actually sell an asset?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Market Value"
+        },
+        {
+          "letter": "B",
+          "text": "Book Value"
+        },
+        {
+          "letter": "C",
+          "text": "Intrinsic Value"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Market value is what the asset would actually fetch if sold; book value is the accounting carrying amount.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": true
+    },
+    {
+      "id": "Q041",
+      "q": "Balance Sheet is based upon which of the following formula?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Assets = Liabilities – Stockholder's equity"
+        },
+        {
+          "letter": "B",
+          "text": "Assets + Liabilities = Stockholder's equity"
+        },
+        {
+          "letter": "C",
+          "text": "Assets + Stockholder's equity = Liabilities"
+        },
+        {
+          "letter": "D",
+          "text": "Assets = Liabilities + Stockholder's equity"
+        }
+      ],
+      "answer": "D",
+      "explanation": "The balance sheet identity is Assets = Liabilities + Stockholders' equity.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q042",
+      "q": "Product costs include which of the following?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Selling expenses"
+        },
+        {
+          "letter": "B",
+          "text": "General expenses"
+        },
+        {
+          "letter": "C",
+          "text": "Manufacturing overhead"
+        },
+        {
+          "letter": "D",
+          "text": "Administrative expenses"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Manufacturing overhead is a product cost; selling, general, and administrative expenses are period costs.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q043",
+      "q": "Period costs include which of the following?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Selling expense"
+        },
+        {
+          "letter": "B",
+          "text": "Raw material"
+        },
+        {
+          "letter": "C",
+          "text": "Direct labor"
+        },
+        {
+          "letter": "D",
+          "text": "Manufacturing overhead"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Selling expenses are period costs; raw material, direct labor, and manufacturing overhead are product costs.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q044",
+      "q": "Which of the following is the acronym for GAAP?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Generally Applied Accountability Principles"
+        },
+        {
+          "letter": "B",
+          "text": "General Accounting Assessment Principles"
+        },
+        {
+          "letter": "C",
+          "text": "Generally Accepted Accounting Principles"
+        },
+        {
+          "letter": "D",
+          "text": "General Accepted Assessment Principles"
+        }
+      ],
+      "answer": "C",
+      "explanation": "GAAP stands for Generally Accepted Accounting Principles.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q045",
+      "q": "Which of the following statement is considered as the accountant's snapshot of firm's accounting value as of a particular date?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Income Statement"
+        },
+        {
+          "letter": "B",
+          "text": "balance sheet"
+        },
+        {
+          "letter": "C",
+          "text": "cash flow statement"
+        },
+        {
+          "letter": "D",
+          "text": "Retained Earning Statement"
+        }
+      ],
+      "answer": "B",
+      "explanation": "The balance sheet is a snapshot of accounting value at a point in time.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q046",
+      "q": "A portion of profits, which a company retains itself for further expansion, is known as:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Dividends"
+        },
+        {
+          "letter": "B",
+          "text": "Retained Earnings"
+        },
+        {
+          "letter": "C",
+          "text": "Capital Gain"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Profits kept in the business for expansion are retained earnings.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q047",
+      "q": "Which of the following refers to the difference between the sale price and cost of inventory?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Net loss"
+        },
+        {
+          "letter": "B",
+          "text": "Net worth"
+        },
+        {
+          "letter": "C",
+          "text": "Markup"
+        },
+        {
+          "letter": "D",
+          "text": "Markdown"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Markup is the difference between selling price and cost. (Source marked B; corrected.)",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q048",
+      "q": "Suppose market value exceeds book value by Rs. 250,000. What will be the after-tax proceeds if there is a tax rate of 34 percent ?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 105,600"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 148,500"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 165,000"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 225,000"
+        }
+      ],
+      "answer": "C",
+      "explanation": "After-tax proceeds = 250,000 x (1 - 0.34) = 165,000.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": true
+    },
+    {
+      "id": "Q049",
+      "q": "A firm reports total liabilities of Rs. 300,000 and owner's equity of Rs. 500,000. What would be the total worth of the firm's assets?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 300,000"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 500,000"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 800,000"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 1100,000"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Assets = liabilities + equity = 300,000 + 500,000 = Rs. 800,000.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": true
+    },
+    {
+      "id": "Q050",
+      "q": "Which of the following costs are reported on the income statement as the cost of goods sold?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Product cost"
+        },
+        {
+          "letter": "B",
+          "text": "Period cost"
+        },
+        {
+          "letter": "C",
+          "text": "Both product cost and period cost"
+        },
+        {
+          "letter": "D",
+          "text": "Neither product cost nor period cost"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Product costs flow through inventory and are reported as cost of goods sold when sold; period costs are expensed immediately.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q051",
+      "q": "Which of the following statement shows assets, liabilities, and net worth as of a specific date?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Income Statement"
+        },
+        {
+          "letter": "B",
+          "text": "Balance Sheet"
+        },
+        {
+          "letter": "C",
+          "text": "Owner's Equity Statement"
+        },
+        {
+          "letter": "D",
+          "text": "Cash Flow Statement"
+        }
+      ],
+      "answer": "B",
+      "explanation": "The balance sheet shows assets, liabilities, and net worth at a specific date.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q052",
+      "q": "The accounting definition of income is:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Income = Current Assets - Current Liabilities"
+        },
+        {
+          "letter": "B",
+          "text": "Income = Fixed Assets - Current Assets"
+        },
+        {
+          "letter": "C",
+          "text": "Income = Revenues - Current Liabilities"
+        },
+        {
+          "letter": "D",
+          "text": "Income = Revenues - Expenses"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Accounting income = revenues minus expenses.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q053",
+      "q": "All of the followings are tax admissible items EXCEPT:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Interest"
+        },
+        {
+          "letter": "B",
+          "text": "Dividend"
+        },
+        {
+          "letter": "C",
+          "text": "Salaries payable"
+        },
+        {
+          "letter": "D",
+          "text": "Depreciation"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Source marked 'Salaries payable', which is wrong: interest, salaries, and depreciation are tax-deductible, but dividends are paid from after-tax income and are not deductible.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q054",
+      "q": "Which of the following statement measures performance over a specific period of time?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Income Statement"
+        },
+        {
+          "letter": "B",
+          "text": "Balance Sheet"
+        },
+        {
+          "letter": "C",
+          "text": "Cash Flow Statement"
+        },
+        {
+          "letter": "D",
+          "text": "Retained Earning Statement"
+        }
+      ],
+      "answer": "A",
+      "explanation": "The income statement covers a period; the balance sheet is a snapshot at a point in time.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q055",
+      "q": "In which of the following tax system, a tax payer is charged uniformly for all levels of his taxable income?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Progressive Tax Rate"
+        },
+        {
+          "letter": "B",
+          "text": "Marginal Tax Rate"
+        },
+        {
+          "letter": "C",
+          "text": "Flat Tax Rate"
+        },
+        {
+          "letter": "D",
+          "text": "Average Tax Rate"
+        }
+      ],
+      "answer": "C",
+      "explanation": "A flat tax charges the same rate at all income levels; progressive rates rise with income.",
+      "lectures": [
+        5
+      ],
+      "concept": "income-statement",
+      "repeated": false
+    },
+    {
+      "id": "Q056",
+      "q": "Which of the following is (are) a non-cash item(s) ?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Revenue"
+        },
+        {
+          "letter": "B",
+          "text": "Expenses"
+        },
+        {
+          "letter": "C",
+          "text": "Depreciation"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given options"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Depreciation is the non-cash item; revenues and expenses generally involve cash.",
+      "lectures": [
+        6
+      ],
+      "concept": "tax-shield",
+      "repeated": false
+    },
+    {
+      "id": "Q057",
+      "q": "Which of the expenses in given options is not a cash outflow for the firm?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Depreciation"
+        },
+        {
+          "letter": "B",
+          "text": "Dividends"
+        },
+        {
+          "letter": "C",
+          "text": "Interest payments"
+        },
+        {
+          "letter": "D",
+          "text": "Taxes"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Depreciation is a non-cash charge; dividends, interest, and taxes are cash outflows.",
+      "lectures": [
+        6
+      ],
+      "concept": "tax-shield",
+      "repeated": false
+    },
+    {
+      "id": "Q058",
+      "q": "Which of the following item provides the important function of shielding part of income from taxes?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Inventory"
+        },
+        {
+          "letter": "B",
+          "text": "Supplies"
+        },
+        {
+          "letter": "C",
+          "text": "Machinery"
+        },
+        {
+          "letter": "D",
+          "text": "Depreciation"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Depreciation is a non-cash deductible expense that shields part of income from taxes (the depreciation tax shield).",
+      "lectures": [
+        6
+      ],
+      "concept": "tax-shield",
+      "repeated": false
+    },
+    {
+      "id": "Q059",
+      "q": "Which of the following is a non-cash item?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Tax"
+        },
+        {
+          "letter": "B",
+          "text": "Depreciation"
+        },
+        {
+          "letter": "C",
+          "text": "Account Receivables"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Depreciation is a non-cash accounting charge; taxes and receivables involve cash.",
+      "lectures": [
+        6
+      ],
+      "concept": "tax-shield",
+      "repeated": false
+    },
+    {
+      "id": "Q060",
+      "q": "Which one of the following statement is INCORRECT regarding MACRS depreciation?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Every asset is assigned to a particular class which establishes asset's life for tax purposes."
+        },
+        {
+          "letter": "B",
+          "text": "Depreciation is computed for each year by multiplying the cost of the asset by a fixed percentage."
+        },
+        {
+          "letter": "C",
+          "text": "Annual depreciation remains constant every year even by using different rates."
+        },
+        {
+          "letter": "D",
+          "text": "The expected salvage value and the actual expected economic life are not explicitly considered in calculation of depreciation."
+        }
+      ],
+      "answer": "C",
+      "explanation": "MACRS uses accelerated (declining-balance) rates, so annual depreciation is not constant; the other three statements correctly describe MACRS.",
+      "lectures": [
+        6
+      ],
+      "concept": "tax-shield",
+      "repeated": false
+    },
+    {
+      "id": "Q061",
+      "q": "Which of the following equation is known as Cash Flow (CF) identity?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "CF from Assets = CF to Creditors – CF to Stockholder"
+        },
+        {
+          "letter": "B",
+          "text": "CF from Assets = CF to Stockholders – CF to Creditors"
+        },
+        {
+          "letter": "C",
+          "text": "CF to Stockholders = CF to Creditors + CF from Assets"
+        },
+        {
+          "letter": "D",
+          "text": "CF from Assets = CF to Creditors + CF to Stockholder"
+        }
+      ],
+      "answer": "D",
+      "explanation": "The cash flow identity: cash flow from assets equals cash flow to creditors plus cash flow to stockholders.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": true
+    },
+    {
+      "id": "Q062",
+      "q": "Which of the following refers to the cash flows that result from the firm's day-to-day activities of producing and selling?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Operating Cash Flows"
+        },
+        {
+          "letter": "B",
+          "text": "Investing Cash Flows"
+        },
+        {
+          "letter": "C",
+          "text": "Financing Cash Flows"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Cash flows from producing and selling are operating cash flows; investing and financing flows cover assets and capital.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q063",
+      "q": "Cash flow to the creditors can be calculated by using which one of the following expressions?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Interest paid - retirement of debt - new borrowings + dividends"
+        },
+        {
+          "letter": "B",
+          "text": "Interest paid + retirement of debt + new borrowings - dividends"
+        },
+        {
+          "letter": "C",
+          "text": "Interest paid - retirement of debt - proceed from new borrowings"
+        },
+        {
+          "letter": "D",
+          "text": "Interest paid + retirement of debt - proceed from new borrowings"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Cash flow to creditors = interest paid + debt retired - new borrowing (dividends go to stockholders, not creditors).",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q064",
+      "q": "__________ shows the sources from which cash has been generated and how it has been spent during a period of time?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Income Statement"
+        },
+        {
+          "letter": "B",
+          "text": "Balance Sheet"
+        },
+        {
+          "letter": "C",
+          "text": "Cash Flow Statement"
+        },
+        {
+          "letter": "D",
+          "text": "Owner's Equity Statement"
+        }
+      ],
+      "answer": "C",
+      "explanation": "The cash flow statement reports where cash came from and how it was spent.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q065",
+      "q": "Net Income after taxation differs from Net Cash Flow from operations because:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Depreciation expense is shown in the Cash Flow Statement and not in the Income Statement"
+        },
+        {
+          "letter": "B",
+          "text": "Non-cash items are included in the Income Statement, but not in the Cash Flow Statement"
+        },
+        {
+          "letter": "C",
+          "text": "Cash sales are shown in the Cash Flow Statement but not in the Income Statement"
+        },
+        {
+          "letter": "D",
+          "text": "Cash expenses are shown in the Cash Flow Statement but not in the Income Statement"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Non-cash charges (depreciation, accruals) enter net income but are adjusted out of operating cash flow.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q066",
+      "q": "During the accounting period, sales revenue is Rs. 25,000 and accounts receivable increases by Rs. 8,000. What will be the amount of cash received from customers for the period?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 33,000"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 25,000"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 17,000"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 8,000"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Cash collected = sales - increase in receivables = 25,000 - 8,000 = Rs. 17,000.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q067",
+      "q": "The most important item that can be extracted from financial statements is the actual ________ of the firm.",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Net Working Capital"
+        },
+        {
+          "letter": "B",
+          "text": "Cash Flow"
+        },
+        {
+          "letter": "C",
+          "text": "Net Present Value"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Accounting profit can be manipulated by accruals; the actual cash flow is the key figure for valuation.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q068",
+      "q": "Standard Corporation sold fully depreciated equipment for Rs. 5,000. This transaction will be reported on the cash flow statement as a(n):",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Operating activity"
+        },
+        {
+          "letter": "B",
+          "text": "Investing activity"
+        },
+        {
+          "letter": "C",
+          "text": "Financing activity"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Sale of equipment (a long-term asset) is an investing cash flow.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q069",
+      "q": "Which of the following is an example of capital spending?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Purchase of fixed assets"
+        },
+        {
+          "letter": "B",
+          "text": "Decrease in net working capital"
+        },
+        {
+          "letter": "C",
+          "text": "Increase in net working capital"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given option"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Capital spending is spending on fixed assets; changes in net working capital are separate.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q070",
+      "q": "Which of the following cash flow activities are reported in the Cash Flow Statement and Income Statement?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Operating Activities"
+        },
+        {
+          "letter": "B",
+          "text": "Investing Activities"
+        },
+        {
+          "letter": "C",
+          "text": "Financing Activities"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given options"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Operating activities appear on both the income statement and the cash flow statement.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q071",
+      "q": "Which of the following item(s) is(are) not included while calculating Operating Cash Flows?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Depreciation"
+        },
+        {
+          "letter": "B",
+          "text": "Interest"
+        },
+        {
+          "letter": "C",
+          "text": "Expenses related to firm's financing of its assets"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given options"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Operating cash flow excludes financing-related items such as interest; depreciation is added back as a non-cash charge.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q072",
+      "q": "Cash flow from assets involves which of the following component(s)?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Operating cash flow"
+        },
+        {
+          "letter": "B",
+          "text": "Capital spending"
+        },
+        {
+          "letter": "C",
+          "text": "Change in net working capital"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given options"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Cash flow from assets = operating cash flow - capital spending - change in net working capital.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": true
+    },
+    {
+      "id": "Q073",
+      "q": "Which of the given is (are) major difference(s) between net income and cash flow of the company?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Accounts receivable only"
+        },
+        {
+          "letter": "B",
+          "text": "Depreciation only"
+        },
+        {
+          "letter": "C",
+          "text": "Accounts payable only"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Accrual items (receivables, payables) and non-cash charges (depreciation) all drive a wedge between net income and cash flow.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q074",
+      "q": "Which of the following is a cash flow from financing activity?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Cash outflow to the government for taxes"
+        },
+        {
+          "letter": "B",
+          "text": "Cash outflow to shareholders as dividends"
+        },
+        {
+          "letter": "C",
+          "text": "Cash outflow to lenders as interest"
+        },
+        {
+          "letter": "D",
+          "text": "Cash outflow to purchase bonds issued by another company"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Dividends paid to shareholders are a financing cash outflow; taxes and interest are operating, bond purchases are investing.",
+      "lectures": [
+        7
+      ],
+      "concept": "cash-flows",
+      "repeated": false
+    },
+    {
+      "id": "Q075",
+      "q": "Which of the following financial statement shows both dollars and percentages in the report?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Balance Sheet"
+        },
+        {
+          "letter": "B",
+          "text": "Common-Size Statement"
+        },
+        {
+          "letter": "C",
+          "text": "Income Statement"
+        },
+        {
+          "letter": "D",
+          "text": "Relative Statement of Equity"
+        }
+      ],
+      "answer": "B",
+      "explanation": "A common-size statement presents each item in dollars and as a percentage of a base figure.",
+      "lectures": [
+        8
+      ],
+      "concept": "common-size",
+      "repeated": false
+    },
+    {
+      "id": "Q076",
+      "q": "Time trend analysis of financial statements is used to compare the performance of firm with:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Firm's own previous performance"
+        },
+        {
+          "letter": "B",
+          "text": "Performance of similar firms"
+        },
+        {
+          "letter": "C",
+          "text": "Performance of the industry"
+        },
+        {
+          "letter": "D",
+          "text": "Performance of all firms in country"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Source marked 'Performance of similar firms', which is wrong: time-trend analysis compares the firm with its OWN past; comparing with similar firms or the industry is cross-sectional (peer-group) analysis.",
+      "lectures": [
+        8
+      ],
+      "concept": "common-size",
+      "repeated": false
+    },
+    {
+      "id": "Q077",
+      "q": "If a firm uses cash to purchase inventory, its quick ratio will:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Increase"
+        },
+        {
+          "letter": "B",
+          "text": "Decrease"
+        },
+        {
+          "letter": "C",
+          "text": "Remain unaffected"
+        },
+        {
+          "letter": "D",
+          "text": "Become zero"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Cash falls and inventory rises; the quick ratio excludes inventory, so its numerator falls and the ratio decreases. (No marked answer in source; determined.)",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": true
+    },
+    {
+      "id": "Q078",
+      "q": "If a firm uses cash to purchase inventory, its current ratio will:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Increase"
+        },
+        {
+          "letter": "B",
+          "text": "Decrease"
+        },
+        {
+          "letter": "C",
+          "text": "Remain unaffected"
+        },
+        {
+          "letter": "D",
+          "text": "Become zero"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Cash falls and inventory rises by the same amount, so total current assets and the current ratio are unchanged.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": true
+    },
+    {
+      "id": "Q079",
+      "q": "Which of the following ratios are intended to address the firm's financial leverage?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Liquidity Ratios"
+        },
+        {
+          "letter": "B",
+          "text": "Long-term Solvency Ratios"
+        },
+        {
+          "letter": "C",
+          "text": "Asset Management Ratios"
+        },
+        {
+          "letter": "D",
+          "text": "Profitability Ratios"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Long-term solvency (leverage) ratios measure the firm's use of debt.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q080",
+      "q": "A firm has paid out Rs. 150,000 as dividends from its net income of Rs. 250,000. What is the retention ratio for the firm?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "12 %"
+        },
+        {
+          "letter": "B",
+          "text": "25 %"
+        },
+        {
+          "letter": "C",
+          "text": "40 %"
+        },
+        {
+          "letter": "D",
+          "text": "60 %"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Retention ratio = 1 - payout ratio = 1 - 150,000/250,000 = 40%.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q081",
+      "q": "JJ Inc. has a 4 percent return on total assets of Rs. 500,000 and a net profit margin of 5 percent. Total sales for JJ Inc. would be :",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 150,000"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 200,000"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 250,000"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 400,000"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Net income = 0.04 x 500,000 = 20,000; sales = 20,000 / 0.05 = Rs. 400,000.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q082",
+      "q": "Balance sheet for a company reports current assets of Rs. 700,000 and current liabilities of Rs. 460,000. What would be the Current Ratio for the company if there is an inventory level of Rs. 120,000?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1.01 times"
+        },
+        {
+          "letter": "B",
+          "text": "1.26 times"
+        },
+        {
+          "letter": "C",
+          "text": "1.39 times"
+        },
+        {
+          "letter": "D",
+          "text": "1.52 times"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Current ratio = 700,000 / 460,000 = 1.52 times (inventory is irrelevant here; it would matter for the quick ratio).",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q083",
+      "q": "Which of the following ratios are particularly interesting to short-term creditors?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Liquidity Ratios"
+        },
+        {
+          "letter": "B",
+          "text": "Long-term Solvency Ratios"
+        },
+        {
+          "letter": "C",
+          "text": "Profitability Ratios"
+        },
+        {
+          "letter": "D",
+          "text": "Market Value Ratios"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Short-term creditors care about liquidity ratios, which measure the ability to meet near-term obligations.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q084",
+      "q": "The value of net working capital will be greater than zero when:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Current Assets > Current Liabilities"
+        },
+        {
+          "letter": "B",
+          "text": "Current Assets < Current Liabilities"
+        },
+        {
+          "letter": "C",
+          "text": "Current Assets = Current Liabilities"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "A",
+      "explanation": "NWC = CA - CL is positive when current assets exceed current liabilities.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q085",
+      "q": "If a firm's debt ratio is 45%, this means _______ of the firm's assets are financed by equity financing.",
+      "options": [
+        {
+          "letter": "A",
+          "text": "50%"
+        },
+        {
+          "letter": "B",
+          "text": "55%"
+        },
+        {
+          "letter": "C",
+          "text": "45%"
+        },
+        {
+          "letter": "D",
+          "text": "Cannot be determined without more information"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Debt + equity = 100% of assets, so equity finances 100% - 45% = 55%.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": true
+    },
+    {
+      "id": "Q086",
+      "q": "Quick Ratio is also known as:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Current Ratio"
+        },
+        {
+          "letter": "B",
+          "text": "Acid-test Ratio"
+        },
+        {
+          "letter": "C",
+          "text": "Cash Ratio"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "B",
+      "explanation": "The quick ratio (current assets minus inventory over current liabilities) is the acid-test ratio.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": true
+    },
+    {
+      "id": "Q087",
+      "q": "Which of the following measure reveals how much profit a company generates with the money shareholders have invested?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Profit Margin"
+        },
+        {
+          "letter": "B",
+          "text": "Return on Assets"
+        },
+        {
+          "letter": "C",
+          "text": "Return on Equity"
+        },
+        {
+          "letter": "D",
+          "text": "Debt-Equity Ratio"
+        }
+      ],
+      "answer": "C",
+      "explanation": "ROE = net income / shareholders' equity measures profit per rupee of shareholder investment.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q088",
+      "q": "Which of the following ratio gives an idea as to how efficient management is at using its assets to generate earnings?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Profit Margin"
+        },
+        {
+          "letter": "B",
+          "text": "Return on Assets"
+        },
+        {
+          "letter": "C",
+          "text": "Return on Equity"
+        },
+        {
+          "letter": "D",
+          "text": "Total Assets Turnover"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Return on Assets (net income / total assets) measures how efficiently assets generate earnings.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q089",
+      "q": "XYZ Company has a ROE of 12 percent and a dividend payout ratio of 40 percent. What is the firm's maximum sustainable rate of growth?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "3.73%"
+        },
+        {
+          "letter": "B",
+          "text": "5.93%"
+        },
+        {
+          "letter": "C",
+          "text": "7.76%"
+        },
+        {
+          "letter": "D",
+          "text": "9.17%"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Sustainable growth = (ROE x b) / (1 - ROE x b) = (0.12 x 0.60) / (1 - 0.072) = 7.76%.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q090",
+      "q": "Which one of the following formula will be used to calculate profit margin ratio?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Profit Margin Ratio = Sales / Net income"
+        },
+        {
+          "letter": "B",
+          "text": "Profit Margin Ratio = Net income / Sales"
+        },
+        {
+          "letter": "C",
+          "text": "Profit Margin Ratio = Net income / CGS"
+        },
+        {
+          "letter": "D",
+          "text": "Profit Margin Ratio = Net income / Operating profit"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Profit margin = net income divided by sales.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q091",
+      "q": "Which one of the following is NOT a liquidity ratio?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Current Ratio"
+        },
+        {
+          "letter": "B",
+          "text": "Quick Ratio"
+        },
+        {
+          "letter": "C",
+          "text": "Cash Coverage Ratio"
+        },
+        {
+          "letter": "D",
+          "text": "Cash Ratio"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Cash coverage is a long-term solvency ratio, not a liquidity ratio.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q092",
+      "q": "Which of the following ratio is a way to measure a company's performance?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Short-term solvency ratio"
+        },
+        {
+          "letter": "B",
+          "text": "Turnover ratio"
+        },
+        {
+          "letter": "C",
+          "text": "Profitability ratio"
+        },
+        {
+          "letter": "D",
+          "text": "Market value ratio"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Profitability ratios measure overall company performance in generating earnings.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q093",
+      "q": "If a firm has a ROA of 8 percent, sales of Rs. 100,000, and total assets of Rs. 75,000. What is the profit margin?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "4.30%"
+        },
+        {
+          "letter": "B",
+          "text": "6.00%"
+        },
+        {
+          "letter": "C",
+          "text": "10.70%"
+        },
+        {
+          "letter": "D",
+          "text": "16.73%"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Net income = 0.08 x 75,000 = 6,000; profit margin = 6,000 / 100,000 = 6.00%.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q094",
+      "q": "Which of the following ratios is NOT from the set of Asset Management Ratios?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Inventory Turnover Ratio"
+        },
+        {
+          "letter": "B",
+          "text": "Receiveable Turnover"
+        },
+        {
+          "letter": "C",
+          "text": "Capital Intensity Ratio"
+        },
+        {
+          "letter": "D",
+          "text": "Return on Assets"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Source marked 'Capital Intensity Ratio', which is wrong: Return on Assets is a profitability ratio, while inventory/receivables turnover and capital intensity are asset-management (efficiency) measures.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": true
+    },
+    {
+      "id": "Q095",
+      "q": "SNT Inc. has net income of Rs. 300,000. How much is kept as retained earnings if the firm has a dividend payout ratio of 40%?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 30,000"
+        },
+        {
+          "letter": "B",
+          "text": "Rs.120,000"
+        },
+        {
+          "letter": "C",
+          "text": "Rs.180,000"
+        },
+        {
+          "letter": "D",
+          "text": "Rs.200,000"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Retained = 300,000 x (1 - 0.40) = Rs. 180,000.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": true
+    },
+    {
+      "id": "Q096",
+      "q": "AST Company's debt-to-total assets ratio is 0.45. What is its debt-to-equity ratio?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "0.101"
+        },
+        {
+          "letter": "B",
+          "text": "0.220"
+        },
+        {
+          "letter": "C",
+          "text": "0.667"
+        },
+        {
+          "letter": "D",
+          "text": "0.818"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Equity ratio = 1 - 0.45 = 0.55; debt-to-equity = 0.45 / 0.55 = 0.818.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": true
+    },
+    {
+      "id": "Q097",
+      "q": "Which of the following set of ratios is used to assess a business's ability to generate earnings as compared to its expenses and other relevant costs incurred during a specific period of time?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Liquidity Ratios"
+        },
+        {
+          "letter": "B",
+          "text": "Leverage Ratios"
+        },
+        {
+          "letter": "C",
+          "text": "Profitability Ratios"
+        },
+        {
+          "letter": "D",
+          "text": "Market Value Ratios"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Profitability ratios measure earnings relative to sales, assets, and equity.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q098",
+      "q": "Standard Company had net sales of Rs. 750,000 over the past year. During that time, average receivables were Rs. 150,000. Assuming a 365-day year, what was the average collection period?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "5 days"
+        },
+        {
+          "letter": "B",
+          "text": "36 days"
+        },
+        {
+          "letter": "C",
+          "text": "48 days"
+        },
+        {
+          "letter": "D",
+          "text": "73 days"
+        }
+      ],
+      "answer": "D",
+      "explanation": "ACP = (150,000 / 750,000) x 365 = 73 days.",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q099",
+      "q": "A company having a current ratio of greater than 1 will have __________ net working capital.",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Positive"
+        },
+        {
+          "letter": "B",
+          "text": "Negative"
+        },
+        {
+          "letter": "C",
+          "text": "zero"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "A",
+      "explanation": "A current ratio above 1 means current assets exceed current liabilities, so NWC is positive. (Stem reconstructed from garbled source text.)",
+      "lectures": [
+        9,
+        10
+      ],
+      "concept": "ratios",
+      "repeated": false
+    },
+    {
+      "id": "Q100",
+      "q": "Financial policy is evaluated by which of the following?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Profit Margin"
+        },
+        {
+          "letter": "B",
+          "text": "Total Assets Turnover"
+        },
+        {
+          "letter": "C",
+          "text": "Debt-equity ratio"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "C",
+      "explanation": "The debt-equity ratio reflects financing (financial policy) decisions.",
+      "lectures": [
+        11
+      ],
+      "concept": "dupont",
+      "repeated": false
+    },
+    {
+      "id": "Q101",
+      "q": "According to Du Pont Identity, ROE is affected by which of the following?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Operating efficiency"
+        },
+        {
+          "letter": "B",
+          "text": "Asset use efficiency"
+        },
+        {
+          "letter": "C",
+          "text": "Financial Leverage"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given options"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Du Pont: ROE = profit margin (operating efficiency) x asset turnover (asset use) x equity multiplier (leverage).",
+      "lectures": [
+        11
+      ],
+      "concept": "dupont",
+      "repeated": false
+    },
+    {
+      "id": "Q102",
+      "q": "Which of the following is measured by profit margin?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Operating efficiency"
+        },
+        {
+          "letter": "B",
+          "text": "Asset use efficiency"
+        },
+        {
+          "letter": "C",
+          "text": "Financial policy"
+        },
+        {
+          "letter": "D",
+          "text": "Dividend policy"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Profit margin (per the Du Pont identity) measures operating efficiency; asset turnover measures asset-use efficiency.",
+      "lectures": [
+        11
+      ],
+      "concept": "dupont",
+      "repeated": false
+    },
+    {
+      "id": "Q103",
+      "q": "Which of the following term refers to establish of a standard to follow for comparison?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Benchmarking"
+        },
+        {
+          "letter": "B",
+          "text": "Standardizing"
+        },
+        {
+          "letter": "C",
+          "text": "Comparison"
+        },
+        {
+          "letter": "D",
+          "text": "Evaluation"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Establishing a standard for comparison is benchmarking (e.g. against industry ratios).",
+      "lectures": [
+        12
+      ],
+      "concept": "fs-information",
+      "repeated": false
+    },
+    {
+      "id": "Q104",
+      "q": "Which of the following is NOT an external use of financial statements information?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Evaluation of credit standing of new customer"
+        },
+        {
+          "letter": "B",
+          "text": "Evaluation of financial worth of supplier"
+        },
+        {
+          "letter": "C",
+          "text": "Evaluation of potential strength of the competitor"
+        },
+        {
+          "letter": "D",
+          "text": "Evaluation of performance through profit margin and return on equity"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Creditors, suppliers, and competitors are external users; evaluating performance via profit margin and ROE is an internal (management) use.",
+      "lectures": [
+        12
+      ],
+      "concept": "fs-information",
+      "repeated": false
+    },
+    {
+      "id": "Q105",
+      "q": "You just won a prize, you can either receive Rs. 1000 today or Rs. 1,050 in one year. Which option do you prefer and why if you can earn 5 percent on your money?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 1,000 because it has the higher future value"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 1,000 because you receive it sooner"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 1,050 because it is more money"
+        },
+        {
+          "letter": "D",
+          "text": "Either because both options are of equal value"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Rs. 1,000 invested at 5% grows to exactly Rs. 1,050 in one year, so both options are of equal value.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q106",
+      "q": "A borrower is able to pay Rs. 40,000 in 5 years. Given a discount rate of 12 percent, what amount of money the lender should lend?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 14,186"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 18,256"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 22,697"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 28,253"
+        }
+      ],
+      "answer": "C",
+      "explanation": "PV = 40,000/(1.12)^5 = 22,697.07.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q107",
+      "q": "If you plan to save Rs. 5,000 with a bank at an interest rate of 8%, what will be the worth of your amount after 4 years if interest is compounded annually?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 5,400"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 5,900"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 6,600"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 6,802"
+        }
+      ],
+      "answer": "D",
+      "explanation": "FV = 5,000 x (1.08)^4 = 6,802.44, i.e. Rs. 6,802.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": true
+    },
+    {
+      "id": "Q108",
+      "q": "Which of the following process can be defined as the process of generating earnings from previous earnings?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Discounting"
+        },
+        {
+          "letter": "B",
+          "text": "Compounding"
+        },
+        {
+          "letter": "C",
+          "text": "Factorization"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Compounding is earning returns on prior earnings (interest on interest).",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q109",
+      "q": "In 3 years you are to receive Rs. 5,000. If the interest rate were to suddenly decrease, the present value of that future amount to you would:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Fall"
+        },
+        {
+          "letter": "B",
+          "text": "Rise"
+        },
+        {
+          "letter": "C",
+          "text": "Remain same"
+        },
+        {
+          "letter": "D",
+          "text": "Cannot be determined with the given information"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Present value and discount rate move inversely: a lower rate raises the PV of the future amount.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q110",
+      "q": "Which of the following is CORRECT regarding the present value discount factor?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "It is greater than 1.0"
+        },
+        {
+          "letter": "B",
+          "text": "It is equal to zero when discount rate is zero"
+        },
+        {
+          "letter": "C",
+          "text": "It increases as the time period increases"
+        },
+        {
+          "letter": "D",
+          "text": "It decreases as the discount rate increases"
+        }
+      ],
+      "answer": "D",
+      "explanation": "The PV factor 1/(1+r)^t is below 1.0, equals 1.0 at r = 0, and falls as the discount rate or time increases.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q111",
+      "q": "In how many years, an amount will be doubled at a discount rate of 8 percent?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "3 years"
+        },
+        {
+          "letter": "B",
+          "text": "6 years"
+        },
+        {
+          "letter": "C",
+          "text": "9 years"
+        },
+        {
+          "letter": "D",
+          "text": "Cannot be determined without more information"
+        }
+      ],
+      "answer": "C",
+      "explanation": "n = ln(2)/ln(1.08) = 9.0 years (the Rule of 72 gives 72/8 = 9).",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q112",
+      "q": "If you plan to save Rs. 5,000 with a bank at an interest rate of 8%, what will be the worth of your amount after 4 years if bank offers simple interest?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 5,400"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 5,900"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 6,600"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 6,802"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Simple interest: 5,000 x (1 + 0.08 x 4) = Rs. 6,600.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q113",
+      "q": "Time value of money is an important finance concept because:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "It takes risk into account"
+        },
+        {
+          "letter": "B",
+          "text": "It takes time into account"
+        },
+        {
+          "letter": "C",
+          "text": "It takes compound interest into account"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "B",
+      "explanation": "The core of TVM is that a rupee today is worth more than a rupee later because of the passage of time.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q114",
+      "q": "What would be the present value of Rs. 10,000 to be received after 6 years at a discount rate of 8 percent?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 6,302"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 9,981"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 14,800"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 15,869"
+        }
+      ],
+      "answer": "A",
+      "explanation": "PV = 10,000/(1.08)^6 = 6,301.70, i.e. Rs. 6,302.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": true
+    },
+    {
+      "id": "Q115",
+      "q": "If you have Rs. 850 and you plan to save it for 4 years with an interest rate of 10%, what will be the future value of your savings?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 1,000"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 1,244"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 1,331"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 1,464"
+        }
+      ],
+      "answer": "B",
+      "explanation": "FV = 850 x (1.10)^4 = 1,244.49, i.e. Rs. 1,244.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q116",
+      "q": "Which of the following statement is CORRECT regarding compound interest?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "It is the most basic form of calculating interest."
+        },
+        {
+          "letter": "B",
+          "text": "It earns profit not only on principal but also on interest."
+        },
+        {
+          "letter": "C",
+          "text": "It is calculated by multiplying principal by rate multiplied by time."
+        },
+        {
+          "letter": "D",
+          "text": "It does not take into account the accumulated interest for calculation."
+        }
+      ],
+      "answer": "B",
+      "explanation": "Source marked 'calculated by multiplying principal by rate multiplied by time' (that is simple interest), which is wrong: compound interest earns interest on both principal and accumulated interest.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q117",
+      "q": "Mr. Ali has an opprtunity to invest Rs. 45,000 in a local bank at 13% compound interest rate for 6 years. What amount he will receive after 6 years?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 93,690"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 80,100"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 97,500"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 65,770"
+        }
+      ],
+      "answer": "A",
+      "explanation": "FV = 45,000 x (1.13)^6 = Rs. 93,688, nearest to Rs. 93,690.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": true
+    },
+    {
+      "id": "Q118",
+      "q": "An account was opened with an investment of Rs. 3,000 ten years ago. The ending balance in the account is Rs. 4,100. If interest was compounded, how much compounded interest was earned?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 500"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 752"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 1,052"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 1,100"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Interest earned = ending balance - principal = 4,100 - 3,000 = 1,100.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q119",
+      "q": "The process of determining the present value of a payment or a stream of payments that is to be received in the future is known as:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Discounting"
+        },
+        {
+          "letter": "B",
+          "text": "Compounding"
+        },
+        {
+          "letter": "C",
+          "text": "Factorization"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Finding present values of future payments is discounting; compounding goes the other way.",
+      "lectures": [
+        13
+      ],
+      "concept": "tvm",
+      "repeated": false
+    },
+    {
+      "id": "Q120",
+      "q": "Rule of 72 for finding the number of periods is fairly applicable to which of the following range of discount rates?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2% to 8%"
+        },
+        {
+          "letter": "B",
+          "text": "4% to 25%"
+        },
+        {
+          "letter": "C",
+          "text": "5% to 20%"
+        },
+        {
+          "letter": "D",
+          "text": "10% to 50%"
+        }
+      ],
+      "answer": "C",
+      "explanation": "The Rule of 72 is a reliable approximation for rates in roughly the 5% to 20% range (per the course handout).",
+      "lectures": [
+        14
+      ],
+      "concept": "evaluating-investments",
+      "repeated": false
+    },
+    {
+      "id": "Q121",
+      "q": "You need Rs. 10,000 to buy a new television. If you have Rs. 6,000 to invest at 5 percent compounded annually, how long will you have to wait to buy the television?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "8.42 years"
+        },
+        {
+          "letter": "B",
+          "text": "10.51 years"
+        },
+        {
+          "letter": "C",
+          "text": "15.75 years"
+        },
+        {
+          "letter": "D",
+          "text": "18.78 years"
+        }
+      ],
+      "answer": "B",
+      "explanation": "n = ln(10,000/6,000)/ln(1.05) = 10.47 years; 10.51 years is the closest option.",
+      "lectures": [
+        14
+      ],
+      "concept": "evaluating-investments",
+      "repeated": false
+    },
+    {
+      "id": "Q122",
+      "q": "In which of the following type of annuity, cash flows occur at the beginning of each period?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Ordinary annuity"
+        },
+        {
+          "letter": "B",
+          "text": "Annuity due"
+        },
+        {
+          "letter": "C",
+          "text": "Perpetuity"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "B",
+      "explanation": "An annuity due has payments at the beginning of each period.",
+      "lectures": [
+        15
+      ],
+      "concept": "annuities",
+      "repeated": true
+    },
+    {
+      "id": "Q123",
+      "q": "Which of the following is a series of constant cash flows that occur at the end of each period for some fixed number of periods?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Ordinary annuity"
+        },
+        {
+          "letter": "B",
+          "text": "Annuity due"
+        },
+        {
+          "letter": "C",
+          "text": "Perpetuity"
+        },
+        {
+          "letter": "D",
+          "text": "None of the given options"
+        }
+      ],
+      "answer": "A",
+      "explanation": "An ordinary annuity pays a constant amount at the end of each period for a fixed term.",
+      "lectures": [
+        15
+      ],
+      "concept": "annuities",
+      "repeated": true
+    },
+    {
+      "id": "Q124",
+      "q": "Mr. Ahmed wants to receive Rs. 1,800 forever at the end of each year. What will be the present value of this series of cash flow if rate of interest is 10%?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 180"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 1,800"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 1,980"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 18,000"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Source marked 'Rs. 1,980', which is wrong: perpetuity PV = 1,800 / 0.10 = Rs. 18,000.",
+      "lectures": [
+        16
+      ],
+      "concept": "perpetuities",
+      "repeated": false
+    },
+    {
+      "id": "Q125",
+      "q": "A given rate is quoted as 9 percent APR, but the EAR is 9.38 percent. What is the compounding period?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Semiannually"
+        },
+        {
+          "letter": "B",
+          "text": "Quarterly"
+        },
+        {
+          "letter": "C",
+          "text": "Monthly"
+        },
+        {
+          "letter": "D",
+          "text": "Daily"
+        }
+      ],
+      "answer": "C",
+      "explanation": "EAR = (1 + 0.09/12)^12 - 1 = 9.38%, so the APR compounds monthly.",
+      "lectures": [
+        17
+      ],
+      "concept": "bonds",
+      "repeated": false
+    },
+    {
+      "id": "Q126",
+      "q": "What is the effective annual rate of 7 percent compounded monthly?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "7.00 percent"
+        },
+        {
+          "letter": "B",
+          "text": "7.12 percent"
+        },
+        {
+          "letter": "C",
+          "text": "7.19 percent"
+        },
+        {
+          "letter": "D",
+          "text": "7.23 percent"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Source marked '7.00 percent', which is wrong: EAR = (1 + 0.07/12)^12 - 1 = 7.23%.",
+      "lectures": [
+        17
+      ],
+      "concept": "bonds",
+      "repeated": false
+    },
+    {
+      "id": "Q127",
+      "q": "When a corporation wishes to borrow from public on a long-term basis, it does so by issuing or selling:",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Debt securities or bonds"
+        },
+        {
+          "letter": "B",
+          "text": "Common Stocks"
+        },
+        {
+          "letter": "C",
+          "text": "Preferred Stock"
+        },
+        {
+          "letter": "D",
+          "text": "All of the given"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Long-term public borrowing is done by issuing debt securities (bonds); stocks represent ownership, not borrowing.",
+      "lectures": [
+        17
+      ],
+      "concept": "bonds",
+      "repeated": false
+    },
+    {
+      "id": "Q128",
+      "q": "What amount a borrower would pay at the end of fourth year with a 4-year, 12%, interest-only loan of Rs. 8,000?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "Rs. 1,360"
+        },
+        {
+          "letter": "B",
+          "text": "Rs. 2,000"
+        },
+        {
+          "letter": "C",
+          "text": "Rs. 5,625"
+        },
+        {
+          "letter": "D",
+          "text": "Rs. 8,960"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Interest-only: annual interest 8,000 x 12% = 960; at maturity the borrower pays principal + final interest = 8,960.",
+      "lectures": [
+        17
+      ],
+      "concept": "bonds",
+      "repeated": false
+    }
+  ],
+  "shorts": [
+    {
+      "id": "S01",
+      "q": "What is the difference between nominal and real rate of return?",
+      "modelAnswer": "The **nominal rate of return** is the percentage change in the amount of money you have, with no adjustment for inflation. The **real rate of return** is the percentage change in what that money can actually buy – the nominal return adjusted for inflation. They are linked by the Fisher equation: (1 + R) = (1 + r)(1 + h), where R = nominal return, r = real return and h = inflation rate. So if your investment earns 12% nominally while inflation is 5%, your real return is (1.12/1.05) − 1 ≈ 6.67%, not 12%.",
+      "lectures": [
+        22
+      ]
+    },
+    {
+      "id": "S02",
+      "q": "If the equity multiplier is 1.60, profit margin 8% and total asset turnover is 1.32, find the ROE.",
+      "modelAnswer": "Using the Du Pont identity, ROE = Profit margin × Total asset turnover × Equity multiplier.\n```\nROE = 0.08 × 1.32 × 1.60 = 0.16896 ≈ 16.90%\n```",
+      "lectures": [
+        11
+      ]
+    },
+    {
+      "id": "S03",
+      "q": "What is the difference between debt and equity?",
+      "modelAnswer": "**Debt** is borrowed money: it carries a fixed interest obligation, must be repaid by a fixed date, interest is tax-deductible, lenders get no ownership or voting rights, and failure to pay can force the firm into bankruptcy. **Equity** is ownership money: there is no obligation to pay dividends, no maturity date, shareholders get voting rights and share in profits, but they are residual claimants – paid after all lenders – so equity is riskier and costlier than debt.",
+      "lectures": [
+        3
+      ]
+    },
+    {
+      "id": "S04",
+      "q": "Why is the present value of an ordinary annuity less than that of an annuity due?",
+      "modelAnswer": "An ordinary annuity pays at the **end** of each period, while an annuity due pays at the **beginning** – every payment of the annuity due arrives one period earlier. Because money received earlier is discounted for one period less, each payment of the annuity due is worth more in present-value terms. Mathematically: PV(annuity due) = PV(ordinary annuity) × (1 + r).",
+      "lectures": [
+        15
+      ]
+    },
+    {
+      "id": "S05",
+      "q": "Define the Fisher Effect and give an example.",
+      "modelAnswer": "The **Fisher Effect** describes the relationship between real and nominal returns: (1 + R) = (1 + r)(1 + h), where R is the nominal return, r the real return and h the inflation rate. In words, the nominal interest rate equals the real rate plus compensation for expected inflation. **Example:** if the nominal rate is 15% and inflation is 6%, the real rate is (1.15/1.06) − 1 ≈ 8.49% (roughly 15% − 6% = 9% by the quick approximation).",
+      "lectures": [
+        22
+      ]
+    },
+    {
+      "id": "S06",
+      "q": "You deposit Rs. 10,000 in a bank at 8% interest. What will be the amount after 4 years if the bank offers a simple interest rate?",
+      "modelAnswer": "With simple interest, interest is earned only on the original principal:\n```\nFV = P × (1 + r × t) = 10,000 × (1 + 0.08 × 4)\n   = 10,000 × 1.32 = Rs. 13,200\n```",
+      "lectures": [
+        13
+      ]
+    },
+    {
+      "id": "S07",
+      "q": "What are the basic three determinants of the term structure of interest rates?",
+      "modelAnswer": "The three basic determinants of the term structure of interest rates are: **(1) the real rate of interest** – the base compensation for lending; **(2) the inflation premium** – compensation for expected loss of purchasing power; **(3) the interest-rate risk premium** – extra compensation for the risk that rates change over longer horizons. Together they explain the level and shape of the yield curve.",
+      "lectures": [
+        22
+      ]
+    },
+    {
+      "id": "S08",
+      "q": "According to the Du Pont Identity, what are the three things by which ROE is affected?",
+      "modelAnswer": "The Du Pont identity breaks ROE into three drivers: **(1) Operating efficiency**, measured by the profit margin (Net income / Sales); **(2) Asset use efficiency**, measured by total asset turnover (Sales / Assets); **(3) Financial leverage**, measured by the equity multiplier (Assets / Equity). ROE = Profit margin × Total asset turnover × Equity multiplier.",
+      "lectures": [
+        11
+      ]
+    },
+    {
+      "id": "S09",
+      "q": "Why are financial statements standardized, and how is it done?",
+      "modelAnswer": "Financial statements are standardized so that firms of different sizes – and the same firm over different years – can be compared meaningfully; raw rupee figures alone do not allow fair comparison. It is done in two ways: **common-size statements** (every balance-sheet item as a percentage of total assets, every income-statement item as a percentage of sales) and **common-base-year analysis** (trend percentages with a base year set to 100).",
+      "lectures": [
+        8
+      ]
+    },
+    {
+      "id": "S10",
+      "q": "What do profitability ratios measure? Name the commonly used ratios in this regard.",
+      "modelAnswer": "Profitability ratios measure how efficiently a firm generates profit from its sales, assets and equity – they show the combined effect of liquidity, asset management and leverage on results. Commonly used ones: **gross profit margin**, **operating profit margin**, **net profit margin**, **return on assets (ROA)** and **return on equity (ROE)**.",
+      "lectures": [
+        9,
+        10
+      ]
+    },
+    {
+      "id": "S11",
+      "q": "What is the method of calculating the Yield to Maturity (YTM) of a bond?",
+      "modelAnswer": "YTM is the discount rate that makes the present value of the bond's coupons plus face value equal to its current price:\n```\nPrice = C × PVIFA(r, n) + F × PVIF(r, n)\n```\nSolve for r by **trial and error**: pick two rates that bracket the price (one giving a PV above the price, one below), then interpolate between them. Financial calculators and spreadsheet RATE functions do the same iteration instantly.",
+      "lectures": [
+        18
+      ]
+    },
+    {
+      "id": "S12",
+      "q": "What is meant by total assets management ratios? Name any common ratio under this category.",
+      "modelAnswer": "Total assets management ratios (asset utilization ratios) measure how efficiently the firm uses its assets to generate sales – how hard each rupee of assets is working. Common ratios in this category: **inventory turnover**, **receivables turnover (and average collection period)**, and **total asset turnover**.",
+      "lectures": [
+        9,
+        10
+      ]
+    },
+    {
+      "id": "S13",
+      "q": "What is the difference between market value and book value?",
+      "modelAnswer": "**Book value** is the accounting value: assets minus liabilities as recorded on the balance sheet (based on historical cost less depreciation). **Market value** is what the firm or asset would actually sell for today – for equity, share price × shares outstanding. Book value looks backward at what was paid; market value looks forward, reflecting investors' expectations of future cash flows, so the two often differ sharply.",
+      "lectures": [
+        5
+      ]
+    },
+    {
+      "id": "S14",
+      "q": "A bank is offering a 12% interest rate compounded quarterly on its savings account. What would be the Effective Annual Rate (EAR)?",
+      "modelAnswer": "```\nEAR = (1 + APR/m)^m − 1 = (1 + 0.12/4)^4 − 1\n    = (1.03)^4 − 1 = 0.1255 ≈ 12.55%\n```\nBecause interest compounds four times a year, the effective annual rate (12.55%) is higher than the quoted 12% APR.",
+      "lectures": [
+        17
+      ]
+    },
+    {
+      "id": "S15",
+      "q": "What is the relationship between bond value and changes in interest rate?",
+      "modelAnswer": "Inverse relationship: when market interest rates rise, the value of an existing bond falls, and when rates fall, the bond value rises. The bond's coupon payments are fixed, so they must be discounted at the new market rate: a higher discount rate gives a lower present value of the same fixed cash flows, and a lower discount rate gives a higher present value. (Handout lecture 18: bond values fluctuate as market interest rates change, though the bond's cash flows stay the same.)",
+      "lectures": [
+        18
+      ]
+    },
+    {
+      "id": "S16",
+      "q": "Information has been provided by ABC company. You are required to calculate operating cash flow of ABC company. Sales: 14,500; Cost of goods sold: 7,400; Depreciation: 1,300; Interest expense: 780; Tax: 200.",
+      "modelAnswer": "EBIT = Sales - Cost of goods sold - Depreciation = 14,500 - 7,400 - 1,300 = 5,800. Operating cash flow = EBIT + Depreciation - Taxes = 5,800 + 1,300 - 200 = Rs. 6,900. (Interest is not deducted here: interest belongs to cash flow to creditors, not operating cash flow.)",
+      "lectures": [
+        7
+      ]
+    }
+  ],
+  "longs": [
+    {
+      "id": "L01",
+      "q": "Write internal and external uses of financial statement information.",
+      "modelAnswer": "**Internal uses** (by management): planning and budgeting, controlling costs, evaluating divisional performance, setting targets, and making working-capital and financing decisions. **External uses:** investors use them to decide whether to buy, hold or sell the stock; creditors and banks assess creditworthiness before lending; suppliers judge whether the firm can pay on time; regulators and tax authorities check compliance and tax liability.",
+      "lectures": [
+        12
+      ]
+    },
+    {
+      "id": "L02",
+      "q": "A bond has a face value of $1,000, an annual coupon of $80 and 15 years to maturity. If the market required return on similar bonds is 10%, calculate the value of the bond.",
+      "modelAnswer": "```\nBond value = Coupon × PVIFA(10%, 15) + Face value × PVIF(10%, 15)\n           = 80 × 7.6061 + 1,000 × 0.2394\n           = 608.49 + 239.39\n           = $847.88\n```\nBecause the coupon rate (8%) is below the required return (10%), the bond sells at a **discount** to face value.",
+      "lectures": [
+        18
+      ]
+    },
+    {
+      "id": "L03",
+      "q": "SNT Inc bond has a Rs. 1,000 face value. The promised annual coupon is Rs. 80 and the bond matures in 15 years. The market required return on similar bonds is 10%. Calculate the value of the bond and state whether it is a discount bond or a premium bond.",
+      "modelAnswer": "```\nBond value = 80 × PVIFA(10%, 15) + 1,000 × PVIF(10%, 15)\n           = 80 × 7.6061 + 1,000 × 0.2394\n           = 608.49 + 239.39\n           = Rs. 847.88\n```\nThis is a **discount bond**: its coupon rate (Rs. 80 / Rs. 1,000 = 8%) is lower than the market required return of 10%, so it must sell below face value to give investors the 10% they demand.",
+      "lectures": [
+        18
+      ]
+    },
+    {
+      "id": "L04",
+      "q": "Find the debt-equity ratio when profit margin = 10%, total asset turnover = 1.35 times and ROE = 15.70%.",
+      "modelAnswer": "From the Du Pont identity, ROE = PM × TAT × Equity multiplier, so:\n```\nEquity multiplier = ROE / (PM × TAT) = 0.1570 / (0.10 × 1.35)\n                  = 0.1570 / 0.135 = 1.163\nDebt–Equity ratio = Equity multiplier − 1 = 1.163 − 1 ≈ 0.163\n```",
+      "lectures": [
+        11
+      ]
+    },
+    {
+      "id": "L05",
+      "q": "Calculate the real rate of return if (a) the nominal rate is 15% and inflation is 6%, and (b) the nominal rate is 12% and inflation is 5%.",
+      "modelAnswer": "Using the Fisher equation, real rate r = (1 + R)/(1 + h) − 1:\n```\n(a) r = 1.15/1.06 − 1 = 0.0849 ≈ 8.49%  (approx. 15% − 6% = 9%)\n(b) r = 1.12/1.05 − 1 = 0.0667 ≈ 6.67%  (approx. 12% − 5% = 7%)\n```",
+      "lectures": [
+        22
+      ]
+    },
+    {
+      "id": "L06",
+      "q": "What is meant by a protective covenant? How can it be violated? Explain in detail.",
+      "modelAnswer": "A **protective covenant** is a clause in the bond indenture that restricts the borrower's actions to protect lenders. Positive covenants require the firm to do things (maintain working capital above a minimum, furnish audited statements, keep collateral in good condition); negative covenants forbid things (taking on extra debt, selling or leasing major assets, paying excessive dividends). It is **violated** when the firm breaches any of these – e.g. borrowing beyond the permitted limit, disposing of pledged assets, skipping audited reports, or letting financial ratios fall below the agreed floor. A violation is a technical default: lenders can demand immediate repayment, impose penalties, or force renegotiation of the loan terms.",
+      "lectures": [
+        20
+      ]
+    },
+    {
+      "id": "L07",
+      "q": "You want to buy a new car costing Rs. 850,000. 30% of the amount is in hand and the rest of the amount is taken from a bank at 10% per year for 4 years. What will be your monthly loan payment if compounding is done monthly?",
+      "modelAnswer": "Amount financed = 70% x 850,000 = Rs. 595,000. Monthly rate r = 10% / 12 = 0.008333; number of payments n = 4 x 12 = 48. Monthly payment = 595,000 x r(1+r)^n / ((1+r)^n - 1) = 595,000 x 0.008333 x 1.48935 / 0.48935 = Rs. 15,090.74 per month (approximately Rs. 15,091).",
+      "lectures": [
+        15
+      ]
+    }
+  ]
+};
+
 export const BANK_SUBJECTS = [
   { code: 'PHY101', title: 'Introduction to Physics', term: 'Midterm',
     scope: 'Lectures 1\u201322', lectures: PHY101_LECTURES, bank: PHY101_BANK },
+  { code: 'ACC501', title: 'Business Finance', term: 'Midterm',
+    scope: 'Lectures 1\u201322', lectures: ACC501_LECTURES, bank: ACC501_BANK },
 ];
 
 // ---- Paper generation (pure: no React, no network) ----
