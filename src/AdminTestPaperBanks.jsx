@@ -217,7 +217,7 @@ export default function AdminTestPaperBanks({ user }) {
         <button type="button" className="edx-exam-primary" disabled={!check || !check.valid || busy} onClick={onSave}>{busy ? 'Save ho raha hai…' : 'Save bank'}</button>
       </div>
       {check && check.valid && (
-        <p role="status">✓ Valid bank: {check.bank.code} — {check.bank.title} ({check.bank.term}), {check.counts.mcqs} MCQs + {check.counts.shorts} shorts + {check.counts.longs} longs, {check.counts.lectures} lectures.</p>
+        <p role="status">✓ Valid bank: {check.bank.code} — {check.bank.title} ({check.bank.term}), {check.counts.mcqs} MCQs + {check.counts.shorts} shorts + {check.counts.longs} longs, {check.counts.lectures} {(check.bank.unitLabel === 'Topic' ? 'topics' : 'lectures')}.</p>
       )}
       {check && !check.valid && (
         <div role="alert">
@@ -241,7 +241,7 @@ export default function AdminTestPaperBanks({ user }) {
             const editing = editingKey === key;
             return (
               <li key={key}>
-                <strong>{b.code}</strong> — {b.title} ({b.term}) · {b.mcqs.length} MCQs + {b.shorts.length} shorts + {b.longs.length} longs · {b.lectures.length} lectures
+                <strong>{b.code}</strong> — {b.title} ({b.term}) · {b.mcqs.length} MCQs + {b.shorts.length} shorts + {b.longs.length} longs · {b.lectures.length} {(b.unitLabel === 'Topic' ? 'topics' : 'lectures')}
                 {replaces ? ' · code bank ki jagah live' : ' · naya subject'}
                 {' '}
                 <button type="button" className="edx-exam-secondary" disabled={busy} onClick={() => (editing ? setEditingKey(null) : startEdit(b))}>

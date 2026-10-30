@@ -8705,17 +8705,22 @@ export function buildPaper(subject, lectures, targets = {}) {
   const mcqs = pickRoundRobin(subject.bank.mcqs, lectures, mcqTarget);
   const shorts = pickRoundRobin(subject.bank.shorts, lectures, shortTarget);
   const longs = pickRoundRobin(subject.bank.longs, lectures, longTarget);
+  const unit = subject.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
+  const units = unit.toLowerCase() + 's';
   return {
     slug: 'builder:' + subject.code + ':' + lectures.join('-'),
     code: subject.code,
     title: subject.title,
     term: subject.term,
-    lectures: 'Lectures ' + lectures.join(', ') + ' (selected)',
+    unitLabel: unit,
+    lectures: unit + 's ' + lectures.join(', ') + ' (selected)',
     minutes: 90,
     marks: { mcq: mcqs.length, short: shorts.length * 3, long: longs.length * 5,
              total: mcqs.length + shorts.length * 3 + longs.length * 5 },
-    scopeNote: 'Custom paper: only verified bank questions for the lectures you selected. No question was invented to fill this paper.',
-    sourceNote: 'MCQs and subjective questions verbatim from the verified midterm banks; lecture tags follow the handout lesson topics.',
+    scopeNote: 'Custom paper: only verified bank questions for the ' + units + ' you selected. No question was invented to fill this paper.',
+    sourceNote: unit === 'Topic'
+      ? 'MCQs and subjective questions verbatim from the verified midterm banks; topic tags follow the handout topics.'
+      : 'MCQs and subjective questions verbatim from the verified midterm banks; lecture tags follow the handout lesson topics.',
     mcqs, shorts, longs,
     isCustom: true,
     // patternParams lets any custom paper rebuild itself from a share link:

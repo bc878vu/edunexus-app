@@ -38,6 +38,8 @@ export default function PaperBuilder({ subjectCode, onBack }) {
 
   const rows = useMemo(() => subject.lectures.map((l) => ({ ...l, ...countsFor(subject, l.n) })), [subject]);
   const available = rows.filter((r) => r.mcq + r.short + r.long > 0);
+  const unit = subject.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
+  const units = unit.toLowerCase() + 's';
 
   const toggle = (n) => setSelected((prev) => prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n].sort((a, b) => a - b));
   const generated = paper;
@@ -62,8 +64,8 @@ export default function PaperBuilder({ subjectCode, onBack }) {
     <section className="edx-exam-card edx-exam-form edx-paper-builder edx-paper-page">
       <button type="button" className="edx-exam-secondary" onClick={onBack}>Back to test papers</button>
       <h2>Build your own paper — {subject.code}</h2>
-      <p>{subject.title} · {subject.term} · {subject.scope}. Pick any lectures you want; the paper is built only from verified bank questions for those lectures.</p>
-      <p className="edx-paper-meta-line">Sirf verified questions se paper banega — jis lecture mein koi verified sawal nahi, wo select nahi ho sakta, aur kuch invent nahi kiya jayega.</p>
+      <p>{subject.title} · {subject.term} · {subject.scope}. Pick any {units} you want; the paper is built only from verified bank questions for those {units}.</p>
+      <p className="edx-paper-meta-line">Sirf verified questions se paper banega — jis {unit.toLowerCase()} mein koi verified sawal nahi, wo select nahi ho sakta, aur kuch invent nahi kiya jayega.</p>
       <div className="edx-exam-actions">
         <button type="button" className="edx-exam-secondary" onClick={() => setSelected(available.map((r) => r.n))}>Select all available</button>
         <button type="button" className="edx-exam-secondary" onClick={() => setSelected([])}>Clear</button>
@@ -74,16 +76,16 @@ export default function PaperBuilder({ subjectCode, onBack }) {
           return (
             <label key={r.n} className={'edx-paper-lecture' + (empty ? ' disabled' : '')}>
               <input type="checkbox" disabled={empty} checked={selected.includes(r.n)} onChange={() => toggle(r.n)} />
-              <span><strong>Lecture {r.n}</strong> — {r.title}</span>
+              <span><strong>{unit} {r.n}</strong> — {r.title}</span>
               <span className="edx-paper-count">{empty ? '0 verified questions' : `${r.mcq} MCQs · ${r.short} short · ${r.long} long`}</span>
             </label>
           );
         })}
       </div>
-      <p className="edx-paper-selected-line">{selected.length === 0 ? 'Select at least one lecture to build a paper.' : `Selected: lectures ${selected.join(', ')}`}</p>
+      <p className="edx-paper-selected-line">{selected.length === 0 ? `Select at least one ${unit.toLowerCase()} to build a paper.` : `Selected: ${units} ${selected.join(', ')}`}</p>
       <button type="button" className="edx-exam-primary" disabled={selected.length === 0}
         onClick={() => { const p = buildPaper(subject, selected); if (p.mcqs.length + p.shorts.length + p.longs.length === 0) { setNoData(true); return; } setPaper(p); }}>Generate my paper</button>
-      {noData && <PaperPopup code={subject.code} note={'Selected lectures (' + selected.join(', ') + ') ke liye koi verified sawal nahi mila. Admin se contact karein.'} onClose={() => setNoData(false)} />}
+      {noData && <PaperPopup code={subject.code} note={'Selected ' + units + ' (' + selected.join(', ') + ') ke liye koi verified sawal nahi mila. Admin se contact karein.'} onClose={() => setNoData(false)} />}
       <p className="edx-paper-note">Pattern: up to 20 MCQs, 3 shorts, 3 longs (90 minutes). If your lectures hold fewer verified questions, the paper is shorter and says so — it is never padded with guesses.</p>
     </section>
   );

@@ -59,6 +59,22 @@ test('validator rejects duplicate ids across lists', () => {
   expect(r.errors.join(' ')).toMatch(/duplicate id/);
 });
 
+test('unitLabel Topic accepted with Topics scope, Lecture default kept', () => {
+  const topic = validateTestPaperBank({ ...goodBank, unitLabel: 'Topic' });
+  expect(topic.valid).toBe(true);
+  expect(topic.bank.unitLabel).toBe('Topic');
+  expect(topic.bank.scope).toBe('Topics 1–2');
+  const def = validateTestPaperBank(goodBank);
+  expect(def.bank.unitLabel).toBe('Lecture');
+  expect(def.bank.scope).toBe('Lectures 1–2');
+});
+
+test('unitLabel rejects other values', () => {
+  const r = validateTestPaperBank({ ...goodBank, unitLabel: 'Module' });
+  expect(r.valid).toBe(false);
+  expect(r.errors.join(' ')).toMatch(/unitLabel must be/);
+});
+
 test('merge: admin bank replaces code bank, new code is added, catalog flips to live', () => {
   const code = [
     { code: 'PHY101', term: 'Midterm', title: 'Physics', scope: 'Lectures 1–22', lectures: [], bank: { mcqs: [], shorts: [], longs: [] } },

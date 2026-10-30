@@ -26,6 +26,7 @@ export function mapBankRow(row) {
     code: row.code,
     title: row.title,
     term: row.term,
+    unitLabel: row.unit_label || 'Lecture',
     scope: row.scope || '',
     lectures: Array.isArray(row.lectures) ? row.lectures : [],
     mcqs: Array.isArray(row.mcqs) ? row.mcqs : [],
@@ -64,6 +65,7 @@ export async function saveAdminBank(input) {
     code: bank.code,
     term: bank.term,
     title: bank.title,
+    unit_label: bank.unitLabel,
     scope: bank.scope,
     lectures: bank.lectures,
     mcqs: bank.mcqs,
@@ -71,7 +73,14 @@ export async function saveAdminBank(input) {
     longs: bank.longs,
     updated_at: new Date().toISOString(),
   };
-  const { error } = await supabase.from(TABLE).upsert(row, { onConflict: 'code,term' });
+  let { error } = await supabase.from(TABLE).upsert(row, { onConflict: 'code,term' });
+  if (error && bank.unitLabel === 'Lecture' && /unit_label/.test(error.message || '')) {
+    // The unit_label column has not been added yet (SQL run pending): a Lecture
+    // bank is unaffected by the missing column, so retry without it. A Topic
+    // bank must NOT fall back — saving it without its label would mislabel it.
+    const { unit_label: _dropped, ...legacyRow } = row;
+    ({ error } = await supabase.from(TABLE).upsert(legacyRow, { onConflict: 'code,term' }));
+  }
   if (error) throw error;
   return { ...bank, counts };
 }

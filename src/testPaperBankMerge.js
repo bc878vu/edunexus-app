@@ -14,6 +14,7 @@ export function mergeBankSubjects(codeSubjects, adminBanks) {
       code: b.code,
       title: b.title,
       term: b.term,
+      unitLabel: b.unitLabel || 'Lecture',
       scope: b.scope,
       lectures: b.lectures,
       bank: { mcqs: b.mcqs, shorts: b.shorts, longs: b.longs },

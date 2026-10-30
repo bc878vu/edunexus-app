@@ -36,6 +36,7 @@ export default function AdminTestPapers({ user }) {
   const subjects = useMemo(() => mergeBankSubjects(BANK_SUBJECTS, adminBanks), [adminBanks]);
   const [subjectCode, setSubjectCode] = useState(BANK_SUBJECTS[0].code);
   const subject = subjects.find((s) => s.code === subjectCode) || subjects[0];
+  const adminUnit = subject.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
   const [selected, setSelected] = useState([]);
   const [mcqTarget, setMcqTarget] = useState(20);
   const [shortTarget, setShortTarget] = useState(3);
@@ -196,7 +197,7 @@ export default function AdminTestPapers({ user }) {
           return (
             <label key={r.n} className={'edx-paper-lecture' + (empty ? ' disabled' : '')}>
               <input type="checkbox" disabled={empty} checked={selected.includes(r.n)} onChange={() => toggle(r.n)} />
-              <span><strong>Lecture {r.n}</strong> — {r.title}</span>
+              <span><strong>{adminUnit} {r.n}</strong> — {r.title}</span>
               <span className="edx-paper-count">{empty ? '0 verified questions' : `${r.mcq} MCQs · ${r.short} short · ${r.long} long`}</span>
             </label>
           );
@@ -237,7 +238,7 @@ export default function AdminTestPapers({ user }) {
           const assigning = assignFor && assignFor.paperType === 'saved' && assignFor.paperId === p.id;
           return (
             <li key={p.id}>
-              <strong>{p.title}</strong> · {p.code} · Lectures {p.lectures.join(', ')} · {p.mcq}/{p.short}/{p.long}
+              <strong>{p.title}</strong> · {p.code} · {(subjects.find((s) => s.code === p.code) || {}).unitLabel === 'Topic' ? 'Topics' : 'Lectures'} {p.lectures.join(', ')} · {p.mcq}/{p.short}/{p.long}
               {' '}
               <button type="button" className="edx-exam-secondary" onClick={() => copy(link, 'paper:' + p.id)}>{copied === 'paper:' + p.id ? 'Copied!' : 'Copy link'}</button>
               {' '}
@@ -267,7 +268,7 @@ export default function AdminTestPapers({ user }) {
               const assigning = assignFor && assignFor.paperType === 'pattern' && assignFor.paperId === p.id;
               return (
                 <li key={p.id}>
-                  <strong>{p.name}</strong> · Lectures {p.lectures.join(', ')} · {p.mcq}/{p.short}/{p.long}
+                  <strong>{p.name}</strong> · {(subjects.find((s) => s.code === p.code) || {}).unitLabel === 'Topic' ? 'Topics' : 'Lectures'} {p.lectures.join(', ')} · {p.mcq}/{p.short}/{p.long}
                   {' '}
                   <button type="button" className="edx-exam-secondary" onClick={() => copy(p.link, 'pat:' + p.id)}>{copied === 'pat:' + p.id ? 'Copied!' : 'Copy link'}</button>
                   {' '}

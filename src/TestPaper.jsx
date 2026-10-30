@@ -71,6 +71,7 @@ function PaperCard({ paper, onStart }) {
 
 export function PaperRunner({ paper, onBack }) {
   const total = paperQuestionCount(paper);
+  const paperUnit = paper.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
   const [started, setStarted] = useState(false);
   const [studentName, setStudentName] = useState('');
   const [studentVuId, setStudentVuId] = useState('');
@@ -288,12 +289,12 @@ export function PaperRunner({ paper, onBack }) {
         </section>
         {weakLectures.length > 0 && (
           <section className="edx-exam-card">
-            <h3>Focus lectures — revise these first</h3>
-            <p>These lectures had the most MCQ mistakes.</p>
+            <h3>Focus {paperUnit.toLowerCase()}s — revise these first</h3>
+            <p>These {paperUnit.toLowerCase()}s had the most MCQ mistakes.</p>
             <div className="edx-paper-focus-grid">
               {weakLectures.map((w) => (
                 <div key={w.n} className="edx-paper-focus-item">
-                  <strong>Lecture {w.n}</strong>
+                  <strong>{paperUnit} {w.n}</strong>
                   <span>{w.wrong} / {w.total} wrong</span>
                   <span className="edx-paper-focus-bar"><span style={{ width: Math.round((w.wrong / w.total) * 100) + '%' }} /></span>
                 </div>
@@ -313,7 +314,7 @@ export function PaperRunner({ paper, onBack }) {
             const correct = mine === q.answer;
             return (
               <div key={i} className={'edx-paper-review-row ' + (correct ? 'correct' : 'wrong')}>
-                <p><strong>Q{i + 1}{q.lectures ? ' (Lecture ' + q.lectures.join('/') + ')' : ''}.</strong> {q.q}
+                <p><strong>Q{i + 1}{q.lectures ? ' (' + paperUnit + ' ' + q.lectures.join('/') + ')' : ''}.</strong> {q.q}
                   <span className={'edx-paper-review-badge ' + (correct ? 'correct' : 'wrong')}>{correct ? 'Correct' : 'Wrong'}</span>
                 </p>
                 <p>Your answer: {mine ? mine + '. ' + (q.options.find((o) => o.letter === mine) || {}).text : 'Not answered'}</p>
@@ -620,8 +621,9 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         <div className="edx-paper-subject-grid">
           {shownSubjects.map((s) => {
             const bankSub = mergedSubjects.find((x) => x.code === s.code);
+            const cardUnit = bankSub && bankSub.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
             const lecRange = bankSub && bankSub.lectures && bankSub.lectures.length
-              ? `Lectures ${bankSub.lectures[0].n}–${bankSub.lectures[bankSub.lectures.length - 1].n}`
+              ? `${cardUnit}s ${bankSub.lectures[0].n}–${bankSub.lectures[bankSub.lectures.length - 1].n}`
               : null;
             return (
               <button key={s.code} type="button" className={'edx-paper-subject' + (s.status === 'live' ? ' live' : '')}
@@ -675,13 +677,16 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         <section className="edx-exam-card">
           <h2>Teacher ke banaye papers</h2>
           <p>Admin ne ye papers khud banaye hain — verified bank questions se, lectures aur counts ke saath.</p>
-          {savedPapers.map((p) => (
+          {savedPapers.map((p) => {
+            const savedUnit = (mergedSubjects.find((x) => x.code === p.code) || {}).unitLabel === 'Topic' ? 'Topic' : 'Lecture';
+            return (
             <div key={p.id} style={{ border: '1px solid rgba(127,127,127,0.3)', borderRadius: 12, padding: 12, marginBottom: 10 }}>
-              <strong>{p.title}</strong> · {p.code} ({p.term}) · Lectures {p.lectures.join(', ')} · {p.mcq} MCQs, {p.short} shorts, {p.long} longs{p.builtCounts ? ` · ${p.builtCounts.marks && typeof p.builtCounts.marks === 'object' ? p.builtCounts.marks.total : p.builtCounts.marks} marks` : ''}
+              <strong>{p.title}</strong> · {p.code} ({p.term}) · {savedUnit}s {p.lectures.join(', ')} · {p.mcq} MCQs, {p.short} shorts, {p.long} longs{p.builtCounts ? ` · ${p.builtCounts.marks && typeof p.builtCounts.marks === 'object' ? p.builtCounts.marks.total : p.builtCounts.marks} marks` : ''}
               {' '}
               <button type="button" className="edx-exam-primary" onClick={() => buildSavedPaper(p)}>Start paper</button>
             </div>
-          ))}
+            );
+          })}
         </section>
       )}
       {TEST_PAPERS.map((p) => (

@@ -45,6 +45,13 @@ export function validateTestPaperBank(input) {
   const code = typeof input.code === 'string' ? input.code.trim().toUpperCase() : '';
   if (!CODE_RE.test(code)) errors.push(`code "${input.code}" is not a valid subject code (e.g. ACC501)`);
   if (!isNonEmptyString(input.title)) errors.push('title is required');
+  // unitLabel: 'Lecture' by default; 'Topic' for topic-based courses (e.g. CS205, CS311).
+  // Anything else is rejected — a bank must never silently render under the wrong unit word.
+  let unitLabel = 'Lecture';
+  if (input.unitLabel !== undefined) {
+    if (input.unitLabel === 'Topic') unitLabel = 'Topic';
+    else if (input.unitLabel !== 'Lecture') errors.push('unitLabel must be "Lecture" or "Topic"');
+  }
   if (input.term !== 'Midterm' && input.term !== 'Finalterm') {
     errors.push('term must be "Midterm" or "Finalterm"');
   }
@@ -110,7 +117,8 @@ export function validateTestPaperBank(input) {
     code,
     title: input.title.trim(),
     term: input.term,
-    scope: `Lectures ${Math.min(...lectureNos)}–${Math.max(...lectureNos)}`,
+    unitLabel,
+    scope: `${unitLabel}s ${Math.min(...lectureNos)}–${Math.max(...lectureNos)}`,
     lectures: input.lectures.map((l) => ({ n: l.n, title: l.title.trim() })),
     mcqs: mcqs.map(norm),
     shorts: shorts.map(norm),

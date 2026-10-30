@@ -173,10 +173,11 @@ export default async function handler(req, res) {
       CS302: { title: 'Digital Logic Design', term: 'Midterm' },
       CS304: { title: 'Object Oriented Programming', term: 'Midterm' },
     };
-    const tpLabel = (uniq) => {
-      if (uniq.length === 1) return 'Lecture ' + uniq[0];
+    const tpLabel = (uniq, unitSingular = 'Lecture') => {
+      const plural = unitSingular + 's';
+      if (uniq.length === 1) return unitSingular + ' ' + uniq[0];
       const consecutive = uniq.every((n, i) => i === 0 || n === uniq[i - 1] + 1);
-      return consecutive ? 'Lectures ' + uniq[0] + '\u2013' + uniq[uniq.length - 1] : 'Lectures ' + uniq.join(', ');
+      return consecutive ? plural + ' ' + uniq[0] + '\u2013' + uniq[uniq.length - 1] : plural + ' ' + uniq.join(', ');
     };
     let appUrl = SITE + '/test-papers';
     let title = 'Test Papers \u2014 Free VU Mock Papers | EduNexus';
@@ -199,15 +200,17 @@ export default async function handler(req, res) {
       }
     } else {
       const code = String(req.query?.subject || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
-      const lectures = String(req.query?.lectures || '').split(',').map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n >= 1 && n <= 22);
-      const uniqLectures = [...new Set(lectures)].sort((a, b) => a - b);
       const sub = TP_SUBJECTS[code];
+      // Topic-based subjects (CS205, CS311) number units well past 22 — the cap follows the subject's unit.
+      const maxUnit = sub && sub.unitLabel === 'Topic' ? 1000 : 22;
+      const lectures = String(req.query?.lectures || '').split(',').map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n >= 1 && n <= maxUnit);
+      const uniqLectures = [...new Set(lectures)].sort((a, b) => a - b);
       if (sub && uniqLectures.length > 0) {
         const mcq = clamp(req.query?.mcqs, 20, 1, 50);
         const short = clamp(req.query?.shorts, 3, 0, 5);
         const long = clamp(req.query?.longs, 3, 0, 5);
         const marks = mcq + short * 3 + long * 5;
-        const lecturesLabel = tpLabel(uniqLectures);
+        const lecturesLabel = tpLabel(uniqLectures, sub.unitLabel === 'Topic' ? 'Topic' : 'Lecture');
         const isFull19 = code === 'PHY101' && uniqLectures.length === 9 && uniqLectures[0] === 1 && uniqLectures[8] === 9;
         appUrl = SITE + '/test-papers?subject=' + encodeURIComponent(code)
           + '&lectures=' + encodeURIComponent(uniqLectures.join(','))
