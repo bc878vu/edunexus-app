@@ -16,6 +16,7 @@
 import React, { useMemo, useState } from 'react';
 import { BANK_SUBJECTS } from './testPapersBank';
 import { PaperRunner } from './TestPaper';
+import PaperPopup from './PaperPopup';
 
 const MCQ_TARGET = 20;
 const SHORT_TARGET = 3;
@@ -77,6 +78,7 @@ export default function PaperBuilder({ subjectCode, onBack }) {
   const subject = BANK_SUBJECTS.find((s) => s.code === subjectCode) || BANK_SUBJECTS[0];
   const [selected, setSelected] = useState([]);
   const [paper, setPaper] = useState(null);
+  const [noData, setNoData] = useState(false);
 
   const rows = useMemo(() => subject.lectures.map((l) => ({ ...l, ...countsFor(subject, l.n) })), [subject]);
   const available = rows.filter((r) => r.mcq + r.short + r.long > 0);
@@ -112,7 +114,8 @@ export default function PaperBuilder({ subjectCode, onBack }) {
       </div>
       <p>{selected.length === 0 ? 'Select at least one lecture to build a paper.' : `Selected: lectures ${selected.join(', ')}`}</p>
       <button type="button" className="edx-exam-primary" disabled={selected.length === 0}
-        onClick={() => setPaper(buildPaper(subject, selected))}>Generate my paper</button>
+        onClick={() => { const p = buildPaper(subject, selected); if (p.mcqs.length + p.shorts.length + p.longs.length === 0) { setNoData(true); return; } setPaper(p); }}>Generate my paper</button>
+      {noData && <PaperPopup code={subject.code} note={'Selected lectures (' + selected.join(', ') + ') ke liye koi verified sawal nahi mila. Admin se contact karein.'} onClose={() => setNoData(false)} />}
       <p className="edx-paper-note">Pattern: up to {MCQ_TARGET} MCQs, {SHORT_TARGET} shorts, {LONG_TARGET} longs (90 minutes). If your lectures hold fewer verified questions, the paper is shorter and says so — it is never padded with guesses.</p>
     </section>
   );

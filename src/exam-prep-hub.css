@@ -576,3 +576,12 @@
 .edx-paper-count{font-size:.8rem;color:var(--ex-muted);font-weight:700}
 .edx-paper-meta-line{color:var(--ex-muted)}
 .edx-paper-note{color:var(--ex-muted);font-size:.9rem}
+
+/* Subject picker + missing-data popup */
+.edx-paper-subject-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:14px 0}
+.edx-paper-subject{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid var(--ex-line);border-radius:12px;background:transparent;cursor:pointer;text-align:left}
+.edx-paper-subject.live{border-color:#6366f1;background:rgba(99,102,241,.08)}
+.edx-paper-subject span{font-size:.78rem;color:var(--ex-muted);font-weight:700}
+.edx-paper-popup-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55)}
+.edx-paper-popup{max-width:480px;width:100%}
+.edx-paper-wa-btn{display:inline-block;padding:12px 18px;border-radius:12px;background:#25d366;color:#fff;font-weight:800;text-decoration:none}

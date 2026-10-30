@@ -12,7 +12,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from './firebase-client';
 import { TEST_PAPERS, getTestPaper, paperQuestionCount } from './testPapersData';
-import { BANK_SUBJECTS } from './testPapersBank';
+import { SUBJECT_CATALOG, SUBJECT_STATUS_NOTE } from './testPaperSubjects';
+import PaperPopup from './PaperPopup';
 import PaperBuilder from './PaperBuilder';
 import {
   submitPaperAttempt,
@@ -231,6 +232,7 @@ export function PaperRunner({ paper, onBack }) {
       if (submitted.mcqAnswers[i] !== q.answer) weakMap[lec].wrong += 1;
     });
     const weakLectures = Object.values(weakMap).filter((w) => w.wrong > 0).sort((a, b) => b.wrong - a.wrong || a.n - b.n);
+    const hasSubjective = paper.shorts.length + paper.longs.length > 0;
     return (
       <div className="edx-exam-stack">
         <section className="edx-exam-card edx-paper-result">
@@ -242,7 +244,9 @@ export function PaperRunner({ paper, onBack }) {
             <p><strong>Focus lectures (most MCQ mistakes):</strong> {weakLectures.map((w) => 'Lecture ' + w.n + ' (' + w.wrong + '/' + w.total + ' wrong)').join(', ')} — revise these first.</p>
           )}
           {teacherTotal === null
-            ? <p>Subjective answers are submitted to the teacher for review. Teacher marks will appear here after review.</p>
+            ? (!hasSubjective
+              ? <p>Is paper mein subjective sawal nahi the (selected lectures mein verified subjective sawal nahi mile).</p>
+              : <p>Subjective answers are submitted to the teacher for review. Teacher marks will appear here after review.</p>)
             : <p className="edx-paper-score">Teacher marks (subjective): {teacherTotal} / {paper.marks.short + paper.marks.long} · Total: {submitted.mcqScore + teacherTotal} / {paper.marks.total}</p>}
           {submitted.teacherFeedback && <p><strong>Teacher feedback:</strong> {submitted.teacherFeedback}</p>}
           {saveState === 'saving' && <p role="status">Saving your attempt for the teacher…</p>}
@@ -274,7 +278,7 @@ export function PaperRunner({ paper, onBack }) {
             );
           })}
         </section>
-        <section className="edx-exam-card">
+        {hasSubjective && (<section className="edx-exam-card">
           <h3>Subjective answers vs model answers</h3>
           {paper.shorts.map((q, i) => (
             <div key={'s' + i} className="edx-paper-review-row">
@@ -294,7 +298,7 @@ export function PaperRunner({ paper, onBack }) {
               <p className="edx-paper-answer-text">{q.modelAnswer}</p>
             </div>
           ))}
-        </section>
+        </section>)}
       </div>
     );
   }
@@ -399,9 +403,12 @@ export function PaperRunner({ paper, onBack }) {
 
 export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const [builderCode, setBuilderCode] = useState(null);
+  const [subjectQuery, setSubjectQuery] = useState('');
+  const [popupSubject, setPopupSubject] = useState(null);
   const paper = paperSlug ? getTestPaper(paperSlug) : null;
   if (paper) return <PaperRunner paper={paper} onBack={() => onSelectPaper('')} />;
   if (builderCode) return <PaperBuilder subjectCode={builderCode} onBack={() => setBuilderCode(null)} />;
+  const filteredSubjects = SUBJECT_CATALOG.filter((s) => s.code.includes(subjectQuery.trim().toUpperCase()));
   return (
     <div className="edx-exam-stack">
       <section className="edx-paper-cover">
@@ -418,13 +425,20 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
       </section>
       <section className="edx-exam-card">
         <h2>Build your own paper (Intelligent)</h2>
-        <p>Choose a subject, tick the lectures you want, and get a paper built only from verified questions for those lectures — most-repeated concepts first, balanced across lectures, never padded with guesses.</p>
-        {BANK_SUBJECTS.map((s) => (
-          <div key={s.code} className="edx-exam-actions">
-            <span><strong>{s.code}</strong> — {s.title} ({s.term}, {s.scope}): {s.bank.mcqs.length} MCQs + {s.bank.shorts.length} shorts + {s.bank.longs.length} longs, lecture-mapped</span>
-            <button type="button" className="edx-exam-primary" onClick={() => setBuilderCode(s.code)}>Build custom paper</button>
-          </div>
-        ))}
+        <p>Choose a subject, tick the lectures you want, and get a paper built ONLY from verified questions for that subject and those lectures — MCQs, shorts and longs alike. Most-repeated concepts first, balanced across lectures, never padded with guesses.</p>
+        <label className="edx-exam-field">Search subject<input type="text" value={subjectQuery} onChange={(e) => setSubjectQuery(e.target.value.toUpperCase())} placeholder="Subject code likhein, jaise MTH202" /></label>
+        <p>87 subjects · 1 live. Live subject par click karein to paper banayein; baaki par click karein to admin se contact ka popup khulega.</p>
+        <div className="edx-paper-subject-grid">
+          {filteredSubjects.map((s) => (
+            <button key={s.code} type="button" className={'edx-paper-subject' + (s.status === 'live' ? ' live' : '')}
+              onClick={() => s.status === 'live' ? setBuilderCode(s.code) : setPopupSubject(s)}>
+              <strong>{s.code}</strong>
+              <span>{s.status === 'live' ? 'Live — paper banayein' : s.status === 'mapping' ? 'Tayyar ho raha hai' : s.status === 'finalonly' ? 'Midterm data nahi' : 'Data nahi mila'}</span>
+            </button>
+          ))}
+          {filteredSubjects.length === 0 && <p>Koi subject nahi mila. Code dobara check karein.</p>}
+        </div>
+        {popupSubject && <PaperPopup code={popupSubject.code} note={SUBJECT_STATUS_NOTE[popupSubject.status]} onClose={() => setPopupSubject(null)} />}
       </section>
       {TEST_PAPERS.map((p) => (
         <PaperCard key={p.slug} paper={p} onStart={() => onSelectPaper(p.slug)} />
