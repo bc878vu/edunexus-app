@@ -14,13 +14,9 @@
 //      the most wrong MCQ answers (computed in TestPaper.jsx's result view).
 
 import React, { useMemo, useState } from 'react';
-import { BANK_SUBJECTS } from './testPapersBank';
+import { BANK_SUBJECTS, buildPaper } from './testPapersBank';
 import { PaperRunner } from './TestPaper';
 import PaperPopup from './PaperPopup';
-
-const MCQ_TARGET = 20;
-const SHORT_TARGET = 3;
-const LONG_TARGET = 3;
 
 function countsFor(subject, lectureNo) {
   const { bank } = subject;
@@ -28,50 +24,6 @@ function countsFor(subject, lectureNo) {
   const short = bank.shorts.filter((q) => q.lectures.includes(lectureNo)).length;
   const long = bank.longs.filter((q) => q.lectures.includes(lectureNo)).length;
   return { mcq, short, long };
-}
-
-// Round-robin across lectures: take one question per lecture in ascending
-// lecture order, repeat, until the target is hit or every pool is empty.
-// Within a lecture, "repeated" questions come first, then bank order.
-function pickRoundRobin(rows, lectures, target) {
-  const pools = {};
-  lectures.forEach((n) => {
-    pools[n] = rows
-      .filter((q) => q.lectures.includes(n))
-      .sort((a, b) => (b.repeated ? 1 : 0) - (a.repeated ? 1 : 0) || a.id.localeCompare(b.id));
-  });
-  const used = new Set();
-  const out = [];
-  let progress = true;
-  while (out.length < target && progress) {
-    progress = false;
-    for (const n of lectures) {
-      if (out.length >= target) break;
-      const next = pools[n].find((q) => !used.has(q.id));
-      if (next) { used.add(next.id); out.push(next); progress = true; }
-    }
-  }
-  return out;
-}
-
-function buildPaper(subject, lectures) {
-  const mcqs = pickRoundRobin(subject.bank.mcqs, lectures, MCQ_TARGET);
-  const shorts = pickRoundRobin(subject.bank.shorts, lectures, SHORT_TARGET);
-  const longs = pickRoundRobin(subject.bank.longs, lectures, LONG_TARGET);
-  return {
-    slug: 'builder:' + subject.code + ':' + lectures.join('-'),
-    code: subject.code,
-    title: subject.title,
-    term: subject.term,
-    lectures: 'Lectures ' + lectures.join(', ') + ' (selected)',
-    minutes: 90,
-    marks: { mcq: mcqs.length, short: shorts.length * 3, long: longs.length * 5,
-             total: mcqs.length + shorts.length * 3 + longs.length * 5 },
-    scopeNote: 'Custom paper: only verified bank questions for the lectures you selected. No question was invented to fill this paper.',
-    sourceNote: 'MCQs and subjective questions verbatim from the verified midterm banks; lecture tags follow the handout lesson topics.',
-    mcqs, shorts, longs,
-    isCustom: true,
-  };
 }
 
 export default function PaperBuilder({ subjectCode, onBack }) {
@@ -116,7 +68,7 @@ export default function PaperBuilder({ subjectCode, onBack }) {
       <button type="button" className="edx-exam-primary" disabled={selected.length === 0}
         onClick={() => { const p = buildPaper(subject, selected); if (p.mcqs.length + p.shorts.length + p.longs.length === 0) { setNoData(true); return; } setPaper(p); }}>Generate my paper</button>
       {noData && <PaperPopup code={subject.code} note={'Selected lectures (' + selected.join(', ') + ') ke liye koi verified sawal nahi mila. Admin se contact karein.'} onClose={() => setNoData(false)} />}
-      <p className="edx-paper-note">Pattern: up to {MCQ_TARGET} MCQs, {SHORT_TARGET} shorts, {LONG_TARGET} longs (90 minutes). If your lectures hold fewer verified questions, the paper is shorter and says so — it is never padded with guesses.</p>
+      <p className="edx-paper-note">Pattern: up to 20 MCQs, 3 shorts, 3 longs (90 minutes). If your lectures hold fewer verified questions, the paper is shorter and says so — it is never padded with guesses.</p>
     </section>
   );
 }

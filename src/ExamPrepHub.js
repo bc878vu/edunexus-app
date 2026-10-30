@@ -18,6 +18,7 @@ const ExamMcqAdminManager = React.lazy(() => import("./ExamMcqAdminManager"));
 const ExamMcqPractice = React.lazy(() => import("./ExamMcqPractice"));
 const TestPapersHome = React.lazy(() => import("./TestPaper"));
 const AdminPaperAttempts = React.lazy(() => import("./AdminPaperAttempts"));
+const AdminPaperPatterns = React.lazy(() => import("./AdminPaperPatterns"));
 
 const ROOT = ["artifacts", "edunexus-live", "public", "data"];
 const col = (name) => collection(db, ...ROOT, name);
@@ -254,6 +255,7 @@ function AdminTools({ user, onView }) {
         {id:'manage',label:'📝 Manage MCQs'},
         {id:'reviews',label:'📄 Paper Reviews'},
         {id:'attempts',label:'📊 Paper Attempts'},
+        {id:'patterns',label:'📋 Paper Patterns'},
       ].map(t => (
         <button key={t.id} type="button" onClick={()=>setAdminSubTab(t.id)}
           className={adminSubTab===t.id ? 'edx-exam-primary' : 'edx-exam-secondary'}
@@ -266,6 +268,7 @@ function AdminTools({ user, onView }) {
     {adminSubTab==='manage' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading question manager…</section>}><ExamMcqAdminManager user={user} initialSubject={draft.subject}/></React.Suspense>}
     {adminSubTab==='reviews' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper review manager…</section>}><ExamPaperReviewManager user={user}/></React.Suspense>}
     {adminSubTab==='attempts' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper attempts…</section>}><AdminPaperAttempts user={user}/></React.Suspense>}
+    {adminSubTab==='patterns' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper patterns…</section>}><AdminPaperPatterns user={user}/></React.Suspense>}
     <section className="edx-exam-card edx-exam-form"><div className="edx-exam-between"><h3>Legacy pending paper reviews ({pending.filter((r) => r.status === "pending").length})</h3><button className="edx-exam-secondary" onClick={reload} disabled={busy}>Refresh</button></div>
       {pending.filter((r) => r.status === "pending").map((r) => <div className="edx-exam-pending" key={r.id}><p><strong>{safe(r.subject, 12)} · {safe(r.term, 10)} · {safe(r.examDate, 10)}</strong></p><p>{safe(r.topics, 400)}</p><p>{safe(r.summary, 1500)}</p><div className="edx-exam-actions"><button className="edx-exam-primary" disabled={busy} onClick={() => moderate(r, true)}>Approve</button><button className="edx-exam-secondary" disabled={busy} onClick={() => moderate(r, false)}>Reject</button></div></div>)}
       {!pending.some((r) => r.status === "pending") && <p>No pending reviews in the latest 100 submissions.</p>}

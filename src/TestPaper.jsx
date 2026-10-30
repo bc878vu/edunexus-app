@@ -13,6 +13,7 @@ import { signInAnonymously } from 'firebase/auth';
 import { auth } from './firebase-client';
 import { TEST_PAPERS, getTestPaper, paperQuestionCount } from './testPapersData';
 import { SUBJECT_CATALOG, SUBJECT_STATUS_NOTE } from './testPaperSubjects';
+import { BANK_SUBJECTS, buildPaper } from './testPapersBank';
 import PaperPopup from './PaperPopup';
 import PaperBuilder from './PaperBuilder';
 import {
@@ -214,7 +215,9 @@ export function PaperRunner({ paper, onBack }) {
   };
 
   const shareText = submitted
-    ? paper.code + ' ' + paper.lectures + ' Test Paper — Name: ' + submitted.studentName + ', VU ID: ' + submitted.studentVuId + ', MCQ score: ' + submitted.mcqScore + '/' + paper.mcqs.length + '. Full paper: ' + window.location.origin + '/test-papers/' + paper.slug
+    ? paper.code + ' ' + paper.lectures + ' Test Paper — Name: ' + submitted.studentName + ', VU ID: ' + submitted.studentVuId + ', MCQ score: ' + submitted.mcqScore + '/' + paper.mcqs.length + '. Full paper: ' + window.location.origin + (paper.isCustom && paper.patternParams
+      ? '/test-papers?subject=' + paper.patternParams.subject + '&lectures=' + paper.patternParams.lectures.join(',') + '&mcqs=' + paper.patternParams.mcq + '&shorts=' + paper.patternParams.short + '&longs=' + paper.patternParams.long
+      : '/test-papers/' + paper.slug)
     : '';
   const whatsappUrl = 'https://wa.me/' + ADMIN_WHATSAPP + '?text=' + encodeURIComponent(shareText);
 
@@ -408,6 +411,34 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const paper = paperSlug ? getTestPaper(paperSlug) : null;
   if (paper) return <PaperRunner paper={paper} onBack={() => onSelectPaper('')} />;
   if (builderCode) return <PaperBuilder subjectCode={builderCode} onBack={() => setBuilderCode(null)} />;
+  // Shared pattern link: /test-papers?subject=CODE&lectures=1,3&mcqs=20&shorts=3&longs=3
+  // (built by the admin in Paper Patterns). It rebuilds exactly that paper;
+  // unknown subjects or empty selections fall through to the home + popup.
+  const pattern = (() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const rawCode = params.get('subject');
+      if (!rawCode) return null;
+      const code = rawCode.toUpperCase();
+      const subject = BANK_SUBJECTS.find((s) => s.code === code);
+      if (!subject) return { error: code };
+      const lectures = (params.get('lectures') || '').split(',').map((x) => parseInt(x, 10))
+        .filter((n) => Number.isFinite(n) && subject.lectures.some((l) => l.n === n));
+      if (lectures.length === 0) return { error: code };
+      const clamp = (v, d, lo, hi) => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+      const built = buildPaper(subject, lectures, {
+        mcq: clamp(params.get('mcqs'), 20, 1, 50),
+        short: clamp(params.get('shorts'), 3, 0, 5),
+        long: clamp(params.get('longs'), 3, 0, 5),
+      });
+      if (built.mcqs.length + built.shorts.length + built.longs.length === 0) return { error: code };
+      return { paper: built };
+    } catch (_) { return null; }
+  })();
+  if (pattern && pattern.paper) {
+    return <PaperRunner paper={pattern.paper} onBack={() => { try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }} />;
+  }
+  const clearPatternParams = () => { try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} };
   const filteredSubjects = SUBJECT_CATALOG.filter((s) => s.code.includes(subjectQuery.trim().toUpperCase()));
   return (
     <div className="edx-exam-stack">
@@ -423,6 +454,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           <p>Open a paper, enter your name and VU ID, answer every question, then submit. Your MCQ score shows immediately. Your subjective answers are saved for the teacher — other students never see them.</p>
         </div>
       </section>
+      {pattern && pattern.error && <PaperPopup code={pattern.error} note="Is subject ka paper data abhi available nahi hai, ya link mein lectures theek nahi hain. Admin se contact karein." onClose={clearPatternParams} />}
       <section className="edx-exam-card">
         <h2>Build your own paper (Intelligent)</h2>
         <p>Choose a subject, tick the lectures you want, and get a paper built ONLY from verified questions for that subject and those lectures — MCQs, shorts and longs alike. Most-repeated concepts first, balanced across lectures, never padded with guesses.</p>

@@ -4644,3 +4644,59 @@ export const BANK_SUBJECTS = [
   { code: 'PHY101', title: 'Introduction to Physics', term: 'Midterm',
     scope: 'Lectures 1\u201322', lectures: PHY101_LECTURES, bank: PHY101_BANK },
 ];
+
+// ---- Paper generation (pure: no React, no network) ----
+// Used by PaperBuilder (student), TestPapersHome (shared pattern links) and
+// AdminPaperPatterns (admin). One implementation, so a shared link builds
+// exactly the paper the admin designed.
+//   1. Balanced coverage: round-robin across the selected lectures.
+//   2. Most-repeated first: within a lecture, questions whose concept also
+//      appears in the subjective bank come before the rest.
+//   3. No padding, ever: fewer verified questions than the target means a
+//      shorter paper, never an invented filler.
+export function pickRoundRobin(rows, lectures, target) {
+  const pools = {};
+  lectures.forEach((n) => {
+    pools[n] = rows
+      .filter((q) => q.lectures.includes(n))
+      .sort((a, b) => (b.repeated ? 1 : 0) - (a.repeated ? 1 : 0) || a.id.localeCompare(b.id));
+  });
+  const used = new Set();
+  const out = [];
+  let progress = true;
+  while (out.length < target && progress) {
+    progress = false;
+    for (const n of lectures) {
+      if (out.length >= target) break;
+      const next = pools[n].find((q) => !used.has(q.id));
+      if (next) { used.add(next.id); out.push(next); progress = true; }
+    }
+  }
+  return out;
+}
+
+export function buildPaper(subject, lectures, targets = {}) {
+  const mcqTarget = targets.mcq ?? 20;
+  const shortTarget = targets.short ?? 3;
+  const longTarget = targets.long ?? 3;
+  const mcqs = pickRoundRobin(subject.bank.mcqs, lectures, mcqTarget);
+  const shorts = pickRoundRobin(subject.bank.shorts, lectures, shortTarget);
+  const longs = pickRoundRobin(subject.bank.longs, lectures, longTarget);
+  return {
+    slug: 'builder:' + subject.code + ':' + lectures.join('-'),
+    code: subject.code,
+    title: subject.title,
+    term: subject.term,
+    lectures: 'Lectures ' + lectures.join(', ') + ' (selected)',
+    minutes: 90,
+    marks: { mcq: mcqs.length, short: shorts.length * 3, long: longs.length * 5,
+             total: mcqs.length + shorts.length * 3 + longs.length * 5 },
+    scopeNote: 'Custom paper: only verified bank questions for the lectures you selected. No question was invented to fill this paper.',
+    sourceNote: 'MCQs and subjective questions verbatim from the verified midterm banks; lecture tags follow the handout lesson topics.',
+    mcqs, shorts, longs,
+    isCustom: true,
+    // patternParams lets any custom paper rebuild itself from a share link:
+    // /test-papers?subject=CODE&lectures=1,3&mcqs=20&shorts=3&longs=3
+    patternParams: { subject: subject.code, lectures: [...lectures], mcq: mcqTarget, short: shortTarget, long: longTarget },
+  };
+}

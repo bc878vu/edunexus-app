@@ -360,6 +360,14 @@
     {
       "source": "/paper-reviews",
       "destination": "/index.html"
+    },
+    {
+      "source": "/test-papers",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/test-papers/:slug",
+      "destination": "/index.html"
     }
   ],
   "buildCommand": "npm run build",
