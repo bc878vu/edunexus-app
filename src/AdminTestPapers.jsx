@@ -213,7 +213,7 @@ export default function AdminTestPapers({ user }) {
           <select value={longTarget} onChange={(e) => setLongTarget(Number(e.target.value))}>{[0, 1, 2, 3, 4, 5].map((n) => (<option key={n} value={n}>{n}</option>))}</select>
         </label>
       </div>
-      {built && <p role="status">Preview: {built.mcqs.length} MCQs + {built.shorts.length} shorts + {built.longs.length} longs, {built.marks} marks — {builtTotal === 0 ? 'in lectures mein koi verified sawal nahi, paper nahi banega.' : 'yehi paper banega, kuch invent nahi hoga.'}</p>}
+      {built && <p role="status">Preview: {built.mcqs.length} MCQs + {built.shorts.length} shorts + {built.longs.length} longs, {built.marks.total} marks — {builtTotal === 0 ? 'in lectures mein koi verified sawal nahi, paper nahi banega.' : 'yehi paper banega, kuch invent nahi hoga.'}</p>}
       <label className="edx-exam-field">Fixed paper ka title
         <input type="text" value={paperTitle} onChange={(e) => setPaperTitle(e.target.value)} placeholder="Jaise ACC501 Midterm — Lectures 1-9" />
       </label>

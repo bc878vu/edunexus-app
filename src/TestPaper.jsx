@@ -677,7 +677,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           <p>Admin ne ye papers khud banaye hain — verified bank questions se, lectures aur counts ke saath.</p>
           {savedPapers.map((p) => (
             <div key={p.id} style={{ border: '1px solid rgba(127,127,127,0.3)', borderRadius: 12, padding: 12, marginBottom: 10 }}>
-              <strong>{p.title}</strong> · {p.code} ({p.term}) · Lectures {p.lectures.join(', ')} · {p.mcq} MCQs, {p.short} shorts, {p.long} longs{p.builtCounts ? ` · ${p.builtCounts.marks} marks` : ''}
+              <strong>{p.title}</strong> · {p.code} ({p.term}) · Lectures {p.lectures.join(', ')} · {p.mcq} MCQs, {p.short} shorts, {p.long} longs{p.builtCounts ? ` · ${p.builtCounts.marks && typeof p.builtCounts.marks === 'object' ? p.builtCounts.marks.total : p.builtCounts.marks} marks` : ''}
               {' '}
               <button type="button" className="edx-exam-primary" onClick={() => buildSavedPaper(p)}>Start paper</button>
             </div>
