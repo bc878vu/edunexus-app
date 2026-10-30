@@ -9,7 +9,7 @@ export const FRIENDLY_ROUTES = Object.freeze({
   '/cgpa-guide': 'cgpa-guide', '/ai-study-tools': 'ai-study-tools',
   '/student-resources': 'resources', '/live-projects': 'projects',
   '/tutorials': 'tutorials', '/exam-prep': 'exam-prep',
-  '/mcq-bank': 'exam-prep', '/paper-reviews': 'exam-prep', '/academic': 'academic'
+  '/mcq-bank': 'exam-prep', '/paper-reviews': 'exam-prep', '/test-papers': 'exam-prep', '/academic': 'academic'
 });
 
 export const CONTENT_PAGE_IDS = Object.freeze([
@@ -59,6 +59,14 @@ export function routeParamsFromPath(pathname) {
   }
   if (parts[0] === 'paper-reviews' && !parts[1]) {
     return { page: 'exam-prep', subject: '', term: '', section: 'reviews' };
+  }
+  // /test-papers — Test Papers page (exam-prep hub, papers tab)
+  if (parts[0] === 'test-papers' && !parts[1]) {
+    return { page: 'exam-prep', subject: '', term: '', section: 'papers' };
+  }
+  // /test-papers/<slug> — a single test paper
+  if (parts[0] === 'test-papers' && parts[1]) {
+    return { page: 'exam-prep', subject: '', term: '', section: 'papers', paper: parts[1].slice(0, 80) };
   }
   // /r/<code> — short paper-review share link (exam-prep hub, reviews tab;
   // the hub resolves the code to the full review id for the highlight).

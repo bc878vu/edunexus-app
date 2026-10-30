@@ -530,3 +530,40 @@
  .edx-exam .edx-study-file{padding:14px}
  .edx-exam .edx-study-results-head{gap:10px}
 }
+
+/* Test Papers — sample-style cover, palette, options, sticky bar, review */
+.edx-paper-cover{position:relative;overflow:hidden;border-radius:20px;padding:clamp(20px,4vw,34px);background:linear-gradient(125deg,#0f2040,#1e3a8a 70%,#3730a3);color:#fff;box-shadow:0 22px 55px -42px rgba(15,23,66,.85)}
+.edx-paper-cover:after{content:"";position:absolute;width:260px;height:260px;border-radius:50%;right:-80px;top:-120px;background:rgba(255,255,255,.08);pointer-events:none}
+.edx-paper-cover-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.edx-paper-brand{font-weight:800;font-size:1.05rem}
+.edx-paper-cover-tag{font-size:.7rem;letter-spacing:.08em;color:#c7d2fe}
+.edx-paper-pill{display:inline-block;padding:7px 13px;border-radius:999px;background:#a5b4fc;color:#1e1b4b;font-size:.78rem;font-weight:800}
+.edx-paper-cover h1{color:#fff;margin:12px 0 6px;font-size:clamp(1.4rem,4vw,2rem);line-height:1.2}
+.edx-paper-cover p{color:#e0e7ff;line-height:1.55}
+.edx-paper-cover-card{margin-top:16px;padding:16px;border-radius:14px;background:#fff;color:#1f2937}
+.edx-paper-cover-card p{color:#475569}
+.edx-paper-card-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.edx-paper-lectures{font-size:.8rem;font-weight:700;color:var(--ex-muted)}
+.edx-paper-meta{list-style:none;margin:10px 0 14px;padding:0;display:flex;gap:8px;flex-wrap:wrap}
+.edx-paper-meta li{padding:6px 10px;border:1px solid var(--ex-line);border-radius:999px;font-size:.78rem;font-weight:700}
+.edx-paper-stickybar{position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:var(--ex-card,#fff);border:1px solid var(--ex-line);box-shadow:0 12px 30px -22px rgba(30,41,59,.5)}
+.edx-paper-stickybar>span:first-child{font-weight:800}
+.edx-paper-timer-low{color:#dc2626;font-weight:800;animation:edx-paper-pulse 1s infinite}
+@keyframes edx-paper-pulse{50%{opacity:.45}}
+.edx-paper-palette{display:flex;gap:8px;flex-wrap:wrap}
+.edx-paper-palette button{width:40px;height:40px;border-radius:10px;border:1px solid var(--ex-line);background:transparent;font-weight:800;cursor:pointer}
+.edx-paper-palette button.answered{background:rgba(99,102,241,.14);border-color:rgba(99,102,241,.5)}
+.edx-paper-palette button.current{outline:2px solid #6366f1;outline-offset:2px}
+.edx-paper-part{font-weight:800;color:#4f46e5}
+.edx-paper-options{display:grid;gap:10px;margin-top:12px}
+.edx-paper-options button{text-align:left;padding:13px 15px;border-radius:12px;border:1px solid var(--ex-line);background:transparent;font-size:1rem;cursor:pointer}
+.edx-paper-options button.selected{border-color:#6366f1;background:rgba(99,102,241,.12)}
+.edx-paper-review-row{padding:14px 0;border-top:1px solid var(--ex-line)}
+.edx-paper-review-row:first-child{border-top:0}
+.edx-paper-explanation{color:var(--ex-muted)}
+.edx-paper-answer-text{white-space:pre-wrap;line-height:1.55}
+.edx-paper-score{font-size:1.15rem;font-weight:800}
+@media(max-width:640px){
+  .edx-paper-stickybar{position:fixed;left:12px;right:12px;bottom:12px;top:auto}
+  .edx-paper-palette button{width:36px;height:36px}
+}

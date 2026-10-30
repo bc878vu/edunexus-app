@@ -120,6 +120,18 @@ service cloud.firestore {
       allow delete: if admin();
     }
 
+    // Student test-paper attempts: a signed-in student (anonymous included)
+    // may create only their own attempt and read only their own doc; only
+    // the admin may list all attempts or save teacher marks.
+    match /artifacts/edunexus-live/public/data/paperAttempts/{attemptId} {
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow get: if admin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow list: if admin();
+      allow update: if admin();
+      allow delete: if admin();
+    }
+
     match /artifacts/edunexus-live/public/data/feedback/{docId} {
       allow create: if signedIn();
       allow read, update, delete: if admin();

@@ -5,6 +5,7 @@ export const MAIN_ITEMS = Object.freeze([
   { id: 'academic', label: 'Academic Hub', href: '/?page=academic' },
   { id: 'mcq-bank', label: 'MCQ Bank', href: '/mcq-bank' },
   { id: 'paper-reviews', label: 'Paper Reviews', href: '/paper-reviews' },
+  { id: 'test-papers', label: 'Test Papers', href: '/test-papers' },
   { id: 'cgpa', label: 'CGPA Calc', href: '/?page=cgpa' },
   { id: 'articles', label: 'Articles', href: '/?page=articles' },
   { id: 'forum', label: 'Discussion', href: '/?page=forum' },
