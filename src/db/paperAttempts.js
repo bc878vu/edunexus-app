@@ -1,69 +1,104 @@
-// src/db/paperAttempts.js — student test-paper attempts (Firestore).
+// src/db/paperAttempts.js — student test-paper attempts, stored in Supabase.
 //
-// Why Firestore and not Supabase here: on this site the admin identity that
-// can read every student's attempt is the Firebase account
-// (veducator4@gmail.com, enforced by the deployed Firestore rules). Supabase
-// has no equivalent admin session on this site, so an admin list/read through
-// Supabase cannot be authorized. Students sign in anonymously with Firebase
-// (silent, no UI) at submit time; the rules allow a signed-in student to
-// create only their own attempt (userId == uid) and read only their own doc,
-// while the admin may list all and update (teacher marks).
+// User decision 2026-10-30: ALL site storage moves to Supabase (Firebase
+// gives no free storage). This replaces the Firestore version. The old
+// comment's rationale (Firebase admin identity) no longer applies: like the
+// MCQ bank, admin gating is UI-level in the admin panel and the table
+// policies are anon-friendly.
 //
-// Collection path follows the site-wide ROOT:
-//   artifacts/edunexus-live/public/data/paperAttempts
-// The matching rules block must be published in the Firebase console before
-// student submits or the admin list can work (see firestore.rules).
+// Table `paper_attempts` (created by
+// ~/workspace/testpapers/supabase-testpaper-admin.sql, run by the user):
+// snake_case columns; rows are mapped back to the camelCase shape the UI
+// already expects (AdminPaperAttempts, Dashboard, Students), so no UI
+// component changes. created_at/updated_at come back as ISO strings, which
+// the existing date helpers already accept.
 
-import {
-  collection,
-  doc,
-  addDoc,
-  getDoc,
-  getDocs,
-  query,
-  orderBy,
-  limit,
-  updateDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { db } from '../firebase-client.js';
-import { ROOT } from './_common.js';
+import { supabase } from './_common.js';
 
-const attemptsCol = () => collection(db, ...ROOT, 'paperAttempts');
-const attemptRef = (id) => doc(db, ...ROOT, 'paperAttempts', id);
+const TABLE = 'paper_attempts';
 
-/** Submit a finished paper. Returns the new attempt id. */
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/** Supabase row -> attempt (the shape the UI already renders). Pure. */
+export function mapAttemptRow(row) {
+  return {
+    id: row.id,
+    userId: row.user_id || '',
+    studentName: row.student_name || '',
+    studentVuId: row.student_vu_id || '',
+    paperSlug: row.paper_slug || '',
+    paperCode: row.paper_code || '',
+    mcqAnswers: row.mcq_answers && typeof row.mcq_answers === 'object' ? row.mcq_answers : {},
+    mcqScore: row.mcq_score ?? 0,
+    mcqTotal: row.mcq_total ?? 0,
+    shortAnswers: Array.isArray(row.short_answers) ? row.short_answers : [],
+    longAnswers: Array.isArray(row.long_answers) ? row.long_answers : [],
+    paperSnapshot: row.paper_snapshot || null,
+    status: row.status || 'submitted',
+    teacherMarks: row.teacher_marks ?? null,
+    teacherFeedback: row.teacher_feedback || '',
+    createdAt: row.created_at || null,
+    updatedAt: row.updated_at || null,
+  };
+}
+
+function toRow(payload) {
+  return {
+    user_id: payload.userId || '',
+    student_name: payload.studentName || '',
+    student_vu_id: payload.studentVuId || '',
+    paper_slug: payload.paperSlug || '',
+    paper_code: payload.paperCode || '',
+    mcq_answers: payload.mcqAnswers || {},
+    mcq_score: payload.mcqScore ?? 0,
+    mcq_total: payload.mcqTotal ?? 0,
+    short_answers: payload.shortAnswers || {},
+    long_answers: payload.longAnswers || {},
+    paper_snapshot: payload.paperSnapshot || null,
+  };
+}
+
+/** Submit a finished paper. Returns the new attempt id (the student receipt). */
 export async function submitPaperAttempt(payload) {
-  const ref = await addDoc(attemptsCol(), {
-    ...payload,
+  const id = newId();
+  const { error } = await supabase.from(TABLE).insert({
+    id,
+    ...toRow(payload),
     status: 'submitted',
-    teacherMarks: null,
-    teacherFeedback: '',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    teacher_marks: null,
+    teacher_feedback: '',
   });
-  return ref.id;
+  if (error) throw error;
+  return id;
 }
 
-/** Admin only (rules): newest attempts first. */
+/** Admin only (UI gate): newest attempts first. */
 export async function listPaperAttempts(max = 200) {
-  const snap = await getDocs(query(attemptsCol(), orderBy('createdAt', 'desc'), limit(max)));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const { data, error } = await supabase.from(TABLE)
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(max);
+  if (error) throw error;
+  return (data || []).map(mapAttemptRow);
 }
 
-/** Owner or admin (rules). Returns null when missing. */
+/** Owner or admin (UI gate). Returns null when missing. */
 export async function getPaperAttempt(id) {
   if (!id) return null;
-  const snap = await getDoc(attemptRef(id));
-  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  const { data, error } = await supabase.from(TABLE).select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? mapAttemptRow(data) : null;
 }
 
-/** Admin only (rules): save teacher marks + feedback, mark reviewed. */
+/** Admin only (UI gate): save teacher marks + feedback, mark reviewed. */
 export async function reviewPaperAttempt(id, { teacherMarks, teacherFeedback }) {
-  await updateDoc(attemptRef(id), {
-    teacherMarks: teacherMarks || null,
-    teacherFeedback: teacherFeedback || '',
+  const { error } = await supabase.from(TABLE).update({
+    teacher_marks: teacherMarks || null,
+    teacher_feedback: teacherFeedback || '',
     status: 'reviewed',
-    updatedAt: serverTimestamp(),
-  });
+    updated_at: new Date().toISOString(),
+  }).eq('id', id);
+  if (error) throw error;
 }
