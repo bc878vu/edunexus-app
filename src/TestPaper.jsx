@@ -44,21 +44,20 @@ async function firebaseUid() {
 }
 
 function PaperCard({ paper, onStart }) {
-  const total = paperQuestionCount(paper);
   return (
     <article className="edx-exam-card edx-paper-card">
       <div className="edx-paper-card-top">
         <span className="edx-paper-pill">{paper.code} | {paper.term}</span>
         <span className="edx-paper-lectures">{paper.lectures}</span>
       </div>
-      <h3>{paper.code} — {paper.title}</h3>
+      <h3>{paper.title}</h3>
       <p>{paper.scopeNote}</p>
       <ul className="edx-paper-meta">
         <li>{paper.mcqs.length} MCQs</li>
         <li>{paper.shorts.length} Short questions</li>
         <li>{paper.longs.length} Long questions</li>
-        <li>{total} questions · {paper.marks.total} marks · {paper.minutes} minutes</li>
       </ul>
+      <p className="edx-paper-meta-line">{paper.marks.total} marks · {paper.minutes} minutes</p>
       <button type="button" className="edx-exam-primary" onClick={onStart}>Start paper</button>
     </article>
   );
@@ -310,18 +309,9 @@ export function PaperRunner({ paper, onBack }) {
     return (
       <div className="edx-exam-stack">
         <section className="edx-paper-cover">
-          <div className="edx-paper-cover-top">
-            <span className="edx-paper-brand">EduNexus</span>
-            <span className="edx-paper-cover-tag">STUDY MATERIAL / EXAM PREP</span>
-          </div>
           <span className="edx-paper-pill">{paper.code} | {paper.term}</span>
           <h1>{paper.code} — {paper.title} — Test Paper</h1>
           <p>{paper.lectures} · {paper.mcqs.length} MCQs · {paper.shorts.length} Short · {paper.longs.length} Long · {paper.marks.total} marks · {paper.minutes} minutes</p>
-          <div className="edx-paper-cover-card">
-            <strong>Inside this paper</strong>
-            <p>{paper.scopeNote}</p>
-            <p>{paper.sourceNote}</p>
-          </div>
         </section>
         <section className="edx-exam-card edx-exam-form">
           <h3>Your details</h3>
@@ -440,35 +430,30 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   }
   const clearPatternParams = () => { try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} };
   const filteredSubjects = SUBJECT_CATALOG.filter((s) => s.code.includes(subjectQuery.trim().toUpperCase()));
+  // Clean by default: only live subjects show until the student searches —
+  // the other 86 buttons were a wall of dead ends. Searching still finds
+  // every subject (with the admin-contact popup for non-live ones).
+  const shownSubjects = subjectQuery.trim() ? filteredSubjects : filteredSubjects.filter((s) => s.status === 'live');
   return (
     <div className="edx-exam-stack">
       <section className="edx-paper-cover">
-        <div className="edx-paper-cover-top">
-          <span className="edx-paper-brand">EduNexus</span>
-          <span className="edx-paper-cover-tag">STUDY MATERIAL / EXAM PREP</span>
-        </div>
         <h1>Test Papers</h1>
-        <p>Full papers, taken online. MCQs are checked instantly; subjective answers go to the teacher for marks.</p>
-        <div className="edx-paper-cover-card">
-          <strong>How it works</strong>
-          <p>Open a paper, enter your name and VU ID, answer every question, then submit. Your MCQ score shows immediately. Your subjective answers are saved for the teacher — other students never see them.</p>
-        </div>
+        <p>Take a full paper online — MCQs are checked instantly, subjective answers go to the teacher.</p>
       </section>
       {pattern && pattern.error && <PaperPopup code={pattern.error} note="Is subject ka paper data abhi available nahi hai, ya link mein lectures theek nahi hain. Admin se contact karein." onClose={clearPatternParams} />}
       <section className="edx-exam-card">
-        <h2>Build your own paper (Intelligent)</h2>
-        <p>Choose a subject, tick the lectures you want, and get a paper built ONLY from verified questions for that subject and those lectures — MCQs, shorts and longs alike. Most-repeated concepts first, balanced across lectures, never padded with guesses.</p>
+        <h2>Build your own paper</h2>
+        <p>Choose a subject and lectures — your paper is built only from verified questions, most-repeated concepts first.</p>
         <label className="edx-exam-field">Search subject<input type="text" value={subjectQuery} onChange={(e) => setSubjectQuery(e.target.value.toUpperCase())} placeholder="Subject code likhein, jaise MTH202" /></label>
-        <p>87 subjects · 1 live. Live subject par click karein to paper banayein; baaki par click karein to admin se contact ka popup khulega.</p>
         <div className="edx-paper-subject-grid">
-          {filteredSubjects.map((s) => (
+          {shownSubjects.map((s) => (
             <button key={s.code} type="button" className={'edx-paper-subject' + (s.status === 'live' ? ' live' : '')}
               onClick={() => s.status === 'live' ? setBuilderCode(s.code) : setPopupSubject(s)}>
               <strong>{s.code}</strong>
               <span>{s.status === 'live' ? 'Live — paper banayein' : s.status === 'mapping' ? 'Tayyar ho raha hai' : s.status === 'finalonly' ? 'Midterm data nahi' : 'Data nahi mila'}</span>
             </button>
           ))}
-          {filteredSubjects.length === 0 && <p>Koi subject nahi mila. Code dobara check karein.</p>}
+          {shownSubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
         </div>
         {popupSubject && <PaperPopup code={popupSubject.code} note={SUBJECT_STATUS_NOTE[popupSubject.status]} onClose={() => setPopupSubject(null)} />}
       </section>
