@@ -65,3 +65,58 @@ export async function getTpAccessCode() {
   if (error) throw new Error(error.message);
   return data?.value || '';
 }
+
+// ---- Student auth + content (Phase 2) ----
+// Signup is gated by the access code in tp_settings (anon-readable).
+// After signup the profile row is upserted; email confirmation (if the
+// project requires it) happens via Supabase's own email before first login.
+
+export async function signUpTp(email, password, accessCode) {
+  const expected = await getTpAccessCode();
+  if (!expected || accessCode.trim() !== expected) throw new Error('Access code ghalat hai. Admin se sahi code lein.');
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) throw new Error(error.message);
+  if (data.user) await upsertTpProfile(data.user);
+  return data;
+}
+
+export async function upsertTpProfile(user) {
+  if (!user) return;
+  const { error } = await supabase.from('tp_profiles').upsert({ id: user.id, email: user.email }, { onConflict: 'id' });
+  if (error) throw new Error(error.message);
+}
+
+export async function loadTpContent() {
+  const [s, m, sh, lo] = await Promise.all([
+    supabase.from('tp_subjects').select('*').order('code'),
+    supabase.from('tp_mcqs').select('*').order('created_at'),
+    supabase.from('tp_short_questions').select('*').order('created_at'),
+    supabase.from('tp_long_questions').select('*').order('created_at'),
+  ]);
+  if (s.error) throw new Error(s.error.message);
+  return { subjects: s.data || [], mcqs: m.data || [], shorts: sh.data || [], longs: lo.data || [] };
+}
+
+export async function readTpSettings() {
+  const { data, error } = await supabase.from('tp_settings').select('key,value');
+  if (error || !data) return { signup_open: true };
+  const m = {};
+  data.forEach((r) => { m[r.key] = r.value; });
+  return { access_code: m.access_code ?? '', signup_open: m.signup_open !== 'false' };
+}
+
+export async function saveTpAttempt({ userId, subject, type, score, total, details }) {
+  const { error } = await supabase.from('tp_attempts').insert({
+    user_id: userId,
+    subject_id: subject ? subject.id : null,
+    subject_code: subject ? subject.code : '',
+    type, score, total, details: details || {},
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function fetchTpMyAttempts(userId) {
+  const { data, error } = await supabase.from('tp_attempts').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+  if (error) return [];
+  return data || [];
+}

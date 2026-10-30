@@ -368,6 +368,10 @@
     {
       "source": "/test-papers/:slug",
       "destination": "/index.html"
+    },
+    {
+      "source": "/course-tests",
+      "destination": "/index.html"
     }
   ],
   "buildCommand": "npm run build",
