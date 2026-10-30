@@ -120,3 +120,14 @@ export async function fetchTpMyAttempts(userId) {
   if (error) return [];
   return data || [];
 }
+
+// Direct client for admin CRUD (same Supabase client; RLS still applies).
+export const tpSupabase = supabase;
+
+// Blocked check: a student can read only their own tp_blocked row.
+export async function fetchTpBlocked(userId) {
+  if (!userId) return null;
+  const { data, error } = await supabase.from('tp_blocked').select('*').eq('user_id', userId).maybeSingle();
+  if (error) return null;
+  return data || null;
+}
