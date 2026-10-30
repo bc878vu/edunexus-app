@@ -15,6 +15,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { BANK_SUBJECTS, buildPaper } from './testPapersBank';
+import { mergeBankSubjects } from './testPaperBankMerge';
+import { useAdminBanks } from './useAdminBanks';
 import { PaperRunner } from './TestPaper';
 import PaperPopup from './PaperPopup';
 
@@ -27,7 +29,9 @@ function countsFor(subject, lectureNo) {
 }
 
 export default function PaperBuilder({ subjectCode, onBack }) {
-  const subject = BANK_SUBJECTS.find((s) => s.code === subjectCode) || BANK_SUBJECTS[0];
+  const { banks: adminBanks, loading: adminLoading } = useAdminBanks();
+  const mergedSubjects = useMemo(() => mergeBankSubjects(BANK_SUBJECTS, adminBanks), [adminBanks]);
+  const subject = mergedSubjects.find((s) => s.code === subjectCode) || mergedSubjects[0];
   const [selected, setSelected] = useState([]);
   const [paper, setPaper] = useState(null);
   const [noData, setNoData] = useState(false);
@@ -37,6 +41,18 @@ export default function PaperBuilder({ subjectCode, onBack }) {
 
   const toggle = (n) => setSelected((prev) => prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n].sort((a, b) => a - b));
   const generated = paper;
+
+  // An admin-only subject is unknown until the admin banks finish loading —
+  // show a loading state instead of silently falling back to another subject.
+  // (After all hooks above, so hook order never changes between renders.)
+  if (adminLoading && !BANK_SUBJECTS.some((s) => s.code === subjectCode)) {
+    return (
+      <section className="edx-exam-card edx-exam-form edx-paper-builder edx-paper-page">
+        <button type="button" className="edx-exam-secondary" onClick={onBack}>Back to test papers</button>
+        <p role="status">Paper bank load ho raha hai…</p>
+      </section>
+    );
+  }
 
   if (generated) {
     return <PaperRunner paper={generated} onBack={() => setPaper(null)} />;

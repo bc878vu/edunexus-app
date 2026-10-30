@@ -8,9 +8,11 @@
 // teacher exactly like any other paper (Firestore paperAttempts rules must
 // be published for the save to succeed — same as every other paper).
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { adminPanelAccess } from './adminSession';
 import { BANK_SUBJECTS } from './testPapersBank';
+import { mergeBankSubjects } from './testPaperBankMerge';
+import { useAdminBanks } from './useAdminBanks';
 
 function countsFor(subject, lectureNo) {
   const { bank } = subject;
@@ -22,8 +24,10 @@ function countsFor(subject, lectureNo) {
 }
 
 export default function AdminPaperPatterns({ user }) {
+  const { banks: adminBanks } = useAdminBanks();
+  const subjects = useMemo(() => mergeBankSubjects(BANK_SUBJECTS, adminBanks), [adminBanks]);
   const [subjectCode, setSubjectCode] = useState(BANK_SUBJECTS[0].code);
-  const subject = BANK_SUBJECTS.find((s) => s.code === subjectCode) || BANK_SUBJECTS[0];
+  const subject = subjects.find((s) => s.code === subjectCode) || subjects[0];
   const [selected, setSelected] = useState([]);
   const [mcqTarget, setMcqTarget] = useState(20);
   const [shortTarget, setShortTarget] = useState(3);
@@ -65,7 +69,7 @@ export default function AdminPaperPatterns({ user }) {
       <p>Pick a subject and lectures, set the counts, and share the link. The student opens it and gets exactly that paper — no login needed. Only verified bank questions are used, never invented ones.</p>
       <label className="edx-exam-field">Subject
         <select value={subjectCode} onChange={(e) => { setSubjectCode(e.target.value); setSelected([]); setLink(''); }}>
-          {BANK_SUBJECTS.map((s) => (
+          {subjects.map((s) => (
             <option key={s.code} value={s.code}>{s.code} — {s.title} ({s.term})</option>
           ))}
         </select>

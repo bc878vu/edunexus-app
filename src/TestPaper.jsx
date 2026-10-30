@@ -14,6 +14,8 @@ import { auth } from './firebase-client';
 import { TEST_PAPERS, getTestPaper, paperQuestionCount } from './testPapersData';
 import { SUBJECT_CATALOG, SUBJECT_STATUS_NOTE } from './testPaperSubjects';
 import { BANK_SUBJECTS, buildPaper } from './testPapersBank';
+import { mergeBankSubjects, mergeCatalog } from './testPaperBankMerge';
+import { useAdminBanks } from './useAdminBanks';
 import PaperPopup from './PaperPopup';
 import PaperBuilder from './PaperBuilder';
 import PaperAnswerEditor from './PaperAnswerEditor';
@@ -477,6 +479,11 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const [builderCode, setBuilderCode] = useState(null);
   const [subjectQuery, setSubjectQuery] = useState('');
   const [popupSubject, setPopupSubject] = useState(null);
+  // Admin-uploaded banks merge over the code banks (admin copy wins on the
+  // same code+term); while they load, the code banks render immediately.
+  const { banks: adminBanks, loading: adminLoading } = useAdminBanks();
+  const mergedSubjects = useMemo(() => mergeBankSubjects(BANK_SUBJECTS, adminBanks), [adminBanks]);
+  const mergedCatalog = useMemo(() => mergeCatalog(SUBJECT_CATALOG, mergedSubjects), [mergedSubjects]);
   // Re-render on every navigation event (browser back/forward included).
   // The pattern paper below is derived from window.location.search during
   // render, and the app's nav-path state does NOT change when only the
@@ -504,8 +511,8 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
       const rawCode = params.get('subject');
       if (!rawCode) return null;
       const code = rawCode.toUpperCase();
-      const subject = BANK_SUBJECTS.find((s) => s.code === code);
-      if (!subject) return { error: code };
+      const subject = mergedSubjects.find((s) => s.code === code);
+      if (!subject) return adminLoading ? { loading: true } : { error: code };
       const lectures = (params.get('lectures') || '').split(',').map((x) => parseInt(x, 10))
         .filter((n) => Number.isFinite(n) && subject.lectures.some((l) => l.n === n));
       if (lectures.length === 0) return { error: code };
@@ -522,8 +529,11 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   if (pattern && pattern.paper) {
     return <PaperRunner paper={pattern.paper} onBack={() => { try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }} />;
   }
+  if (pattern && pattern.loading) {
+    return <div className="edx-exam-stack edx-paper-page"><section className="edx-exam-card" role="status"><p>Paper load ho raha hai…</p></section></div>;
+  }
   const clearPatternParams = () => { try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} };
-  const filteredSubjects = SUBJECT_CATALOG.filter((s) => s.code.includes(subjectQuery.trim().toUpperCase()));
+  const filteredSubjects = mergedCatalog.filter((s) => s.code.includes(subjectQuery.trim().toUpperCase()));
   // Clean by default: only live subjects show until the student searches —
   // the other 86 buttons were a wall of dead ends. Searching still finds
   // every subject (with the admin-contact popup for non-live ones).

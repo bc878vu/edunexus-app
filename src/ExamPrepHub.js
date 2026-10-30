@@ -19,6 +19,7 @@ const ExamMcqPractice = React.lazy(() => import("./ExamMcqPractice"));
 const TestPapersHome = React.lazy(() => import("./TestPaper"));
 const AdminPaperAttempts = React.lazy(() => import("./AdminPaperAttempts"));
 const AdminPaperPatterns = React.lazy(() => import("./AdminPaperPatterns"));
+const AdminTestPaperBanks = React.lazy(() => import("./AdminTestPaperBanks"));
 
 const ROOT = ["artifacts", "edunexus-live", "public", "data"];
 const col = (name) => collection(db, ...ROOT, name);
@@ -280,11 +281,12 @@ function AdminTools({ user, onView }) {
 function PaperTestAdmin({ user }) {
   const [paperSubTab, setPaperSubTab] = useState('attempts');
   if (!isAdmin(user)) return null;
-  return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Paper Test management</h2><p>Student test papers, in one place: check attempts and teacher marks, and share paper links.</p></div><ShieldCheck size={28} /></div>
+  return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Paper Test management</h2><p>Student test papers, in one place: check attempts and teacher marks, share paper links, and upload test-paper banks.</p></div><ShieldCheck size={28} /></div>
     <div className="edx-admin-subtabs" style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
       {[
         {id:'attempts',label:'📊 Paper Attempts'},
         {id:'patterns',label:'📋 Paper Patterns'},
+        {id:'banks',label:'📚 Test Paper Banks'},
       ].map(t => (
         <button key={t.id} type="button" onClick={()=>setPaperSubTab(t.id)}
           className={paperSubTab===t.id ? 'edx-exam-primary' : 'edx-exam-secondary'}
@@ -295,6 +297,7 @@ function PaperTestAdmin({ user }) {
     </div>
     {paperSubTab==='attempts' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper attempts…</section>}><AdminPaperAttempts user={user}/></React.Suspense>}
     {paperSubTab==='patterns' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper patterns…</section>}><AdminPaperPatterns user={user}/></React.Suspense>}
+    {paperSubTab==='banks' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading test paper banks…</section>}><AdminTestPaperBanks user={user}/></React.Suspense>}
   </div>;
 }
 
