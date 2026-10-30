@@ -1,42 +1,44 @@
-// src/db/testPaperBanks.js — Admin-uploaded test-paper banks, stored in Firestore.
+// src/db/testPaperBanks.js — Admin-uploaded test-paper banks, stored in Supabase.
 //
-// Why Firestore and not Supabase here: the admin identity on this site is the
-// Firebase account (veducator4@gmail.com, enforced by the deployed Firestore
-// rules), and students browse sign-in-free. The banks live as docs in the
-// already-published `meta` collection (public read; admin-only create/update/
-// delete), so NO new rules and NO user-run SQL are needed. One doc per
-// subject+term: id `testPaperBank_<CODE>_<term>`, field kind='testPaperBank'.
+// User decision 2026-10-30: NO Firestore for the new test-paper admin
+// features — Supabase only. (The earlier Firestore meta version failed live
+// with "Missing or insufficient permissions" because the live console rules
+// lacked the meta admin-write rule; Supabase follows the site's proven
+// exam_mcqs pattern instead: anon-friendly policies, admin gating at the
+// UI level in the admin panel.)
+//
+// Table `test_paper_banks` (one row per code+term; created by the SQL file
+// ~/workspace/testpapers/supabase-testpaper-admin.sql, run by the user in
+// the EduNexus Supabase SQL editor):
+//   code, term, title, scope, lectures jsonb, mcqs jsonb, shorts jsonb,
+//   longs jsonb, updated_at.
 // The student builder merges these over the code banks (see
 // testPaperBankMerge.js); a failed read falls back to code banks only.
 
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  where,
-  setDoc,
-  deleteDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { db } from '../firebase-client.js';
-import { ROOT } from './_common.js';
+import { supabase } from './_common.js';
 import { validateTestPaperBank } from '../testPaperBankValidate.js';
 
-const KIND = 'testPaperBank';
+const TABLE = 'test_paper_banks';
 
-const banksCol = () => collection(db, ...ROOT, 'meta');
-const bankRef = (code, term) => doc(db, ...ROOT, 'meta', `${KIND}_${code}_${String(term).toLowerCase()}`);
-
-function stripMetaFields(data) {
-  const { kind, updatedAt, ...bank } = data;
-  return bank;
+/** Row (Supabase) -> bank (code shape). Pure, unit-tested. */
+export function mapBankRow(row) {
+  return {
+    code: row.code,
+    title: row.title,
+    term: row.term,
+    scope: row.scope || '',
+    lectures: Array.isArray(row.lectures) ? row.lectures : [],
+    mcqs: Array.isArray(row.mcqs) ? row.mcqs : [],
+    shorts: Array.isArray(row.shorts) ? row.shorts : [],
+    longs: Array.isArray(row.longs) ? row.longs : [],
+  };
 }
 
-/** All admin-uploaded banks, newest first. Throws on read failure (callers decide the fallback). */
+/** All admin-uploaded banks. Throws on read failure (callers decide the fallback). */
 export async function listAdminBanks() {
-  const snap = await getDocs(query(banksCol(), where('kind', '==', KIND)));
-  return snap.docs.map((d) => ({ id: d.id, ...stripMetaFields(d.data()) }));
+  const { data, error } = await supabase.from(TABLE).select('*');
+  if (error) throw error;
+  return (data || []).map(mapBankRow);
 }
 
 /**
@@ -58,15 +60,24 @@ export async function saveAdminBank(input) {
     throw new Error('Bank failed validation:\n' + result.errors.join('\n'));
   }
   const { bank, counts } = result;
-  await setDoc(bankRef(bank.code, bank.term), {
-    kind: KIND,
-    ...bank,
-    updatedAt: serverTimestamp(),
-  });
+  const row = {
+    code: bank.code,
+    term: bank.term,
+    title: bank.title,
+    scope: bank.scope,
+    lectures: bank.lectures,
+    mcqs: bank.mcqs,
+    shorts: bank.shorts,
+    longs: bank.longs,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabase.from(TABLE).upsert(row, { onConflict: 'code,term' });
+  if (error) throw error;
   return { ...bank, counts };
 }
 
 /** Delete one admin-uploaded bank. Code banks are untouched (they live in code). */
 export async function deleteAdminBank(code, term) {
-  await deleteDoc(bankRef(code, term));
+  const { error } = await supabase.from(TABLE).delete().eq('code', code).eq('term', term);
+  if (error) throw error;
 }

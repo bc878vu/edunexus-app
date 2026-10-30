@@ -20,6 +20,9 @@ const TestPapersHome = React.lazy(() => import("./TestPaper"));
 const AdminPaperAttempts = React.lazy(() => import("./AdminPaperAttempts"));
 const AdminPaperPatterns = React.lazy(() => import("./AdminPaperPatterns"));
 const AdminTestPaperBanks = React.lazy(() => import("./AdminTestPaperBanks"));
+const AdminTestDashboard = React.lazy(() => import("./AdminTestDashboard"));
+const AdminTestUsers = React.lazy(() => import("./AdminTestUsers"));
+const AdminTestPapers = React.lazy(() => import("./AdminTestPapers"));
 
 const ROOT = ["artifacts", "edunexus-live", "public", "data"];
 const col = (name) => collection(db, ...ROOT, name);
@@ -281,12 +284,15 @@ function AdminTools({ user, onView }) {
 function PaperTestAdmin({ user }) {
   const [paperSubTab, setPaperSubTab] = useState('attempts');
   if (!isAdmin(user)) return null;
-  return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Paper Test management</h2><p>Student test papers, in one place: check attempts and teacher marks, share paper links, and upload test-paper banks.</p></div><ShieldCheck size={28} /></div>
+  return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Paper Test management</h2><p>Student test papers, in one place: dashboard, students, attempts, patterns, banks, and papers you build and assign.</p></div><ShieldCheck size={28} /></div>
     <div className="edx-admin-subtabs" style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
       {[
         {id:'attempts',label:'📊 Paper Attempts'},
         {id:'patterns',label:'📋 Paper Patterns'},
         {id:'banks',label:'📚 Test Paper Banks'},
+        {id:'dashboard',label:'📈 Dashboard'},
+        {id:'users',label:'👥 Students'},
+        {id:'papers',label:'📝 Papers & Assign'},
       ].map(t => (
         <button key={t.id} type="button" onClick={()=>setPaperSubTab(t.id)}
           className={paperSubTab===t.id ? 'edx-exam-primary' : 'edx-exam-secondary'}
@@ -298,6 +304,9 @@ function PaperTestAdmin({ user }) {
     {paperSubTab==='attempts' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper attempts…</section>}><AdminPaperAttempts user={user}/></React.Suspense>}
     {paperSubTab==='patterns' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper patterns…</section>}><AdminPaperPatterns user={user}/></React.Suspense>}
     {paperSubTab==='banks' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading test paper banks…</section>}><AdminTestPaperBanks user={user}/></React.Suspense>}
+    {paperSubTab==='dashboard' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading dashboard…</section>}><AdminTestDashboard user={user}/></React.Suspense>}
+    {paperSubTab==='users' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading students…</section>}><AdminTestUsers user={user}/></React.Suspense>}
+    {paperSubTab==='papers' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading papers…</section>}><AdminTestPapers user={user}/></React.Suspense>}
   </div>;
 }
 

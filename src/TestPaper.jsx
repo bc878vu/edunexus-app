@@ -16,6 +16,7 @@ import { SUBJECT_CATALOG, SUBJECT_STATUS_NOTE } from './testPaperSubjects';
 import { BANK_SUBJECTS, buildPaper } from './testPapersBank';
 import { mergeBankSubjects, mergeCatalog } from './testPaperBankMerge';
 import { useAdminBanks } from './useAdminBanks';
+import { listSavedPapers, listAssignments } from './db/testPaperAdmin.js';
 import PaperPopup from './PaperPopup';
 import PaperBuilder from './PaperBuilder';
 import PaperAnswerEditor from './PaperAnswerEditor';
@@ -484,6 +485,61 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const { banks: adminBanks, loading: adminLoading } = useAdminBanks();
   const mergedSubjects = useMemo(() => mergeBankSubjects(BANK_SUBJECTS, adminBanks), [adminBanks]);
   const mergedCatalog = useMemo(() => mergeCatalog(SUBJECT_CATALOG, mergedSubjects), [mergedSubjects]);
+  // Admin-built records: saved fixed papers + assignments (Firestore meta
+  // docs, public read). Failures leave empty lists — the code papers keep
+  // working exactly as before.
+  const [savedPapers, setSavedPapers] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [savedRun, setSavedRun] = useState(null);
+  const [savedNote, setSavedNote] = useState('');
+  const [vuLookup, setVuLookup] = useState('');
+  const [vuShown, setVuShown] = useState(false);
+  const savedHandled = useRef(false);
+  useEffect(() => {
+    let alive = true;
+    Promise.all([listSavedPapers().catch(() => []), listAssignments().catch(() => [])]).then(([p, a]) => {
+      if (!alive) return;
+      setSavedPapers(p);
+      setAssignments(a);
+      setSavedLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const buildSavedPaper = (p) => {
+    const subject = mergedSubjects.find((s) => s.code === p.code);
+    if (!subject) {
+      // Admin banks may still be loading: a missing subject right now is not
+      // proof the paper is gone — say so instead of a false "not available".
+      setSavedNote(adminLoading ? 'Paper bank load ho raha hai — thodi der baad dobara try karein.' : 'Is paper ka subject data abhi available nahi hai. Admin se contact karein.');
+      return;
+    }
+    const built = buildPaper(subject, p.lectures, { mcq: p.mcq, short: p.short, long: p.long });
+    if (built.mcqs.length + built.shorts.length + built.longs.length === 0) {
+      setSavedNote('Is paper ke lectures mein koi verified sawal nahi mila. Admin se contact karein.');
+      return;
+    }
+    setSavedRun(built);
+  };
+  useEffect(() => {
+    if (savedLoading || adminLoading || savedHandled.current) return;
+    savedHandled.current = true;
+    let id = null;
+    try {
+      id = new URLSearchParams(window.location.search).get('saved');
+    } catch (_) {}
+    if (!id) return;
+    const p = savedPapers.find((x) => x.id === id);
+    if (!p) {
+      setSavedNote('Ye saved paper nahi mila — ho sakta hai admin ne ise delete kar diya ho.');
+      return;
+    }
+    buildSavedPaper(p);
+  },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [savedLoading, adminLoading, savedPapers]);
   // Re-render on every navigation event (browser back/forward included).
   // The pattern paper below is derived from window.location.search during
   // render, and the app's nav-path state does NOT change when only the
@@ -502,6 +558,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const paper = paperSlug ? getTestPaper(paperSlug) : null;
   if (paper) return <PaperRunner paper={paper} onBack={() => onSelectPaper('')} />;
   if (builderCode) return <PaperBuilder subjectCode={builderCode} onBack={() => setBuilderCode(null)} />;
+  if (savedRun) return <PaperRunner paper={savedRun} onBack={() => { setSavedRun(null); try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }} />;
   // Shared pattern link: /test-papers?subject=CODE&lectures=1,3&mcqs=20&shorts=3&longs=3
   // (built by the admin in Paper Patterns). It rebuilds exactly that paper;
   // unknown subjects or empty selections fall through to the home + popup.
@@ -566,6 +623,49 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         </div>
         {popupSubject && <PaperPopup code={popupSubject.code} note={SUBJECT_STATUS_NOTE[popupSubject.status]} onClose={() => setPopupSubject(null)} />}
       </section>
+      {savedNote && (
+        <section className="edx-exam-card" role="alert">
+          <p>{savedNote}</p>
+          <button type="button" className="edx-exam-secondary" onClick={() => { setSavedNote(''); try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }}>Back to test papers</button>
+        </section>
+      )}
+      {!savedLoading && assignments.length > 0 && (
+        <section className="edx-exam-card">
+          <h2>Assigned papers</h2>
+          <p>Teacher ne aap ko koi paper assign kiya hai to apni VU ID daal kar dekhein.</p>
+          <label className="edx-exam-field">Apni VU ID
+            <input type="text" value={vuLookup} onChange={(e) => setVuLookup(e.target.value.toUpperCase())} placeholder="Jaise BC230400878" />
+          </label>
+          <button type="button" className="edx-exam-primary" disabled={!vuLookup.trim()} onClick={() => setVuShown(true)}>Mere assigned papers dekhein</button>
+          {vuShown && (
+            <div style={{ marginTop: 12 }}>
+              {assignments.filter((a) => (a.vuIds || []).map((v) => String(v).toUpperCase()).includes(vuLookup.trim().toUpperCase())).map((a) => (
+                <div key={a.id} style={{ border: '1px solid rgba(127,127,127,0.3)', borderRadius: 12, padding: 12, marginBottom: 10 }}>
+                  <strong>{a.paperTitle}</strong>
+                  {' '}
+                  {a.paperType === 'saved'
+                    ? <button type="button" className="edx-exam-primary" onClick={() => { const p = savedPapers.find((x) => x.id === a.paperId); if (p) buildSavedPaper(p); else setSavedNote('Ye assigned paper ab available nahi hai.'); }}>Start paper</button>
+                    : <a className="edx-exam-primary" style={{ textDecoration: 'none', padding: '10px 18px', borderRadius: 10, fontWeight: 700 }} href={a.link}>Start paper</a>}
+                </div>
+              ))}
+              {assignments.filter((a) => (a.vuIds || []).map((v) => String(v).toUpperCase()).includes(vuLookup.trim().toUpperCase())).length === 0 && <p>Is VU ID par koi assigned paper nahi mila.</p>}
+            </div>
+          )}
+        </section>
+      )}
+      {!savedLoading && savedPapers.length > 0 && (
+        <section className="edx-exam-card">
+          <h2>Teacher ke banaye papers</h2>
+          <p>Admin ne ye papers khud banaye hain — verified bank questions se, lectures aur counts ke saath.</p>
+          {savedPapers.map((p) => (
+            <div key={p.id} style={{ border: '1px solid rgba(127,127,127,0.3)', borderRadius: 12, padding: 12, marginBottom: 10 }}>
+              <strong>{p.title}</strong> · {p.code} ({p.term}) · Lectures {p.lectures.join(', ')} · {p.mcq} MCQs, {p.short} shorts, {p.long} longs{p.builtCounts ? ` · ${p.builtCounts.marks} marks` : ''}
+              {' '}
+              <button type="button" className="edx-exam-primary" onClick={() => buildSavedPaper(p)}>Start paper</button>
+            </div>
+          ))}
+        </section>
+      )}
       {TEST_PAPERS.map((p) => (
         <PaperCard key={p.slug} paper={p} onStart={() => onSelectPaper(p.slug)} />
       ))}
