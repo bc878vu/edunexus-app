@@ -1,29 +1,21 @@
 // src/db/examReviews.js — exam paper reviews adapter.
 //
-// Firestore today:
-//   examCommunityReviews/{uid}_{subject}_{term}_{examDate}  (deterministic id,
-//     written directly by ExamPaperCommunity.publish)
-//   examReviews/{id}              (legacy admin-curated; ExamPaperReviewManager)
-//   examReviewSubmissions/{id}    (legacy moderation queue; ExamPrepHub)
-//   feedback                      (category 'exam-review-report' reports)
-// Postgres target: exam_community_reviews, exam_reviews,
+// Postgres: exam_community_reviews, exam_reviews,
 //   exam_review_submissions, feedback (plan §1 tables 17-19, 12).
+// Supabase-only (Phase 2: the Firebase fallback was removed; the Supabase
+// path below is unchanged from the withFallback version).
 
 import {
-  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
-  query, where, limit, writeBatch, serverTimestamp,
+  collection, query, where, limit,
   supabase, USE_SUPABASE, db,
-  nowIso, newId, toRow, fromRow, invertSpec, fbItem,
+  nowIso, newId, toRow, fromRow, invertSpec,
   cachedList, clearCachedPrefix,
-  withFallback,
 } from './_common.js';
 import { subscribeTable } from './realtime.js';
 
 const colFor = (name) => collection(db, 'artifacts', 'edunexus-live', 'public', 'data', name);
 const COMMUNITY = () => colFor('examCommunityReviews');
-const LEGACY = () => colFor('examReviews');
 const SUBMISSIONS = () => colFor('examReviewSubmissions');
-const FEEDBACK = () => colFor('feedback');
 
 const CACHE_PREFIX = 'exam_reviews_';
 
@@ -60,7 +52,8 @@ const SUBMISSION_SPEC = {
   summary: 'summary',
   status: 'status',
   createdAt: { col: 'created_at', ts: true },
-  // TODO(schema): plan §1 has no `moderated_at` column on exam_review_submissions.
+  // Dropped on the Supabase branch (pre-existing): plan §1 has no
+  // `moderated_at` column on exam_review_submissions. No component reads it back.
   moderatedAt: null,
 };
 const SUBMISSION_REV = invertSpec(SUBMISSION_SPEC);
@@ -103,25 +96,14 @@ export async function submitCommunityReview(data) {
     throw new Error('userId, subject, term and examDate are required');
   }
   clearCachedPrefix(CACHE_PREFIX);
-  return withFallback(
-    async () => {
-      const row = { id, ...toCommunityRow(data) };
-      if (!row.created_at) row.created_at = nowIso();
-      // Listing filters is_active=true; ensure new reviews are visible.
-      // (toCommunityRow only maps isActive if the caller passed it.)
-      if (row.is_active == null) row.is_active = true;
-      const { error } = await supabase.from('exam_community_reviews').insert(row);
-      if (error) throw error;
-      return id;
-    },
-    async () => {
-      const ref = doc(COMMUNITY(), id);
-      const { id: _drop, ...rest } = data;
-      await setDoc(ref, { ...rest });
-      return id;
-    },
-    { cacheKeys: ['exam_reviews_'] }
-  );
+  const row = { id, ...toCommunityRow(data) };
+  if (!row.created_at) row.created_at = nowIso();
+  // Listing filters is_active=true; ensure new reviews are visible.
+  // (toCommunityRow only maps isActive if the caller passed it.)
+  if (row.is_active == null) row.is_active = true;
+  const { error } = await supabase.from('exam_community_reviews').insert(row);
+  if (error) throw error;
+  return id;
 }
 
 /** Public listing (ExamPaperCommunity).
@@ -131,128 +113,63 @@ export async function submitCommunityReview(data) {
 export async function listCommunityReviews({ subject, term, activeOnly = true, limit: max = 200, order = 'exam_date' } = {}) {
   const key = CACHE_PREFIX + 'community|' + (subject || '-') + '|' + (term || '-') + '|' + max + '|' + order;
   return cachedList(key, async () => {
-    return withFallback(
-      async () => {
-        let q = supabase.from('exam_community_reviews').select('*');
-        if (subject) q = q.eq('subject', subject);
-        if (term) q = q.eq('term', term);
-        if (activeOnly) q = q.eq('is_active', true);
-        const orderCol = order === 'created_at' ? 'created_at' : 'exam_date';
-        const { data, error } = await q.order(orderCol, { ascending: false }).limit(max);
-        if (error) throw error;
-        return (data || []).map(toCommunity);
-      },
-      async () => {
-        const parts = [];
-        if (subject) parts.push(where('subject', '==', subject));
-        if (term) parts.push(where('term', '==', term));
-        parts.push(limit(max));
-        const snap = await getDocs(query(COMMUNITY(), ...parts));
-        let items = snap.docs.map(fbItem);
-        if (activeOnly) items = items.filter((r) => r.isActive !== false);
-        return items;
-      },
-      { cacheKeys: ['exam_reviews_'] }
-    );});
+    let q = supabase.from('exam_community_reviews').select('*');
+    if (subject) q = q.eq('subject', subject);
+    if (term) q = q.eq('term', term);
+    if (activeOnly) q = q.eq('is_active', true);
+    const orderCol = order === 'created_at' ? 'created_at' : 'exam_date';
+    const { data, error } = await q.order(orderCol, { ascending: false }).limit(max);
+    if (error) throw error;
+    return (data || []).map(toCommunity);
+  });
 }
 
 /** Live totals for the public feed badge. The feed only loads a capped
  *  window (200 newest), so the badge must come from a count query, not
  *  from the loaded list length — otherwise the page keeps showing a stale
  *  number (e.g. 201) while the database holds 1,300+ reviews. Not cached:
- *  a count query is cheap and must reflect new submissions immediately.
- *  Firestore fallback returns null (no count API wired) so the caller
- *  falls back to the loaded list length. */
+ *  a count query is cheap and must reflect new submissions immediately. */
 export async function countCommunityReviews({ activeOnly = true } = {}) {
-  return withFallback(
-    async () => {
-      let q = supabase.from('exam_community_reviews').select('id', { count: 'exact', head: true });
-      if (activeOnly) q = q.eq('is_active', true);
-      const { count, error } = await q;
-      if (error) throw error;
-      return count ?? 0;
-    },
-    async () => null,
-    { cacheKeys: [] },
-  );
+  let q = supabase.from('exam_community_reviews').select('id', { count: 'exact', head: true });
+  if (activeOnly) q = q.eq('is_active', true);
+  const { count, error } = await q;
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function countLegacyReviews() {
-  return withFallback(
-    async () => {
-      const { count, error } = await supabase.from('exam_reviews').select('id', { count: 'exact', head: true });
-      if (error) throw error;
-      return count ?? 0;
-    },
-    async () => null,
-    { cacheKeys: [] },
-  );
+  const { count, error } = await supabase.from('exam_reviews').select('id', { count: 'exact', head: true });
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function getCommunityReview(id) {
-  return withFallback(
-    async () => {
-      const { data, error } = await supabase.from('exam_community_reviews').select('*').eq('id', id).maybeSingle();
-      if (error) throw error;
-      return toCommunity(data);
-    },
-    async () => {
-      const snap = await getDoc(doc(COMMUNITY(), id));
-      return snap.exists() ? fbItem(snap) : null;
-    },
-    { cacheKeys: ['exam_reviews_'] }
-  );
+  const { data, error } = await supabase.from('exam_community_reviews').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return toCommunity(data);
 }
 
 /** Admin: edit a community review (ExamPaperReviewManager save, verbatim fields). */
 export async function updateCommunityReview(id, data) {
   clearCachedPrefix(CACHE_PREFIX);
-  return withFallback(
-    async () => {
-      const row = toCommunityRow(data);
-      row.updated_at = nowIso();
-      const { error } = await supabase.from('exam_community_reviews').update(row).eq('id', id);
-      if (error) throw error;
-      return;
-    },
-    async () => {
-      const { id: _drop, ...rest } = data;
-      await updateDoc(doc(COMMUNITY(), id), { ...rest });
-    },
-    { cacheKeys: ['exam_reviews_'] }
-  );
+  const row = toCommunityRow(data);
+  row.updated_at = nowIso();
+  const { error } = await supabase.from('exam_community_reviews').update(row).eq('id', id);
+  if (error) throw error;
 }
 
 export async function deleteCommunityReview(id) {
   clearCachedPrefix(CACHE_PREFIX);
-  return withFallback(
-    async () => {
-      const { error } = await supabase.from('exam_community_reviews').delete().eq('id', id);
-      if (error) throw error;
-      return;
-    },
-    async () => {
-      await deleteDoc(doc(COMMUNITY(), id));
-    },
-    { cacheKeys: ['exam_reviews_'] }
-  );
+  const { error } = await supabase.from('exam_community_reviews').delete().eq('id', id);
+  if (error) throw error;
 }
 
 /** Admin: hide/show a community review. */
 export async function setCommunityReviewActive(id, active) {
   clearCachedPrefix(CACHE_PREFIX);
-  return withFallback(
-    async () => {
-      const { error } = await supabase.from('exam_community_reviews')
-        .update({ is_active: !!active, updated_at: nowIso() }).eq('id', id);
-      if (error) throw error;
-      return;
-    },
-    async () => {
-      await updateDoc(doc(COMMUNITY(), id), { isActive: !!active, updatedAt: serverTimestamp() });
-    },
-    { cacheKeys: ['exam_reviews_'] }
-  );
+  const { error } = await supabase.from('exam_community_reviews')
+    .update({ is_active: !!active, updated_at: nowIso() }).eq('id', id);
+  if (error) throw error;
 }
 
 // ---- legacy moderation queue (ExamPrepHub AdminTools) ----
@@ -261,25 +178,15 @@ export async function setCommunityReviewActive(id, active) {
 export async function listSubmissions({ limit: max = 100 } = {}) {
   const key = CACHE_PREFIX + 'submissions|' + max;
   return cachedList(key, async () => {
-    return withFallback(
-      async () => {
-        const { data, error } = await supabase.from('exam_review_submissions').select('*')
-          .order('created_at', { ascending: false }).limit(max);
-        if (error) throw error;
-        return (data || []).map(toSubmission);
-      },
-      async () => {
-        const snap = await getDocs(query(SUBMISSIONS(), limit(max)));
-        return snap.docs.map(fbItem)
-          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      },
-      { cacheKeys: ['exam_reviews_'] }
-    );});
+    const { data, error } = await supabase.from('exam_review_submissions').select('*')
+      .order('created_at', { ascending: false }).limit(max);
+    if (error) throw error;
+    return (data || []).map(toSubmission);
+  });
 }
 
 /**
  * Approve a submission: publish to exam_reviews + mark submission approved.
- * Firebase branch: writeBatch (verbatim from ExamPrepHub.moderate).
  * Supabase branch: two writes.
  * TODO(atomicity): wrap in a SECURITY DEFINER rpc (plan §7) so a crash between
  * the two writes cannot publish without marking (or vice versa).
@@ -296,114 +203,53 @@ export async function approveSubmission(id) {
     topics: String(submission.topics || '').slice(0, 400),
     summary: String(submission.summary || '').slice(0, 1500),
   };
-  return withFallback(
-    async () => {
-      const { error: insError } = await supabase.from('exam_reviews').insert({
-        id, ...toLegacyRow({ ...published, createdAt: nowIso() }),
-      });
-      if (insError) throw insError;
-      const { error: updError } = await supabase.from('exam_review_submissions')
-        .update({ status: 'approved' }).eq('id', id);
-      if (updError) throw updError;
-      return;
-    },
-    async () => {
-      const batch = writeBatch(db);
-      batch.set(doc(LEGACY(), id), { ...published, createdAt: serverTimestamp() });
-      batch.update(doc(SUBMISSIONS(), id), { status: 'approved', moderatedAt: serverTimestamp() });
-      await batch.commit();
-    },
-    { cacheKeys: ['exam_reviews_'] }
-  );
+  const { error: insError } = await supabase.from('exam_reviews').insert({
+    id, ...toLegacyRow({ ...published, createdAt: nowIso() }),
+  });
+  if (insError) throw insError;
+  const { error: updError } = await supabase.from('exam_review_submissions')
+    .update({ status: 'approved' }).eq('id', id);
+  if (updError) throw updError;
 }
 
 export async function rejectSubmission(id) {
   clearCachedPrefix(CACHE_PREFIX);
-  return withFallback(
-    async () => {
-      const { error } = await supabase.from('exam_review_submissions')
-        .update({ status: 'rejected' }).eq('id', id);
-      if (error) throw error;
-      return;
-    },
-    async () => {
-      await updateDoc(doc(SUBMISSIONS(), id), { status: 'rejected', moderatedAt: serverTimestamp() });
-    },
-    { cacheKeys: ['exam_reviews_'] }
-  );
+  const { error } = await supabase.from('exam_review_submissions')
+    .update({ status: 'rejected' }).eq('id', id);
+  if (error) throw error;
 }
 
 async function getSubmission(id) {
-  return withFallback(
-    async () => {
-      const { data, error } = await supabase.from('exam_review_submissions').select('*').eq('id', id).maybeSingle();
-      if (error) throw error;
-      return toSubmission(data);
-    },
-    async () => {
-      const snap = await getDoc(doc(SUBMISSIONS(), id));
-      return snap.exists() ? fbItem(snap) : null;
-    },
-    { cacheKeys: ['exam_reviews_'] }
-  );
+  const { data, error } = await supabase.from('exam_review_submissions').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return toSubmission(data);
 }
 
 /** Legacy admin-curated reviews (ExamPaperReviewManager second collection). */
 export async function listLegacyReviews({ subject, term, limit: max = 200 } = {}) {
   const key = CACHE_PREFIX + 'legacy|' + (subject || '-') + '|' + (term || '-') + '|' + max;
   return cachedList(key, async () => {
-    return withFallback(
-      async () => {
-        let q = supabase.from('exam_reviews').select('*');
-        if (subject) q = q.eq('subject', subject);
-        if (term) q = q.eq('term', term);
-        const { data, error } = await q.order('created_at', { ascending: false }).limit(max);
-        if (error) throw error;
-        return (data || []).map(toLegacy);
-      },
-      async () => {
-        const parts = [];
-        if (subject) parts.push(where('subject', '==', subject));
-        if (term) parts.push(where('term', '==', term));
-        parts.push(limit(max));
-        const snap = await getDocs(query(LEGACY(), ...parts));
-        return snap.docs.map(fbItem);
-      },
-      { cacheKeys: ['exam_reviews_'] }
-    );});
+    let q = supabase.from('exam_reviews').select('*');
+    if (subject) q = q.eq('subject', subject);
+    if (term) q = q.eq('term', term);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(max);
+    if (error) throw error;
+    return (data || []).map(toLegacy);
+  });
 }
 
 export async function updateLegacyReview(id, data) {
   clearCachedPrefix(CACHE_PREFIX);
-  return withFallback(
-    async () => {
-      const row = toLegacyRow(data);
-      row.updated_at = nowIso();
-      const { error } = await supabase.from('exam_reviews').update(row).eq('id', id);
-      if (error) throw error;
-      return;
-    },
-    async () => {
-      const { id: _drop, ...rest } = data;
-      await updateDoc(doc(LEGACY(), id), { ...rest });
-    },
-    { cacheKeys: ['exam_reviews_'] }
-  );
+  const row = toLegacyRow(data);
+  row.updated_at = nowIso();
+  const { error } = await supabase.from('exam_reviews').update(row).eq('id', id);
+  if (error) throw error;
 }
 
 export async function deleteLegacyReview(id) {
   clearCachedPrefix(CACHE_PREFIX);
-  return withFallback(
-    async () => {
-      const { error } = await supabase.from('exam_reviews').delete().eq('id', id);
-      if (error) throw error;
-      return;
-    },
-    async () => {
-      await deleteDoc(doc(LEGACY(), id));
-    },
-    { cacheKeys: ['exam_reviews_'] }
-  );
+  const { error } = await supabase.from('exam_reviews').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // ---- feedback reports on public reviews (ExamPaperCommunity report button) ----
@@ -411,30 +257,18 @@ export async function deleteLegacyReview(id) {
 /** File a private report about a public exam review. Returns the id. */
 export async function submitFeedbackReport({ userId, reviewId, reviewCollection, reason }) {
   clearCachedPrefix('feedback_');
-  return withFallback(
-    async () => {
-      const id = newId();
-      const { error } = await supabase.from('feedback').insert({
-        id,
-        user_id: userId,
-        category: 'exam-review-report',
-        review_id: reviewId,
-        review_collection: reviewCollection,
-        reason,
-        created_at: nowIso(),
-      });
-      if (error) throw error;
-      return id;
-    },
-    async () => {
-      const ref = await addDoc(FEEDBACK(), {
-        userId, category: 'exam-review-report', reviewId, reviewCollection, reason,
-        createdAt: serverTimestamp(),
-      });
-      return ref.id;
-    },
-    { cacheKeys: ['feedback_'] }
-  );
+  const id = newId();
+  const { error } = await supabase.from('feedback').insert({
+    id,
+    user_id: userId,
+    category: 'exam-review-report',
+    review_id: reviewId,
+    review_collection: reviewCollection,
+    reason,
+    created_at: nowIso(),
+  });
+  if (error) throw error;
+  return id;
 }
 
 // ---- realtime (onInvalidate only, per plan §7) ----

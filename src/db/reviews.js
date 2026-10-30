@@ -1,25 +1,19 @@
 // src/db/reviews.js — file (resource) reviews adapter.
 //
-// Firestore today:  files/{id}/reviews/{uid}  (+ .../reviews/{uid}/reports/{reporterUid})
-//   review doc id == user id (one review per user per file).
-// Postgres target:  file_reviews, file_review_reports (plan §1 tables 6-7).
+// Postgres: file_reviews, file_review_reports (plan §1 tables 6-7).
+// Supabase-only (Phase 2: the Firebase fallback was removed; the Supabase
+// path below is unchanged from the withFallback version).
 
 import {
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, serverTimestamp,
+  collection, query, where, orderBy,
   supabase, USE_SUPABASE, db,
-  nowIso, toRow, fromRow, invertSpec, fbItem,
+  nowIso, toRow, fromRow, invertSpec,
   cachedList, clearCachedPrefix,
-  withFallback,
 } from './_common.js';
 import { subscribeTable } from './realtime.js';
 
-const fileRef = (fileId) => doc(collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'files'), fileId);
 const reviewCol = (fileId) =>
   collection(db, 'artifacts', 'edunexus-live', 'public', 'data', 'files', fileId, 'reviews');
-const reviewDoc = (fileId, reviewId) => doc(reviewCol(fileId), reviewId);
-const reportDoc = (fileId, reviewId, reporterUid) =>
-  doc(reviewCol(fileId), reviewId, 'reports', reporterUid);
 
 const CACHE_PREFIX = 'file_reviews_';
 
@@ -51,149 +45,82 @@ const toReport = (row) => fromRow(row, REPORT_REV, (out, r) => {
 export async function listReviews(fileId, { status = 'approved' } = {}) {
   const key = CACHE_PREFIX + fileId + '|' + status;
   return cachedList(key, async () => {
-    return withFallback(
-      async () => {
-        let q = supabase.from('file_reviews').select('*').eq('file_id', fileId);
-        if (status && status !== 'all') q = q.eq('status', status);
-        const { data, error } = await q.order('created_at', { ascending: false });
-        if (error) throw error;
-        return (data || []).map(toReview);
-      },
-      async () => {
-        const parts = [];
-        if (status && status !== 'all') parts.push(where('status', '==', status));
-        parts.push(orderBy('createdAt', 'desc'));
-        const snap = await getDocs(query(reviewCol(fileId), ...parts));
-        return snap.docs.map(fbItem);
-      },
-      { cacheKeys: ['file_reviews_'] }
-    );});
+    let q = supabase.from('file_reviews').select('*').eq('file_id', fileId);
+    if (status && status !== 'all') q = q.eq('status', status);
+    const { data, error } = await q.order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(toReview);
+  });
 }
 
 /**
  * Submit a review. Doc id == user id (deterministic, overwrites own review).
- * Builds the exact 6-field approved write the live Firestore rules accept.
  * Returns the review id (== userId).
+ * NOTE (pre-existing Supabase-branch quirk, unchanged by Phase 2): the
+ * upsert conflicts on `id` alone, and id == userId, so one user's review on
+ * a second file overwrites their review on the first file. Firestore scoped
+ * reviews per file (subcollection); the Supabase table needs a
+ * (file_id, user_id) unique key before this is fully per-file.
  */
 export async function addReview(fileId, { userId, rating, comment }) {
   if (!userId) throw new Error('userId is required');
   clearCachedPrefix(CACHE_PREFIX + fileId);
-  return withFallback(
-    async () => {
-      const id = userId;
-      const row = {
-        id,
-        file_id: fileId,
-        user_id: userId,
-        rating: Number(rating),
-        comment: String(comment),
-        original_comment: String(comment),
-        status: 'approved',
-        created_at: nowIso(),
-      };
-      const { error } = await supabase.from('file_reviews').upsert(row, { onConflict: 'id' });
-      if (error) throw error;
-      return id;
-    },
-    async () => {
-      await setDoc(reviewDoc(fileId, userId), {
-        userId, rating: Number(rating), comment: String(comment), originalComment: String(comment),
-        status: 'approved', createdAt: serverTimestamp(),
-      });
-      return userId;
-    },
-    { cacheKeys: ['file_reviews_'] }
-  );
+  const id = userId;
+  const row = {
+    id,
+    file_id: fileId,
+    user_id: userId,
+    rating: Number(rating),
+    comment: String(comment),
+    original_comment: String(comment),
+    status: 'approved',
+    created_at: nowIso(),
+  };
+  const { error } = await supabase.from('file_reviews').upsert(row, { onConflict: 'id' });
+  if (error) throw error;
+  return id;
 }
 
 export async function updateReview(fileId, reviewId, data) {
   clearCachedPrefix(CACHE_PREFIX + fileId);
-  return withFallback(
-    async () => {
-      const row = toReviewRow(data);
-      const { error } = await supabase.from('file_reviews').update(row).eq('id', reviewId);
-      if (error) throw error;
-      return;
-    },
-    async () => {
-      await updateDoc(reviewDoc(fileId, reviewId), { ...data });
-    },
-    { cacheKeys: ['file_reviews_'] }
-  );
+  const row = toReviewRow(data);
+  const { error } = await supabase.from('file_reviews').update(row).eq('id', reviewId);
+  if (error) throw error;
 }
 
 export async function deleteReview(fileId, reviewId) {
   clearCachedPrefix(CACHE_PREFIX + fileId);
-  return withFallback(
-    async () => {
-      const { error } = await supabase.from('file_reviews').delete().eq('id', reviewId);
-      if (error) throw error;
-      return;
-    },
-    async () => {
-      await deleteDoc(reviewDoc(fileId, reviewId));
-    },
-    { cacheKeys: ['file_reviews_'] }
-  );
+  const { error } = await supabase.from('file_reviews').delete().eq('id', reviewId);
+  if (error) throw error;
 }
 
 /** Private report on a review (one per reporter; doc id == reporter uid). */
 export async function reportReview(fileId, reviewId, reporterUid, reason) {
-  return withFallback(
-    async () => {
-      const { error } = await supabase.from('file_review_reports').upsert({
-        file_id: fileId, review_id: reviewId, reporter_uid: reporterUid,
-        reason, created_at: nowIso(),
-      }, { onConflict: 'review_id,reporter_uid' });
-      if (error) throw error;
-      return;
-    },
-    async () => {
-      await setDoc(reportDoc(fileId, reviewId, reporterUid), {
-        reporterUid, reason, createdAt: serverTimestamp(),
-      });
-    },
-    { cacheKeys: ['file_reviews_'] }
-  );
+  const { error } = await supabase.from('file_review_reports').upsert({
+    file_id: fileId, review_id: reviewId, reporter_uid: reporterUid,
+    reason, created_at: nowIso(),
+  }, { onConflict: 'review_id,reporter_uid' });
+  if (error) throw error;
 }
 
 /** Admin: inspect private reports on a review. */
 export async function listReviewReports(fileId, reviewId) {
-  return withFallback(
-    async () => {
-      const { data, error } = await supabase.from('file_review_reports').select('*')
-        .eq('review_id', reviewId).order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []).map(toReport);
-    },
-    async () => {
-      const snap = await getDocs(collection(reviewCol(fileId), reviewId, 'reports'));
-      return snap.docs.map((s) => ({ id: s.id, ...s.data() }));
-    },
-    { cacheKeys: ['file_reviews_'] }
-  );
+  const { data, error } = await supabase.from('file_review_reports').select('*')
+    .eq('review_id', reviewId).order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(toReport);
 }
 
 /** Admin: dismiss a report. */
 export async function deleteReport(fileId, reviewId, reporterUid) {
-  return withFallback(
-    async () => {
-      const { error } = await supabase.from('file_review_reports').delete()
-        .eq('review_id', reviewId).eq('reporter_uid', reporterUid);
-      if (error) throw error;
-      return;
-    },
-    async () => {
-      await deleteDoc(reportDoc(fileId, reviewId, reporterUid));
-    },
-    { cacheKeys: ['file_reviews_'] }
-  );
+  const { error } = await supabase.from('file_review_reports').delete()
+    .eq('review_id', reviewId).eq('reporter_uid', reporterUid);
+  if (error) throw error;
 }
 
 /**
  * Recompute ratingAverage/ratingCount from approved reviews and store on the file.
- * Firebase branch: verbatim client recompute (AcademicHubPro).
- * Supabase branch: same client recompute for parity.
+ * Supabase branch: client recompute for parity.
  * TODO: plan §3 adds a DB trigger that recomputes files.rating_* on
  * file_reviews writes — once live, this function becomes a no-op safety net.
  */
@@ -207,22 +134,12 @@ export async function refreshRatingSummary(fileId) {
       if (Number.isFinite(rating) && rating >= 1 && rating <= 5) { sum += rating; total++; }
     });
     const value = total > 0 ? sum / total : null;
-    return withFallback(
-      async () => {
-        const { error } = await supabase.from('files').update({
-          rating_average: value, rating_count: total, rating_summary_updated_at: nowIso(),
-        }).eq('id', fileId);
-        if (error) throw error;
-        return true;
-      },
-      async () => {
-        await setDoc(fileRef(fileId), {
-          ratingAverage: value, ratingCount: total, ratingSummaryUpdatedAt: serverTimestamp(),
-        }, { merge: true });
-        return true;
-      },
-      { cacheKeys: ['file_reviews_', 'academic_files_'] }
-    );} catch (_) {
+    const { error } = await supabase.from('files').update({
+      rating_average: value, rating_count: total, rating_summary_updated_at: nowIso(),
+    }).eq('id', fileId);
+    if (error) throw error;
+    return true;
+  } catch (_) {
     return false;
   }
 }
