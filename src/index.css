@@ -38,9 +38,18 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
   /* A4 page setup */
   @page{size:A4 portrait;margin:12mm}
   .edx-cgpa #cgpa-print-sheet{display:block!important}
-  .edx-cgpa #cgpa-print-sheet .cgpa-a4{max-width:100%!important;min-height:auto!important;box-shadow:none!important}
+  .edx-cgpa #cgpa-print-sheet .cgpa-a4{max-width:100%!important;min-height:auto!important;box-shadow:none!important;overflow:visible!important;print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
   /* Hide screen-only content when printing */
   .edx-cgpa .print\:hidden{display:none!important}
+  /* Global app chrome must never print: the CGPA result sheet is the only
+     print output on its page. Fixed widgets (resource orb, EduBot/WhatsApp
+     buttons) otherwise paint over the sheet at their viewport positions,
+     and the footer/support section spills onto a second page. */
+  .edx-free-orb,.edx-bot-root,.edx-bot-fab{display:none!important}
+  /* Keep each sheet block whole so no row ever slices across a page break;
+     the subjects table itself may span pages, but never mid-row. */
+  .edx-cgpa #cgpa-print-sheet .cgpa-a4>div{break-inside:avoid;page-break-inside:avoid}
+  .edx-cgpa #cgpa-print-sheet table tr{break-inside:avoid;page-break-inside:avoid}
 }
 /* Screen: hide print sheet */
 .edx-cgpa #cgpa-print-sheet{display:none}

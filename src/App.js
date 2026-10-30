@@ -370,7 +370,7 @@ const Navbar = ({
       {/* 🔹 Top header / navbar — theme-aware, fully transparent glassmorphism, professional modern */}
       <header
         className={`
-          sticky top-0 z-50
+          sticky top-0 z-50 print:hidden
           border-b ${isDark ? 'border-white/[0.08]' : 'border-slate-900/[0.08]'}
           ${isDark
             ? 'bg-gradient-to-b from-slate-950/85 to-slate-950/50 text-white shadow-[0_8px_32px_rgb(0,0,0,0.2)]'
@@ -5691,7 +5691,7 @@ const ThemeFloatingToggle = ({ isDark, setIsDark }) => {
       type="button"
       onClick={handleToggle}
       className={`
-        fixed
+        fixed print:hidden
         top-[88px]    /* Navbar ke thoda neeche */
         right-4
         z-[60]        /* mobile menu se upar */
@@ -5729,7 +5729,7 @@ const Toast = ({ message, type, onClose }) => {
   };
 
   return (
-    <div className={`fixed top-4 right-4 z-[100] ${colors[type] || colors.info} text-white px-6 py-3 rounded-xl flex items-center gap-3`}>
+    <div className={`fixed top-4 right-4 z-[100] print:hidden ${colors[type] || colors.info} text-white px-6 py-3 rounded-xl flex items-center gap-3`}>
       <span className="font-bold text-sm">{message}</span>
       <button onClick={onClose}>✖</button>
     </div>
@@ -6217,7 +6217,7 @@ useEffect(() => {
       <React.Suspense fallback={null}><EduBotAssistant /></React.Suspense>
 
            <footer
-  className={`mt-auto border-t ${theme.border} ${
+  className={`mt-auto print:hidden border-t ${theme.border} ${
     isDark ? "bg-slate-950/95" : "bg-slate-50"
   }`}
 >
