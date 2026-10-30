@@ -14,6 +14,11 @@ export function loadPaperAttempts() {
   return cache;
 }
 
+/** Drop the cached list (call after any admin mutation, then re-fetch). */
+export function clearPaperAttemptsCache() {
+  cache = null;
+}
+
 export function usePaperAttempts() {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);

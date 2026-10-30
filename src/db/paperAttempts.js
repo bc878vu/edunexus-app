@@ -102,3 +102,30 @@ export async function reviewPaperAttempt(id, { teacherMarks, teacherFeedback }) 
   }).eq('id', id);
   if (error) throw error;
 }
+
+/**
+ * Admin only (UI gate): rename a student everywhere — updates the name
+ * and/or VU ID on ALL of their attempts at once (student identity lives on
+ * each attempt row; there is no separate registry). Returns the number of
+ * attempts updated.
+ */
+export async function updateStudentIdentity(oldVuId, { studentName, studentVuId }) {
+  const patch = {};
+  if (studentName !== undefined) patch.student_name = studentName;
+  if (studentVuId !== undefined) patch.student_vu_id = studentVuId;
+  patch.updated_at = new Date().toISOString();
+  const { data, error } = await supabase.from(TABLE).update(patch).eq('student_vu_id', oldVuId).select('id');
+  if (error) throw error;
+  return (data || []).length;
+}
+
+/**
+ * Admin only (UI gate): delete a student entirely — removes ALL of their
+ * attempts. Two-step confirmed in the UI; this function does not ask again.
+ * Returns the number of attempts deleted.
+ */
+export async function deleteStudentAttempts(vuId) {
+  const { data, error } = await supabase.from(TABLE).delete().eq('student_vu_id', vuId).select('id');
+  if (error) throw error;
+  return (data || []).length;
+}

@@ -51,6 +51,40 @@ export function attemptsPerDay(attempts, days = 14, now = new Date()) {
   return [...buckets.values()];
 }
 
+/** Merge admin-added manual students into the attempt-derived list.
+ * A manual entry whose VU ID already has attempts only attaches its note
+ * (never a duplicate row); a manual entry with no attempts appears as a
+ * 0-attempt student so it can be assigned papers and edited/deleted. */
+export function mergeManualStudents(students, manual) {
+  const byVu = new Map(students.map((s) => [String(s.vuId).toUpperCase(), s]));
+  const out = [...students];
+  (manual || []).forEach((m) => {
+    const key = String(m.vuId || '').toUpperCase();
+    if (!key) return;
+    const existing = byVu.get(key);
+    if (existing) {
+      existing.manualId = m.id;
+      existing.manualNote = m.note || '';
+      existing.manual = true;
+      return;
+    }
+    const row = {
+      key: `manual:${key}`,
+      vuId: m.vuId,
+      name: m.name || 'Unnamed',
+      attempts: [],
+      count: 0,
+      avgPct: null,
+      lastAttempt: null,
+      manual: true,
+      manualId: m.id,
+      manualNote: m.note || '',
+    };
+    byVu.set(key, row);
+    out.push(row);
+  });
+  return out;
+}
 /** Attempts + average MCQ % grouped by subject code. */
 export function statsBySubject(attempts) {
   const map = new Map();

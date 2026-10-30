@@ -40,5 +40,13 @@ export default async function handler(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   if (req.method === 'HEAD') return res.status(200).end();
   const urls = SUBJECTS.map((code) => SITE + '/academic/' + encodeURIComponent(code));
+  // Test papers (live subjects only — extend with every new batch):
+  // the list page, the fixed PHY101 paper, and one full-range pattern URL
+  // per live subject (pattern links build the paper from the verified bank).
+  const fullLectures = Array.from({ length: 22 }, (_, i) => i + 1).join(',');
+  urls.push(SITE + '/test-papers', SITE + '/test-papers/phy101-lec1-9');
+  ['PHY101', 'ACC501', 'CS101', 'CS201'].forEach((code) => {
+    urls.push(SITE + '/test-papers?subject=' + code + '&lectures=' + fullLectures + '&mcqs=20&shorts=3&longs=3');
+  });
   return res.status(200).send(buildXml(urls));
 }

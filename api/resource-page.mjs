@@ -154,51 +154,69 @@ export default async function handler(req, res) {
   // paper page (loop-free: the browser rewrite sends /test-papers to
   // /index.html, never back to this function).
   // Data note: only the lecture-mapped bank can build a pattern paper, and
-  // today that bank holds exactly one subject (PHY101, Introduction to
-  // Physics, Midterm). The fixed-paper registry holds the same paper as
-  // phy101-lec1-9. Anything else falls back to the generic Test Papers
-  // preview — never a made-up subject title or topic list.
+  // TP_SUBJECTS below lists every live subject; the fixed-paper registry
+  // holds phy101-lec1-9. Anything unlisted falls back to the generic
+  // Test Papers preview — never a made-up subject title or topic list.
   if (ogPage === 'testpaper' || ogPage === 'testpaperslug') {
     const ua = String(req.headers['user-agent'] || '').toLowerCase();
     const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
     const clamp = (v, d, lo, hi) => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
-    const TOPICS_1_9 = "Units, vectors, motion, Newton's laws, friction, apparent weight, work\u2013energy, momentum";
+    // Verified live test-paper subjects (bank titles — never guessed).
+    // Extend with every new batch; anything unlisted keeps the generic preview.
+    const TP_SUBJECTS = {
+      PHY101: { title: 'Introduction to Physics', term: 'Midterm', topics19: "Units, vectors, motion, Newton's laws, friction, apparent weight, work\u2013energy, momentum" },
+      ACC501: { title: 'Business Finance', term: 'Midterm' },
+      CS101: { title: 'Introduction to Computing', term: 'Midterm' },
+      CS201: { title: 'Introduction to Programming', term: 'Midterm' },
+    };
+    const tpLabel = (uniq) => {
+      if (uniq.length === 1) return 'Lecture ' + uniq[0];
+      const consecutive = uniq.every((n, i) => i === 0 || n === uniq[i - 1] + 1);
+      return consecutive ? 'Lectures ' + uniq[0] + '\u2013' + uniq[uniq.length - 1] : 'Lectures ' + uniq.join(', ');
+    };
     let appUrl = SITE + '/test-papers';
     let title = 'Test Papers \u2014 Free VU Mock Papers | EduNexus';
     let desc = 'Take a full VU test paper online on EduNexus \u2014 MCQs are checked instantly and subjective answers go to the teacher. Build your own paper from verified questions, free.';
     if (ogPage === 'testpaperslug') {
       const slug = String(req.query?.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 60);
-      if (slug === 'phy101-lec1-9') {
+      const slugMatch = slug.match(/^([a-z]+\d+)-lec(\d+)-(\d+)$/);
+      const slugSub = slugMatch ? TP_SUBJECTS[slugMatch[1].toUpperCase()] : null;
+      const slugLo = slugMatch ? parseInt(slugMatch[2], 10) : 0;
+      const slugHi = slugMatch ? parseInt(slugMatch[3], 10) : 0;
+      if (slugSub && slugLo >= 1 && slugHi <= 22 && slugHi > slugLo && slug !== 'phy101-lec1-9') {
+        const slugCode = slugMatch[1].toUpperCase();
+        appUrl = SITE + '/test-papers/' + slug;
+        title = slugCode + ' ' + slugSub.title + ' Test Paper \u2014 Lectures ' + slugLo + '\u2013' + slugHi + ' | EduNexus';
+        desc = 'Take the ' + slugCode + ' ' + slugSub.title + ' ' + slugSub.term.toLowerCase() + ' test paper online \u2014 Lectures ' + slugLo + '\u2013' + slugHi + ', built only from verified questions. MCQs are checked instantly and subjective answers go to the teacher \u2014 free on EduNexus.';
+      } else if (slug === 'phy101-lec1-9') {
         appUrl = SITE + '/test-papers/phy101-lec1-9';
         title = 'PHY101 Introduction to Physics Test Paper \u2014 Lectures 1\u20139 | EduNexus';
-        desc = 'Take the PHY101 Introduction to Physics midterm test paper online \u2014 Lectures 1\u20139: ' + TOPICS_1_9 + '. 20 MCQs, 3 short and 3 long questions (44 marks, 90 minutes). MCQs are checked instantly and subjective answers go to the teacher \u2014 free on EduNexus.';
+        desc = 'Take the PHY101 Introduction to Physics midterm test paper online \u2014 Lectures 1\u20139: ' + TP_SUBJECTS.PHY101.topics19 + '. 20 MCQs, 3 short and 3 long questions (44 marks, 90 minutes). MCQs are checked instantly and subjective answers go to the teacher \u2014 free on EduNexus.';
       }
     } else {
       const code = String(req.query?.subject || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
       const lectures = String(req.query?.lectures || '').split(',').map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n >= 1 && n <= 22);
       const uniqLectures = [...new Set(lectures)].sort((a, b) => a - b);
-      if (code === 'PHY101' && uniqLectures.length > 0) {
+      const sub = TP_SUBJECTS[code];
+      if (sub && uniqLectures.length > 0) {
         const mcq = clamp(req.query?.mcqs, 20, 1, 50);
         const short = clamp(req.query?.shorts, 3, 0, 5);
         const long = clamp(req.query?.longs, 3, 0, 5);
         const marks = mcq + short * 3 + long * 5;
-        const consecutive = uniqLectures.length > 1 && uniqLectures.every((n, i) => i === 0 || n === uniqLectures[i - 1] + 1);
-        const lecturesLabel = uniqLectures.length === 1
-          ? 'Lecture ' + uniqLectures[0]
-          : consecutive ? 'Lectures ' + uniqLectures[0] + '\u2013' + uniqLectures[uniqLectures.length - 1] : 'Lectures ' + uniqLectures.join(', ');
-        const isFull19 = consecutive && uniqLectures[0] === 1 && uniqLectures[uniqLectures.length - 1] === 9;
+        const lecturesLabel = tpLabel(uniqLectures);
+        const isFull19 = code === 'PHY101' && uniqLectures.length === 9 && uniqLectures[0] === 1 && uniqLectures[8] === 9;
         appUrl = SITE + '/test-papers?subject=' + encodeURIComponent(code)
           + '&lectures=' + encodeURIComponent(uniqLectures.join(','))
           + '&mcqs=' + mcq + '&shorts=' + short + '&longs=' + long;
-        title = 'PHY101 Introduction to Physics Test Paper \u2014 ' + lecturesLabel + ' | EduNexus';
-        desc = 'Take the PHY101 Introduction to Physics midterm test paper online \u2014 ' + lecturesLabel
-          + (isFull19 ? ': ' + TOPICS_1_9 + '. ' : '. ')
+        title = code + ' ' + sub.title + ' Test Paper \u2014 ' + lecturesLabel + ' | EduNexus';
+        desc = 'Take the ' + code + ' ' + sub.title + ' ' + sub.term.toLowerCase() + ' test paper online \u2014 ' + lecturesLabel
+          + (isFull19 ? ': ' + sub.topics19 + '. ' : '. ')
           + mcq + ' MCQs, ' + short + ' short and ' + long + ' long questions (' + marks + ' marks, 90 minutes). MCQs are checked instantly and subjective answers go to the teacher \u2014 free on EduNexus.';
       }
     }
     if (!isCrawler) return res.redirect(302, appUrl);
     const image = SITE + '/logo-wide.jpg';
-    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><meta name="robots" content="noindex,follow"><link rel="canonical" href="${h(appUrl)}"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><main><h1>${h(title)}</h1><p>${h(desc)}</p><p><a href="${h(appUrl)}">Open EduNexus</a></p></main></body></html>`;
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><meta name="robots" content="index,follow"><link rel="canonical" href="${h(appUrl)}"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"><script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "Quiz", name: title, description: desc, url: appUrl, provider: { "@type": "Organization", name: "EduNexus", url: SITE } })}</script><meta http-equiv="refresh" content="0;url=${h(appUrl)}"></head><body><main><h1>${h(title)}</h1><p>${h(desc)}</p><p><a href="${h(appUrl)}">Open EduNexus</a></p></main></body></html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     return res.status(200).send(html);

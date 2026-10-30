@@ -590,7 +590,13 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
     return <div className="edx-exam-stack edx-paper-page"><section className="edx-exam-card" role="status"><p>Paper load ho raha hai…</p></section></div>;
   }
   const clearPatternParams = () => { try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} };
-  const filteredSubjects = mergedCatalog.filter((s) => s.code.includes(subjectQuery.trim().toUpperCase()));
+  const filteredSubjects = mergedCatalog.filter((s) => {
+    const q = subjectQuery.trim().toUpperCase();
+    if (!q) return true;
+    if (s.code.includes(q)) return true;
+    const bankSub = mergedSubjects.find((x) => x.code === s.code);
+    return bankSub && bankSub.title && bankSub.title.toUpperCase().includes(q);
+  });
   // Clean by default: only live subjects show until the student searches —
   // the other 86 buttons were a wall of dead ends. Searching still finds
   // every subject (with the admin-contact popup for non-live ones).
@@ -601,8 +607,8 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         <h1>Test Papers</h1>
         <p>Take a full paper online — MCQs are checked instantly, subjective answers go to the teacher.</p>
         <div className="edx-paper-cover-meta">
-          <span>{TEST_PAPERS.length} ready-made paper</span>
-          <span>Build your own paper</span>
+          <span>{mergedCatalog.filter((s) => s.status === 'live').length} live subjects</span>
+          <span>{TEST_PAPERS.length} ready-made paper{TEST_PAPERS.length === 1 ? '' : 's'}</span>
           <span>Free for VU students</span>
         </div>
       </section>
@@ -612,13 +618,25 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         <p>Choose a subject and lectures — your paper is built only from verified questions, most-repeated concepts first.</p>
         <label className="edx-exam-field">Search subject<input type="text" value={subjectQuery} onChange={(e) => setSubjectQuery(e.target.value.toUpperCase())} placeholder="Subject code likhein, jaise MTH202" /></label>
         <div className="edx-paper-subject-grid">
-          {shownSubjects.map((s) => (
-            <button key={s.code} type="button" className={'edx-paper-subject' + (s.status === 'live' ? ' live' : '')}
-              onClick={() => s.status === 'live' ? setBuilderCode(s.code) : setPopupSubject(s)}>
-              <strong>{s.code}</strong>
-              <span>{s.status === 'live' ? 'Live — paper banayein' : s.status === 'mapping' ? 'Tayyar ho raha hai' : s.status === 'finalonly' ? 'Midterm data nahi' : 'Data nahi mila'}</span>
-            </button>
-          ))}
+          {shownSubjects.map((s) => {
+            const bankSub = mergedSubjects.find((x) => x.code === s.code);
+            const lecRange = bankSub && bankSub.lectures && bankSub.lectures.length
+              ? `Lectures ${bankSub.lectures[0].n}–${bankSub.lectures[bankSub.lectures.length - 1].n}`
+              : null;
+            return (
+              <button key={s.code} type="button" className={'edx-paper-subject' + (s.status === 'live' ? ' live' : '')}
+                onClick={() => s.status === 'live' ? setBuilderCode(s.code) : setPopupSubject(s)}>
+                <strong>{s.code}</strong>
+                {bankSub && bankSub.title && <span className="edx-paper-subject-title">{bankSub.title}</span>}
+                {s.status === 'live' && (
+                  <span>{bankSub ? `${bankSub.term || 'Midterm'}${lecRange ? ` · ${lecRange}` : ''}` : 'Live — paper banayein'}</span>
+                )}
+                {s.status !== 'live' && (
+                  <span>{s.status === 'mapping' ? 'Tayyar ho raha hai' : s.status === 'finalonly' ? 'Midterm data nahi' : 'Data nahi mila'}</span>
+                )}
+              </button>
+            );
+          })}
           {shownSubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
         </div>
         {popupSubject && <PaperPopup code={popupSubject.code} note={SUBJECT_STATUS_NOTE[popupSubject.status]} onClose={() => setPopupSubject(null)} />}

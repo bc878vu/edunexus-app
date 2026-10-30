@@ -1,4 +1,4 @@
-import { attemptsPerDay, statsBySubject, scoreDistribution, groupStudents, attemptDate, attemptPct } from './testPaperStats';
+import { attemptsPerDay, statsBySubject, scoreDistribution, groupStudents, attemptDate, attemptPct, mergeManualStudents } from './testPaperStats';
 
 const day = (y, m, d) => new Date(y, m - 1, d, 12, 0, 0);
 const A = (over) => ({ studentName: 'Asad', studentVuId: 'BC1', paperCode: 'ACC501', mcqScore: 16, mcqTotal: 20, createdAt: day(2026, 10, 30), ...over });
@@ -39,4 +39,16 @@ test('attemptDate handles Timestamp-like, seconds, ISO and null', () => {
   expect(attemptDate({})).toBeNull();
   expect(attemptPct({ mcqScore: 7, mcqTotal: 20 })).toBe(35);
   expect(attemptPct({ mcqScore: 7, mcqTotal: 0 })).toBeNull();
+});
+
+test('mergeManualStudents never duplicates and adds 0-attempt students', () => {
+  const derived = groupStudents([A({}), A({ createdAt: day(2026, 10, 28) })]);
+  const merged = mergeManualStudents(derived, [
+    { id: 'm1', vuId: 'BC1', name: 'Asad', note: 'assigned' },
+    { id: 'm2', vuId: 'BC2', name: 'New Student', note: '' },
+  ]);
+  expect(merged).toHaveLength(2);
+  expect(merged[0].manualId).toBe('m1');
+  expect(merged[0].manualNote).toBe('assigned');
+  expect(merged[1]).toMatchObject({ vuId: 'BC2', name: 'New Student', count: 0, manual: true, manualId: 'm2' });
 });

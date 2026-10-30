@@ -84,3 +84,19 @@ export function saveAssignment(assignment) {
 export function deleteAssignment(id) {
   return deleteKind(id);
 }
+
+// Manual student entries (kind 'student'): students added by the admin
+// without any attempt yet — e.g. to assign papers to a VU ID before the
+// student ever submits. The Students tab merges these with the
+// attempt-derived students; a manual entry never duplicates one.
+export function listManualStudents() {
+  return listKind('student');
+}
+
+export function saveManualStudent(student) {
+  return saveKind('student', student);
+}
+
+export function deleteManualStudent(id) {
+  return deleteKind(id);
+}

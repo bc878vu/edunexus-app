@@ -63,7 +63,7 @@ export default function PaperBuilder({ subjectCode, onBack }) {
       <button type="button" className="edx-exam-secondary" onClick={onBack}>Back to test papers</button>
       <h2>Build your own paper — {subject.code}</h2>
       <p>{subject.title} · {subject.term} · {subject.scope}. Pick any lectures you want; the paper is built only from verified bank questions for those lectures.</p>
-      <p className="edx-paper-meta-line">Bank: {subject.bank.mcqs.length} MCQs + {subject.bank.shorts.length} shorts + {subject.bank.longs.length} longs, lecture-mapped. Lectures with 0 verified questions cannot be selected — nothing is invented to fill them.</p>
+      <p className="edx-paper-meta-line">Sirf verified questions se paper banega — jis lecture mein koi verified sawal nahi, wo select nahi ho sakta, aur kuch invent nahi kiya jayega.</p>
       <div className="edx-exam-actions">
         <button type="button" className="edx-exam-secondary" onClick={() => setSelected(available.map((r) => r.n))}>Select all available</button>
         <button type="button" className="edx-exam-secondary" onClick={() => setSelected([])}>Clear</button>
