@@ -5565,9 +5565,9 @@ const CGPACalculator = ({ theme, isDark }) => {
 
       {/* 🔹 PRINT ONLY – Certificate-style A4 result document */}
       <div id="cgpa-print-sheet" className="print-only">
-        <div className="cgpa-a4 mx-auto bg-white text-slate-900 p-2.5" style={{ maxWidth: '210mm', minHeight: '297mm' }}>
-          <div className="border-[3px] border-indigo-950 p-1.5">
-            <div className="border border-amber-600 px-8 py-7">
+        <div className="cgpa-a4 mx-auto bg-white text-slate-900 p-2.5 flex flex-col" style={{ maxWidth: '210mm', minHeight: '297mm' }}>
+          <div className="border-[3px] border-indigo-950 p-1.5 flex-1 flex flex-col">
+            <div className="border border-amber-600 px-8 py-7 flex-1 flex flex-col">
               {/* Certificate header */}
               <div className="text-center">
                 <p className="text-[11px] font-bold uppercase tracking-[0.35em] text-indigo-950">
@@ -5578,11 +5578,11 @@ const CGPACalculator = ({ theme, isDark }) => {
                   <span className="text-amber-600 text-xs">◆</span>
                   <span className="h-px w-16 bg-amber-600" />
                 </div>
-                <h1 className="font-serif font-bold text-slate-900 text-[30px] tracking-wide">
+                <h1 className="font-serif font-bold text-slate-900 text-[34px] tracking-wide">
                   Certificate of Academic Achievement
                 </h1>
                 <p className="text-sm italic text-slate-500 mt-1">This is proudly presented to</p>
-                <p className="font-serif font-bold text-indigo-950 text-[26px] mt-2">
+                <p className="font-serif font-bold text-indigo-950 text-[30px] mt-2">
                   {studentName || "—"}
                 </p>
                 <p className="text-sm text-slate-600 mt-1">
@@ -5595,15 +5595,15 @@ const CGPACalculator = ({ theme, isDark }) => {
               </div>
 
               {/* CGPA seal + stats */}
-              <div className="flex items-center justify-center gap-8 my-6">
+              <div className="flex items-center justify-center gap-8 my-8">
                 <div className="text-center">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Percentage</p>
                   <p className="text-2xl font-black text-emerald-600 mt-1">{overallPercent.toFixed(1)}%</p>
                   <p className="text-[10px] text-slate-400 mt-1">weighted average</p>
                 </div>
-                <div className="w-32 h-32 rounded-full border-4 border-double border-amber-600 bg-amber-50 flex flex-col items-center justify-center text-center shrink-0">
+                <div className="w-36 h-36 rounded-full border-4 border-double border-amber-600 bg-amber-50 flex flex-col items-center justify-center text-center shrink-0">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-950">CGPA</p>
-                  <p className="font-serif font-black leading-none text-indigo-950 text-[34px]">{overallGPA.toFixed(2)}</p>
+                  <p className="font-serif font-black leading-none text-indigo-950 text-[38px]">{overallGPA.toFixed(2)}</p>
                   <p className="text-[10px] text-slate-500 mt-1">out of 4.00</p>
                 </div>
                 <div className="text-center">
@@ -5644,8 +5644,8 @@ const CGPACalculator = ({ theme, isDark }) => {
                 </tbody>
               </table>
 
-              {/* Signatures */}
-              <div className="mt-8 flex justify-between items-end text-xs text-slate-500">
+              {/* Signatures — mt-auto pins this block to the foot of the full-page frame */}
+              <div className="mt-auto pt-8 flex justify-between items-end text-xs text-slate-500">
                 <div className="text-center">
                   <div className="w-48 border-t border-slate-400 pt-1">Student Signature</div>
                 </div>
