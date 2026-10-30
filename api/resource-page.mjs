@@ -171,6 +171,7 @@ export default async function handler(req, res) {
       CS202: { title: 'Fundamentals of Front End Development', term: 'Midterm' },
       CS301: { title: 'Data Structures', term: 'Midterm' },
       CS302: { title: 'Digital Logic Design', term: 'Midterm' },
+      CS304: { title: 'Object Oriented Programming', term: 'Midterm' },
     };
     const tpLabel = (uniq) => {
       if (uniq.length === 1) return 'Lecture ' + uniq[0];
