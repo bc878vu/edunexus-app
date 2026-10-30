@@ -45,7 +45,7 @@ export default async function handler(req, res) {
   // per live subject (pattern links build the paper from the verified bank).
   const fullLectures = Array.from({ length: 22 }, (_, i) => i + 1).join(',');
   urls.push(SITE + '/test-papers', SITE + '/test-papers/phy101-lec1-9');
-  ['PHY101', 'ACC501', 'CS101', 'CS201', 'CS202', 'CS301', 'CS302', 'CS304'].forEach((code) => {
+  ['PHY101', 'ACC501', 'CS101', 'CS201', 'CS202', 'CS301', 'CS302', 'CS304', 'CS615'].forEach((code) => {
     urls.push(SITE + '/test-papers?subject=' + code + '&lectures=' + fullLectures + '&mcqs=20&shorts=3&longs=3');
   });
   return res.status(200).send(buildXml(urls));
