@@ -19,8 +19,6 @@ const ExamMcqPractice = React.lazy(() => import("./ExamMcqPractice"));
 const TestPapersHome = React.lazy(() => import("./TestPaper"));
 const AdminPaperAttempts = React.lazy(() => import("./AdminPaperAttempts"));
 const AdminPaperPatterns = React.lazy(() => import("./AdminPaperPatterns"));
-const TpAdmin = React.lazy(() => import("./TpAdmin"));
-const TpStudent = React.lazy(() => import("./TpStudent"));
 
 const ROOT = ["artifacts", "edunexus-live", "public", "data"];
 const col = (name) => collection(db, ...ROOT, name);
@@ -277,17 +275,16 @@ function AdminTools({ user, onView }) {
 
 // PaperTestAdmin: the paper-test portal, positioned like every other admin
 // portal (its own top-level card, not a sub-tab buried under Admin tools).
-// Paper Attempts, Paper Patterns and Course Tests Admin live here together,
-// so the admin reaches all three in one place with one clean sub-navigation.
+// Paper Attempts and Paper Patterns live here together, so the admin
+// reaches both in one place with one clean sub-navigation.
 function PaperTestAdmin({ user }) {
   const [paperSubTab, setPaperSubTab] = useState('attempts');
   if (!isAdmin(user)) return null;
-  return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Paper Test management</h2><p>Student test papers and login-gated course tests, in one place: check attempts and teacher marks, share paper links, and manage course-test subjects and questions.</p></div><ShieldCheck size={28} /></div>
+  return <div className="edx-exam-stack"><div className="edx-exam-section-title"><div><span className="edx-exam-eyebrow">Verified administrator</span><h2>Paper Test management</h2><p>Student test papers, in one place: check attempts and teacher marks, and share paper links.</p></div><ShieldCheck size={28} /></div>
     <div className="edx-admin-subtabs" style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
       {[
         {id:'attempts',label:'📊 Paper Attempts'},
         {id:'patterns',label:'📋 Paper Patterns'},
-        {id:'tpadmin',label:'🎓 Course Tests Admin'},
       ].map(t => (
         <button key={t.id} type="button" onClick={()=>setPaperSubTab(t.id)}
           className={paperSubTab===t.id ? 'edx-exam-primary' : 'edx-exam-secondary'}
@@ -298,7 +295,6 @@ function PaperTestAdmin({ user }) {
     </div>
     {paperSubTab==='attempts' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper attempts…</section>}><AdminPaperAttempts user={user}/></React.Suspense>}
     {paperSubTab==='patterns' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper patterns…</section>}><AdminPaperPatterns user={user}/></React.Suspense>}
-    {paperSubTab==='tpadmin' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading course tests admin…</section>}><TpAdmin user={user}/></React.Suspense>}
   </div>;
 }
 
@@ -352,9 +348,9 @@ function ShareBar({ tab, subject, term }) {
 // and the dedicated /mcq-bank and /paper-reviews pages.
 function detectSectionFromUrl() {
   const fromParam = new URLSearchParams(window.location.search).get('section');
-  if (['mcqs', 'reviews', 'files', 'papers', 'course'].includes(fromParam)) return fromParam;
+  if (['mcqs', 'reviews', 'files', 'papers'].includes(fromParam)) return fromParam;
   const path = window.location.pathname || '';
-  if (/^\/course-tests(\/|$)/i.test(path)) return 'course';
+  if (/^\/course-tests(\/|$)/i.test(path)) return 'papers'; // legacy: removed module lands on Test Papers
   if (/^\/test-papers(\/|$)/i.test(path)) return 'papers';
   if (/^\/mcq-bank(\/|$)/i.test(path)) return 'mcqs';
   if (/^\/paper-reviews(\/|$)/i.test(path)) return 'reviews';
@@ -760,7 +756,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     {catalogError && <p className="edx-exam-alert" role="alert">{catalogError}</p>}</>}
     {adminWorkspace && (
     <nav className="edx-exam-tabs" aria-label="Exam preparation tools">
-      {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["papertest", "Paper Test", "Attempts & course tests"]] : []), ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
+      {[["mcqs", "MCQ Bank", "Practice quizzes"], ["reviews", "Paper Reviews", "Read & share"], ["files", "Study Files", "Notes & papers"], ...(showAdmin ? [["papertest", "Paper Test", "Attempts & patterns"]] : []), ...(showAdmin ? [["admin", "Admin tools", "Manage"]] : [])].map(([id, label, hint]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => changeTab(id)} title={hint}><span>{label}</span><small>{hint}</small></button>)}
     </nav>
     )}
     {((tab === "mcqs" && searchedSubject) || tab === "reviews") && <ShareBar tab={tab} subject={subject} term={term} />}
@@ -769,7 +765,6 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     {tab === "reviews" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading paper reviews…</div>}><ExamPaperCommunity user={user} subject={subject} term={term} highlightReviewId={reviewId} highlightShortCode={reviewShortCode} onPublished={(code, examTerm) => { setSubject(code); setTerm(examTerm); }} /></React.Suspense>}
     {tab === "files" && <StudyFiles subject={subject} onSubjectChange={selectSubject} subjects={catalogSubjects} />}
     {tab === "papers" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading test papers…</div>}><TestPapersHome paperSlug={paperSlug} onSelectPaper={(slug) => { setPaperSlug(slug); try { window.history.pushState({}, '', slug ? '/test-papers/' + encodeURIComponent(slug) : '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }} /></React.Suspense>}
-    {tab === "course" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading course tests…</div>}><TpStudent /></React.Suspense>}
     {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { selectSubject(code); selectTerm(examType); setTab("mcqs"); }} />}
     {showAdmin && tab === "papertest" && <PaperTestAdmin user={user} />}
     <section className="edx-exam-seo" aria-label="About VU exam preparation"><h2>Free VU MCQ Practice, Paper Reviews and Study Files</h2><div className="edx-exam-seo-text"><p>EduNexus Exam Prep is the most comprehensive free practice platform for Virtual University students. Our MCQ bank contains thousands of solved multiple-choice questions across all major VU subjects — from CS101 and MTH301 to ENG201 and PAK301. Each question includes the correct answer and a detailed explanation, helping you understand the concept instead of just memorizing.</p><p>Choose your subject, select Midterm or Finalterm, and start practicing instantly. Our practice mode simulates real VU exam conditions with timed quizzes, instant scoring, and progress tracking. You can practice all available questions or customize the count to fit your study session. Every attempt is saved, so you can review your mistakes and focus on weak areas.</p><p>Beyond MCQs, explore real paper reviews shared by VU students who recently appeared in exams. These first-hand experiences reveal which topics appeared, how difficult the paper was, and what to prioritize. Combined with our study files library of handouts and solved papers, you get a complete exam preparation system — all free, all in one place.</p></div></section>

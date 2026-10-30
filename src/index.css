@@ -132,3 +132,9 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
   .edx-table-wrap table { width: 100%; table-layout: fixed; }
   .edx-article-body th, .edx-article-body td { overflow-wrap: anywhere; word-break: break-word; padding: .45em .5em; font-size: .85em; }
 }
+
+/* Site nav pill: 11+ items overflow laptop widths, so the pill scrolls
+ * internally (no visible scrollbar) instead of overlapping the logo and
+ * the Admin mode button. Added with the 2026-10-30 nav-overflow fix. */
+.edx-site-nav-pill { scrollbar-width: none; }
+.edx-site-nav-pill::-webkit-scrollbar { display: none; }

@@ -334,7 +334,12 @@
   font-size: .78rem;
   font-weight: 700;
 }
-.hidden {
+/* Editor preview toggle ONLY. Never a bare `.hidden` rule: the generic
+ * version (`display:none !important`) killed the site navbar pill
+ * (`hidden lg:flex`) on every page once this chunk loaded, because
+ * !important beats Tailwind's lg:flex. Scoped here so nothing outside
+ * the answer editor is affected. */
+.edx-word-page.hidden {
   display: none !important;
 }
 

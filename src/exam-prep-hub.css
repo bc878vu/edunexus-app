@@ -584,30 +584,7 @@
 .edx-paper-popup{max-width:480px;width:100%}
 .edx-paper-wa-btn{display:inline-block;padding:12px 18px;border-radius:12px;background:#25d366;color:#fff;font-weight:800;text-decoration:none}
 
-/* Course Tests (login-gated) — engine + admin design, same tokens as the
-   rest of the module (.edx-exam scope: light + dark via --ex-*). */
-.edx-course-workspace{display:grid;grid-template-columns:280px minmax(0,1fr);gap:17px;align-items:start}
-.edx-course-side-list{display:grid;gap:8px;margin:12px 0}
-.edx-course-side-btn{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;padding:11px 13px;border-radius:12px;border:1px solid var(--ex-line);background:transparent;color:var(--ex-ink);cursor:pointer;font-weight:700}
-.edx-course-side-btn.active{border-color:#6366f1;background:rgba(99,102,241,.12)}
-.edx-course-timer-low{color:#dc2626;font-weight:800;animation:edx-paper-pulse 1s infinite}
-.edx-paper-palette button.marked{background:rgba(245,158,11,.16);border-color:rgba(245,158,11,.55)}
-.edx-paper-palette button.right{background:rgba(16,185,129,.14);border-color:#10b981}
-.edx-paper-palette button.wrong{background:rgba(244,63,94,.1);border-color:#fb7185}
-.edx-course-truth{border-collapse:collapse;width:100%;margin:12px 0;font-size:.92rem}
-.edx-course-truth th,.edx-course-truth td{border:1px solid var(--ex-line);padding:8px 10px;text-align:left}
-.edx-course-truth th{background:rgba(99,102,241,.08)}
-.edx-course-table-wrap{overflow-x:auto;margin-top:14px}
-.edx-course-table{border-collapse:collapse;width:100%;min-width:560px;font-size:.9rem}
-.edx-course-table th,.edx-course-table td{border-bottom:1px solid var(--ex-line);padding:10px 12px;text-align:left;vertical-align:top}
-.edx-course-table th{color:var(--ex-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
-.edx-course-table td button{margin:2px}
-@media(max-width:760px){
-  .edx-course-workspace{grid-template-columns:1fr}
-  .edx-course-side-list{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
-}
 @media(max-width:640px){
-  .edx-course-table{min-width:480px}
   .edx-exam-actions>*{width:100%}
   .edx-exam-actions{display:grid}
 }

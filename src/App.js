@@ -348,7 +348,7 @@ const Navbar = ({
   }, []);
 
   const handleNavClick = (targetPage) => {
-    if (targetPage === 'mcq-bank' || targetPage === 'paper-reviews' || targetPage === 'test-papers' || targetPage === 'course-tests') {
+    if (targetPage === 'mcq-bank' || targetPage === 'paper-reviews' || targetPage === 'test-papers') {
       setPage('exam-prep');
       try { window.history.pushState({}, '', '/' + targetPage); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {}
       if (isMenuOpen) toggleMenu();
@@ -359,7 +359,7 @@ const Navbar = ({
   };
 
   const isActive = (id) => {
-    if (id === 'mcq-bank' || id === 'paper-reviews' || id === 'test-papers' || id === 'course-tests') {
+    if (id === 'mcq-bank' || id === 'paper-reviews' || id === 'test-papers') {
       try { return page === 'exam-prep' && new RegExp('^/' + id + '(\\/|$)').test(navPath || ''); } catch (_) { return false; }
     }
     return navActivePage(page) === id;
@@ -428,7 +428,7 @@ const Navbar = ({
           </a>
 
           {/* Desktop links (PC HEADER) — theme-aware modern pill navigation */}
-          <nav className={`hidden lg:flex items-center justify-center gap-1 min-w-0 rounded-full backdrop-blur-md border p-1 sm:p-1.5 shadow-inner ${isDark ? 'bg-white/[0.06] border-white/10' : 'bg-slate-900/[0.05] border-slate-900/10'}`}>
+          <nav className={`edx-site-nav-pill hidden lg:flex items-center justify-start gap-1 min-w-0 overflow-x-auto rounded-full backdrop-blur-md border p-1 sm:p-1.5 shadow-inner ${isDark ? 'bg-white/[0.06] border-white/10' : 'bg-slate-900/[0.05] border-slate-900/10'}`}>
             {MAIN_ITEMS.map((item) => (
               <a
                 key={item.id}

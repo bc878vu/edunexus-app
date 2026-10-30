@@ -192,6 +192,10 @@ export function PaperRunner({ paper, onBack }) {
   };
 
   const handleSubmit = () => { setConfirmModal('submit'); };
+  // Leaving mid-paper discards unsaved answers, so it goes through the
+  // same professional modal as submit/retake instead of dropping work
+  // on a stray tap. Submitted papers are already saved and unaffected.
+  const doLeave = () => { setConfirmModal(null); onBack(); };
 
   const doSubmit = async () => {
     setConfirmModal(null);
@@ -380,6 +384,7 @@ export function PaperRunner({ paper, onBack }) {
   return (
     <div className="edx-exam-stack edx-paper-page edx-paper-runner">
       <div className="edx-paper-stickybar" role="status">
+        <button type="button" className="edx-exam-secondary" onClick={() => setConfirmModal('leave')}>← Back</button>
         <span className="edx-paper-progress-text">{attempted} of {total} attempted</span>
         <span className={'edx-paper-timer' + (secondsLeft < 300 ? ' edx-paper-timer-low' : '')}>⏱ {fmtTime(secondsLeft)}</span>
         <button type="button" className="edx-exam-secondary" onClick={() => setPaused((p) => !p)}>{paused ? 'Resume' : 'Pause'}</button>
@@ -444,7 +449,7 @@ export function PaperRunner({ paper, onBack }) {
       {confirmModal && (
         <div className="edx-paper-modal-overlay" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirmModal(null); }}>
           <div className="edx-paper-modal" role="dialog" aria-modal="true" aria-labelledby="edx-paper-modal-title">
-            <h3 id="edx-paper-modal-title">{confirmModal === 'submit' ? 'Submit paper?' : 'Retake paper?'}</h3>
+            <h3 id="edx-paper-modal-title">{confirmModal === 'submit' ? 'Submit paper?' : confirmModal === 'leave' ? 'Leave paper?' : 'Retake paper?'}</h3>
             <div className="edx-paper-modal-stats">
               <span>{attempted} of {total} attempted</span>
               {confirmModal === 'submit' && unanswered > 0 && <span>{unanswered} unanswered</span>}
@@ -452,12 +457,14 @@ export function PaperRunner({ paper, onBack }) {
             </div>
             {confirmModal === 'submit' ? (
               <p>{unanswered > 0 ? 'Unanswered questions will count as wrong. ' : ''}You cannot change answers after submitting.</p>
+            ) : confirmModal === 'leave' ? (
+              <p>Your answers on this screen will be cleared. Papers you already submitted are saved.</p>
             ) : (
               <p>Start this paper again? Your current answers on this screen will be cleared.</p>
             )}
             <div className="edx-paper-modal-actions">
-              <button type="button" className="edx-exam-secondary" autoFocus onClick={() => setConfirmModal(null)}>{confirmModal === 'submit' ? 'Keep answering' : 'Cancel'}</button>
-              <button type="button" className="edx-exam-primary" onClick={confirmModal === 'submit' ? doSubmit : doRetake}>{confirmModal === 'submit' ? 'Submit paper' : 'Start again'}</button>
+              <button type="button" className="edx-exam-secondary" autoFocus onClick={() => setConfirmModal(null)}>{confirmModal === 'retake' ? 'Cancel' : 'Keep answering'}</button>
+              <button type="button" className="edx-exam-primary" onClick={confirmModal === 'submit' ? doSubmit : confirmModal === 'leave' ? doLeave : doRetake}>{confirmModal === 'submit' ? 'Submit paper' : confirmModal === 'leave' ? 'Leave paper' : 'Start again'}</button>
             </div>
           </div>
         </div>
@@ -470,6 +477,21 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const [builderCode, setBuilderCode] = useState(null);
   const [subjectQuery, setSubjectQuery] = useState('');
   const [popupSubject, setPopupSubject] = useState(null);
+  // Re-render on every navigation event (browser back/forward included).
+  // The pattern paper below is derived from window.location.search during
+  // render, and the app's nav-path state does NOT change when only the
+  // query changes (same pathname), so without this the pattern runner
+  // stayed stuck on screen after "Back to Test Papers" / browser back.
+  const [, setNavTick] = useState(0);
+  useEffect(() => {
+    const sync = () => setNavTick((t) => t + 1);
+    window.addEventListener('popstate', sync);
+    window.addEventListener('edunexus:navigation', sync);
+    return () => {
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener('edunexus:navigation', sync);
+    };
+  }, []);
   const paper = paperSlug ? getTestPaper(paperSlug) : null;
   if (paper) return <PaperRunner paper={paper} onBack={() => onSelectPaper('')} />;
   if (builderCode) return <PaperBuilder subjectCode={builderCode} onBack={() => setBuilderCode(null)} />;
