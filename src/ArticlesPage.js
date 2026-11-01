@@ -237,7 +237,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
         </div>
 
         {/* Title */}
-        <h2 className={`text-xl md:text-2xl font-bold ${theme.text} mb-3 leading-snug`}>
+        <h2 dir="auto" className={`text-xl md:text-2xl font-bold ${theme.text} mb-3 leading-snug`}>
           <a href={articlePublicPath(art)} className="hover:text-indigo-500 transition-colors">
             {String(art.title)}
           </a>

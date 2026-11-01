@@ -132,6 +132,31 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 .edx-code-copy:hover { background: #334155; }
 @media (max-width: 480px) { .edx-code-copy { top: 6px; right: 6px; padding: 3px 8px; font-size: .7rem; } }
 
+/* Urdu/Arabic articles (added 2026-11-01): RTL reading + Nastaliq type.
+   The .edx-rtl-body wrapper is added at render time only when the body
+   is mostly Arabic-script, so English articles render exactly as before.
+   Fonts are the device's own Nastaliq/Naskh fonts (Android: Noto
+   Nastaliq Urdu / Noto Naskh Arabic; Windows: Urdu Typesetting /
+   Traditional Arabic) — no download, no CSP change, works offline.
+   Nastaliq glyphs are tall, so line-height is 2.35 (vs 1.85 for Latin). */
+.edx-article-body .edx-rtl-body { direction: rtl; text-align: right; font-family: 'Noto Nastaliq Urdu','Urdu Typesetting','Jameel Noori Nastaleeq','Noto Naskh Arabic',serif; font-size: 1.12em; line-height: 2.35; overflow-wrap: anywhere; }
+.edx-article-body .edx-rtl-body h2, .edx-article-body .edx-rtl-body h3, .edx-article-body .edx-rtl-body h4 { line-height: 2; }
+.edx-article-body .edx-rtl-body ul, .edx-article-body .edx-rtl-body ol { padding-left: 0; padding-right: 1.5em; }
+.edx-article-body .edx-rtl-body blockquote { border-left: none; border-right: 4px solid #6366f1; }
+.edx-article-body .edx-rtl-body th, .edx-article-body .edx-rtl-body td { text-align: right; }
+
+/* Quran verse block: the code block's mirror image. Same idea — a
+   distinct dark editor-style surface in both themes, with its own
+   reserved corner space for the Copy button — but deep green with a
+   gold accent for Quran text, Amiri/Naskh type, centred verse text.
+   Mirrored for RTL: the button sits top-LEFT and the 104px reserved
+   space is left padding (code blocks reserve 88px on the right). */
+.edx-article-body .edx-verse-wrap { position: relative; box-sizing: border-box; max-width: 100%; margin: 1.2em 0; padding: 20px 22px 20px 104px; border-radius: 14px; border: 1px solid #14532d; border-right: 5px solid #c9a227; background: #0d3b2e; }
+.edx-article-body .edx-verse-text { font-family: 'Amiri','Amiri Quran','Noto Naskh Arabic','Traditional Arabic',serif; font-size: 1.45em; line-height: 2.1; color: #f5f0dc; text-align: center; overflow-wrap: anywhere; }
+.edx-article-body .edx-verse-copy { position: absolute; top: 10px; left: 10px; padding: 4px 10px; border-radius: 8px; border: 1px solid #3f6212; background: #1a4d38; color: #f5f0dc; font: 600 .75rem/1.4 ui-sans-serif, system-ui, sans-serif; cursor: pointer; }
+.edx-article-body .edx-verse-copy:hover { background: #276749; }
+@media (max-width: 480px) { .edx-article-body .edx-verse-wrap { padding: 16px 16px 16px 88px; } .edx-article-body .edx-verse-text { font-size: 1.25em; } .edx-article-body .edx-verse-copy { top: 8px; left: 8px; padding: 3px 8px; font-size: .7rem; } .edx-article-body .edx-rtl-body { font-size: 1.05em; line-height: 2.2; } }
+
 /* Shared "data not found" helper (NotFoundHelp.js): shown in public search
    empty states instead of a bare "not found", with the admin WhatsApp button. */
 .edx-notfound-help { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }

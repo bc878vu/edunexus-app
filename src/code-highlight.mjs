@@ -152,22 +152,114 @@ export function wrapArticleTables(html) {
   });
 }
 
+// --- Urdu/Arabic articles (added 2026-11-01) ----------------------------
+// Render-time RTL + Quran-verse presentation, mirroring the code-block
+// standard: no stored content is changed (the article body in the
+// database is never touched), so every past and future article gets it
+// automatically, and English articles are unaffected.
+//
+// RTL detection: the body is treated as Urdu/Arabic only when
+// Arabic-script letters dominate Latin letters by a wide margin, so an
+// English article that merely quotes one Arabic word stays LTR.
+// Verse detection: a paragraph (or a <br>-separated line inside one) is
+// a Quran verse when it carries a Quranic stop mark (ۖ ۗ ۘ ۙ ۚ ۛ ۜ) or
+// when it is long, almost entirely Arabic-script, heavily vocalised and
+// free of Urdu-specific letters (ٹ ڈ ڑ ں ھ ی ک ے). Urdu prose always
+// contains those letters (کی، کے، میں، ہے، ...), so prose is never
+// mistaken for a verse. A verse block only re-wraps text — it never
+// drops, reorders or rewords a character — and its Copy button copies
+// the verse text exactly.
+const ARABIC_LETTER_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g;
+const LATIN_LETTER_RE = /[A-Za-z]/g;
+const URDU_SPECIFIC_RE = /[\u0679\u0688\u0691\u06BA\u06BE\u06CC\u06A9\u06D2]/g;
+const QURAN_STOP_RE = /[\u06D6-\u06DC]/;
+const DIACRITIC_RE = /[\u064B-\u0652\u0670]/g;
+
+function stripEnhanceTags(s) {
+  return String(s ?? '').replace(/<[^>]*>/g, ' ');
+}
+
+function isQuranVerseText(segment) {
+  const t = stripEnhanceTags(segment).trim();
+  if (!t) return false;
+  if (QURAN_STOP_RE.test(t)) return true;
+  const arabic = (t.match(ARABIC_LETTER_RE) || []).length;
+  const latin = (t.match(LATIN_LETTER_RE) || []).length;
+  if (arabic < 20 || latin > arabic * 0.1) return false;
+  const diacritics = (t.match(DIACRITIC_RE) || []).length;
+  const urduSpecific = (t.match(URDU_SPECIFIC_RE) || []).length;
+  return diacritics >= 5 && urduSpecific === 0;
+}
+
+function isRtlBody(html) {
+  const text = stripEnhanceTags(html);
+  const arabic = (text.match(ARABIC_LETTER_RE) || []).length;
+  const latin = (text.match(LATIN_LETTER_RE) || []).length;
+  return arabic > 100 && arabic > latin * 2;
+}
+
+function verseWrap(innerHtml) {
+  return (
+    '<div class="edx-verse-wrap" dir="rtl" lang="ar"><div class="edx-verse-text">' +
+    innerHtml +
+    '</div><button type="button" class="edx-verse-copy">📋 Copy</button></div>'
+  );
+}
+
+// Re-wrap Quran-verse paragraphs (or verse lines inside a paragraph)
+// as verse blocks. Non-verse segments are regrouped into <p> blocks
+// with their original <br> separators, so no text is lost or moved.
+export function enhanceRtlAndVerses(html) {
+  let s = String(html ?? '');
+  s = s.replace(/<p>([\s\S]*?)<\/p>/g, (m, inner) => {
+    const segments = inner.split(/<br\s*\/?>/i);
+    if (segments.length === 1) {
+      return isQuranVerseText(inner) ? verseWrap(inner) : m;
+    }
+    let out = '';
+    let buf = [];
+    const flush = () => {
+      if (buf.length) {
+        out += '<p>' + buf.join('<br>') + '</p>';
+        buf = [];
+      }
+    };
+    for (const seg of segments) {
+      if (isQuranVerseText(seg)) {
+        flush();
+        out += verseWrap(seg);
+      } else {
+        buf.push(seg);
+      }
+    }
+    flush();
+    return out;
+  });
+  if (isRtlBody(s)) {
+    s = '<div class="edx-rtl-body" dir="rtl" lang="ur">' + s + '</div>';
+  }
+  return s;
+}
+
 // Full render-time enhancement for an article body: syntax-coloured
-// code blocks with Copy buttons, plus scrollable table wrappers.
+// code blocks with Copy buttons, plus scrollable table wrappers,
+// plus RTL + Quran-verse presentation for Urdu/Arabic articles.
 export function enhanceArticleBodyHtml(html) {
-  return wrapArticleTables(highlightArticleCode(html));
+  return enhanceRtlAndVerses(wrapArticleTables(highlightArticleCode(html)));
 }
 // Attach to a container (React onClick) or to document (SSR inline
 // script uses its own copy of this logic). Safe to call for any click:
-// it no-ops unless the click landed on a .edx-code-copy button.
+// it no-ops unless the click landed on a .edx-code-copy or
+// .edx-verse-copy button. A verse button copies its verse text, a code
+// button copies its <pre> text — same feedback, same fallback.
 export function handleCodeCopyClick(e) {
   const target = e && e.target;
-  const btn = target && target.closest ? target.closest('.edx-code-copy') : null;
+  const btn = target && target.closest ? target.closest('.edx-code-copy,.edx-verse-copy') : null;
   if (!btn) return;
-  const wrap = btn.closest('.edx-code-wrap');
-  const pre = wrap && wrap.querySelector('pre');
-  if (!pre) return;
-  const text = pre.textContent || '';
+  const wrap = btn.closest('.edx-code-wrap,.edx-verse-wrap');
+  const src = wrap && (wrap.querySelector('pre') || wrap.querySelector('.edx-verse-text'));
+  if (!src) return;
+  const text = src.textContent || '';
   const done = () => {
     const old = btn.textContent;
     btn.textContent = 'Copied ✓';
