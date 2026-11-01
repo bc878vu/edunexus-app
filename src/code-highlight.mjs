@@ -211,6 +211,15 @@ function verseWrap(innerHtml) {
 // with their original <br> separators, so no text is lost or moved.
 export function enhanceRtlAndVerses(html) {
   let s = String(html ?? '');
+  // Author-marked verse blocks from the admin editor: <blockquote
+  // class="edx-verse"> becomes the same verse block readers see for
+  // auto-detected verses. Inner paragraphs are unwrapped (joined with
+  // <br>) before the <p> pass below, so a second verse block is never
+  // nested inside this one.
+  s = s.replace(/<blockquote class="edx-verse">([\s\S]*?)<\/blockquote>/g, (m, inner) => {
+    const text = inner.replace(/<\/p>\s*<p>/g, '<br>').replace(/<\/?p>/g, '');
+    return verseWrap(text);
+  });
   s = s.replace(/<p>([\s\S]*?)<\/p>/g, (m, inner) => {
     const segments = inner.split(/<br\s*\/?>/i);
     if (segments.length === 1) {

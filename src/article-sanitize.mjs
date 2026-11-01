@@ -88,6 +88,15 @@ export function sanitizeArticleHtml(input) {
       }
       return '<a>';
     }
+    if (t === 'blockquote') {
+      // Keep exactly one author-controlled marker: class="edx-verse",
+      // set by the admin editor's verse button. Any other class value
+      // (or any other attribute) is dropped, so no styling can smuggle
+      // through the sanitizer.
+      const cm = /\bclass\s*=\s*("([^"]*)"|'([^']*)')/.exec(attrs || '');
+      const cls = cm ? (cm[2] ?? cm[3] ?? '') : '';
+      return cls.trim() === 'edx-verse' ? '<blockquote class="edx-verse">' : '<blockquote>';
+    }
     return '<' + t + '>';
   });
   // Plain-text bodies (no HTML tags at all): restore the author's line

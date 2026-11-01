@@ -157,6 +157,14 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 .edx-article-body .edx-verse-copy:hover { background: #276749; }
 @media (max-width: 480px) { .edx-article-body .edx-verse-wrap { padding: 16px 16px 16px 88px; } .edx-article-body .edx-verse-text { font-size: 1.25em; } .edx-article-body .edx-verse-copy { top: 8px; left: 8px; padding: 3px 8px; font-size: .7rem; } .edx-article-body .edx-rtl-body { font-size: 1.05em; line-height: 2.2; } }
 
+/* Admin article editor (added 2026-11-01): the editor typesets Urdu in
+   Nastaliq via font fallback (Latin glyphs still fall back to Inter, so
+   English text looks unchanged), and a verse block marked with the آیت
+   button previews in the same green/gold style readers see. The Copy
+   button itself is added at render time only. */
+.edx-admin-editor { font-family: 'Noto Nastaliq Urdu','Urdu Typesetting','Jameel Noori Nastaleeq',Inter,ui-sans-serif,system-ui,sans-serif; }
+.edx-admin-editor blockquote.edx-verse { margin: 1em 0; padding: 14px 16px; border-radius: 12px; border: 1px solid #14532d; border-right: 5px solid #c9a227; background: #0d3b2e; color: #f5f0dc; font-family: 'Amiri','Amiri Quran','Noto Naskh Arabic','Traditional Arabic',serif; font-size: 1.25em; line-height: 2; text-align: center; }
+
 /* Shared "data not found" helper (NotFoundHelp.js): shown in public search
    empty states instead of a bare "not found", with the admin WhatsApp button. */
 .edx-notfound-help { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }

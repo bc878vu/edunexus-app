@@ -3379,6 +3379,37 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
       execCmd('formatBlock', inPre ? 'p' : 'pre');
     };
 
+    // Verse block toggle (added 2026-11-01): wraps the current block in
+    // <blockquote class="edx-verse">, which renders as the green/gold
+    // Quran-verse block with a Copy button on display — so the author
+    // marks a verse in the editor instead of anyone editing code. The
+    // article sanitizer keeps exactly this class on blockquote and strips
+    // every other class, so no other styling can smuggle through.
+    // Toggling again on a verse block returns it to a normal paragraph.
+    const toggleVerseBlock = () => {
+      const ed = editorRef.current;
+      if (!ed) return;
+      ed.focus();
+      const sel = window.getSelection();
+      const findBlockquote = () => {
+        let node = sel?.anchorNode;
+        while (node && node !== ed) {
+          if (node.nodeName === 'BLOCKQUOTE') return node;
+          node = node.parentNode;
+        }
+        return null;
+      };
+      const existing = findBlockquote();
+      if (existing && existing.classList.contains('edx-verse')) {
+        execCmd('formatBlock', 'p');
+        return;
+      }
+      execCmd('formatBlock', 'blockquote');
+      const created = findBlockquote();
+      if (created) created.className = 'edx-verse';
+      setContent(ed.innerHTML || '');
+    };
+
     const handleEditorInput = () => {
       setContent(editorRef.current?.innerHTML || '');
     };
@@ -3789,7 +3820,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>{editId ? 'Edit Article' : 'New Article'}</h3>
 
           <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Title</label>
-          <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Article title" className={`w-full ${theme.input} p-2.5 rounded-lg mb-3`} />
+          <input dir="auto" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Article title" className={`w-full ${theme.input} p-2.5 rounded-lg mb-3`} />
 
           <div className="mb-3">
             <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Cover Image</label>
@@ -3803,7 +3834,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             {imageUrl && <div className="mt-2 h-20 w-full overflow-hidden rounded-lg bg-slate-100"><img src={imageUrl} alt="Preview" loading="lazy" className="h-full w-full object-cover opacity-80" /></div>}
           </div>
 
-          <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Content <span className="font-normal">(rich text editor — the &lt;/&gt; button switches to HTML source)</span></label>
+          <label className={`block text-xs font-bold ${theme.textMuted} mb-1`}>Content <span className="font-normal">(rich text editor — the &lt;/&gt; button switches to HTML source; the آیت button marks a Quran verse block; Urdu paragraphs align right automatically)</span></label>
           <div className={`border rounded-lg mb-3 overflow-hidden ${theme.border}`}>
             <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
               <select value={fontFamily} onChange={e=>applyFontFamily(e.target.value)} className="text-xs p-1 rounded border bg-white dark:bg-slate-700" title="Font family">
@@ -3838,6 +3869,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
               <button type="button" onMouseDown={(e)=>e.preventDefault()} onClick={openLinkBox} className={toolbarBtn} title="Insert link">🔗</button>
               <button type="button" onClick={removeLink} className={toolbarBtn} title="Remove link">⛓️‍💥</button>
               <button type="button" onClick={toggleCodeBlock} className={toolbarBtn} title="Code block"><span style={{fontFamily:'ui-monospace, monospace'}}>{'{ }'}</span></button>
+              <button type="button" onClick={toggleVerseBlock} className={toolbarBtn} title="Quran verse block (green/gold block with Copy button on display)">آیت</button>
               <button type="button" onClick={()=>execCmd('removeFormat')} className={toolbarBtn} title="Clear formatting">✕</button>
               <button type="button" onClick={toggleHtmlMode} className={htmlMode ? "px-2 py-1 rounded bg-indigo-600 text-white text-xs font-bold" : toolbarBtn} title="Edit HTML source">&lt;/&gt;</button>
             </div>
@@ -3863,13 +3895,18 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                 <button type="button" onClick={cancelLink} className="px-3 py-2 rounded-lg bg-slate-300 dark:bg-slate-600 text-xs font-bold">Cancel</button>
               </div>
             )}
+            {/* dir=auto: each paragraph follows its own first strong character,
+                so Urdu paragraphs align right and English ones stay left while
+                typing. edx-admin-editor typesets Urdu in Nastaliq (Latin text
+                falls back to the site font, unchanged) and previews verse blocks. */}
             <div
               ref={editorRef}
               contentEditable
+              dir="auto"
               onInput={handleEditorInput}
               onPaste={handleEditorPaste}
-              className={`min-h-[180px] p-3 outline-none ${theme.text} bg-white dark:bg-slate-900 ${htmlMode ? 'hidden' : ''}`}
-              style={{fontSize: '15px', lineHeight: '1.6'}}
+              className={`edx-admin-editor min-h-[180px] p-3 outline-none ${theme.text} bg-white dark:bg-slate-900 ${htmlMode ? 'hidden' : ''}`}
+              style={{fontSize: '15px', lineHeight: '2.0'}}
               data-placeholder="Write article content here..."
             />
             {htmlMode && (
