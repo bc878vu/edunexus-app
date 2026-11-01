@@ -2919,7 +2919,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                 </div>
                 <div className="flex items-end gap-2 h-28">
                   {topFolders.map(([name, n]) => (
-                    <div key={name} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                    <div key={name} className="flex-1 min-w-0 flex flex-col items-center gap-1 h-full justify-end">
                       <span className={`text-xs font-bold ${theme.text}`}>{n}</span>
                       <div className="w-full rounded-t-lg bg-indigo-500" style={{ height: Math.max(n > 0 ? 8 : 2, (n / maxFolder) * 72) + 'px' }} />
                       <span className={`text-[10px] ${theme.textMuted} truncate max-w-full`} title={name}>{name}</span>
@@ -2932,7 +2932,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                 <p className={`font-bold ${theme.text} mb-3`}>📊 Articles — last 30 days</p>
                 <div className="flex items-end gap-2 h-28">
                   {buckets.map((n, i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                    <div key={i} className="flex-1 min-w-0 flex flex-col items-center gap-1 h-full justify-end">
                       <span className={`text-xs font-bold ${theme.text}`}>{n}</span>
                       <div className="w-full rounded-t-lg bg-violet-500" style={{ height: Math.max(n > 0 ? 8 : 2, (n / maxBucket) * 72) + 'px' }} />
                       <span className={`text-[10px] ${theme.textMuted}`}>{['This week', 'Last week', '2 wks ago', '3 wks ago'][i]}</span>
@@ -3808,7 +3808,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           <p className={`text-xs font-bold ${theme.textMuted} mb-2`}>Submissions — last 30 days (weekly buckets)</p>
           <div className="flex items-end gap-2 h-20">
             {weekBuckets.map((n, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+              <div key={i} className="flex-1 min-w-0 flex flex-col items-center gap-1 h-full justify-end">
                 <span className={`text-xs font-bold ${theme.text}`}>{n}</span>
                 <div className="w-full rounded-t-lg bg-indigo-500" style={{ height: Math.max(n > 0 ? 8 : 2, (n / maxBucket) * 56) + 'px' }} />
                 <span className={`text-[10px] ${theme.textMuted}`}>{['This week', 'Last week', '2 wks ago', '3 wks ago'][i]}</span>
