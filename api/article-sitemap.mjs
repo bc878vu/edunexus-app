@@ -5,7 +5,8 @@ export const maxDuration=60;
 let cachedXml=null;let cachedAt=0;
 let cachedHlXml=null;let cachedHlAt=0;
 const CACHE_TTL=6*60*60*1000;
-function buildXml(urls){return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'+urls.map((url)=>'<url><loc>'+h(url)+'</loc></url>').join('\n')+'\n</urlset>';}
+function sitemapDate(v){try{const d=new Date(v);if(Number.isNaN(d.getTime()))return '';return d.toISOString().slice(0,10);}catch(e){return '';}}
+function buildXml(urls){return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'+urls.map((entry)=>{const loc=typeof entry==='string'?entry:entry.loc;const lm=typeof entry==='string'?'':sitemapDate(entry.lastmod);return '<url><loc>'+h(loc)+'</loc>'+(lm?'<lastmod>'+lm+'</lastmod>':'')+'</url>';}).join('\n')+'\n</urlset>';}
 function buildHighlightsXml(urls){return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'+urls.map((url)=>'<url><loc>'+h(url)+'</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>').join('\n')+'\n</urlset>';}
 export default async function handler(req,res){
   if(!['GET','HEAD'].includes(req.method))return res.status(405).end();
@@ -39,7 +40,7 @@ export default async function handler(req,res){
     const urls=articles.filter((item)=> {
       if(!item.id || !String(item.title||'').trim() || String(item.content||item.body||'').trim().length<450 || seen.has(item.id))return false;
       seen.add(item.id);return true;
-    }).map((item)=>SITE+articlePath(item.id,item.title));
+    }).map((item)=>({loc:SITE+articlePath(item.id,item.title),lastmod:item.updatedAt||item.updated_at||item.createdAt||item.created_at}));
     cachedXml=buildXml(urls);cachedAt=Date.now();
     return res.status(200).send(cachedXml);
   }catch(error){
