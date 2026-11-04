@@ -65,7 +65,7 @@ export const SUBJECT_CATALOG = [
   { code: 'ZOO201', status: 'mapping' },
   { code: 'BIO202', status: 'finalonly' },
   { code: 'BT101', status: 'finalonly' },
-  { code: 'CS302', status: 'finalonly' },
+  { code: 'CS302', status: 'live' },
   { code: 'CS311', status: 'finalonly' },
   { code: 'CS401', status: 'finalonly' },
   { code: 'CS403', status: 'finalonly' },
