@@ -80,7 +80,7 @@ export const SUBJECT_CATALOG = [
   { code: 'CS620', status: 'finalonly' },
   { code: 'ENG301', status: 'finalonly' },
   { code: 'ISL201', status: 'finalonly' },
-  { code: 'MCM301', status: 'finalonly' },
+  { code: 'MCM301', status: 'live' },
   { code: 'MGT101', status: 'finalonly' },
   { code: 'MGT201', status: 'finalonly' },
   { code: 'MGT501', status: 'finalonly' },
