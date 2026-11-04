@@ -7,7 +7,7 @@ import { SITE, escapeHtml } from './resource-data.mjs';
 // merged subject card via extractCourseCode().
 export const SUBJECTS = [
   // Semester 1
-  'CS101', 'ENG101', 'MTH101', 'PAK301', 'PHY101', 'VU001', 'ECO401', 'MGT211',
+  'CS101', 'ENG101', 'MTH101', 'PAK301', 'PHY101', 'CS001', 'ECO401', 'MGT211',
   // Semester 2
   'CS201', 'ENG201', 'MTH202', 'MTH501', 'ISL202', 'MGT301', 'MGT503', 'ETH202',
   // Semester 3
@@ -53,5 +53,17 @@ export default async function handler(req, res) {
   urls.push(SITE + '/test-papers?subject=MGT502&lectures=1,2,3,4,5,6,7,8,9,10&mcqs=20&shorts=3&longs=3');
   urls.push(SITE + '/test-papers?subject=STA301&lectures=1,2,3,4,5,6,7,8,9&mcqs=20&shorts=3&longs=3');
   urls.push(SITE + '/test-papers?subject=BNK610&lectures=1,2,3,4&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=CS001&lectures=1,2,3,4,5,6&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=MGT602&lectures=1,2,3,4,5,6,7&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=PAK522&lectures=1,2,3,4&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=EDU401&lectures=1,2,3,4&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=ETH100&lectures=1,2,3,4,5,6,7&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=CS605&lectures=1,2&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=MGT411&lectures=1,2,3&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=MKT501&lectures=1,2,3&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=SOC404&lectures=1,2,3,4&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=CS407&lectures=1,2&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=SOC617&lectures=1,2,3&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=MKT530&lectures=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18&mcqs=20&shorts=3&longs=3');
   return res.status(200).send(buildXml(urls));
 }

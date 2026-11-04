@@ -177,6 +177,19 @@ export default async function handler(req, res) {
       MGT502: { title: 'Organizational Behavior', term: 'Midterm', unitLabel: 'Topic' },
       STA301: { title: 'Statistics and Probability', term: 'Midterm', unitLabel: 'Topic' },
       BNK610: { title: 'Islamic Banking Practices', term: 'Midterm', unitLabel: 'Topic' },
+      CS001: { title: 'Computer Proficiency License', term: 'Midterm', unitLabel: 'Topic' },
+      MGT602: { title: 'Entrepreneurship', term: 'Midterm', unitLabel: 'Topic' },
+      PAK522: { title: 'Ideology and Constitution of Pakistan', term: 'Midterm', unitLabel: 'Topic' },
+      EDU401: { title: 'Contemporary Issues and Trends in Education', term: 'Midterm', unitLabel: 'Topic' },
+      ETH100: { title: 'Effective Citizenship', term: 'Midterm', unitLabel: 'Topic' },
+      CS605: { title: 'Software Engineering II', term: 'Midterm', unitLabel: 'Topic' },
+      MGT411: { title: 'Money and Banking', term: 'Midterm', unitLabel: 'Topic' },
+      MKT501: { title: 'Marketing Management', term: 'Midterm', unitLabel: 'Topic' },
+      SOC404: { title: 'Pakistani Society and Culture', term: 'Midterm', unitLabel: 'Topic' },
+      CS407: { title: 'Routing and Switching', term: 'Midterm', unitLabel: 'Topic' },
+      SOC617: { title: 'Social Entrepreneurship', term: 'Midterm', unitLabel: 'Topic' },
+      MKT530: { title: 'Consumer Behavior', term: 'Midterm', unitLabel: 'Topic' },
+      ECO404: { title: 'Managerial Economics', term: 'Finalterm', unitLabel: 'Topic' },
     };
     const tpLabel = (uniq, unitSingular = 'Lecture') => {
       const plural = unitSingular + 's';
