@@ -6145,7 +6145,7 @@ useEffect(() => {
         )}
         {page === 'academic' && (
           <React.Suspense fallback={<div role="status" className="py-8 text-sm text-slate-500">Loading Academic Hub…</div>}>
-            <AcademicHubPro user={user} isAdmin={adminSessionActive && adminPanelAccess(user)} showToast={showToast} />
+            <AcademicHubPro user={user} isAdmin={adminSessionActive && adminTabIsActive(user)} showToast={showToast} />
           </React.Suspense>
         )}
         {page === 'exam' && <ExamPrep theme={theme} />}
