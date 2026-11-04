@@ -1063,7 +1063,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
     }).catch(() => { if (alive) setError('The selected file could not be loaded.'); });
     return () => { alive = false; };
   }, [selectedId, files]);
-  const counts = useMemo(() => files.reduce((m, f) => { const key = cut(f.subject, 50); if (key) m[key] = (m[key] || 0) + 1; return m; }, {}), [files]);
+  const counts = useMemo(() => files.reduce((m, f) => { const key = String(f.subject || '').trim(); if (key) m[key] = (m[key] || 0) + 1; return m; }, {}), [files]);
   const subjects = useMemo(() => [...new Set([...DEFAULT_SUBJECTS, ...folders, ...Object.keys(counts)].filter(Boolean))].sort((a, b) => a.localeCompare(b)), [folders, counts]);
   // Alias merge (presentation only): one visual folder per course code. Aliases such as
   // "CS101", "CS101_Introduction_to_Computing" and "CS101-Complete-Study-Material-VU"
@@ -1120,14 +1120,16 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
   // `counts` (from loaded files) complete, so it is the primary truth. The
   // admin "Recalculate folder counts" backfill map is the fallback. We take
   // the max per alias so a stale backfill value can never hide real files.
-  // Keys are truncated to 50 chars on both sides (see `cut` usage when the
-  // maps are built), so the lookup truncates too.
+  // Count keys are FULL subject names on every side (loaded counts, backfill
+  // map, recalc writer, bump writer, folder-manager writer) — never truncated.
+  // Truncating any side made long folder names miss their backfill lookup
+  // and show 0 on the card while their files were inside.
   const codeFileCount = (code) => {
     const g = codeGroups.get(code);
     const aliases = g ? g.aliases : [code];
     let total = 0;
     aliases.forEach((a) => {
-      const key = cut(a, 50);
+      const key = String(a || '').trim();
       total += Math.max(counts[key] || 0, Number(folderCounts[key]) || 0);
     });
     return total;
@@ -1334,7 +1336,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
       danger: true,
       onConfirm: async () => {
         try {
-          const subjKey = cut(file.subject, 50);
+          const subjKey = String(file.subject || '').trim();
           await deleteFile(file.id);
           if (subjKey) {
             try { await bumpFolderCount(subjKey, -1); } catch (_) {}
@@ -1373,7 +1375,7 @@ export default function AcademicHubPro({ user, isAdmin = false, showToast }) {
         // in the hundreds of files).
         const { items } = await listFiles({ limit: 10000, activeOnly: false });
         const counts = {};
-        items.forEach((f) => { const k = cut(f.subject, 50); if (k) counts[k] = (counts[k] || 0) + 1; });
+        items.forEach((f) => { const k = String(f.subject || '').trim(); if (k) counts[k] = (counts[k] || 0) + 1; });
         await setMetaDoc('folders', { fileCounts: counts });
         if (showToast) showToast('Folder counts recalculated: ' + items.length + ' files across ' + Object.keys(counts).length + ' folders.', 'success');
       } catch (e) { if (showToast) showToast('Count recalculation failed: ' + (e?.message || 'error'), 'error'); }

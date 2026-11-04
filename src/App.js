@@ -2383,6 +2383,10 @@ const AcademicTab = ({ theme, user, showToast }) => {
       await updateFile(file.id, {
         name, subject: folder, description
       });
+      if (folder !== file.subject) {
+        try { await bumpFolderCount(file.subject, -1); } catch (_) {}
+        try { await bumpFolderCount(folder, 1); } catch (_) {}
+      }
       setEditingFileId('');
       showToast('Resource details updated.', 'success');
     } catch (_) {
@@ -2417,6 +2421,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
       onConfirm: async () => {
         try {
           await deleteFile(file.id);
+          try { await bumpFolderCount(file.subject, -1); } catch (_) {}
           showToast('Resource listing removed. Original file retained.', 'success');
         } catch (_) {
           showToast('Could not remove this resource listing.', 'error');
