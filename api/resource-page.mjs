@@ -173,6 +173,9 @@ export default async function handler(req, res) {
       CS302: { title: 'Digital Logic Design', term: 'Midterm' },
       CS304: { title: 'Object Oriented Programming', term: 'Midterm' },
       CS615: { title: 'Software Project Management', term: 'Midterm' },
+      ECO403: { title: 'Macroeconomics', term: 'Midterm', unitLabel: 'Topic' },
+      MGT502: { title: 'Organizational Behavior', term: 'Midterm', unitLabel: 'Topic' },
+      STA301: { title: 'Statistics and Probability', term: 'Midterm', unitLabel: 'Topic' },
     };
     const tpLabel = (uniq, unitSingular = 'Lecture') => {
       const plural = unitSingular + 's';

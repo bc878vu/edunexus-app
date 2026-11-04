@@ -48,5 +48,9 @@ export default async function handler(req, res) {
   ['PHY101', 'ACC501', 'CS101', 'CS201', 'CS202', 'CS301', 'CS302', 'CS304', 'CS615'].forEach((code) => {
     urls.push(SITE + '/test-papers?subject=' + code + '&lectures=' + fullLectures + '&mcqs=20&shorts=3&longs=3');
   });
+  // Topic-based banks: full topic range per subject (not the 1-22 lecture range).
+  urls.push(SITE + '/test-papers?subject=ECO403&lectures=1,2,3,4&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=MGT502&lectures=1,2,3,4,5,6,7,8,9,10&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=STA301&lectures=1,2,3,4,5,6,7,8,9&mcqs=20&shorts=3&longs=3');
   return res.status(200).send(buildXml(urls));
 }
