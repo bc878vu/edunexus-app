@@ -15,6 +15,7 @@
 export const SUBJECT_CATALOG = [
   { code: 'PHY101', status: 'live' },
   { code: 'ACC501', status: 'live' },
+  { code: 'BNK610', status: 'live' },
   { code: 'CS101', status: 'mapping' },
   { code: 'CS201', status: 'mapping' },
   { code: 'CS301', status: 'mapping' },

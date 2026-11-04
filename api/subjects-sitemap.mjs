@@ -52,5 +52,6 @@ export default async function handler(req, res) {
   urls.push(SITE + '/test-papers?subject=ECO403&lectures=1,2,3,4&mcqs=20&shorts=3&longs=3');
   urls.push(SITE + '/test-papers?subject=MGT502&lectures=1,2,3,4,5,6,7,8,9,10&mcqs=20&shorts=3&longs=3');
   urls.push(SITE + '/test-papers?subject=STA301&lectures=1,2,3,4,5,6,7,8,9&mcqs=20&shorts=3&longs=3');
+  urls.push(SITE + '/test-papers?subject=BNK610&lectures=1,2,3,4&mcqs=20&shorts=3&longs=3');
   return res.status(200).send(buildXml(urls));
 }

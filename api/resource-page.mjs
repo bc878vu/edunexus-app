@@ -176,6 +176,7 @@ export default async function handler(req, res) {
       ECO403: { title: 'Macroeconomics', term: 'Midterm', unitLabel: 'Topic' },
       MGT502: { title: 'Organizational Behavior', term: 'Midterm', unitLabel: 'Topic' },
       STA301: { title: 'Statistics and Probability', term: 'Midterm', unitLabel: 'Topic' },
+      BNK610: { title: 'Islamic Banking Practices', term: 'Midterm', unitLabel: 'Topic' },
     };
     const tpLabel = (uniq, unitSingular = 'Lecture') => {
       const plural = unitSingular + 's';
