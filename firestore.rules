@@ -46,10 +46,21 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 1000;
+      // Owner may only change the text (and the timestamp); admin may do anything.
+      // updateComment has no live callers (src/db/articles.js:310) — this only
+      // constrains direct Firestore API calls. No 'isActive' field exists on
+      // comments (COMMENT_SPEC: userId, userName, text, parentCommentId,
+      // createdAt, updatedAt); updatedAt is optional because the fallback
+      // passes data through raw without adding it.
       allow update: if admin()
         || (signedIn()
           && resource.data.userId == request.auth.uid
-          && request.resource.data.userId == resource.data.userId);
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','updatedAt'])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 1000
+          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time));
       allow delete: if admin()
         || (signedIn() && resource.data.userId == request.auth.uid);
     }
@@ -92,13 +103,38 @@ service cloud.firestore {
     match /artifacts/edunexus-live/public/data/discussions/{docId} {
       allow read: if true;
       // A signed-in user may create only a post owned by their own UID.
+      // Field list = the legacy Firestore writer (removed in Phase 2,
+      // commit 3935e23): content, createdAt (serverTimestamp), userId,
+      // userName, userEmail. No live client writes Firestore discussions
+      // (Supabase-only since Phase 2); this only constrains direct API
+      // calls and old cached bundles. 'title' is permitted (in
+      // DISCUSSION_SPEC) though the legacy writer never sent it.
       allow create: if signedIn()
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['userId','userName','userEmail','title','content','createdAt'])
+        && request.resource.data.content is string
+        && request.resource.data.content.size() > 0
+        && request.resource.data.content.size() <= 10000
+        && request.resource.data.userName is string
+        && request.resource.data.userName.size() <= 80
+        && (!('title' in request.resource.data) || (request.resource.data.title is string && request.resource.data.title.size() <= 200))
+        && (!('userEmail' in request.resource.data) || (request.resource.data.userEmail is string && request.resource.data.userEmail.size() <= 160))
+        && request.resource.data.createdAt == request.time;
       // Owners may edit/delete their own post; they cannot transfer ownership.
+      // affectedKeys (not hasOnly on the merged doc) so admin-set fields
+      // (pinned/adminReply/isActive) don't block later owner edits, while
+      // the owner still cannot change them. updatedAt is optional because
+      // the legacy update branch passed data through raw.
       allow update: if admin()
         || (signedIn()
           && resource.data.userId == request.auth.uid
-          && request.resource.data.userId == resource.data.userId);
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content','title','userName','userEmail','updatedAt'])
+          && request.resource.data.content is string
+          && request.resource.data.content.size() > 0
+          && request.resource.data.content.size() <= 10000
+          && (!('title' in request.resource.data) || (request.resource.data.title is string && request.resource.data.title.size() <= 200))
+          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time));
       allow delete: if admin()
         || (signedIn() && resource.data.userId == request.auth.uid);
     }
@@ -123,9 +159,34 @@ service cloud.firestore {
     // Student test-paper attempts: a signed-in student (anonymous included)
     // may create only their own attempt and read only their own doc; only
     // the admin may list all attempts or save teacher marks.
+    // Field list = the legacy Firestore writer (removed in commit 544a8d5):
+    // TestPaper payload (userId, studentName, studentVuId, paperSlug,
+    // paperCode, mcqAnswers, mcqScore, mcqTotal, shortAnswers, longAnswers,
+    // paperSnapshot?) + status/teacherMarks/teacherFeedback/createdAt/
+    // updatedAt (both serverTimestamp). No live client writes Firestore
+    // attempts (Supabase-only since 544a8d5); this only constrains direct
+    // API calls and old cached bundles. There is no 'course'/'examTerm'
+    // field, so validCourse/validExamTerm do not apply here.
     match /artifacts/edunexus-live/public/data/paperAttempts/{attemptId} {
       allow create: if signedIn()
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['userId','studentName','studentVuId','paperSlug','paperCode','mcqAnswers','mcqScore','mcqTotal','shortAnswers','longAnswers','paperSnapshot','status','teacherMarks','teacherFeedback','createdAt','updatedAt'])
+        && request.resource.data.studentName is string && request.resource.data.studentName.size() > 0 && request.resource.data.studentName.size() <= 100
+        && request.resource.data.studentVuId is string && request.resource.data.studentVuId.size() <= 30
+        && request.resource.data.paperSlug is string && request.resource.data.paperSlug.size() <= 120
+        && request.resource.data.paperCode is string && request.resource.data.paperCode.size() <= 20
+        && request.resource.data.mcqAnswers is map
+        && request.resource.data.mcqScore is int && request.resource.data.mcqScore >= 0
+        && request.resource.data.mcqTotal is int && request.resource.data.mcqTotal >= 0
+        && request.resource.data.mcqScore <= request.resource.data.mcqTotal
+        && request.resource.data.shortAnswers is list
+        && request.resource.data.longAnswers is list
+        && (!('paperSnapshot' in request.resource.data) || request.resource.data.paperSnapshot is map)
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.teacherMarks == null
+        && request.resource.data.teacherFeedback == ''
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
       allow get: if admin() || (signedIn() && resource.data.userId == request.auth.uid);
       allow list: if admin();
       allow update: if admin();
@@ -133,7 +194,27 @@ service cloud.firestore {
     }
 
     match /artifacts/edunexus-live/public/data/feedback/{docId} {
-      allow create: if signedIn();
+      // Two real writers, union of both shapes (FEEDBACK_SPEC):
+      // (a) live exam-review report — src/ExamPaperCommunity.js:199, direct
+      //     Firestore addDoc: userId, category, reviewId, reviewCollection,
+      //     reason, createdAt: serverTimestamp().
+      // (b) contact form via old cached bundles — src/App.js:1911 passes
+      //     {name, email, msg, createdAt: new Date()} through the pre-Phase 2
+      //     fallback, which wrote it to Firestore verbatim. new Date() is a
+      //     CLIENT timestamp, so createdAt must be `is timestamp`, NOT
+      //     `== request.time`, or old cached contact forms break.
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['userId','category','reviewId','reviewCollection','reason','name','email','msg','createdAt'])
+        && request.resource.data.createdAt is timestamp
+        && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid)
+        && (('msg' in request.resource.data) || ('reason' in request.resource.data))
+        && (!('msg' in request.resource.data) || (request.resource.data.msg is string && request.resource.data.msg.size() > 0 && request.resource.data.msg.size() <= 2000))
+        && (!('reason' in request.resource.data) || (request.resource.data.reason is string && request.resource.data.reason.size() > 0 && request.resource.data.reason.size() <= 2000))
+        && (!('category' in request.resource.data) || (request.resource.data.category is string && request.resource.data.category.size() <= 80))
+        && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 100))
+        && (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 160))
+        && (!('reviewId' in request.resource.data) || (request.resource.data.reviewId is string && request.resource.data.reviewId.size() <= 200))
+        && (!('reviewCollection' in request.resource.data) || (request.resource.data.reviewCollection is string && request.resource.data.reviewCollection.size() <= 200));
       allow read, update, delete: if admin();
     }
 
