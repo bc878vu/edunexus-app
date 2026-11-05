@@ -6536,6 +6536,17 @@ useEffect(() => {
           WhatsApp
         </a>
 
+        <a
+          href="https://uplcm.com/4/12200481"
+          target="_blank"
+          rel="sponsored noopener"
+          aria-label="Sponsored partner link"
+          title="Sponsored — partner offers"
+          className={`${theme.textMuted} hover:text-indigo-500`}
+        >
+          Sponsored
+        </a>
+
         <span className={`${theme.textMuted}`}>
           Made for students · Light & Dark mode supported
         </span>
