@@ -316,6 +316,20 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
           </a>
         </div>
 
+        {/* Sponsored */}
+        <div className="mt-3 text-center">
+          <a
+            href="https://uplcm.com/4/12200481"
+            target="_blank"
+            rel="sponsored noopener"
+            aria-label="Sponsored partner link"
+            title="Sponsored — partner offers"
+            className={`text-xs font-semibold ${theme.textMuted} hover:text-indigo-500`}
+          >
+            Sponsored
+          </a>
+        </div>
+
         {/* Comments section */}
         {showComments && (
           <ArticleComments
