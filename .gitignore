@@ -28,3 +28,5 @@ yarn-error.log*
 backend/.env
 backend/.env.local
 
+# nested node_modules too (e.g. backend/) — root-anchored /node_modules misses them
+node_modules

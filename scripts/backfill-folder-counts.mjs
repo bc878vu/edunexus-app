@@ -5,7 +5,6 @@ import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { initializeFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyBX0A2m9YQ0J8Q0J8Q0J8Q0J8Q0J8Q0J8Q0', // placeholder - replaced below
   authDomain: 'edunexus-live-e0b84.firebaseapp.com',
   projectId: 'edunexus-live-e0b84',
 };

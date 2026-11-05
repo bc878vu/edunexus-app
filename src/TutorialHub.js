@@ -3,6 +3,7 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage
 import { serverTimestamp } from 'firebase/firestore';
 import { storage } from './firebase-client';
 import { USE_SUPABASE, supabase } from './supabase-client';
+import { ADMIN_EMAIL } from './adminSession';
 import { ExternalLink, Link2, Play, Plus, ShieldCheck, Upload, X } from 'lucide-react';
 import './tutorial-hub.css';
 import { youtubeId, safeYouTubeId } from './youtube-video.mjs';
@@ -113,7 +114,7 @@ export default function TutorialHub() {
     };
   }, [route]);
 
-  const isAdmin = user?.email === 'veducator4@gmail.com' && user?.emailVerified === true;
+  const isAdmin = user?.email === ADMIN_EMAIL && user?.emailVerified === true;
 
   const allVideos = useMemo(
     () => [...videos, ...starterVideos.map((v, i) => ({ ...v, id: `starter-${i}`, starter: true }))],

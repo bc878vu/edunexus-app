@@ -8,7 +8,7 @@ import { enforceSingleDashboardQueryForm, restoreDashboardQueryCards } from './d
 // Initialize shared Firebase/Firestore before legacy modules request the instance.
 import './firebase-client';
 import { useConfirm } from './ConfirmDialog';
-import { unwrapNestedHeadings } from './article-sanitize.mjs';
+import { unwrapNestedHeadings, sanitizeArticleHtml } from './article-sanitize.mjs';
 import { uploadToSignedObject } from './signedObjectUpload';
 import './admin-academic-upload.css';
 import './portfolio.css';
@@ -4014,7 +4014,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                   <p className={theme.textMuted}><b className={theme.text}>Status:</b> {pstatus}</p>
                 </div>
                 {previewArt.imageUrl && <img src={previewArt.imageUrl} alt="Cover" className="w-full rounded-xl mb-4 max-h-64 object-cover" />}
-                <div className={`text-sm leading-relaxed ${theme.text} mb-5`} dangerouslySetInnerHTML={{ __html: previewArt.content || '' }} />
+                <div className={`text-sm leading-relaxed ${theme.text} mb-5`} dangerouslySetInnerHTML={{ __html: sanitizeArticleHtml(previewArt.content || '') }} />
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => pdecide(true)} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm">✓ Approve & publish</button>
                   <button onClick={() => pdecide(false)} className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold text-sm">✕ Reject</button>

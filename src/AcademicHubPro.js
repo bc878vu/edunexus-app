@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Download, ExternalLink, FileArchive, F
 import { storage } from './firebase-client';
 import { getBlob, ref as storageRef } from 'firebase/storage';
 import { USE_SUPABASE, supabase } from './supabase-client';
+import { ADMIN_EMAIL } from './adminSession';
 import { listFiles, listFilesBySubjects, searchFiles, getFile, getMetaDoc, setMetaDoc, bumpFolderCount, deleteFile, subscribeFiles, subscribeMetaDoc } from './db/files';
 import { listReviews, addReview, updateReview, deleteReview, reportReview as reportReviewRecord, listReviewReports, refreshRatingSummary, subscribeReviews } from './db/reviews';
 import './academic-hub-pro.css';
@@ -156,7 +157,7 @@ const safeFileName = (f) => {
   const ext = extOf(f).toLowerCase();
   return ext && ext !== 'link' && !base.toLowerCase().endsWith('.' + ext) ? base + '.' + ext : base;
 };
-const reviewIsAdmin = (user, isAdmin) => Boolean(isAdmin && user && user.email === 'veducator4@gmail.com' && user.emailVerified);
+const reviewIsAdmin = (user, isAdmin) => Boolean(isAdmin && user && user.email === ADMIN_EMAIL && user.emailVerified);
 
 // Denormalized rating summary stored as fields on the file document itself.
 // The public catalogue query already loads every file document, so reading

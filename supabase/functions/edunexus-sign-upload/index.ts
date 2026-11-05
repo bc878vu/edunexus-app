@@ -56,7 +56,11 @@ Deno.serve(async (request: Request) => {
       iss === SUPABASE_PROJECT_URL + "/auth/v1";
     const audOk = payload.aud === "authenticated" ||
       (Array.isArray(payload.aud) && payload.aud.includes("authenticated"));
-    const meta = (payload.user_metadata ?? {}) as { is_admin?: unknown };
+    // NEVER trust user_metadata for authorization: any signed-in user can
+    // set it on themselves (supabase.auth.updateUser({ data: ... })) and it
+    // is then baked into their JWT. app_metadata can only be set by an
+    // admin / the service_role key.
+    const meta = (payload.app_metadata ?? {}) as { is_admin?: unknown };
     const isAdmin = meta.is_admin === true || payload.email === ADMIN_EMAIL;
     if (!issOk || !audOk || !payload.sub) throw new Error("Invalid Supabase token claims");
     return isAdmin === true;
