@@ -6357,11 +6357,12 @@ useEffect(() => {
             <MessageCircle size={16} />
           </a>
           <a
-            href="#"
-            aria-label="EduNexus on YouTube — coming soon"
-            title="YouTube — coming soon"
-            onClick={(e) => e.preventDefault()}
-            className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors opacity-60"
+            href="https://www.youtube.com/@EduNexusVU"
+            target="_blank"
+            aria-label="EduNexus on YouTube — VU study guides, announcements and exam videos"
+            title="EduNexus on YouTube"
+            rel="noreferrer"
+            className="h-9 w-9 rounded-full border border-slate-500/40 flex items-center justify-center hover:bg-slate-700/40 hover:text-white transition-colors"
           >
             <Youtube size={16} />
           </a>
