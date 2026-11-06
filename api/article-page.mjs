@@ -102,6 +102,10 @@ export default async function handler(req,res){
     const title=String(article.title).trim().slice(0,200);
     const rawText=String(article.body ?? article.content ?? '').trim().slice(0,120000);
     const bodyHtml=enhanceArticleBodyHtml(sanitizeArticleHtml(rawText));
+    // Video-led article: when the body starts with a video, the video is the hero
+    // and replaces the cover image on this page (user order 2026-11-06). og:image
+    // is untouched, so link previews still carry the cover.
+    const bodyStartsWithVideo=/^\s*<(iframe|video)[\s>]/i.test(bodyHtml);
     const plainText=articlePlainText(rawText);
     const path=articlePath(id,title);
     if(req.query?.slug!==slugFor(title))return res.redirect(301,path);
@@ -131,7 +135,7 @@ export default async function handler(req,res){
       : '';
     const coverDisplayImage=normalizedImage ? optimizedArticleImage(normalizedImage, 1800) : '';
     const coverSrcSet=normalizedImage ? articleImageSrcSet(normalizedImage) : '';
-    const coverHtml=normalizedImage
+    const coverHtml=(normalizedImage && !bodyStartsWithVideo)
       ? '<figure class="article-cover-wrap"><img class="article-cover" src="' + h(coverDisplayImage) + '"' + (coverSrcSet ? ' srcset="' + h(coverSrcSet) + '" sizes="(max-width: 760px) 100vw, 1120px"' : '') + ' alt="' + h(title) + '" loading="eager" decoding="async" fetchpriority="high"><span class="article-cover-shade" aria-hidden="true"></span><span class="article-cover-ring" aria-hidden="true"></span><a class="article-cover-action" href="' + h(normalizedImage) + '" data-shell-image-lightbox data-image-alt="' + h(title) + '" aria-label="Open full-size article image"><span aria-hidden="true">↗</span><span>View full image</span></a></figure>'
       : '';
     const date=article.createdAt && !Number.isNaN(Date.parse(article.createdAt)) ? article.createdAt:null;

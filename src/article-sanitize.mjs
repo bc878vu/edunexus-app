@@ -18,7 +18,7 @@
 // with the site. That is a browser rule, not a site bug.)
 // YouTube embeds are allowed too, but ONLY youtube.com/embed/ and
 // youtube-nocookie.com/embed/ URLs with an 11-char id; the id is rebuilt
-// with autoplay=1 forced and every other param dropped. CSP
+// with autoplay=1&rel=0 forced and every other param dropped. CSP
 // frame-src https: already allows YouTube embeds, so no header change
 // is needed.
 
@@ -130,14 +130,15 @@ export function sanitizeArticleHtml(input) {
     if (t === 'iframe') {
       // Article video (2026-11-06): YouTube embeds only. The src must be a
       // youtube.com/embed/ or youtube-nocookie.com/embed/ URL with an
-      // 11-char video id; the id is rebuilt with autoplay=1 forced (autoplay
-      // WITH SOUND) and every other param dropped.
+      // 11-char video id; the id is rebuilt with autoplay=1&rel=0 forced
+      // (autoplay WITH SOUND; rel=0 = related videos only from this channel,
+      // so no song/movie suggestions appear). Every other param dropped.
       // Any other iframe (or a bad id) is dropped entirely.
       const sm = /\bsrc\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
       const src = sm ? (sm[2] ?? sm[3] ?? sm[4] ?? '') : '';
       const ym = /^https:\/\/(?:www\.youtube\.com\/embed\/|www\.youtube-nocookie\.com\/embed\/)([A-Za-z0-9_-]{11})(?:[?#].*)?$/i.exec(src.trim());
       if (!ym) { droppedIframe = true; return ''; }
-      return '<iframe src="https://www.youtube.com/embed/' + ym[1] + '?autoplay=1" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" frameborder="0"></iframe>';
+      return '<iframe src="https://www.youtube.com/embed/' + ym[1] + '?autoplay=1&rel=0" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" frameborder="0"></iframe>';
     }
     if (t === 'span') {
       // User/admin editors set font size via <span style="font-size:16px">.

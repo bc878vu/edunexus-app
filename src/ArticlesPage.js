@@ -57,6 +57,11 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const commentCount = useCommentCount(art.id);
   const excerpt = getExcerpt(art.content);
+  // Video-led article: when the body starts with a video, the video is the hero
+  // and replaces the cover image once the card is expanded (user order 2026-11-06).
+  // The cover stays as the card thumbnail while collapsed.
+  const bodyHtml = enhanceArticleBodyHtml(sanitizeArticleHtml(art.content));
+  const bodyStartsWithVideo = /^\s*<(iframe|video)[\s>]/i.test(bodyHtml);
   const isLong = stripHtml(art.content).length > 280;
   // likedNow: the Supabase branch returns likedBy: [] on reads (likes live in
   // article_likes), so flip the heart locally on a successful toggle.
@@ -153,7 +158,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
       style={{ animationDelay: `${Math.min(idx * 80, 400)}ms` }}
     >
       {/* Cover image - premium full-frame treatment; original remains available in fullscreen */}
-      {art.imageUrl && (
+      {art.imageUrl && !(expanded && bodyStartsWithVideo) && (
         <div
           className="relative w-full h-52 sm:h-64 md:h-80 lg:h-[360px] overflow-hidden bg-slate-950 isolate shadow-inner"
           style={{ width: '100%' }}
@@ -248,7 +253,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
           {expanded ? (
             <div
               className="edx-article-body"
-              dangerouslySetInnerHTML={{ __html: enhanceArticleBodyHtml(sanitizeArticleHtml(art.content)) }}
+              dangerouslySetInnerHTML={{ __html: bodyHtml }}
             />
           ) : (
             <p className="whitespace-pre-wrap">{excerpt}</p>
