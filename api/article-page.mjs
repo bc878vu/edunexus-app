@@ -21,7 +21,12 @@ const articleContentSecurityPolicyBase = standaloneContentSecurityPolicy.include
 // in real browsers (curl ignores CSP, which is why server-side tests passed
 // while every browser attempt failed). Keep this allowlist tight: only our
 // Supabase host, nothing else.
-const articleContentSecurityPolicy = articleContentSecurityPolicyBase + "; connect-src 'self' https://cprpndovdfnkvekewstv.supabase.co;";
+// Article videos (2026-11-06): the base CSP is default-src 'none' with no
+// frame-src/media-src, so YouTube embeds and <video> were blocked on the
+// live article page ("This content is blocked") even though the homepage
+// (vercel.json CSP) plays them. Allow YouTube frames + same-origin/blob/https
+// media only; nothing else widens.
+const articleContentSecurityPolicy = articleContentSecurityPolicyBase + "; connect-src 'self' https://cprpndovdfnkvekewstv.supabase.co; frame-src https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' blob: https:;";
 
 const articlePageStyles = `
 html{color-scheme:light}html.dark{color-scheme:dark}
