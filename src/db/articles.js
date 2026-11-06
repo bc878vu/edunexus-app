@@ -121,6 +121,33 @@ export async function listArticleSummaries({ limit: max = 100 } = {}) {
     );});
 }
 
+/** Admin-only: submitter contact details for guest articles (F4).
+ *  Reads public.article_submissions under the admin's Supabase session
+ *  (authenticated + is_admin() SELECT policy — anon has no SELECT policy,
+ *  so this must never run on a public path). No Firebase fallback: the
+ *  table exists only in Supabase. Returns [] on any error so the admin
+ *  table renders empty instead of breaking the panel. Rows use the same
+ *  {name,email,contact,submitted_at} shape the old extra.submitted_by
+ *  had (minus IP/city, no longer collected), keyed by articleId. */
+export async function listArticleSubmissions() {
+  try {
+    const { data, error } = await supabase.from('article_submissions')
+      .select('article_id,submitter_name,submitter_email,submitter_contact,submitted_at')
+      .order('submitted_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map((r) => ({
+      articleId: r.article_id,
+      name: r.submitter_name,
+      email: r.submitter_email,
+      contact: r.submitter_contact,
+      submitted_at: r.submitted_at,
+    }));
+  } catch (e) {
+    console.warn('listArticleSubmissions failed', e);
+    return [];
+  }
+}
+
 export async function getArticle(id) {
   return withFallback(
     async () => {
@@ -141,12 +168,44 @@ export async function createArticle(data) {
   return withFallback(
     async () => {
       const id = data.id || newId();
-      const row = { id, ...toArticleRow(data) };
+      // F3/F4 (2026-11-06): never trust caller-supplied engagement fields,
+      // and never let submitter PII ride inside articles.extra (anon-
+      // readable via p_art_select). The DB trigger forces is_active=false
+      // + moderation 'pending' for non-admin inserts; contact details go
+      // to the private article_submissions table instead (see below).
+      // NOTE: isActive is deliberately NOT stripped here — the admin path
+      // (App.js BlogTab) passes isActive:true to publish, and the trigger
+      // already skips admin inserts; stripping it would break admin
+      // publishing. A guest passing isActive:true is forced pending
+      // server-side by the trigger.
+      const { likes: _dropLikes, submitter, ...safeData } = data;
+      const row = { id, ...toArticleRow(safeData) };
+      if (row.extra && typeof row.extra === 'object' && !Array.isArray(row.extra)) {
+        const { submitted_by: _dropPII, ...cleanExtra } = row.extra;
+        row.extra = cleanExtra;
+      }
       if (row.likes === undefined) row.likes = 0;
-      if (!row.author) row.author = 'EduNexus';
+      if (!row.author) row.author = 'Visitor';
       if (!row.created_at) row.created_at = nowIso();
       const { error } = await supabase.from('articles').insert(row);
       if (error) throw error;
+      // Private submitter record (admin-only read: authenticated +
+      // is_admin() SELECT policy). Fail-soft ON PURPOSE: the article is
+      // already safely pending with no PII — a failed submissions insert
+      // must never fail the submission, and must never throw here (a throw
+      // would run the Firebase fallback and double-insert the article).
+      if (submitter && (submitter.name || submitter.email)) {
+        try {
+          const { error: subErr } = await supabase.from('article_submissions').insert({
+            article_id: id,
+            submitter_name: String(submitter.name || '').trim() || 'Visitor',
+            submitter_email: String(submitter.email || '').trim(),
+            submitter_contact: String(submitter.contact || '').trim() || null,
+            submitted_at: new Date().toISOString(),
+          });
+          if (subErr) console.warn('article_submissions insert failed', subErr);
+        } catch (e) { console.warn('article_submissions insert failed', e); }
+      }
       return id;
     },
     async () => {

@@ -6,10 +6,12 @@ import { sanitizeArticleHtml, articlePlainText } from './article-sanitize.mjs';
 import { enhanceArticleBodyHtml, handleCodeCopyClick } from './code-highlight.mjs';
 
 // Public "Share your article" form (sign-in-free, like the rest of the site).
-// Flow (user-approved 2026-10-28) — UNCHANGED:
+// Flow (user-approved 2026-10-28; moderation hardened 2026-11-06, F3/F4):
 //   scan first, then upload.
-//   clean  => published immediately (Active)
-//   flagged => saved unpublished, shown to the admin approval queue
+//   EVERY guest article lands pending — the DB trigger forces
+//   is_active=false + moderation 'pending' for non-admin inserts, and
+//   submitter contact details go to the private article_submissions
+//   table, never into articles.extra.
 //
 // Editor (added 2026-10-28 upgrade): mirrors the ADMIN article box — Title,
 // Cover Image URL, a contentEditable rich-text editor with toolbar (font
@@ -249,33 +251,11 @@ export default function ShareArticleForm({ theme, showToast }) {
       return;
     }
     setSending(true);
-    // Visitor network details (admin eyes only, never shown publicly):
-    // the article is submitted straight from the browser to Supabase, so the
-    // site server never sees the request — resolve IP/city/country via a
-    // public lookup, ipapi.co first with ipwho.is as fallback (the live test
-    // showed ipapi.co alone can return nothing). Fail-soft: if every lookup
-    // fails or times out, the submission still goes through without these
-    // fields.
-    let visitorNet = {};
-    const netProviders = [
-      { url: 'https://ipapi.co/json/', pick: (j) => ({ ip: j.ip, city: j.city, country: j.country_name || j.country }) },
-      { url: 'https://ipwho.is/', pick: (j) => ({ ip: j.ip, city: j.city, country: j.country }) },
-    ];
-    for (const p of netProviders) {
-      try {
-        const ctl = new AbortController();
-        const timer = setTimeout(() => ctl.abort(), 3500);
-        const res = await fetch(p.url, { signal: ctl.signal });
-        clearTimeout(timer);
-        if (!res.ok) continue;
-        const j = await res.json();
-        const got = p.pick(j) || {};
-        if (got.ip) visitorNet.ip = String(got.ip);
-        if (got.city) visitorNet.city = String(got.city);
-        if (got.country) visitorNet.country = String(got.country);
-        if (visitorNet.ip) break;
-      } catch (e) { /* try the next provider; submission is never blocked */ }
-    }
+    // NOTE (F4, 2026-11-06): the old IP/city/country lookup was removed.
+    // article_submissions has no columns for it, and collecting it
+    // silently served no feature — only the admin Location/IP columns,
+    // which now show '—'. Name/email/contact still go to the private
+    // article_submissions table via createArticle's submitter object.
     try {
       // Direct guest picture upload (needs SUPABASE-guest-upload.sql run once
       // by the admin; until then the upload fails with a clear message and
@@ -295,31 +275,30 @@ export default function ShareArticleForm({ theme, showToast }) {
       const html = editorHtml();
       // Scan the plain text (same scan categories + flow as before).
       const scan = scanArticleContent({ title, body: articlePlainText(html), imageName: guestFile ? guestFile.name : coverUrl });
-      const clean = scan.status === 'clean';
       const hasUpload = Boolean(uploadedImageUrl);
-      const publishedNow = clean && !hasUpload;
-      const extra = {
-        moderation_status: publishedNow ? 'published' : 'pending',
-        submitted_by: {
-          name: name.trim(),
-          email: email.trim(),
-          contact: contact.trim(),
-          submitted_at: new Date().toISOString(),
-          ...visitorNet,
-        },
-        scan: { status: scan.status, categories: scan.categories },
-      };
+      // Moderation is enforced server-side now (F3 trigger): every guest
+      // article lands pending, whatever the client sends — so send
+      // is_active=false + moderation 'pending' explicitly. Submitter
+      // contact details NEVER go into articles.extra (F4, public-readable);
+      // they travel as a separate submitter object and createArticle
+      // stores them in the private article_submissions table.
       await createArticle({
         title: title.trim(),
         content: html,
         imageUrl: uploadedImageUrl || coverUrl.trim() || undefined,
         author: name.trim(),
-        isActive: publishedNow,
-        extra,
+        isActive: false,
+        extra: {
+          moderation_status: 'pending',
+          scan: { status: scan.status, categories: scan.categories },
+        },
+        submitter: {
+          name: name.trim(),
+          email: email.trim(),
+          contact: contact.trim(),
+        },
       });
-      if (publishedNow) {
-        showToast('Your article is published!', 'success');
-      } else if (hasUpload) {
+      if (hasUpload) {
         showToast('Your article was sent for admin approval — uploaded pictures are reviewed by the admin first.', 'info');
       } else {
         showToast('Your article was sent for admin approval and will appear after review.', 'info');
@@ -349,9 +328,9 @@ export default function ShareArticleForm({ theme, showToast }) {
       {open && (
         <div className="px-4 sm:px-6 pb-6">
           <p className={`text-sm ${theme.textMuted} mb-4`}>
-            Anyone can share an article. Every article is scanned before publishing:
-            clean articles publish immediately, flagged ones go to admin approval.
-            Uploaded pictures are reviewed by the admin first.
+            Anyone can share an article. Every article is scanned and reviewed
+            by the admin before publishing. Uploaded pictures are reviewed by
+            the admin first.
             No Islamophobic, sexual, political, anti-country, anti-army or
             personal-attack content is published.
           </p>

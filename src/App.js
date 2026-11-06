@@ -125,7 +125,7 @@ import {
   setHighlightActive, countHighlights, subscribeHighlights
 } from './db/highlights';
 import {
-  listArticles, listArticleSummaries, getArticle, createArticle, updateArticle, deleteArticle, countArticles, subscribeArticles
+  listArticles, listArticleSummaries, listArticleSubmissions, getArticle, createArticle, updateArticle, deleteArticle, countArticles, subscribeArticles
 } from './db/articles';
 import { readCatalogFromSupabase } from './examCatalogCounts';
 
@@ -3309,6 +3309,10 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
 
   const BlogTab = () => {
     const [arts, setArts] = useState([]);
+    // Submitter PII, now in article_submissions (F4) — fetched alongside
+    // the summaries so the queue / preview / User details table can show
+    // who submitted each article.
+    const [articleSubs, setArticleSubs] = useState([]);
     const [editId, setEditId] = useState(null);
     const [previewArt, setPreviewArt] = useState(null);
     const [title, setTitle] = useState('');
@@ -3347,6 +3351,8 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
           // hit a backend hiccup / an empty fallback — not "no articles".
           // (Previously every publish/delete flashed "Existing Articles (0)".)
           setArts(prev => (items.length === 0 && prev.length > 0 ? prev : items));
+          // Submitter rows (F4): same refresh cycle as the summaries.
+          try { const subs = await listArticleSubmissions(); if (alive) setArticleSubs(subs); } catch (_) {}
         } catch (_) {}
       };
       refresh();
@@ -3725,20 +3731,27 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const toolbarBtn = "p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm min-w-[32px] text-center";
 
     // --- Admin article stats / sort / filter (added 2026-10-28) ---
+    // Submitter lookup (F4): article_submissions rows keyed by article id,
+    // same {name,email,contact,submitted_at} shape the old extra.submitted_by
+    // had (minus IP/city, no longer collected). Legacy extra.submitted_by
+    // is kept as a fallback for the Firestore branch / pre-scrub rows.
+    const subByArticleId = {};
+    articleSubs.forEach((s) => { if (s.articleId && !subByArticleId[s.articleId]) subByArticleId[s.articleId] = s; });
+    const subOf = (a) => subByArticleId[a.id] || (a.extra && a.extra.submitted_by) || {};
     // Status derivation (same rule as the user-details table below).
     const artStatusOf = (a) => (a.extra && a.extra.moderation_status) || (a.isActive === false ? 'disabled' : 'published');
     const artDateOf = (a) => {
-      const raw = (a.extra && a.extra.submitted_by && a.extra.submitted_by.submitted_at) || a.createdAt;
+      const raw = subOf(a).submitted_at || a.createdAt;
       const d = raw && raw.toDate ? raw.toDate() : new Date(raw);
       return Number.isNaN(d.getTime()) ? null : d;
     };
     const statusCounts = { published: 0, pending: 0, rejected: 0, disabled: 0 };
     arts.forEach((a) => { const s = artStatusOf(a); if (statusCounts[s] !== undefined) statusCounts[s]++; });
     const totalArts = arts.length || 1;
-    const guestPublished = arts.filter((a) => a.extra && a.extra.submitted_by && artStatusOf(a) === 'published').length;
+    const guestPublished = arts.filter((a) => subByArticleId[a.id] && artStatusOf(a) === 'published').length;
     const adminPublished = Math.max(0, statusCounts.published - guestPublished);
     const guestAuthorCounts = {};
-    arts.forEach((a) => { if (a.extra && a.extra.submitted_by && artStatusOf(a) === 'published') { const nm = ((a.extra.submitted_by.name || 'Visitor').trim() || 'Visitor'); guestAuthorCounts[nm] = (guestAuthorCounts[nm] || 0) + 1; } });
+    arts.forEach((a) => { if (subByArticleId[a.id] && artStatusOf(a) === 'published') { const nm = ((subOf(a).name || 'Visitor').trim() || 'Visitor'); guestAuthorCounts[nm] = (guestAuthorCounts[nm] || 0) + 1; } });
     const topGuestAuthors = Object.entries(guestAuthorCounts).sort((x, y) => y[1] - x[1]).slice(0, 3);
     // Submissions in the last 30 days, in 4 weekly buckets (CSS bars).
     const weekBuckets = [0, 0, 0, 0];
@@ -3756,7 +3769,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
         const q = artSearch.trim().toLowerCase();
         const hay = String(a.title || '').toLowerCase() + ' ' +
           String(a.author || '').toLowerCase() + ' ' +
-          String((a.extra && a.extra.submitted_by && a.extra.submitted_by.name) || '').toLowerCase();
+          String(subOf(a).name || '').toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -3957,7 +3970,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>⏳ Approval queue — flagged user articles ({arts.filter(a => a.extra && a.extra.moderation_status === 'pending').length})</h3>
             <div className="space-y-3">
               {arts.filter(a => a.extra && a.extra.moderation_status === 'pending').map(a => {
-                const sub = (a.extra && a.extra.submitted_by) || {};
+                const sub = subOf(a);
                 const cats = (a.extra && a.extra.scan && a.extra.scan.categories) || [];
                 const decide = async (ok) => {
                   await updateArticle(a.id, {
@@ -3986,7 +3999,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
         )}
 
         {previewArt && (() => {
-          const psub = (previewArt.extra && previewArt.extra.submitted_by) || {};
+          const psub = subByArticleId[previewArt.id] || (previewArt.extra && previewArt.extra.submitted_by) || {};
           const pcats = (previewArt.extra && previewArt.extra.scan && previewArt.extra.scan.categories) || [];
           const pscan = (previewArt.extra && previewArt.extra.scan && previewArt.extra.scan.status) || '—';
           const pstatus = (previewArt.extra && previewArt.extra.moderation_status) || (previewArt.isActive === false ? 'disabled' : 'published');
@@ -4025,11 +4038,14 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             </div>
           );
         })()}
-        {/* User details table (added 2026-10-28): full information of every
-            user who submitted an article, as saved in the database. */}
-        {arts.some(a => a.extra && a.extra.submitted_by) && (
+        {/* User details table (added 2026-10-28; re-pointed 2026-11-06, F4):
+            submitter contact details now come from the private
+            article_submissions table (joined on article_id), not from
+            articles.extra — which no longer holds PII. Location / IP
+            columns stay as '—': that data is no longer collected. */}
+        {articleSubs.length > 0 && (
           <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} lg:col-span-2`}>
-            <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>👥 User details — article submissions ({arts.filter(a => a.extra && a.extra.submitted_by).length})</h3>
+            <h3 className={`font-bold ${theme.text} mb-4 text-lg`}>👥 User details — article submissions ({articleSubs.length})</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs min-w-[1000px]">
                 <thead>
@@ -4047,20 +4063,21 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {arts.filter(a => a.extra && a.extra.submitted_by).map(a => {
-                    const sub = a.extra.submitted_by || {};
-                    const scan = (a.extra.scan && a.extra.scan.status) || '—';
-                    const status = a.extra.moderation_status || (a.isActive === false ? 'disabled' : 'published');
+                  {articleSubs.map(s => {
+                    const a = arts.find(x => x.id === s.articleId) || {};
+                    const sub = s;
+                    const scan = (a.extra && a.extra.scan && a.extra.scan.status) || '—';
+                    const status = (a.extra && a.extra.moderation_status) || (a.isActive === false ? 'disabled' : 'published');
                     return (
-                      <tr key={a.id} className="border-t">
+                      <tr key={s.articleId} className="border-t">
                         <td className="p-2 font-bold">{sub.name || '—'}</td>
                         <td className="p-2">{sub.email || '—'}</td>
                         <td className="p-2">{sub.contact || '—'}</td>
-                        <td className="p-2">{String(a.title)}</td>
-                        <td className="p-2 font-mono" title={a.id}>{String(a.id).slice(0, 8)}…</td>
-                        <td className="p-2">{sub.submitted_at ? formatDate(sub.submitted_at) : formatDate(a.createdAt)}</td>
-                        <td className="p-2">{[sub.city, sub.country].filter(Boolean).join(', ') || '—'}</td>
-                        <td className="p-2">{sub.ip || '—'}</td>
+                        <td className="p-2">{a.title ? String(a.title) : '—'}</td>
+                        <td className="p-2 font-mono" title={s.articleId}>{String(s.articleId).slice(0, 8)}…</td>
+                        <td className="p-2">{sub.submitted_at ? formatDate(sub.submitted_at) : (a.createdAt ? formatDate(a.createdAt) : '—')}</td>
+                        <td className="p-2">—</td>
+                        <td className="p-2">—</td>
                         <td className="p-2">{scan}</td>
                         <td className="p-2">{status}</td>
                       </tr>
