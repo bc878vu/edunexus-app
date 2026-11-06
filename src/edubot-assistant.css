@@ -1,7 +1,8 @@
 /* EduBot is additive: preserve existing EduNexus navigation, pages and footer. */
 .edx-bot-root{position:relative;z-index:1000;font-family:inherit;--edx-bot-purple:#5145df;--edx-bot-border:rgba(148,163,184,.34);--edx-bot-text:#16213b;--edx-bot-panel:#fff;color:var(--edx-bot-text)}
-.edx-bot-fab{position:fixed;bottom:clamp(18px,3vw,35px);right:clamp(12px,2.5vw,34px);display:grid;gap:12px;justify-items:center;z-index:1000}
-.edx-bot-fab>*{height:55px;width:55px;display:grid;place-items:center;border:0;border-radius:50%;color:white;text-decoration:none;box-shadow:0 12px 30px rgba(15,23,42,.18);cursor:pointer;transition:transform .18s ease}
+.edx-bot-fab{position:fixed;bottom:clamp(18px,3vw,35px);right:clamp(12px,2.5vw,34px);display:grid;gap:10px;justify-items:center;z-index:1000}
+.edx-bot-fab>*{height:clamp(42px,4.5vw,48px);width:clamp(42px,4.5vw,48px);display:grid;place-items:center;border:0;border-radius:50%;color:white;text-decoration:none;box-shadow:0 12px 30px rgba(15,23,42,.18);cursor:pointer;transition:transform .18s ease}
+.edx-bot-fab>* svg{width:22px;height:22px}
 .edx-bot-fab>*:hover{transform:translateY(-2px)}
 .edx-bot-group-button{background:#16a34a}
 .edx-bot-open-button{background:linear-gradient(135deg,#4f46e5,#7846f5)}
@@ -35,7 +36,7 @@
 .edx-bot-compose button:disabled{opacity:.48;cursor:not-allowed}
 .edx-bot-disclaimer{font-size:.66rem;color:#63708b;line-height:1.42;background:#fff;margin:0;padding:0 12px 10px}
 .edx-bot-root button:focus-visible,.edx-bot-root a:focus-visible,.edx-bot-root textarea:focus-visible,.edx-bot-root select:focus-visible{outline:3px solid #a5b4fc;outline-offset:2px}
-@media(max-width:510px){.edx-bot-panel{bottom:105px;right:8px;left:8px;width:auto;height:min(655px,calc(100dvh - 116px));border-radius:18px}.edx-bot-fab{right:12px;bottom:15px;grid-auto-flow:column}.edx-bot-fab>*{height:49px;width:49px}.edx-bot-heading{padding:12px}.edx-bot-tools{gap:7px}}
+@media(max-width:510px){.edx-bot-panel{bottom:105px;right:8px;left:8px;width:auto;height:min(655px,calc(100dvh - 116px));border-radius:18px}.edx-bot-fab{right:12px;bottom:15px;grid-auto-flow:column;gap:8px}.edx-bot-fab>*{height:clamp(36px,9vw,40px);width:clamp(36px,9vw,40px)}.edx-bot-fab>* svg{width:19px;height:19px}.edx-bot-heading{padding:12px}.edx-bot-tools{gap:7px}}
 @media(max-height:530px){.edx-bot-panel{bottom:8px;height:calc(100dvh - 16px);min-height:0;right:76px;width:min(430px,calc(100vw - 88px))}}
 @media(prefers-reduced-motion:reduce){.edx-bot-root *{animation:none!important;transition:none!important}}
 
