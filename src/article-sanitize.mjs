@@ -11,10 +11,14 @@
 // It also tolerates bodies that were stored entity-encoded ("&lt;h2&gt;").
 //
 // Added 2026-11-06 (article video support): <video> + <source> are allowed
-// with a safe subset (https or site-relative src, controls, preload=metadata,
-// https poster, video/mp4|webm|ogg type only). No autoplay/loop/muted, no
-// iframes (YouTube embeds stay blocked). CSP media-src 'self' blob: https:
-// already allows same-origin and https video, so no header change is needed.
+// with a safe subset (https or site-relative src, controls, https poster,
+// video/mp4|webm|ogg type only). All site videos autoplay muted (autoplay +
+// muted + playsinline are forced — browsers block autoplay with sound).
+// YouTube embeds are allowed too, but ONLY youtube.com/embed/ and
+// youtube-nocookie.com/embed/ URLs with an 11-char id; the id is rebuilt
+// with autoplay=1&mute=1 forced and every other param dropped. CSP
+// frame-src https: already allows YouTube embeds, so no header change
+// is needed.
 
 const ALLOWED_TAGS = new Set([
   'h2', 'h3', 'h4',
@@ -31,6 +35,9 @@ const ALLOWED_TAGS = new Set([
   // Added 2026-11-06 (article video support): video + source, handled
   // specially below (safe src/attrs only, all else stripped).
   'video', 'source',
+  // Added 2026-11-06 (autoplay videos): YouTube iframes only, handled
+  // specially below (embed URL + forced autoplay/mute, all else stripped).
+  'iframe',
 ]);
 
 // Unwrap headings that wrongly wrap whole blocks — a paste artifact from the
@@ -40,9 +47,9 @@ const ALLOWED_TAGS = new Set([
 export function unwrapNestedHeadings(input) {
   return String(input ?? '').replace(/<(h2|h3|h4)>((?:\s*<(p|ul|ol|div|blockquote)\b[\s\S]*?<\/\3\s*>)+)\s*<\/\1\s*>/gi, '$2');
 }
-const DANGEROUS_BLOCK = /<(script|style|iframe|object|embed|form|input|button|textarea|select|option|link|meta|base|noscript|template|frame|frameset|applet|canvas|svg|math|picture)\b[\s\S]*?<\/\1\s*>/gi;
+const DANGEROUS_BLOCK = /<(script|style|object|embed|form|input|button|textarea|select|option|link|meta|base|noscript|template|frame|frameset|applet|canvas|svg|math|picture)\b[\s\S]*?<\/\1\s*>/gi;
 // Stray dangerous tags (self-closed or unclosed).
-const DANGEROUS_TAG = /<(script|style|iframe|object|embed|link|meta|base|form|input|button|textarea|select|option|canvas|svg)\b[^>]*\/?>/gi;
+const DANGEROUS_TAG = /<(script|style|object|embed|link|meta|base|form|input|button|textarea|select|option|canvas|svg)\b[^>]*\/?>/gi;
 
 const BLOCK_CLOSE = /<\/(h2|h3|h4|p|li|ul|ol|div|blockquote|tr|table)>/gi;
 
@@ -67,8 +74,9 @@ export function sanitizeArticleHtml(input) {
   s = unwrapNestedHeadings(s);
   s = s.replace(DANGEROUS_BLOCK, '').replace(DANGEROUS_TAG, '');
   // A <video> whose opening tag was dropped (bad src) must not leak its
-  // closing tag into the output.
+  // closing tag into the output. Same guard for a dropped <iframe>.
   let droppedVideo = false;
+  let droppedIframe = false;
   s = s.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^<>]*)>/g, (m, tag, attrs) => {
     const t = tag.toLowerCase();
     const isClose = m.charAt(1) === '/';
@@ -78,6 +86,7 @@ export function sanitizeArticleHtml(input) {
       // closer too.
       if (t === 'source') return '';
       if (t === 'video' && droppedVideo) { droppedVideo = false; return ''; }
+      if (t === 'iframe' && droppedIframe) { droppedIframe = false; return ''; }
       return '</' + t + '>';
     }
     if (t === 'br' || t === 'hr') return '<' + t + '>';
@@ -91,8 +100,9 @@ export function sanitizeArticleHtml(input) {
     }
     if (t === 'video') {
       // Article video (2026-11-06): https or site-relative src only, always
-      // with controls + preload=metadata, optional https poster. No autoplay,
-      // loop, muted or any other attribute — those are dropped.
+      // with controls + autoplay muted playsinline preload=auto (all site
+      // videos autoplay muted). Optional https poster. Any other attribute
+      // is dropped.
       const sm = /\bsrc\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
       const src = sm ? (sm[2] ?? sm[3] ?? sm[4] ?? '') : '';
       // A <video> may carry its media via <source> children instead of src;
@@ -102,7 +112,7 @@ export function sanitizeArticleHtml(input) {
       const pm = /\bposter\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
       const poster = pm ? (pm[2] ?? pm[3] ?? pm[4] ?? '') : '';
       const posterAttr = /^https:\/\//i.test(poster.trim()) ? ' poster="' + escapeAttr(poster.trim()) + '"' : '';
-      return '<video' + srcAttr + ' controls preload="metadata"' + posterAttr + '>';
+      return '<video' + srcAttr + ' controls autoplay muted playsinline preload="auto"' + posterAttr + '>';
     }
     if (t === 'source') {
       // <source> inside <video>: https src + video/mp4|webm|ogg type only.
@@ -114,6 +124,18 @@ export function sanitizeArticleHtml(input) {
       const type = tm ? (tm[2] ?? tm[3] ?? tm[4] ?? '') : '';
       const typeAttr = /^video\/(mp4|webm|ogg)$/i.test(type.trim()) ? ' type="' + escapeAttr(type.trim()) + '"' : '';
       return '<source src="' + escapeAttr(src.trim()) + '"' + typeAttr + '>';
+    }
+    if (t === 'iframe') {
+      // Article video (2026-11-06): YouTube embeds only. The src must be a
+      // youtube.com/embed/ or youtube-nocookie.com/embed/ URL with an
+      // 11-char video id; the id is rebuilt with autoplay=1&mute=1 forced
+      // (all site videos autoplay muted) and every other param dropped.
+      // Any other iframe (or a bad id) is dropped entirely.
+      const sm = /\bsrc\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
+      const src = sm ? (sm[2] ?? sm[3] ?? sm[4] ?? '') : '';
+      const ym = /^https:\/\/(?:www\.youtube\.com\/embed\/|www\.youtube-nocookie\.com\/embed\/)([A-Za-z0-9_-]{11})(?:[?#].*)?$/i.exec(src.trim());
+      if (!ym) { droppedIframe = true; return ''; }
+      return '<iframe src="https://www.youtube.com/embed/' + ym[1] + '?autoplay=1&mute=1" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" frameborder="0"></iframe>';
     }
     if (t === 'span') {
       // User/admin editors set font size via <span style="font-size:16px">.

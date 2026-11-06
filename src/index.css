@@ -90,6 +90,7 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
 .edx-article-body th { background: #eef2ff; }
 .edx-article-body img { max-width: 100%; height: auto; border-radius: 12px; }
 .edx-article-body video { width: 100%; max-width: 100%; height: auto; border-radius: 12px; margin: 1em 0; background: #0f172a; }
+.edx-article-body iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; margin: 1em 0; background: #0f172a; }
 
 /* Dark theme: article tables must keep readable text on dark surfaces.
    Without these, th keeps its light #eef2ff background while inheriting
