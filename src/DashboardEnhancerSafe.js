@@ -118,7 +118,7 @@ function FloatingResourceButton({ hidden = false }) {
     if (hidden) return;
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const orbSize = width <= 768 ? 70 : 88;
+    const orbSize = width <= 768 ? 58 : 68;
     const sideMargin = width <= 480 ? 12 : 16;
     const topSafe = width <= 639 ? 78 : 86;
     const bottomSafe = width <= 768 ? 112 : 132;
@@ -174,8 +174,8 @@ function FloatingResourceButton({ hidden = false }) {
       aria-label={`Open ${resource.label}`}
       title={`Open ${resource.label}`}
       style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
+        '--orb-x': `${position.x}px`,
+        '--orb-y': `${position.y}px`,
         '--move-duration': `${2.1 + sizeLevel * 0.5}s`,
       }}
       onClick={handleClick}
