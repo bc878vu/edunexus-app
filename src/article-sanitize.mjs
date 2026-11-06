@@ -12,11 +12,13 @@
 //
 // Added 2026-11-06 (article video support): <video> + <source> are allowed
 // with a safe subset (https or site-relative src, controls, https poster,
-// video/mp4|webm|ogg type only). All site videos autoplay muted (autoplay +
-// muted + playsinline are forced — browsers block autoplay with sound).
+// video/mp4|webm|ogg type only). All site videos autoplay WITH SOUND (autoplay +
+// playsinline are forced; browsers may still pause autoplay with sound for
+// first-time visitors — Chrome only allows it after the visitor has interacted
+// with the site. That is a browser rule, not a site bug.)
 // YouTube embeds are allowed too, but ONLY youtube.com/embed/ and
 // youtube-nocookie.com/embed/ URLs with an 11-char id; the id is rebuilt
-// with autoplay=1&mute=1 forced and every other param dropped. CSP
+// with autoplay=1 forced and every other param dropped. CSP
 // frame-src https: already allows YouTube embeds, so no header change
 // is needed.
 
@@ -100,8 +102,8 @@ export function sanitizeArticleHtml(input) {
     }
     if (t === 'video') {
       // Article video (2026-11-06): https or site-relative src only, always
-      // with controls + autoplay muted playsinline preload=auto (all site
-      // videos autoplay muted). Optional https poster. Any other attribute
+      // with controls + autoplay playsinline preload=auto (autoplay WITH SOUND).
+      // Optional https poster. Any other attribute
       // is dropped.
       const sm = /\bsrc\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
       const src = sm ? (sm[2] ?? sm[3] ?? sm[4] ?? '') : '';
@@ -112,7 +114,7 @@ export function sanitizeArticleHtml(input) {
       const pm = /\bposter\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
       const poster = pm ? (pm[2] ?? pm[3] ?? pm[4] ?? '') : '';
       const posterAttr = /^https:\/\//i.test(poster.trim()) ? ' poster="' + escapeAttr(poster.trim()) + '"' : '';
-      return '<video' + srcAttr + ' controls autoplay muted playsinline preload="auto"' + posterAttr + '>';
+      return '<video' + srcAttr + ' controls autoplay playsinline preload="auto"' + posterAttr + '>';
     }
     if (t === 'source') {
       // <source> inside <video>: https src + video/mp4|webm|ogg type only.
@@ -128,14 +130,14 @@ export function sanitizeArticleHtml(input) {
     if (t === 'iframe') {
       // Article video (2026-11-06): YouTube embeds only. The src must be a
       // youtube.com/embed/ or youtube-nocookie.com/embed/ URL with an
-      // 11-char video id; the id is rebuilt with autoplay=1&mute=1 forced
-      // (all site videos autoplay muted) and every other param dropped.
+      // 11-char video id; the id is rebuilt with autoplay=1 forced (autoplay
+      // WITH SOUND) and every other param dropped.
       // Any other iframe (or a bad id) is dropped entirely.
       const sm = /\bsrc\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '');
       const src = sm ? (sm[2] ?? sm[3] ?? sm[4] ?? '') : '';
       const ym = /^https:\/\/(?:www\.youtube\.com\/embed\/|www\.youtube-nocookie\.com\/embed\/)([A-Za-z0-9_-]{11})(?:[?#].*)?$/i.exec(src.trim());
       if (!ym) { droppedIframe = true; return ''; }
-      return '<iframe src="https://www.youtube.com/embed/' + ym[1] + '?autoplay=1&mute=1" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" frameborder="0"></iframe>';
+      return '<iframe src="https://www.youtube.com/embed/' + ym[1] + '?autoplay=1" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" frameborder="0"></iframe>';
     }
     if (t === 'span') {
       // User/admin editors set font size via <span style="font-size:16px">.
