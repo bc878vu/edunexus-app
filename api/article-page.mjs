@@ -87,7 +87,7 @@ export default async function handler(req,res){
   const id=String(req.query?.id||'');
   if(!validId(id))return res.status(404).send('Article not found');
   res.setHeader('Content-Type','text/html; charset=utf-8');
-  res.setHeader('Cache-Control','public, s-maxage=180, stale-while-revalidate=900');
+  res.setHeader('Cache-Control','public, max-age=0, s-maxage=180, stale-while-revalidate=900');
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Content-Security-Policy', articleContentSecurityPolicy);
   if(req.method==='HEAD')return res.status(200).end();

@@ -1,6 +1,6 @@
 // Only content-hashed build files use cache-first. Mutable pages, sitemaps and
 // APIs remain network-first so a new deployment is not hidden by an old shell.
-const CACHE = 'edunexus-static-v4';
+const CACHE = 'edunexus-static-v5';
 const STATIC_EXT = /\.(?:js|css|png|jpg|jpeg|webp|svg|ico|woff2?|ttf)$/i;
 const IMMUTABLE_BUILD = /^\/static\/(?:js|css|media)\/.*\.[a-f0-9]{8,}\./i;
 
@@ -26,7 +26,10 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).then((response) => {
+      // 'reload' bypasses the browser HTTP cache: a stale cached article page
+      // (old CSP) must never hide a new deployment. The SW itself is
+      // network-first for navigations; without this the HTTP cache defeats it.
+      fetch(request, { cache: 'reload' }).then((response) => {
         if (response.ok && response.type === 'basic') {
           const copy = response.clone();
           caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
