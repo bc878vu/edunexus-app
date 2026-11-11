@@ -153,7 +153,8 @@ const fileLinks = (f) => {
   return { source, preview: image || pdf ? source : '', download: source, kind: image ? 'image' : pdf ? 'pdf' : f.isLinkOnly && ext === 'LINK' ? 'external-link' : 'external', direct: url.origin === window.location.origin };
 };
 const safeFileName = (f) => {
-  const base = String(f.originalFilename || nameOf(f)).replace(/[\\/:*?"<>|]/g, '_').split('').filter((ch) => ch.charCodeAt(0) >= 32).join('').slice(0, 120);
+  // Download name = the name shown on the website (full SEO title), not the uploaded filename.
+  const base = String(nameOf(f) || f.originalFilename).replace(/[\\/:*?"<>|]/g, '_').split('').filter((ch) => ch.charCodeAt(0) >= 32).join('').slice(0, 120);
   const ext = extOf(f).toLowerCase();
   return ext && ext !== 'link' && !base.toLowerCase().endsWith('.' + ext) ? base + '.' + ext : base;
 };

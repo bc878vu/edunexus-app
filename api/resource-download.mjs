@@ -43,7 +43,16 @@ export default async function handler(req, res) {
     if (typeof req.headers.range === 'string' && /^bytes=\d*-\d*$/.test(req.headers.range)) headers.Range = req.headers.range;
     const response = await fetch(upstreamUrl, { method: req.method, headers, redirect: 'error' });
     if (![200, 206].includes(response.status)) return res.status(response.status === 404 ? 404 : 502).end();
-    const filename = String(file.originalFilename || file.name || 'resource').replace(/[\r\n/"\\]/g, '_').slice(0, 120);
+    // Download name = the name shown on the website (the full SEO title, incl.
+    // EduNexus), not the uploaded file's name. Keep the real extension and
+    // strip characters illegal in Windows filenames (| : * ? " < > / \).
+    const extMatch = String(file.originalFilename || '').match(/(\.[A-Za-z0-9]{1,10})$/);
+    const ext = extMatch ? extMatch[1] : (file.ext ? '.' + String(file.ext).replace(/[^A-Za-z0-9]/g, '') : '');
+    const displayName = String(file.name || file.originalFilename || 'resource')
+      .replace(/[\r\n/"\\:*?<>|]/g, '_').replace(/\s+/g, ' ').trim() || 'resource';
+    const stem = ext && displayName.toLowerCase().endsWith(ext.toLowerCase())
+      ? displayName.slice(0, -ext.length) : displayName;
+    const filename = stem.slice(0, Math.max(1, 120 - ext.length)) + ext;
     res.status(response.status);
     res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
     res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(filename));
