@@ -92,9 +92,14 @@ test('direct and legacy page URLs resolve to one application route', () => {
   assert.equal(routeFromLocation(new URL('/?page=academic&file=abc', 'https://example.test')), 'academic');
   assert.equal(routeFromLocation(new URL('/?page=exam-prep&section=reviews', 'https://example.test')), 'exam-prep');
   assert.equal(routeFromLocation(new URL('/?page=unknown', 'https://example.test')), 'home');
-  assert.equal(navActivePage('guides'), 'academic');
-  assert.equal(navActivePage('tutorials'), 'academic');
-  assert.equal(navActivePage('projects'), 'portfolio');
+  // Content pages have no navbar pill of their own — they must not light up
+  // "Academic Hub" (or "Portfolio" for projects) by mistake.
+  assert.equal(navActivePage('guides'), null);
+  assert.equal(navActivePage('tutorials'), null);
+  assert.equal(navActivePage('projects'), null);
+  assert.equal(navActivePage('exam-preparation'), null);
+  assert.equal(navActivePage('academic'), 'academic');
+  assert.equal(navActivePage('forum'), 'forum');
 });
 
 test('pretty parameterized routes resolve and ?page= keeps precedence', () => {

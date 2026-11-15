@@ -389,7 +389,7 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       <div className="edx-practice-setup" role="group" aria-label="Customize this practice attempt">
         <label className="edx-exam-field">Number of questions
           <select value={desiredCount} onChange={e=>setDesiredCount(e.target.value)}>
-            <option value="all">All available ({questions.length})</option>
+            <option value="all">{(loading || restoring) ? "Loading questions…" : "All available (" + questions.length + ")"}</option>
             {[5,10,20,30,50,100].filter(n=>n<=questions.length).map(n=><option key={n} value={String(n)}>{n} questions</option>)}
             <option value="custom">Custom count…</option>
           </select>
@@ -406,8 +406,8 @@ export default function ExamMcqPractice({ user, subject, term, onSubjectChange, 
       </div>
       <label className="edx-exam-field edx-practice-search-field">Search questions <span className="edx-practice-search"><Search size={17}/>
         <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Find a question or topic…"/></span></label>
-      <div className="edx-practice-toolbar-right"><span className="edx-exam-pill">{CATEGORY_NAMES[term] || term}</span><span className="edx-exam-pill">Answered: {stats.answered}/{actualQuestions.length}</span>
-        <span className="edx-exam-pill">Score: {stats.score}/{stats.answered}</span>
+      <div className="edx-practice-toolbar-right"><span className="edx-exam-pill">{CATEGORY_NAMES[term] || term}</span><span className="edx-exam-pill">Answered: {(loading || restoring) ? "…" : stats.answered + "/" + actualQuestions.length}</span>
+        <span className="edx-exam-pill">Score: {(loading || restoring) ? "…" : stats.score + "/" + stats.answered}</span>
         {!finished && actualQuestions.length > 0 && <button type="button" className="edx-exam-primary" onClick={finish}>Finish now</button>}</div>
       <p className="edx-practice-key-note">Score follows the saved answer key for this practice bank.</p>
       {search.trim() && <div className="edx-practice-results"><strong>{matches.length} matching questions{matches.length === 80 ? ' (first 80)' : ''}</strong>

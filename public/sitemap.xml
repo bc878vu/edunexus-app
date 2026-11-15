@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://edunexus-app.vercel.app/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
-  <url><loc>https://edunexus-app.vercel.app/vu-notes</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
   <url><loc>https://edunexus-app.vercel.app/handouts</loc><changefreq>daily</changefreq><priority>0.85</priority></url>
-  <url><loc>https://edunexus-app.vercel.app/past-papers</loc><changefreq>daily</changefreq><priority>0.85</priority></url>
-  <url><loc>https://edunexus-app.vercel.app/quizzes</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://edunexus-app.vercel.app/cgpa-calculator</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://edunexus-app.vercel.app/ai-tools</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://edunexus-app.vercel.app/articles</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
@@ -19,12 +16,6 @@
   <url><loc>https://edunexus-app.vercel.app/exam-prep</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
   <url><loc>https://edunexus-app.vercel.app/mcq-bank</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
   <url><loc>https://edunexus-app.vercel.app/paper-reviews</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
-  <url><loc>https://edunexus-app.vercel.app/exam-prep/CS101/Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://edunexus-app.vercel.app/exam-prep/CS201/Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://edunexus-app.vercel.app/exam-prep/CS504/Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://edunexus-app.vercel.app/exam-prep/CS511/Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://edunexus-app.vercel.app/exam-prep/CS609/Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://edunexus-app.vercel.app/exam-prep/CS620/Finalterm</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://edunexus-app.vercel.app/forum</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
   <url><loc>https://edunexus-app.vercel.app/portfolio</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://edunexus-app.vercel.app/live-projects</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>

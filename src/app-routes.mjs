@@ -103,6 +103,10 @@ export function pathForPage(page) {
 }
 
 export function navActivePage(page) {
-  if (CONTENT_PAGE_IDS.includes(page) || page === 'tutorials') return page === 'projects' ? 'portfolio' : 'academic';
+  // Content pages (study guides, exam-prep guides, resources, live projects,
+  // tutorials) have NO navbar pill of their own — highlighting "Academic Hub"
+  // (or "Portfolio" for projects) for them was wrong and misleading.
+  // Returning null means no pill is highlighted on those pages.
+  if (CONTENT_PAGE_IDS.includes(page) || page === 'tutorials') return null;
   return page;
 }

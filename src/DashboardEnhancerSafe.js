@@ -114,39 +114,32 @@ function FloatingResourceButton({ hidden = false }) {
     setResourceIndex((index) => Math.min(index, Math.max(0, resources.length - 1)));
   }, [resources.length]);
 
-  const moveButton = useCallback(() => {
+  // Parked bottom-left (2026-11-15 audit): the orb used to jump to a random
+  // spot every 3.2s and cover headings, text and buttons. It now stays in
+  // one corner — same quick links, only the label cycles.
+  const parkButton = useCallback(() => {
     if (hidden) return;
     const width = window.innerWidth;
     const height = window.innerHeight;
     const orbSize = width <= 768 ? 58 : 68;
     const sideMargin = width <= 480 ? 12 : 16;
-    const topSafe = width <= 639 ? 78 : 86;
-    const bottomSafe = width <= 768 ? 112 : 132;
-
-    const maxX = Math.max(sideMargin, width - orbSize - sideMargin);
-    const maxY = Math.max(topSafe, height - orbSize - bottomSafe);
-    const x = sideMargin + Math.random() * Math.max(1, maxX - sideMargin);
-    const y = topSafe + Math.random() * Math.max(1, maxY - topSafe);
-
-    setPosition({ x: Math.round(x), y: Math.round(y) });
-    setSizeLevel((level) => (level + 1) % 3);
+    const bottomMargin = 24;
+    setPosition({ x: sideMargin, y: Math.max(80, height - orbSize - bottomMargin) });
   }, [hidden]);
 
   useEffect(() => {
     if (hidden || !resources.length) return undefined;
-    moveButton();
-    const moveTimer = window.setInterval(moveButton, 3200);
+    parkButton();
     const labelTimer = window.setInterval(
       () => setResourceIndex((index) => (index + 1) % resources.length),
       2400,
     );
-    window.addEventListener('resize', moveButton, { passive: true });
+    window.addEventListener('resize', parkButton, { passive: true });
     return () => {
-      window.clearInterval(moveTimer);
       window.clearInterval(labelTimer);
-      window.removeEventListener('resize', moveButton);
+      window.removeEventListener('resize', parkButton);
     };
-  }, [hidden, moveButton, resources.length]);
+  }, [hidden, parkButton, resources.length]);
 
   if (hidden || !resources.length) return null;
 

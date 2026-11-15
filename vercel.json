@@ -54,6 +54,21 @@
   ],
   "redirects": [
     {
+      "source": "/past-papers",
+      "destination": "/handouts",
+      "permanent": true
+    },
+    {
+      "source": "/vu-notes",
+      "destination": "/handouts",
+      "permanent": true
+    },
+    {
+      "source": "/quizzes",
+      "destination": "/ai-tools",
+      "permanent": true
+    },
+    {
       "source": "/(.*)",
       "has": [
         {

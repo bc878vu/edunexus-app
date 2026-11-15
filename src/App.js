@@ -380,7 +380,7 @@ const Navbar = ({
           supports-[backdrop-filter]:backdrop-blur-2xl
         `}
       >
-        <div className="max-w-[1450px] mx-auto px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3">
+        <div className="max-w-[1560px] mx-auto px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3">
           {/* Brand — custom unique EduNexus logo */}
           <a
             href="/"
@@ -435,7 +435,7 @@ const Navbar = ({
                 href={item.href}
                 onClick={(e) => { e.preventDefault(); handleNavClick(item.id); }}
                 className={`
-                  relative px-3 sm:px-4 py-1.5 sm:py-2 rounded-full whitespace-nowrap
+                  relative px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full whitespace-nowrap
                   text-[13px] sm:text-[14px] font-bold tracking-wide
                   transition-all duration-300
                   ${
@@ -455,6 +455,15 @@ const Navbar = ({
 
           {/* Right side desktop — admin mode only (no sign-in on this site) */}
           <div className="hidden lg:flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
+            <button
+              type="button"
+              onClick={() => setIsDark(!isDark)}
+              className={`inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full border transition-all ${isDark ? 'border-amber-300/40 text-amber-200 bg-amber-400/10 hover:bg-amber-400/20' : 'border-slate-900/20 text-slate-700 bg-slate-900/[0.05] hover:bg-slate-900/10'} focus:outline-none focus:ring-2 focus:ring-indigo-400/70`}
+              aria-label="Toggle dark / light mode"
+              title="Toggle dark / light mode"
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
             {adminSessionActive && (
               <button
                 type="button"
@@ -646,6 +655,12 @@ const Forum = ({ user, theme, showToast }) => {
   const [newPost, setNewPost] = useState("");
   const [loading, setLoading] = useState(false);
   const [forumReported, setForumReported] = useState({});
+  // Loading state (2026-11-15 audit): the page showed "No discussions yet"
+  // while the fetch was still in flight — a fetch failure must never look
+  // like an empty forum. It now shows a loading line, then an error + Retry.
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [postsError, setPostsError] = useState(false);
+  const [forumReload, setForumReload] = useState(0);
 
   useEffect(() => {
     // sab ko posts dikh sakti hain (anon user bhi), is liye user check optional hai
@@ -658,12 +673,17 @@ const Forum = ({ user, theme, showToast }) => {
         // pinned post can never sink below newer posts on the user side).
         const dateOf = (p) => { const t = p.createdAt; const d = t?.toDate ? t.toDate() : new Date(t); return Number.isNaN(d.getTime()) ? 0 : d.getTime(); };
         setPosts(items.sort((a, b) => ((b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)) || (dateOf(b) - dateOf(a))));
-      } catch (_) {}
+        setPostsError(false);
+      } catch (_) {
+        if (alive) setPostsError(true);
+      } finally {
+        if (alive) setPostsLoading(false);
+      }
     };
     refresh();
     const unsub = subscribeDiscussions({ includeHidden: false, onInvalidate: refresh });
     return () => { alive = false; unsub(); };
-  }, []);
+  }, [forumReload]);
 
   const handlePost = async () => {
     if (!user) {
@@ -758,7 +778,26 @@ const Forum = ({ user, theme, showToast }) => {
 
       {/* Posts List */}
       <div className="space-y-4">
-        {posts.length === 0 && (
+        {postsLoading && (
+          <div
+            className={`text-center py-8 border-2 border-dashed ${theme.border} rounded-xl ${theme.textMuted}`}
+            role="status"
+          >
+            Loading discussions…
+          </div>
+        )}
+        {!postsLoading && postsError && posts.length === 0 && (
+          <div
+            className={`text-center py-8 border-2 border-dashed ${theme.border} rounded-xl ${theme.textMuted}`}
+            role="alert"
+          >
+            Could not load discussions.{" "}
+            <button type="button" className="font-bold text-indigo-500 hover:underline" onClick={() => { setPostsLoading(true); setPostsError(false); setForumReload((n) => n + 1); }}>
+              Try again
+            </button>
+          </div>
+        )}
+        {!postsLoading && !postsError && posts.length === 0 && (
           <div
             className={`text-center py-8 border-2 border-dashed ${theme.border} rounded-xl ${theme.textMuted}`}
           >
@@ -2111,15 +2150,15 @@ const HomePage = ({setPage, theme, showToast, user}) => {
     { label: 'Campus Updates', value: stats.highlights, icon: Megaphone, tone: 'from-orange-500 to-rose-500', helper: 'Latest highlights', page: 'highlights' },
   ];
   const quickCards = [
-    { id: 'academic', title: 'Academic Hub', description: 'Open course files, handouts and study resources in one place.', icon: Folder, gradient: 'from-indigo-600 via-blue-600 to-cyan-500', badge: `${stats.files} resources` },
+    { id: 'academic', title: 'Academic Hub', description: 'Open course files, handouts and study resources in one place.', icon: Folder, gradient: 'from-indigo-600 via-blue-600 to-cyan-500', badge: statsLoading ? 'Loading…' : `${stats.files} resources` },
     { id: 'aiquiz', title: 'AI Quiz', description: 'Turn your study material into focused practice and test yourself.', icon: CheckSquare, gradient: 'from-emerald-600 via-teal-600 to-cyan-500', badge: 'Practice now' },
     { id: 'flashcards', title: 'AI Flashcards', description: 'Build fast revision cards and strengthen recall before exams.', icon: Layers, gradient: 'from-fuchsia-600 via-purple-600 to-indigo-600', badge: 'Smart revision' },
     { id: 'planner', title: 'Study Planner', description: 'Organize your next study session and keep your routine moving.', icon: Calendar, gradient: 'from-orange-500 via-rose-500 to-pink-600', badge: 'Plan today' },
   ];
   const workspaceCards = [
     { id: 'cgpa', title: 'CGPA Calculator', text: 'Track your academic standing with a quick calculation.', icon: Target, meta: 'Academic' },
-    { id: 'articles', title: 'Learning Guides', text: 'Read focused articles and exam-prep material.', icon: FileText, meta: `${stats.articles} articles` },
-    { id: 'forum', title: 'Discussion Room', text: 'Ask, answer and learn with the student community.', icon: MessageSquare, meta: `${stats.discussions} discussions` },
+    { id: 'articles', title: 'Learning Guides', text: 'Read focused articles and exam-prep material.', icon: FileText, meta: statsLoading ? 'Loading…' : `${stats.articles} articles` },
+    { id: 'forum', title: 'Discussion Room', text: 'Ask, answer and learn with the student community.', icon: MessageSquare, meta: statsLoading ? 'Loading…' : `${stats.discussions} discussions` },
     { id: 'about', title: 'EduNexus Overview', text: 'Explore the platform and everything built for your study workflow.', icon: GraduationCap, meta: 'Explore' },
   ];
   const focusItems = [
@@ -2166,7 +2205,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
               </div>
             </section>
 
-      <section className="mt-10 grid lg:grid-cols-[1.15fr_.85fr] gap-5"><div className={`rounded-3xl border ${theme.border} ${theme.card} p-5 sm:p-7 shadow-sm overflow-hidden relative`}><div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-indigo-500/5 blur-2xl" /><div className="relative"><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Study momentum</p><h2 className={`mt-1 text-2xl font-black ${theme.text}`}>Build a strong session</h2></div><div className="rounded-2xl bg-indigo-500/10 px-4 py-2 text-right"><p className={`text-[10px] font-bold uppercase tracking-wider ${theme.textMuted}`}>Focus score</p><p className="text-2xl font-black text-indigo-500">82%</p></div></div><div className="mt-7 space-y-5">{[{label:'Resource discovery',value:Math.min(100,42+Math.min(stats.files,58)),note:`${stats.files} resources available`},{label:'Revision readiness',value:68,note:'Use flashcards to push this higher'},{label:'Practice rhythm',value:74,note:'AI Quiz is ready when you are'}].map((row)=><div key={row.label}><div className="flex items-center justify-between gap-4"><span className={`text-sm font-bold ${theme.text}`}>{row.label}</span><span className={`text-xs font-black ${theme.textMuted}`}>{row.value}%</span></div><div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-400 transition-all duration-1000" style={{width:`${row.value}%`}} /></div><p className={`mt-1.5 text-xs ${theme.textMuted}`}>{row.note}</p></div>)}</div></div></div><div className={`rounded-3xl border ${theme.border} ${theme.card} p-5 sm:p-7 shadow-sm`}><div className="flex items-center justify-between"><div><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Daily focus</p><h2 className={`mt-1 text-2xl font-black ${theme.text}`}>Three small wins</h2></div><div className="h-12 w-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center"><Target size={24} /></div></div><div className="mt-5 space-y-3">{focusItems.map((item,index)=><button key={item.label} onClick={()=>setPage(item.target)} className={`w-full flex items-center gap-3 rounded-2xl border ${theme.border} px-4 py-3 text-left hover:border-indigo-400/50 hover:bg-indigo-500/5`}><span className="h-8 w-8 shrink-0 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-black">{index+1}</span><span className={`flex-1 text-sm font-bold ${theme.text}`}>{item.label}</span><ArrowRight size={16} className={theme.textMuted} /></button>)}</div><button onClick={()=>setPage('planner')} className="mt-5 w-full rounded-2xl bg-slate-950 dark:bg-white px-4 py-3 text-sm font-black text-white dark:text-slate-950 hover:-translate-y-0.5">Open Study Planner</button></div></section>
+      <section className="mt-10 grid lg:grid-cols-[1.15fr_.85fr] gap-5"><div className={`rounded-3xl border ${theme.border} ${theme.card} p-5 sm:p-7 shadow-sm overflow-hidden relative`}><div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-indigo-500/5 blur-2xl" /><div className="relative"><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Study momentum</p><h2 className={`mt-1 text-2xl font-black ${theme.text}`}>Build a strong session</h2></div><div className="rounded-2xl bg-indigo-500/10 px-4 py-2 text-right"><p className={`text-[10px] font-bold uppercase tracking-wider ${theme.textMuted}`}>Focus score</p><p className="text-2xl font-black text-indigo-500">82%</p></div></div><div className="mt-7 space-y-5">{[{label:'Resource discovery',value:Math.min(100,42+Math.min(stats.files,58)),note: statsLoading ? 'Counting resources…' : `${stats.files} resources available`},{label:'Revision readiness',value:68,note:'Use flashcards to push this higher'},{label:'Practice rhythm',value:74,note:'AI Quiz is ready when you are'}].map((row)=><div key={row.label}><div className="flex items-center justify-between gap-4"><span className={`text-sm font-bold ${theme.text}`}>{row.label}</span><span className={`text-xs font-black ${theme.textMuted}`}>{row.value}%</span></div><div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-400 transition-all duration-1000" style={{width:`${row.value}%`}} /></div><p className={`mt-1.5 text-xs ${theme.textMuted}`}>{row.note}</p></div>)}</div></div></div><div className={`rounded-3xl border ${theme.border} ${theme.card} p-5 sm:p-7 shadow-sm`}><div className="flex items-center justify-between"><div><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Daily focus</p><h2 className={`mt-1 text-2xl font-black ${theme.text}`}>Three small wins</h2></div><div className="h-12 w-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center"><Target size={24} /></div></div><div className="mt-5 space-y-3">{focusItems.map((item,index)=><button key={item.label} onClick={()=>setPage(item.target)} className={`w-full flex items-center gap-3 rounded-2xl border ${theme.border} px-4 py-3 text-left hover:border-indigo-400/50 hover:bg-indigo-500/5`}><span className="h-8 w-8 shrink-0 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-black">{index+1}</span><span className={`flex-1 text-sm font-bold ${theme.text}`}>{item.label}</span><ArrowRight size={16} className={theme.textMuted} /></button>)}</div><button onClick={()=>setPage('planner')} className="mt-5 w-full rounded-2xl bg-slate-950 dark:bg-white px-4 py-3 text-sm font-black text-white dark:text-slate-950 hover:-translate-y-0.5">Open Study Planner</button></div></section>
 
       <section className="mt-10"><div className="mb-5"><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Workspace</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Everything stays connected</h2></div><div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">{workspaceCards.map((card)=>{const Icon=card.icon;return <button key={card.id} onClick={()=>setPage(card.id)} className={`group rounded-3xl border ${theme.border} ${theme.card} p-5 text-left shadow-sm hover:shadow-xl hover:-translate-y-1`}><div className="flex items-center justify-between"><span className="h-11 w-11 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center"><Icon size={21}/></span><ArrowUpRight size={18} className={`${theme.textMuted} transition-transform group-hover:translate-x-1 group-hover:-translate-y-1`}/></div><h3 className={`mt-5 font-black ${theme.text}`}>{card.title}</h3><p className={`mt-2 text-sm leading-6 ${theme.textMuted}`}>{card.text}</p><span className="mt-4 inline-flex rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{card.meta}</span></button>})}</div></section>
 
@@ -5095,7 +5134,7 @@ const getBandForScore = (score) => {
 
 const CGPACalculator = ({ theme, isDark }) => {
   const [subjects, setSubjects] = React.useState([
-    { name: "CS101", credits: 3, score: 0 },
+    { name: "", credits: 3, score: "" },
   ]);
     const [studentName, setStudentName] = React.useState("");
   const [studentId, setStudentId] = React.useState("");
@@ -5158,7 +5197,7 @@ const CGPACalculator = ({ theme, isDark }) => {
   const addSubject = () => {
     setSubjects((prev) => [
       ...prev,
-      { name: "", credits: 3, score: 0 },
+      { name: "", credits: 3, score: "" },
     ]);
   };
 
@@ -5190,9 +5229,11 @@ const CGPACalculator = ({ theme, isDark }) => {
       let fails = 0;
 
       subjects.forEach((sub) => {
-        // Empty while typing → treat as default (3 credits, 0 score)
+        // No score entered yet → this row is not counted at all. It must
+        // never show up as a 0-score F before the student types anything.
+        if (sub.score === "" || sub.score === null) return;
         const c = sub.credits === "" || sub.credits === null ? 3 : Number(sub.credits) || 0;
-        const s = sub.score === "" || sub.score === null ? 0 : Number(sub.score);
+        const s = Number(sub.score);
         if (c <= 0 || isNaN(s)) return;
 
         const band = getBandForScore(s);
@@ -5565,8 +5606,9 @@ const CGPACalculator = ({ theme, isDark }) => {
                     />
                   </div>
 
-                  {/* Grade / GPA / % chips */}
+                  {/* Grade / GPA / % chips — hidden until a score is entered */}
                   <div className="min-w-0">
+                    {hasScore ? (
                     <div className="flex flex-wrap items-center justify-center gap-1">
                       {/* Grade */}
                       <div
@@ -5589,6 +5631,9 @@ const CGPACalculator = ({ theme, isDark }) => {
                         <span>{displayScore.toFixed(1)}%</span>
                       </div>
                     </div>
+                    ) : (
+                      <div className={`text-center text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>Enter score</div>
+                    )}
                   </div>
 
                   {/* Remove button */}
@@ -5735,8 +5780,8 @@ const ThemeFloatingToggle = ({ isDark, setIsDark }) => {
       type="button"
       onClick={handleToggle}
       className={`
-        fixed print:hidden
-        top-[88px]    /* Navbar ke thoda neeche */
+        fixed print:hidden lg:hidden
+        top-[88px]    /* Navbar ke thoda neeche — small screens only; desktop uses the header toggle */
         right-4
         z-[60]        /* mobile menu se upar */
         inline-flex items-center justify-center
@@ -6177,11 +6222,27 @@ useEffect(() => {
           </React.Suspense>
         )}
         {page === 'aiquiz' && (
-          <QuizGenerator
-            theme={theme}
-            user={user}
-            showToast={showToast}
-          />
+          <>
+            <section className="mb-6" aria-label="More AI tools">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`text-xs font-bold uppercase tracking-wider ${theme.textMuted}`}>More AI tools:</span>
+                {[
+                  { id: 'flashcards', label: 'AI Flashcards' },
+                  { id: 'planner', label: 'Study Planner' },
+                  { id: 'cgpa', label: 'CGPA Calculator' },
+                ].map((tool) => (
+                  <button key={tool.id} type="button" onClick={() => setPage(tool.id)} className={`rounded-full border ${theme.border} ${theme.card} px-3 py-1.5 text-xs font-bold ${theme.text} hover:border-indigo-400 hover:text-indigo-500`}>
+                    {tool.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+            <QuizGenerator
+              theme={theme}
+              user={user}
+              showToast={showToast}
+            />
+          </>
         )}
         {page === 'cgpa' && (
         <CGPACalculator theme={theme} isDark={isDark} />

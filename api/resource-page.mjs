@@ -210,6 +210,7 @@ export default async function handler(req, res) {
       MCM401: { title: 'Fundamentals of Public Relations', term: 'Midterm', unitLabel: 'Topic' },
       MCM516: { title: 'TV News Reporting & Production', term: 'Midterm', unitLabel: 'Topic' },
       MCM604: { title: 'International Communication', term: 'Midterm', unitLabel: 'Topic' },
+      MCMP531: { title: 'Community Journalism', term: 'Midterm', unitLabel: 'Topic' },
       MGMT628: { title: 'Organizational Development', term: 'Midterm', unitLabel: 'Topic' },
       MGT402: { title: 'Cost & Management Accounting', term: 'Midterm', unitLabel: 'Topic' },
       MGT510: { title: 'Total Quality Management', term: 'Midterm', unitLabel: 'Topic' },
@@ -316,8 +317,32 @@ export default async function handler(req, res) {
     const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
     if (!isCrawler) return res.redirect(302, appUrl);
     const title = pretty + ' Notes, Handouts & Past Papers | EduNexus';
-    const desc = 'Download ' + pretty + ' study resources on EduNexus Academic Hub — notes, handouts, solved MCQs, past papers and course files shared by Virtual University students, free.';
+    let desc = 'Download ' + pretty + ' study resources on EduNexus Academic Hub — notes, handouts, solved MCQs, past papers and course files shared by Virtual University students, free.';
     const image = SITE + '/logo512.png';
+    // Real file list for this subject (library subjects are folder-style,
+    // e.g. "MCMP531_Community_Journalism" — match on the course-code prefix
+    // followed by a non-alphanumeric, so CS101 never matches CS101P files).
+    // A failed library read keeps the generic page — never break the crawl.
+    const codeMatch = rawSubj.match(/^[A-Za-z]{2,5}\d{3}[A-Za-z]?/);
+    const code = codeMatch ? codeMatch[0].toUpperCase() : '';
+    let subjectFiles = [];
+    if (code) {
+      try {
+        const lib = await listPublicFiles(7);
+        const codeRe = new RegExp('^' + code + '(?![A-Z0-9])');
+        subjectFiles = (lib || []).filter((f) => codeRe.test(String(f.subject || '').toUpperCase()));
+      } catch {}
+    }
+    if (subjectFiles.length) {
+      const sample = subjectFiles.slice(0, 3).map((f) => String(f.name || '').replace(/\s+/g, ' ').trim()).filter(Boolean).join(', ');
+      const rich = 'Download ' + pretty + ' study resources on EduNexus Academic Hub — ' + subjectFiles.length + ' files' + (sample ? ' including ' + sample : '') + ', plus notes, handouts, solved MCQs and past papers shared by VU students, free.';
+      desc = rich.slice(0, 320);
+    }
+    const fileListHtml = subjectFiles.length
+      ? '<h2>Study files for ' + h(pretty) + ' (' + subjectFiles.length + ')</h2><ul>'
+        + subjectFiles.slice(0, 12).map((f) => '<li><a href="' + h(SITE + resourcePath(f.id, f.name || 'file')) + '">' + h(String(f.name || 'Study file').replace(/\s+/g, ' ').trim()) + '</a></li>').join('')
+        + '</ul><p><a href="' + h(appUrl) + '">Browse all ' + subjectFiles.length + ' ' + h(pretty) + ' files on EduNexus</a></p>'
+      : '';
     const bodyContent = '<main style="max-width:820px;margin:40px auto;padding:0 20px;font-family:system-ui;line-height:1.7">'
       + '<h1>' + h(pretty + ' Notes, Handouts & Past Papers') + '</h1>'
       + '<p>' + h(desc) + '</p>'
@@ -326,6 +351,7 @@ export default async function handler(req, res) {
       + '<li>' + h(pretty) + ' midterm and final term solved MCQs</li>'
       + '<li>' + h(pretty) + ' past papers and paper reviews</li>'
       + '<li>' + h(pretty) + ' subjective solved questions</li></ul>'
+      + fileListHtml
       + '<p><a href="' + h(appUrl) + '">Open ' + h(pretty) + ' study resources on EduNexus</a></p></main>';
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(title)}</title><meta name="description" content="${h(desc)}"><link rel="canonical" href="${h(appUrl)}"><meta name="robots" content="index,follow"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(title)}"><meta property="og:description" content="${h(desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(title)}"><meta name="twitter:description" content="${h(desc)}"><meta name="twitter:image" content="${h(image)}"></head><body>${bodyContent}</body></html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
