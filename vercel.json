@@ -54,6 +54,16 @@
   ],
   "redirects": [
     {
+      "source": "/articles/read/e0f070ee-dcc1-4a25-ba3b-94fd9bf77a44/cs619-new-project-selection-fall-2026-dates-rules-and-how-to-select",
+      "destination": "/articles/read/c5c5d0b6-d5ba-492b-82e6-04154b1baeba/cs619-final-year-project-complete-guide-eligibility-group-vs-solo-deliverables-v",
+      "permanent": true
+    },
+    {
+      "source": "/articles/read/e3aab2d0-5413-4bca-8826-c595dbb46b03/vu-mscs-3rd-merit-list-fall-2026-4-selected-closing-merit-67-67-fee-due-26-octob",
+      "destination": "/articles/read/a2d31403-a486-4b36-af90-2b7633e012c4/vu-merit-based-scholarship-2026-eligibility-cgpa-how-to-apply",
+      "permanent": true
+    },
+    {
       "source": "/past-papers",
       "destination": "/handouts",
       "permanent": true
