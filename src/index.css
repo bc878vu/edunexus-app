@@ -179,16 +179,21 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
    code/table rules above. CSS rules of equal specificity are won by the
    LATER one, so a phone block placed above the base rules is silently
    overridden on phones (that was the 2026-10-29 bug: code never wrapped
-   in the app view). On phones, tables fit the screen instead of
-   scrolling, so no column is ever cut off. The Copy button stays
-   INSIDE the block at the top-right corner (absolute, not below the
-   block, so it adds no vertical gap to the article); the pre reserves
-   an 88px strip on the right so code never runs under the button. */
+   in the app view). Tables on phones SCROLL horizontally inside their
+   wrapper (same as desktop) and keep natural column widths — the old
+   fit-to-screen rule (width:100% + table-layout:fixed + break-word)
+   shredded words mid-word on wide tables (proven 2026-11-17 on the VU
+   degree comparison table: "Comput er", "Softwar e", "program ming").
+   Words never break; columns are reached with a sideways swipe. The
+   Copy button stays INSIDE the block at the top-right corner (absolute,
+   not below the block, so it adds no vertical gap to the article); the
+   pre reserves an 88px strip on the right so code never runs under the
+   button. */
 @media (max-width: 767px) {
   .edx-article-body pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: visible; }
-  .edx-table-wrap { overflow-x: visible; }
-  .edx-table-wrap table { width: 100%; table-layout: fixed; }
-  .edx-article-body th, .edx-article-body td { overflow-wrap: anywhere; word-break: break-word; padding: .45em .5em; font-size: .85em; }
+  .edx-table-wrap { overflow-x: auto; }
+  .edx-table-wrap table { width: max-content; min-width: 100%; table-layout: auto; }
+  .edx-article-body th, .edx-article-body td { overflow-wrap: normal; word-break: normal; padding: .45em .5em; font-size: .85em; }
 }
 
 /* Site nav pill: 11+ items overflow laptop widths, so the pill scrolls
