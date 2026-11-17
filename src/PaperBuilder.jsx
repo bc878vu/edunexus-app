@@ -28,10 +28,13 @@ function countsFor(subject, lectureNo) {
   return { mcq, short, long };
 }
 
-export default function PaperBuilder({ subjectCode, onBack }) {
+export default function PaperBuilder({ subjectCode, term, onBack }) {
   const { banks: adminBanks, loading: adminLoading } = useAdminBanks();
   const mergedSubjects = useMemo(() => mergeBankSubjects(BANK_SUBJECTS, adminBanks), [adminBanks]);
-  const subject = mergedSubjects.find((s) => s.code === subjectCode) || mergedSubjects[0];
+  // Match the term the student picked on the home page (a subject with both
+  // Midterm and Finalterm banks used to always build from the first one).
+  const subject = mergedSubjects.find((s) => s.code === subjectCode && (!term || s.term === term))
+    || mergedSubjects.find((s) => s.code === subjectCode) || mergedSubjects[0];
   const [selected, setSelected] = useState([]);
   const [paper, setPaper] = useState(null);
   const [noData, setNoData] = useState(false);

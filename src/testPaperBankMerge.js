@@ -29,7 +29,14 @@ export function mergeCatalog(catalog, subjects) {
   const merged = catalog.map((c) => (liveCodes.has(c.code) ? { ...c, status: 'live' } : c));
   const known = new Set(catalog.map((c) => c.code));
   subjects.forEach((s) => {
-    if (!known.has(s.code)) merged.push({ code: s.code, status: 'live' });
+    if (!known.has(s.code)) {
+      // A subject with two banks (Midterm + Finalterm) must still get ONE
+      // catalog entry — without adding the code here the loop pushed one
+      // entry per bank, so the home page rendered the first term twice and
+      // the second term was unreachable.
+      known.add(s.code);
+      merged.push({ code: s.code, status: 'live' });
+    }
   });
   return merged;
 }

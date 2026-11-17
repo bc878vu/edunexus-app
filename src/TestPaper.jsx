@@ -479,6 +479,7 @@ export function PaperRunner({ paper, onBack }) {
 
 export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const [builderCode, setBuilderCode] = useState(null);
+  const [builderTerm, setBuilderTerm] = useState(null);
   const [subjectQuery, setSubjectQuery] = useState('');
   const [popupSubject, setPopupSubject] = useState(null);
   // Admin-uploaded banks merge over the code banks (admin copy wins on the
@@ -510,7 +511,8 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
     };
   }, []);
   const buildSavedPaper = (p) => {
-    const subject = mergedSubjects.find((s) => s.code === p.code);
+    const subject = mergedSubjects.find((s) => s.code === p.code && (!p.term || s.term === p.term))
+      || mergedSubjects.find((s) => s.code === p.code);
     if (!subject) {
       // Admin banks may still be loading: a missing subject right now is not
       // proof the paper is gone — say so instead of a false "not available".
@@ -558,9 +560,9 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   }, []);
   const paper = paperSlug ? getTestPaper(paperSlug) : null;
   if (paper) return <PaperRunner paper={paper} onBack={() => onSelectPaper('')} />;
-  if (builderCode) return <PaperBuilder subjectCode={builderCode} onBack={() => setBuilderCode(null)} />;
+  if (builderCode) return <PaperBuilder subjectCode={builderCode} term={builderTerm} onBack={() => { setBuilderCode(null); setBuilderTerm(null); }} />;
   if (savedRun) return <PaperRunner paper={savedRun} onBack={() => { setSavedRun(null); try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }} />;
-  // Shared pattern link: /test-papers?subject=CODE&lectures=1,3&mcqs=20&shorts=3&longs=3
+  // Shared pattern link: /test-papers?subject=CODE&term=Finalterm&lectures=1,3&mcqs=20&shorts=3&longs=3
   // (built by the admin in Paper Patterns). It rebuilds exactly that paper;
   // unknown subjects or empty selections fall through to the home + popup.
   const pattern = (() => {
@@ -569,7 +571,9 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
       const rawCode = params.get('subject');
       if (!rawCode) return null;
       const code = rawCode.toUpperCase();
-      const subject = mergedSubjects.find((s) => s.code === code);
+      const termParam = (params.get('term') || '').toLowerCase();
+      const subject = mergedSubjects.find((s) => s.code === code && (!termParam || (s.term || '').toLowerCase() === termParam))
+        || mergedSubjects.find((s) => s.code === code);
       if (!subject) return adminLoading ? { loading: true } : { error: code };
       const lectures = (params.get('lectures') || '').split(',').map((x) => parseInt(x, 10))
         .filter((n) => Number.isFinite(n) && subject.lectures.some((l) => l.n === n));
@@ -620,24 +624,43 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         <label className="edx-exam-field">Search subject<input type="text" value={subjectQuery} onChange={(e) => setSubjectQuery(e.target.value.toUpperCase())} placeholder="Subject code likhein, jaise MTH202" /></label>
         <div className="edx-paper-subject-grid">
           {shownSubjects.map((s) => {
-            const bankSub = mergedSubjects.find((x) => x.code === s.code);
-            const cardUnit = bankSub && bankSub.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
-            const lecRange = bankSub && bankSub.lectures && bankSub.lectures.length
-              ? `${cardUnit}s ${bankSub.lectures[0].n}–${bankSub.lectures[bankSub.lectures.length - 1].n}`
-              : null;
-            return (
-              <button key={s.code} type="button" className={'edx-paper-subject' + (s.status === 'live' ? ' live' : '')}
-                onClick={() => s.status === 'live' ? setBuilderCode(s.code) : setPopupSubject(s)}>
-                <strong>{s.code}</strong>
-                {bankSub && bankSub.title && <span className="edx-paper-subject-title">{bankSub.title}</span>}
-                {s.status === 'live' && (
-                  <span>{bankSub ? `${bankSub.term || 'Midterm'}${lecRange ? ` · ${lecRange}` : ''}` : 'Live — paper banayein'}</span>
-                )}
-                {s.status !== 'live' && (
+            if (s.status !== 'live') {
+              return (
+                <button key={s.code} type="button" className="edx-paper-subject"
+                  onClick={() => setPopupSubject(s)}>
+                  <strong>{s.code}</strong>
                   <span>{s.status === 'mapping' ? 'Tayyar ho raha hai' : s.status === 'finalonly' ? 'Midterm data nahi' : 'Data nahi mila'}</span>
-                )}
-              </button>
-            );
+                </button>
+              );
+            }
+            // One card per bank (term): a subject with both Midterm and
+            // Finalterm banks used to render only the first term's card —
+            // find(code) always returned the Midterm bank, so the Finalterm
+            // bank was unreachable from the home page and the builder.
+            const banks = mergedSubjects.filter((x) => x.code === s.code);
+            if (banks.length === 0) {
+              return (
+                <button key={s.code} type="button" className="edx-paper-subject live"
+                  onClick={() => { setBuilderCode(s.code); setBuilderTerm(null); }}>
+                  <strong>{s.code}</strong>
+                  <span>Live — paper banayein</span>
+                </button>
+              );
+            }
+            return banks.map((bankSub) => {
+              const cardUnit = bankSub.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
+              const lecRange = bankSub.lectures && bankSub.lectures.length
+                ? `${cardUnit}s ${bankSub.lectures[0].n}–${bankSub.lectures[bankSub.lectures.length - 1].n}`
+                : null;
+              return (
+                <button key={`${s.code}::${bankSub.term}`} type="button" className="edx-paper-subject live"
+                  onClick={() => { setBuilderCode(s.code); setBuilderTerm(bankSub.term); }}>
+                  <strong>{s.code}</strong>
+                  {bankSub.title && <span className="edx-paper-subject-title">{bankSub.title}</span>}
+                  <span>{`${bankSub.term || 'Midterm'}${lecRange ? ` · ${lecRange}` : ''}`}</span>
+                </button>
+              );
+            });
           })}
           {shownSubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
         </div>
@@ -678,7 +701,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           <h2>Teacher ke banaye papers</h2>
           <p>Admin ne ye papers khud banaye hain — verified bank questions se, lectures aur counts ke saath.</p>
           {savedPapers.map((p) => {
-            const savedUnit = (mergedSubjects.find((x) => x.code === p.code) || {}).unitLabel === 'Topic' ? 'Topic' : 'Lecture';
+            const savedUnit = ((mergedSubjects.find((x) => x.code === p.code && (!p.term || x.term === p.term)) || mergedSubjects.find((x) => x.code === p.code)) || {}).unitLabel === 'Topic' ? 'Topic' : 'Lecture';
             return (
             <div key={p.id} style={{ border: '1px solid rgba(127,127,127,0.3)', borderRadius: 12, padding: 12, marginBottom: 10 }}>
               <strong>{p.title}</strong> · {p.code} ({p.term}) · {savedUnit}s {p.lectures.join(', ')} · {p.mcq} MCQs, {p.short} shorts, {p.long} longs{p.builtCounts ? ` · ${p.builtCounts.marks && typeof p.builtCounts.marks === 'object' ? p.builtCounts.marks.total : p.builtCounts.marks} marks` : ''}
