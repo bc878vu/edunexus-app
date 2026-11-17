@@ -83,14 +83,21 @@ export function answerKeyStats(questions, answers) {
     sourceUnreviewed: answered.filter(q => !isVerifiedAnswer(q)).length
   };
 }
-const normalizeDedupText = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, '').trim();
+// Only ASCII sentence punctuation is ignored here. Math/logic symbols
+// (∀ ∃ ¬ ∧ ∨ ∩ ∪ ∈ ⊆ ∅ → ↔ ≠ ≤ ≥ ± × ÷ √, superscripts/subscripts,
+// Greek letters) are KEPT: stripping them made genuinely different symbolic
+// questions look identical — e.g. ∀x ¬P(x) vs ∃x ¬P(x) both became "x px",
+// so MTH202 lost 2 questions in play (bank 169, practice served 167).
+// The stored question text is never changed; this only affects the
+// internal dedup key, so the equations still display in their real format.
+const normalizeDedupText = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').replace(/[.,;:!?'"`]/g, '').trim();
 // Dedup key covers the stem AND all options: two records are the same
 // question only when both match. A stem-only key silently dropped real
 // questions whose wording normalized identically but whose options differed
 // (e.g. CS401's bank showed 647 while play offered 626).
 const dedupKey = (q) => {
   const opts = Array.isArray(q?.options) ? q.options : ['A', 'B', 'C', 'D'].map((k) => q?.options?.[k]);
-  return normalizeDedupText(q?.question) + '|' + opts.map(normalizeDedupText).join('|');
+  return normalizeDedupText(q?.question) + '\u0000' + opts.map(normalizeDedupText).join('\u0000');
 };
 export function buildPracticeAttempt(questions, count = 'all', mode = 'sequence', random = Math.random) {
   const seen = new Set();

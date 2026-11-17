@@ -74,6 +74,16 @@ test('questions with identical wording but different options are all kept in pla
   expect(buildPracticeAttempt(source,'all','sequence')).toEqual(['a','b']);
   expect(restoreAttemptIds({attemptIds:['a','b','c'],answers:{}},source)).toEqual(['a','b']);
 });
+test('math-symbol questions that differ only in logic symbols are all kept in play', () => {
+  const source = [
+    {...make('neg-a','Key'),question:'The negation of ∀x P(x) is:',options:['∀x ¬P(x)','∃x ¬P(x)','¬∀x P(x)','∀x P(x)']},
+    {...make('neg-b','Key'),question:'The negation of ∀x P(x) is:',options:['∀x ¬P(x)','∃x ¬P(x)','¬∃x P(x)','∃x P(x)']},
+    {...make('demorgan-a','Key'),question:"De Morgan's law states ¬(p ∧ q) is equivalent to:",options:['¬p ∧ ¬q','¬p ∨ ¬q','p ∨ q','¬p → ¬q']},
+    {...make('demorgan-b','Key'),question:"De Morgan's law states ¬(p ∧ q) is equivalent to:",options:['p → q','p ∧ q','¬p ∧ ¬q','¬p ∨ ¬q']}
+  ];
+  expect(buildPracticeAttempt(source,'all','sequence')).toEqual(['neg-a','neg-b','demorgan-a','demorgan-b']);
+  expect(restoreAttemptIds({attemptIds:['neg-a','neg-b','demorgan-a','demorgan-b'],answers:{}},source)).toEqual(['neg-a','neg-b','demorgan-a','demorgan-b']);
+});
 
 test('restoring a random saved attempt preserves exactly the same IDs, order and previous answers', () => {
   const source=['a','b','c','d','e'].map(id=>make(id,'Original uploaded answer'));
