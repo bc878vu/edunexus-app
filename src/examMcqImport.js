@@ -18,6 +18,27 @@ export const orderOf = (item) => {
   const found = String(item?.explanation || '').match(/^\[EduNexus Quiz(?:\|set:[A-Z0-9_-]{1,40})?(?:\|order:([0-9]{4}))?\]/);
   return found?.[1] ? Number(found[1]) : null;
 };
+// Group MCQ records into their upload batches: tracked imports by
+// importBatchId first, older ungrouped imports by sourceFileName. Pure —
+// shared by the Manage MCQs list and the importer's Replace lookup, so both
+// see the same batches. Records with neither id nor file name are skipped.
+export const groupMcqBatches = (records) => {
+  const map = new Map();
+  (Array.isArray(records) ? records : []).forEach((q) => {
+    const key = q.importBatchId ? 'id:' + String(q.importBatchId)
+      : (q.sourceFileName ? 'file:' + String(q.sourceFileName) : null);
+    if (!key) return;
+    const current = map.get(key) || {
+      id: key, batchId: q.importBatchId || null, fileName: q.sourceFileName || null,
+      name: q.sourceFileName || 'JSON upload', count: 0, categories: new Set(),
+      tracked: !!q.importBatchId,
+    };
+    current.count += 1;
+    current.categories.add(categoryOf(q));
+    map.set(key, current);
+  });
+  return [...map.values()].map((item) => ({ ...item, categories: [...item.categories] }));
+};
 const normalizeCode = (v) => String(v || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 const validCourse = (v) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(v);
 export const MAX_IMPORT = Number.MAX_SAFE_INTEGER;

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BookOpen, CheckCircle2, Pencil, Search, Trash2, X } from 'lucide-react';
+import { BookOpen, CheckCircle2, Pencil, Search, Trash2, UploadCloud, X } from 'lucide-react';
 import { adminPanelAccess } from './adminSession';
 import { listMcqs, updateMcq, deleteMcqs, setMcqActive } from './db/examMcqs';
-import { categoryOf, orderOf, quizSetOf, stripQuizMarker, validateMcq } from './examMcqImport';
+import { categoryOf, groupMcqBatches, orderOf, quizSetOf, stripQuizMarker, validateMcq } from './examMcqImport';
 import { refreshExamCatalogCounts } from './examCatalogCounts';
 import { explanationForStudent } from './examAnswerFeedback';
 import { isVerifiedAnswer } from './examPractice';
@@ -19,7 +19,7 @@ const fromRecord = q => ({
 });
 const errorText = e => e?.code === 'permission-denied' ? 'Database denied this change. Reopen the verified Admin Panel and try again.' : e?.message || 'Action could not be completed. Try again.';
 
-export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
+export default function ExamMcqAdminManager({ user, initialSubject='CS620', onReplace }) {
   const { requestConfirm, ConfirmUI } = useConfirm();
   const [subject, setSubject] = useState(COURSE.test(initialSubject) ? initialSubject : 'CS620');
   const [records, setRecords] = useState([]);
@@ -69,17 +69,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
   };
   useEffect(() => { loadRecords(); }, [subject, user]);
 
-  const uploadBatches = useMemo(() => {
-    const map = new Map();
-    records.forEach(q => {
-      // Primary: tracked batch ID. Fallback: group old imports by sourceFileName
-      const key = q.importBatchId ? 'id:' + String(q.importBatchId) : (q.sourceFileName ? 'file:' + String(q.sourceFileName) : null);
-      if (!key) return;
-      const current = map.get(key) || { id:key, batchId:q.importBatchId||null, fileName:q.sourceFileName||null, name:q.sourceFileName || 'JSON upload', count:0, categories:new Set(), tracked:!!q.importBatchId };
-      current.count += 1; current.categories.add(categoryOf(q)); map.set(key,current);
-    });
-    return [...map.values()].map(item => ({...item,categories:[...item.categories]}));
-  }, [records]);
+  const uploadBatches = useMemo(() => groupMcqBatches(records), [records]);
   const filtered = useMemo(() => records.filter(q =>
     (category === 'all' || categoryOf(q) === category) &&
     [q.question, ...(q.options || []),quizSetOf(q)].join(' ').toLowerCase().includes(search.toLowerCase().trim())
@@ -329,8 +319,8 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
       </select></label>
     </div>
     {!loading && uploadBatches.length > 0 && <div className="edx-admin-subject-move" aria-label="Delete complete JSON uploads" style={{border:'2px solid #ef4444', borderRadius:12, padding:16, background:'#fef2f2'}}>
-      <h4 style={{display:'flex',alignItems:'center',gap:8,margin:'0 0 4px'}}><Trash2 size={18} style={{color:'#dc2626'}}/> Uploaded JSON files — delete complete file</h4>
-      <p style={{margin:'0 0 8px'}}>Delete a complete imported JSON batch in one action. Individual question Edit/Delete buttons below stay available.</p>
+      <h4 style={{display:'flex',alignItems:'center',gap:8,margin:'0 0 4px'}}><Trash2 size={18} style={{color:'#dc2626'}}/> Uploaded JSON files — delete or replace a complete file</h4>
+      <p style={{margin:'0 0 8px'}}>Delete or replace a complete imported JSON batch in one action. Replace deletes the old batch and imports the new file in its place — no duplicates. Individual question Edit/Delete buttons below stay available.</p>
       {uploadBatches.map(upload => {
         const batchQs = batchRecordsOf(upload);
         const disCount = batchQs.filter(q => q.isActive === false).length;
@@ -339,6 +329,7 @@ export default function ExamMcqAdminManager({ user, initialSubject='CS620' }) {
         <span><strong>{upload.name}</strong>{!upload.tracked && <span style={{marginLeft:8,fontSize:11,background:'#fef3c7',color:'#92400e',padding:'2px 8px',borderRadius:10,fontWeight:700}}>Old upload</span>}<br/><small>{upload.count} questions · {upload.categories.join(', ')}{allDisabled ? ' · Disabled' : disCount > 0 ? ' · ' + disCount + ' disabled' : ''}</small></span>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>toggleBatchActive(upload)}>{allDisabled ? 'Activate all' : 'Disable all'}</button>
+          {upload.tracked && upload.categories.length === 1 && onReplace && <button type="button" className="edx-exam-secondary" disabled={busy} onClick={()=>onReplace({ batchId: upload.batchId, fileName: upload.name, count: upload.count, subject, term: upload.categories[0] })}><UploadCloud size={15}/> Replace file</button>}
           <button type="button" className="edx-exam-secondary edx-admin-danger" disabled={busy} onClick={()=>removeUploadBatch(upload)}><Trash2 size={15}/> {deletingBatch===upload.id?'Deleting upload…':'Delete complete file'}</button>
         </div>
       </div>})}}

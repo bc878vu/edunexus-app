@@ -1,4 +1,4 @@
-import { categoryOf, isQuizSource, orderOf, quizSetOf, parseMcqJson, summarizeImport, validateMcq } from './examMcqImport';
+import { categoryOf, groupMcqBatches, isQuizSource, orderOf, quizSetOf, parseMcqJson, summarizeImport, validateMcq } from './examMcqImport';
 
 const base = (overrides = {}) => ({
   subject: 'CS620', term: 'midterm',
@@ -77,4 +77,32 @@ test('explicit admin Midterm/Finalterm category assignment survives legacy Quiz 
   expect(categoryOf(mid)).toBe('midterm');
   expect(categoryOf(fin)).toBe('finalterm');
   expect(mid.explanation).toContain('Solved Quiz 1');
+});
+
+test('groupMcqBatches groups tracked imports by batch id', () => {
+  const records = [
+    { id: '1', importBatchId: 'b1', sourceFileName: 'a.json', term: 'midterm', explanation: '[EduNexus Midterm] one' },
+    { id: '2', importBatchId: 'b1', sourceFileName: 'a.json', term: 'midterm', explanation: '[EduNexus Midterm] two' },
+    { id: '3', importBatchId: 'b2', sourceFileName: 'c.json', term: 'finalterm', explanation: '[EduNexus Finalterm] three' },
+  ];
+  expect(groupMcqBatches(records)).toEqual([
+    { id: 'id:b1', batchId: 'b1', fileName: 'a.json', name: 'a.json', count: 2, categories: ['midterm'], tracked: true },
+    { id: 'id:b2', batchId: 'b2', fileName: 'c.json', name: 'c.json', count: 1, categories: ['finalterm'], tracked: true },
+  ]);
+});
+
+test('groupMcqBatches falls back to source file name for old uploads and skips ungrouped records', () => {
+  const records = [
+    { id: '1', importBatchId: null, sourceFileName: 'old.json', term: 'midterm', explanation: '[EduNexus Midterm] one' },
+    { id: '2', importBatchId: null, sourceFileName: 'old.json', term: 'midterm', explanation: '[EduNexus Midterm] two' },
+    { id: '3', importBatchId: null, sourceFileName: null, term: 'midterm', explanation: '[EduNexus Midterm] three' },
+  ];
+  expect(groupMcqBatches(records)).toEqual([
+    { id: 'file:old.json', batchId: null, fileName: 'old.json', name: 'old.json', count: 2, categories: ['midterm'], tracked: false },
+  ]);
+});
+
+test('groupMcqBatches returns an empty list for empty input', () => {
+  expect(groupMcqBatches([])).toEqual([]);
+  expect(groupMcqBatches(null)).toEqual([]);
 });

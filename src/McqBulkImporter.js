@@ -1,11 +1,11 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { serverTimestamp } from 'firebase/firestore';
 import { CheckCircle2, FileJson2, UploadCloud, AlertTriangle } from 'lucide-react';
 import { db } from './firebase-client';
 import { adminPanelAccess } from './adminSession';
-import { categoryOf, MAX_IMPORT, MAX_JSON_BYTES, parseMcqJson, summarizeImport, suggestImportMetadata, validateMcq } from './examMcqImport';
+import { categoryOf, groupMcqBatches, MAX_IMPORT, MAX_JSON_BYTES, parseMcqJson, summarizeImport, suggestImportMetadata, validateMcq } from './examMcqImport';
 import { refreshExamCatalogCounts } from './examCatalogCounts';
-import { addMcqBatch } from './db/examMcqs';
+import { addMcqBatch, listMcqs, replaceMcqBatch } from './db/examMcqs';
 import './exam-mcq-import.css';
 
 const sample = '[{"subject":"CS620","term":"quiz","question":"Your question?","options":["A","B","C","D"],"answer":0,"explanation":"Verified answer explanation"}]';
@@ -42,7 +42,7 @@ const jsonQuestionLocations = (source) => {
   return locations;
 };
 
-export default function McqBulkImporter({ user, onView }) {
+export default function McqBulkImporter({ user, onView, replaceTarget, onReplaceDone }) {
   const [bulk, setBulk] = useState('');
   const [sourceName, setSourceName] = useState('');
   const [error, setError] = useState('');
@@ -56,6 +56,11 @@ export default function McqBulkImporter({ user, onView }) {
   const [sourceChecked, setSourceChecked] = useState(false);
   const [destination, setDestination] = useState(null);
   const [progress, setProgress] = useState('');
+  const [replaceBatches, setReplaceBatches] = useState([]);
+  const [replaceChoice, setReplaceChoice] = useState('');
+  const [replaceChecked, setReplaceChecked] = useState(false);
+  const [replaceLoading, setReplaceLoading] = useState(false);
+  const replaceKey = useRef('');
   const working = useRef(false);
   const chooser = useRef(null);
   const jsonEditor = useRef(null);
@@ -86,6 +91,56 @@ export default function McqBulkImporter({ user, onView }) {
       return { summary: valid.length ? summarizeImport(valid) : null, items: valid, rejected, total: items.length, issue: '' };
     } catch (cause) { return { summary: null, items: null, rejected: [], issue: cause.message }; }
   }, [bulk, overrideSubject, overrideTerm, quizSet]);
+  // Replace scope: a single subject + single exam category is the only case
+  // a new import can replace (a mixed batch has no one batch to replace).
+  const replaceScope = useMemo(() => {
+    const summary = inspection.summary;
+    if (!summary || summary.subjects.length !== 1) return null;
+    const cats = Object.entries(summary.totals).filter(([, n]) => n > 0).map(([c]) => c);
+    if (cats.length !== 1) return null;
+    return { subject: summary.subjects[0], term: cats[0] };
+  }, [inspection.summary]);
+  // A "Replace file" click in Manage MCQs arrives as a target: pre-fill the
+  // subject/term and pre-select that batch for replacement.
+  useEffect(() => {
+    if (!replaceTarget?.batchId) return;
+    if (replaceTarget.subject) setOverrideSubject(replaceTarget.subject);
+    if (replaceTarget.term) setOverrideTerm(replaceTarget.term);
+    setReplaceBatches([{ id: 'id:' + replaceTarget.batchId, batchId: replaceTarget.batchId,
+      fileName: replaceTarget.fileName || null, name: replaceTarget.fileName || 'JSON upload',
+      count: replaceTarget.count || 0, categories: replaceTarget.term ? [replaceTarget.term] : [], tracked: true }]);
+    setReplaceChoice(replaceTarget.batchId);
+    setReplaceChecked(true);
+    replaceKey.current = (replaceTarget.subject || '') + '|' + (replaceTarget.term || '');
+  }, [replaceTarget]);
+  // Otherwise, when the pending import resolves to one subject + one term,
+  // list the tracked batches already live there so the admin can replace one
+  // instead of importing a duplicate copy. Listed by subject only (a Quiz
+  // batch is stored under the midterm term, so a term filter would miss it).
+  useEffect(() => {
+    if (replaceTarget?.batchId) return;
+    if (!replaceScope) {
+      setReplaceBatches([]); setReplaceChoice(''); setReplaceChecked(false); replaceKey.current = '';
+      return;
+    }
+    const key = replaceScope.subject + '|' + replaceScope.term;
+    if (replaceKey.current === key) return;
+    replaceKey.current = key;
+    let cancelled = false;
+    setReplaceLoading(true);
+    listMcqs({ subject: replaceScope.subject, activeOnly: false, limit: 1000 })
+      .then((rows) => {
+        if (cancelled) return;
+        const batches = groupMcqBatches(rows)
+          .filter((b) => b.tracked && b.categories.includes(replaceScope.term));
+        setReplaceBatches(batches);
+        setReplaceChoice(batches.length === 1 ? batches[0].batchId : '');
+        setReplaceChecked(false);
+      })
+      .catch(() => { if (!cancelled) setReplaceBatches([]); })
+      .finally(() => { if (!cancelled) setReplaceLoading(false); });
+    return () => { cancelled = true; };
+  }, [replaceScope, replaceTarget]);
   const mustVerify = Boolean(inspection.summary && (inspection.summary.provisional || inspection.summary.answerConflicts));
   const selectFile = async (event) => {
     const file = event.target.files?.[0];
@@ -134,11 +189,23 @@ export default function McqBulkImporter({ user, onView }) {
         return { ...normalized, importBatchId, sourceFileName, createdAt: serverTimestamp() };
       });
       let published = 0;
+      let replacedBatch = null;
+      const replacing = replaceChecked && replaceChoice
+        ? replaceBatches.find((b) => b.batchId === replaceChoice) || null
+        : null;
       try {
-        const result = await addMcqBatch(items, { chunkSize: 100 });
-        published = result.inserted;
-        setProgress(published + ' / ' + items.length + ' published');
+        if (replacing) {
+          const result = await replaceMcqBatch(items, replacing.batchId, { expectedOldCount: replacing.count });
+          published = result.inserted;
+          replacedBatch = replacing;
+          setProgress(published + ' / ' + items.length + ' published — replacing ' + replacing.name);
+        } else {
+          const result = await addMcqBatch(items, { chunkSize: 100 });
+          published = result.inserted;
+          setProgress(published + ' / ' + items.length + ' published');
+        }
       } catch (cause) {
+        if (replacing) throw new Error(errorMessage(cause));
         throw new Error(published + ' questions were published before this batch failed. Check for duplicates before retrying. ' + errorMessage(cause));
       }
       // Refresh the denormalized exam catalogue for every subject this import
@@ -151,9 +218,13 @@ export default function McqBulkImporter({ user, onView }) {
       const onlyOneCategory = Object.values(inspection.summary.totals).filter(Boolean).length === 1;
       setDestination({ subject: inspection.summary.subjects.length === 1 ? inspection.summary.subjects[0] : '',
         category: onlyOneCategory ? categoryOf(first) : '' });
-      setSuccess(items.length + ' questions published successfully as one managed upload batch. You can delete this complete JSON upload later from Manage published questions. ' + (inspection.rejected?.length ? inspection.rejected.length + ' invalid questions skipped for review. ' : '') + ' Original order and subject/category are preserved. ' + (sourceChecked ? 'Administrator-reviewed answer references are saved for verified scoring.' : 'Answer indexes stay provisional for scoring until independently verified by an administrator.'));
+      setSuccess(replacedBatch
+        ? 'Replaced "' + replacedBatch.name + '" (' + replacedBatch.count + ' questions) with ' + items.length + ' questions. The old batch is gone — no duplicates were created. ' + (inspection.rejected?.length ? inspection.rejected.length + ' invalid questions skipped for review. ' : '')
+        : items.length + ' questions published successfully as one managed upload batch. You can delete this complete JSON upload later from Manage published questions. ' + (inspection.rejected?.length ? inspection.rejected.length + ' invalid questions skipped for review. ' : '') + ' Original order and subject/category are preserved. ' + (sourceChecked ? 'Administrator-reviewed answer references are saved for verified scoring.' : 'Answer indexes stay provisional for scoring until independently verified by an administrator.'));
       if (!inspection.rejected?.length) { setBulk(''); setSourceName(''); }
       setVerified(false); setSourceChecked(false);
+      setReplaceBatches([]); setReplaceChoice(''); setReplaceChecked(false); replaceKey.current = '';
+      if (replacedBatch) onReplaceDone?.();
       if (chooser.current) chooser.current.value = '';
     } catch (cause) {
       setError('Import failed: ' + errorMessage(cause) + ' Your JSON has been kept so you can correct or retry it.');
@@ -163,7 +234,7 @@ export default function McqBulkImporter({ user, onView }) {
   return <section className="edx-exam-card edx-exam-form edx-importer" aria-labelledby="edx-import-title">
     <div className="edx-import-head"><div><h3 id="edx-import-title">Bulk import MCQs</h3>
       <p>Upload one JSON file or paste a JSON array. Large imports are saved in batches of 100 questions. Set a subject, Quiz set and exam category for the whole batch, or preserve each question’s existing values. Multiple Quiz sets can be included in one JSON file.</p>
-      <p style={{marginTop:8,padding:"8px 12px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,fontSize:13}}><strong>Need to delete a complete uploaded file?</strong> Go to the <strong>Manage MCQs</strong> tab above → select the subject → use the red <strong>"Delete complete file — all listed questions"</strong> section (works even for older imports with no grouped upload).</p></div>
+      <p style={{marginTop:8,padding:"8px 12px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,fontSize:13}}><strong>Need to delete a complete uploaded file?</strong> Go to the <strong>Manage MCQs</strong> tab above → select the subject → use the red <strong>"Delete complete file — all listed questions"</strong> section (works even for older imports with no grouped upload). To replace a file with a corrected version instead, use the Replace option below the import summary, or the Replace file button next to the upload in Manage MCQs.</p></div>
       <FileJson2 size={27} aria-hidden="true"/></div>
     <form onSubmit={importMany} noValidate>
       <label className="edx-import-file">Choose a JSON file
@@ -188,6 +259,13 @@ export default function McqBulkImporter({ user, onView }) {
         {mustVerify && <div className="edx-import-warning"><AlertTriangle size={18}/>
           <p>{inspection.summary.provisional} provisional answers and {inspection.summary.answerConflicts} possible answer-key conflicts detected. Original source files did not verify these answers. Check them before making the quiz public.</p></div>}
       </div>}
+      {replaceLoading && <p className="edx-import-note" role="status">Checking for an existing batch to replace…</p>}
+      {!replaceLoading && replaceBatches.length > 0 && <div className="edx-exam-alert" role="group" aria-label="Replace existing batch" style={{background:'#eff6ff',borderColor:'#bfdbfe'}}>
+        <strong>{replaceBatches.length === 1 ? 'This subject and exam type already has an uploaded batch.' : 'This subject and exam type already has uploaded batches.'}</strong>
+        <p style={{margin:'6px 0'}}>Importing again without Replace creates duplicates — every question would appear twice. Tick Replace to delete the old batch and import these questions in its place (the old questions are replaced, not added).</p>
+        {replaceBatches.length > 1 && <label className="edx-exam-field">Batch to replace<select value={replaceChoice} disabled={busy} onChange={e=>{setReplaceChoice(e.target.value); setReplaceChecked(!!e.target.value);}}><option value="">Choose a batch…</option>{replaceBatches.map(b => <option key={b.batchId} value={b.batchId}>{b.name} · {b.count} questions · {b.categories.join(', ')}</option>)}</select></label>}
+        <label className="edx-import-confirm"><input type="checkbox" checked={replaceChecked} disabled={busy || !replaceChoice} onChange={e=>setReplaceChecked(e.target.checked)}/><span>Replace {replaceBatches.length === 1 ? '"' + replaceBatches[0].name + '" (' + replaceBatches[0].count + ' questions)' : 'the selected batch'} — delete it and import these {inspection.summary.count} questions in its place.</span></label>
+      </div>}
       <label className="edx-import-confirm"><input type="checkbox" checked={sourceChecked} disabled={busy} onChange={e=>setSourceChecked(e.target.checked)}/><span>I personally checked EVERY answer in this batch against the named reference; mark the answer keys source-verified for scoring.</span></label>
       {sourceChecked && <label className="edx-exam-field">Verified source for ALL answers<input required maxLength={200} minLength={12} value={verificationSource} onChange={e=>setVerificationSource(e.target.value)} placeholder="e.g. CS620 official solved Quiz 1, questions 1–20"/></label>}
       {sourceChecked && mustVerify && <label className="edx-import-confirm"><input type="checkbox" checked={verified} disabled={busy} onChange={e=>setVerified(e.target.checked)}/><span>I resolved the provisional/conflicting source answers individually. Otherwise import them without verified scoring.</span></label>}
@@ -198,9 +276,9 @@ export default function McqBulkImporter({ user, onView }) {
         {destination?.subject && destination?.category && <button type="button" className="edx-exam-secondary"
           onClick={() => onView?.(destination.subject, destination.category)}>View {destination.subject} {destination.category === 'quiz' ? 'Quiz' : destination.category === 'midterm' ? 'Midterm' : 'Finalterm'}</button>}</div>}
       <button type="submit" className="edx-exam-primary edx-import-submit" disabled={busy || !inspection.items?.length || (sourceChecked && verificationSource.trim().length < 12) || (sourceChecked && mustVerify && !verified)}>
-        <UploadCloud size={17}/>{busy ? 'Publishing questions…' : inspection.summary ? 'Import ' + inspection.summary.count + ' questions' : 'Import questions'}
+        <UploadCloud size={17}/>{busy ? 'Publishing questions…' : (replaceChecked && replaceChoice && inspection.summary) ? 'Replace batch + import ' + inspection.summary.count + ' questions' : inspection.summary ? 'Import ' + inspection.summary.count + ' questions' : 'Import questions'}
       </button>
-      <p className="edx-import-note">The existing Firestore collection is retained. Questions with missing options, missing answer keys or mismatched correct answers are listed for review and skipped. No original files or existing MCQs are deleted.</p>
+      <p className="edx-import-note">The existing Firestore collection is retained. Questions with missing options, missing answer keys or mismatched correct answers are listed for review and skipped. No original files or existing MCQs are deleted — except the one batch you explicitly choose to Replace above.</p>
     </form>
   </section>;
 }

@@ -113,6 +113,47 @@ export async function deleteMcqs(ids, { chunkSize = 450 } = {}) {
   }
 }
 
+/** Delete every row of one import batch, by its import_batch_id. */
+export async function deleteMcqsByBatch(batchId) {
+  clearCachedPrefix(CACHE_PREFIX);
+  if (!batchId) throw new Error('No batch selected to delete.');
+  const { error } = await supabase.from('exam_mcqs').delete().eq('import_batch_id', batchId);
+  if (error) throw error;
+}
+
+/**
+ * Replace one live import batch with a new set of rows (same subject/term).
+ * Insert-first, then delete: the new rows go in under their fresh batch id
+ * and are counted; only when the count matches do the old rows go out, so a
+ * failed import never loses the live bank. If the old batch changed since the
+ * admin listed it (or exceeds 900 rows) the delete is refused and the new
+ * batch stays live — the admin then removes the old batch from Manage MCQs.
+ * Returns { inserted, deleted, batchId }.
+ */
+export async function replaceMcqBatch(rows, oldBatchId, { expectedOldCount = null, chunkSize = 500 } = {}) {
+  if (!oldBatchId) throw new Error('No batch selected to replace.');
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) throw new Error('Nothing to import for this replacement.');
+  const newBatchId = list[0].importBatchId;
+  if (!newBatchId) throw new Error('Replacement rows carry no batch id.');
+  if (newBatchId === oldBatchId) throw new Error('The replacement batch must differ from the batch it replaces.');
+  const result = await addMcqBatch(list, { chunkSize });
+  const fresh = await listMcqsByBatch(newBatchId, { limit: list.length + 1 });
+  if (fresh.length !== list.length || result.inserted !== list.length) {
+    throw new Error('Only ' + fresh.length + ' of ' + list.length + ' replacement questions were published. The old batch is untouched — remove the partial new batch from Manage MCQs and retry.');
+  }
+  const oldRows = await listMcqsByBatch(oldBatchId, { limit: 901 });
+  if (oldRows.length > 900) {
+    throw new Error('The old batch has ' + oldRows.length + ' questions (over the 900-row replace limit). The new batch is live; remove the old batch from Manage MCQs.');
+  }
+  if (expectedOldCount != null && oldRows.length !== expectedOldCount) {
+    throw new Error('The old batch changed while it was open (' + oldRows.length + ' questions now, expected ' + expectedOldCount + '). The new batch is live; reload Manage MCQs and remove the old batch there.');
+  }
+  const deleted = oldRows.length;
+  await deleteMcqsByBatch(oldBatchId);
+  return { inserted: result.inserted, deleted, batchId: newBatchId };
+}
+
 export async function updateMcq(id, data) {
   clearCachedPrefix(CACHE_PREFIX);
   const row = toMcqRow(data);

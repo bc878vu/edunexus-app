@@ -188,6 +188,7 @@ function ExamBankStatsCard({ user }) {
 
 function AdminTools({ user, onView }) {
   const [adminSubTab, setAdminSubTab] = useState('import');
+  const [replaceTarget, setReplaceTarget] = useState(null);
   const [draft, setDraft] = useState(EMPTY_MCQ);
   const [pending, setPending] = useState([]);
   const [message, setMessage] = useState("");
@@ -266,8 +267,8 @@ function AdminTools({ user, onView }) {
         </button>
       ))}
     </div>
-    {adminSubTab==='import' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading JSON importer…</section>}><McqBulkImporter user={user} onView={onView}/></React.Suspense>}
-    {adminSubTab==='manage' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading question manager…</section>}><ExamMcqAdminManager user={user} initialSubject={draft.subject}/></React.Suspense>}
+    {adminSubTab==='import' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading JSON importer…</section>}><McqBulkImporter user={user} onView={onView} replaceTarget={replaceTarget} onReplaceDone={() => setReplaceTarget(null)}/></React.Suspense>}
+    {adminSubTab==='manage' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading question manager…</section>}><ExamMcqAdminManager user={user} initialSubject={draft.subject} onReplace={(target) => { setReplaceTarget(target); setAdminSubTab('import'); }}/></React.Suspense>}
     {adminSubTab==='reviews' && <React.Suspense fallback={<section className="edx-exam-card" role="status">Loading paper review manager…</section>}><ExamPaperReviewManager user={user}/></React.Suspense>}
     <section className="edx-exam-card edx-exam-form"><div className="edx-exam-between"><h3>Legacy pending paper reviews ({pending.filter((r) => r.status === "pending").length})</h3><button className="edx-exam-secondary" onClick={reload} disabled={busy}>Refresh</button></div>
       {pending.filter((r) => r.status === "pending").map((r) => <div className="edx-exam-pending" key={r.id}><p><strong>{safe(r.subject, 12)} · {safe(r.term, 10)} · {safe(r.examDate, 10)}</strong></p><p>{safe(r.topics, 400)}</p><p>{safe(r.summary, 1500)}</p><div className="edx-exam-actions"><button className="edx-exam-primary" disabled={busy} onClick={() => moderate(r, true)}>Approve</button><button className="edx-exam-secondary" disabled={busy} onClick={() => moderate(r, false)}>Reject</button></div></div>)}
