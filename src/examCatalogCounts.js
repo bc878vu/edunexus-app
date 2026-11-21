@@ -34,9 +34,15 @@ async function countFromSupabase(subject, category) {
 // Every subject code currently present in the question bank.
 // Paginated: a single huge select can get truncated on flaky networks,
 // which would silently refresh only the first few subjects.
+// PostgREST caps one response at 1000 rows (max-rows) even when the
+// requested Range is larger: asking for 2000 returned only 1000, and the
+// old `data.length < PAGE` break then stopped after page 1 — so a recount
+// silently covered only the first 1000 bank rows (51 of 103 subjects).
+// Advance by the rows actually received and stop only on an empty page,
+// so no server cap can silently drop subjects again.
 export async function listCatalogSubjects() {
   const set = new Set();
-  const PAGE = 2000;
+  const PAGE = 1000;
   let offset = 0;
   for (;;) {
     const { data, error } = await supabase
@@ -44,12 +50,12 @@ export async function listCatalogSubjects() {
       .select('subject')
       .range(offset, offset + PAGE - 1);
     if (error) throw error;
-    (data || []).forEach((r) => {
+    if (!data || !data.length) break;
+    data.forEach((r) => {
       const s = String(r.subject || '').trim().toUpperCase();
       if (COURSE.test(s)) set.add(s);
     });
-    if (!data || data.length < PAGE) break;
-    offset += PAGE;
+    offset += data.length;
   }
   return [...set].sort();
 }
