@@ -17,6 +17,7 @@ import { BANK_SUBJECTS, buildPaper } from './testPapersBank';
 import { mergeBankSubjects, mergeCatalog } from './testPaperBankMerge';
 import { useAdminBanks } from './useAdminBanks';
 import { listSavedPapers, listAssignments } from './db/testPaperAdmin.js';
+import { paperShareUrl, savedPaperUrl, PaperShareButtons } from './testPaperShare';
 import PaperPopup from './PaperPopup';
 import PaperBuilder from './PaperBuilder';
 import PaperAnswerEditor from './PaperAnswerEditor';
@@ -232,10 +233,11 @@ export function PaperRunner({ paper, onBack }) {
     setSaveState('idle');
   };
 
+  // Result share link: saved papers share by record id, pattern papers
+  // rebuild from their pattern params (term included — without it a
+  // Finalterm paper rebuilds as Midterm), registry papers by slug.
   const shareText = submitted
-    ? paper.code + ' ' + paper.lectures + ' Test Paper — Name: ' + submitted.studentName + ', VU ID: ' + submitted.studentVuId + ', MCQ score: ' + submitted.mcqScore + '/' + paper.mcqs.length + '. Full paper: ' + window.location.origin + (paper.isCustom && paper.patternParams
-      ? '/test-papers?subject=' + paper.patternParams.subject + '&lectures=' + paper.patternParams.lectures.join(',') + '&mcqs=' + paper.patternParams.mcq + '&shorts=' + paper.patternParams.short + '&longs=' + paper.patternParams.long
-      : '/test-papers/' + paper.slug)
+    ? paper.code + ' ' + paper.lectures + ' Test Paper — Name: ' + submitted.studentName + ', VU ID: ' + submitted.studentVuId + ', MCQ score: ' + submitted.mcqScore + '/' + paper.mcqs.length + '. Full paper: ' + (paperShareUrl(paper) || window.location.origin + '/test-papers')
     : '';
   const whatsappUrl = 'https://wa.me/' + ADMIN_WHATSAPP + '?text=' + encodeURIComponent(shareText);
 
@@ -363,6 +365,12 @@ export function PaperRunner({ paper, onBack }) {
             <span>{paper.marks.total} marks</span>
             <span>{paper.minutes} minutes</span>
           </div>
+          {paperShareUrl(paper) && (
+            <div className="edx-paper-cover-share">
+              <span>Is paper ka link share karein:</span>
+              <PaperShareButtons url={paperShareUrl(paper)} title={paper.code + ' — ' + paper.title + ' — Test Paper'} />
+            </div>
+          )}
         </section>
         <section className="edx-exam-card edx-exam-form edx-paper-details-card">
           <h3>Your details</h3>
@@ -497,7 +505,31 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const [savedNote, setSavedNote] = useState('');
   const [vuLookup, setVuLookup] = useState('');
   const [vuShown, setVuShown] = useState(false);
-  const savedHandled = useRef(false);
+  // ?saved= handling: track the id already opened (not a one-shot boolean),
+  // so an in-app navigation to a different saved link still opens it, and a
+  // fresh load always resolves against the loaded list.
+  const handledSavedId = useRef(null);
+  const savedRetry = useRef(false);
+  // Re-render on every navigation event (browser back/forward included).
+  // The pattern paper below is derived from window.location.search during
+  // render, and the app's nav-path state does NOT change when only the
+  // query changes (same pathname), so without this the pattern runner
+  // stayed stuck on screen after "Back to Test Papers" / browser back.
+  const [, setNavTick] = useState(0);
+  useEffect(() => {
+    const sync = () => setNavTick((t) => t + 1);
+    window.addEventListener('popstate', sync);
+    window.addEventListener('edunexus:navigation', sync);
+    return () => {
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener('edunexus:navigation', sync);
+    };
+  }, []);
+  // The ?saved= id in the URL right now (recomputed on every render, so an
+  // in-app navigation to a saved link is picked up without a remount).
+  const savedParam = (() => {
+    try { return new URLSearchParams(window.location.search).get('saved'); } catch (_) { return null; }
+  })();
   useEffect(() => {
     let alive = true;
     Promise.all([listSavedPapers().catch(() => []), listAssignments().catch(() => [])]).then(([p, a]) => {
@@ -524,40 +556,51 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
       setSavedNote('Is paper ke lectures mein koi verified sawal nahi mila. Admin se contact karein.');
       return;
     }
-    setSavedRun(built);
+    // Keep the record id on the built paper so the runner can share this
+    // exact saved paper (?saved=<id>) instead of a rebuilt pattern link.
+    setSavedRun({ ...built, savedId: p.id });
   };
   useEffect(() => {
-    if (savedLoading || adminLoading || savedHandled.current) return;
-    savedHandled.current = true;
-    let id = null;
-    try {
-      id = new URLSearchParams(window.location.search).get('saved');
-    } catch (_) {}
-    if (!id) return;
-    const p = savedPapers.find((x) => x.id === id);
-    if (!p) {
-      setSavedNote('Ye saved paper nahi mila — ho sakta hai admin ne ise delete kar diya ho.');
+    // No ?saved= in the URL: clear the handled marker so the same link can
+    // be opened again after going back to the list.
+    if (!savedParam) {
+      handledSavedId.current = null;
+      savedRetry.current = false;
       return;
     }
-    buildSavedPaper(p);
+    if (savedLoading || adminLoading) return;
+    if (handledSavedId.current === savedParam) return;
+    const p = savedPapers.find((x) => x.id === savedParam);
+    if (p) {
+      handledSavedId.current = savedParam;
+      buildSavedPaper(p);
+      return;
+    }
+    // Not in the loaded list (yet): one retry against the live table, so a
+    // transient list failure cannot turn into a false "paper not found".
+    if (!savedRetry.current) {
+      savedRetry.current = true;
+      listSavedPapers().catch(() => []).then((fresh) => {
+        // The user may have navigated to a different saved link while this
+        // retry was in flight — only open the paper if this id is still the
+        // one in the URL.
+        let currentId = null;
+        try { currentId = new URLSearchParams(window.location.search).get('saved'); } catch (_) {}
+        if (currentId !== savedParam) return;
+        const found = (fresh || []).find((x) => x.id === savedParam);
+        if (found) {
+          handledSavedId.current = savedParam;
+          buildSavedPaper(found);
+        } else {
+          setSavedNote('Ye saved paper nahi mila — ho sakta hai admin ne ise delete kar diya ho. Neeche list se koi paper chunain.');
+        }
+      });
+      return;
+    }
+    setSavedNote('Ye saved paper nahi mila — ho sakta hai admin ne ise delete kar diya ho. Neeche list se koi paper chunain.');
   },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [savedLoading, adminLoading, savedPapers]);
-  // Re-render on every navigation event (browser back/forward included).
-  // The pattern paper below is derived from window.location.search during
-  // render, and the app's nav-path state does NOT change when only the
-  // query changes (same pathname), so without this the pattern runner
-  // stayed stuck on screen after "Back to Test Papers" / browser back.
-  const [, setNavTick] = useState(0);
-  useEffect(() => {
-    const sync = () => setNavTick((t) => t + 1);
-    window.addEventListener('popstate', sync);
-    window.addEventListener('edunexus:navigation', sync);
-    return () => {
-      window.removeEventListener('popstate', sync);
-      window.removeEventListener('edunexus:navigation', sync);
-    };
-  }, []);
+    [savedLoading, adminLoading, savedPapers, savedParam]);
   const paper = paperSlug ? getTestPaper(paperSlug) : null;
   if (paper) return <PaperRunner paper={paper} onBack={() => onSelectPaper('')} />;
   if (builderCode) return <PaperBuilder subjectCode={builderCode} term={builderTerm} onBack={() => { setBuilderCode(null); setBuilderTerm(null); }} />;
@@ -707,6 +750,8 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
               <strong>{p.title}</strong> · {p.code} ({p.term}) · {savedUnit}s {p.lectures.join(', ')} · {p.mcq} MCQs, {p.short} shorts, {p.long} longs{p.builtCounts ? ` · ${p.builtCounts.marks && typeof p.builtCounts.marks === 'object' ? p.builtCounts.marks.total : p.builtCounts.marks} marks` : ''}
               {' '}
               <button type="button" className="edx-exam-primary" onClick={() => buildSavedPaper(p)}>Start paper</button>
+              {' '}
+              <PaperShareButtons url={savedPaperUrl(p.id)} title={p.title + ' — ' + p.code + ' Test Paper'} />
             </div>
             );
           })}

@@ -28,6 +28,17 @@ const TUTORIAL_SPEC = {
   createdBy: 'created_by',
   createdAt: { col: 'created_at', ts: true },
   updatedAt: { col: 'updated_at', ts: true },
+  // Lecture videos (Home page section): kind 'lecture' rows power the
+  // LectureVideos section; 'tutorial' rows power the Tutorials page.
+  // These columns need the SQL in supabase/lecture-videos-tutorials.sql —
+  // run it BEFORE deploying this code (4xx errors never trigger the
+  // Firebase fallback, so a lecture save would fail instead of saving).
+  // Legacy rows have kind NULL and are treated as tutorials everywhere.
+  kind: 'kind',
+  subjectCode: 'subject_code',
+  sortOrder: 'sort_order',
+  isFeatured: 'is_featured',
+  isActive: 'is_active',
   // TODO(schema): plan §1 has no columns for `storagePath` and `updatedBy`.
   // File-type tutorials store the video bytes in the `tutorial-videos` bucket;
   // keep `storagePath` in the bucket path column decision before cutover.

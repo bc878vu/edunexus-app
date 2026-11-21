@@ -117,7 +117,9 @@ export default function TutorialHub() {
   const isAdmin = user?.email === ADMIN_EMAIL && user?.emailVerified === true;
 
   const allVideos = useMemo(
-    () => [...videos, ...starterVideos.map((v, i) => ({ ...v, id: `starter-${i}`, starter: true }))],
+    // Lecture videos (kind 'lecture') live on the Home page section, not
+    // the Tutorials page — legacy rows have kind NULL and stay here.
+    () => [...videos.filter((v) => v.kind !== 'lecture'), ...starterVideos.map((v, i) => ({ ...v, id: `starter-${i}`, starter: true }))],
     [videos],
   );
 

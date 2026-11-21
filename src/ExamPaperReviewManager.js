@@ -57,7 +57,7 @@ const createLegacyReview = async (values) => {
 };
 const trim = (value, max) => String(value || '').trim().slice(0, max);
 const courseCode = (value) => trim(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, '');
-const validCode = (code) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(code);
+const validCode = (code) => /^[A-Z]{2,5}[0-9]{3,4}[A-Z]?$/.test(code);
 const initial = () => ({ subject:'', term:'midterm', semester:'Spring ' + new Date().getFullYear(),
   examDate:'', examTime:'', sharedBy:'', difficulty:'moderate', topics:'', summary:'' });
 const editable = (record) => ({

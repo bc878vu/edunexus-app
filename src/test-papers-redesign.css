@@ -960,3 +960,43 @@ body:has(.edx-paper-runner) .edx-free-orb {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Test-paper sharing (src/testPaperShare.jsx): Copy link + Share buttons.
+   Buttons reuse .edx-exam-secondary; only the row layout is new. */
+.edx-paper-share-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+.edx-paper-share-failed {
+  color: #b91c1c;
+  font-size: 13px;
+}
+.edx-paper-cover-share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--edx-border, #e5e7eb);
+  color: var(--edx-text-muted, #6b7280);
+  font-size: 14px;
+}
+.edx-paper-cover-share .edx-paper-share-row {
+  margin-top: 0;
+}
+.edx-paper-builder-share {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-left: 8px;
+  color: var(--edx-text-muted, #6b7280);
+  font-size: 14px;
+}
+.edx-paper-builder-share .edx-paper-share-row {
+  margin-top: 0;
+}

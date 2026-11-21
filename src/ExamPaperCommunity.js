@@ -18,13 +18,13 @@ const REVIEW_COLLECTION = 'examCommunityReviews';
 const LEGACY_COLLECTION = 'examReviews';
 const safe = (value, max = 10000) => String(value == null ? '' : value).trim().slice(0, max);
 const courseCode = (value) => safe(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, '');
-const validCourse = (value) => /^[A-Z]{2,5}[0-9]{3}[A-Z]?$/.test(value);
+const validCourse = (value) => /^[A-Z]{2,5}[0-9]{3,4}[A-Z]?$/.test(value);
 const dateValue = (value) => value && typeof value.toMillis === 'function' ? value.toMillis() : 0;
 const todayLocal = () => {
   const d = new Date(), pad = (v) => String(v).padStart(2, '0');
   return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 };
-const SUBJECTS = ['CS101', 'CS201', 'CS301', 'CS302', 'CS304', 'CS401', 'CS403', 'CS510', 'CS511', 'CS601', 'CS604', 'CS610', 'ENG101', 'ENG201', 'MGT101', 'MGT111', 'MGT201', 'MGT611', 'MTH101', 'MTH202', 'MTH601', 'PHY101', 'STA301'];
+const SUBJECTS = ['BIO5101', 'BIO5105', 'CS101', 'CS201', 'CS301', 'CS302', 'CS304', 'CS401', 'CS403', 'CS510', 'CS511', 'CS601', 'CS604', 'CS610', 'ENG101', 'ENG201', 'MGT101', 'MGT111', 'MGT201', 'MGT611', 'MTH101', 'MTH202', 'MTH601', 'PHY101', 'STA301'];
 const defaultForm = (subject, term) => ({
   subject: '', term, examDate: '', examTime: '', semesterSeason: 'Spring',
   semesterYear: new Date().getFullYear(), sharedBy: '', difficulty: 'moderate',
