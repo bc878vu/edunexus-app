@@ -129,6 +129,7 @@ import {
   listArticles, listArticleSummaries, listArticleSubmissions, getArticle, createArticle, updateArticle, deleteArticle, countArticles, subscribeArticles
 } from './db/articles';
 import { readCatalogFromSupabase } from './examCatalogCounts';
+import { countCommunityReviews, countLegacyReviews } from './db/examReviews';
 
 // This declaration must follow all static imports (CRA enforces import/first).
 import { ADMIN_EMAIL as SECURE_ADMIN_EMAIL, ADMIN_LOGOUT_KEY, ADMIN_TAB_SINCE_KEY, adminLoginStarted, adminLoginFinished, isAdminLoginPending, grantAdminTab, clearAdminTab, clearAdminSession, adminTabIsActive, adminPanelAccess, currentPageIsAdmin, verifiedAdmin, broadcastAdminLogout, touchAdminSession, adminSessionAlive } from './adminSession';
@@ -2064,6 +2065,8 @@ const HomePage = ({setPage, theme, showToast, user}) => {
     articles: 0,
     discussions: 0,
     highlights: 0,
+    mcqs: null,
+    reviews: null,
   });
   const [statsLoading, setStatsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -2079,13 +2082,27 @@ const HomePage = ({setPage, theme, showToast, user}) => {
     try {
       // Backend-agnostic counts via the db adapter (Firebase today, Supabase
       // when REACT_APP_DATA_BACKEND=supabase). No direct Firestore access.
-      const [files, articles, discussions, highlightsCount] = await Promise.all([
+      const [files, articles, discussions, highlightsCount, mcqCatalog, reviewCounts] = await Promise.all([
         countFiles(),
         countArticles(),
         countDiscussions(),
         countHighlights(),
+        // Live totals for the Study momentum numbers (were hardcoded 27,135 /
+        // 1,344, so no refresh button could ever update them). Each count fails
+        // soft to null so a backend hiccup shows '…' instead of a wrong 0.
+        readCatalogFromSupabase().catch(() => null),
+        Promise.all([
+          countCommunityReviews().catch(() => null),
+          countLegacyReviews().catch(() => null),
+        ]),
       ]);
-      setStats({ files, articles, discussions, highlights: highlightsCount });
+      const mcqs = mcqCatalog
+        ? Object.values(mcqCatalog.bySubject || {}).reduce((n, c) => n + (c.quiz || 0) + (c.midterm || 0) + (c.finalterm || 0), 0)
+        : null;
+      const reviews = reviewCounts[0] != null && reviewCounts[1] != null
+        ? reviewCounts[0] + reviewCounts[1]
+        : null;
+      setStats({ files, articles, discussions, highlights: highlightsCount, mcqs, reviews });
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Dashboard stats error:', error);
@@ -2207,7 +2224,7 @@ const HomePage = ({setPage, theme, showToast, user}) => {
               </div>
             </section>
 
-      <section className="mt-10 grid lg:grid-cols-[1.15fr_.85fr] gap-5"><div className={`rounded-3xl border ${theme.border} ${theme.card} p-5 sm:p-7 shadow-sm overflow-hidden relative`}><div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-indigo-500/5 blur-2xl" /><div className="relative"><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Study momentum</p><h2 className={`mt-1 text-2xl font-black ${theme.text}`}>Build a strong session</h2></div><div className="rounded-2xl bg-indigo-500/10 px-4 py-2 text-right"><p className={`text-[10px] font-bold uppercase tracking-wider ${theme.textMuted}`}>Solved MCQs in the bank</p><p className="text-2xl font-black text-indigo-500">27,135</p></div></div><div className="mt-7 space-y-5">{[{label:'Study files',value: statsLoading ? '…' : stats.files.toLocaleString(),note: statsLoading ? 'Counting resources…' : 'Handouts, solved papers and notes in the Academic Hub'},{label:'Paper reviews',value:'1,344',note:'Real exam experiences shared by VU students'},{label:'Articles & guides',value: statsLoading ? '…' : stats.articles.toLocaleString(),note:'Study guides, explainers and announcements'}].map((row)=><div key={row.label}><div className="flex items-center justify-between gap-4"><span className={`text-sm font-bold ${theme.text}`}>{row.label}</span><span className={`text-lg font-black ${theme.text}`}>{row.value}</span></div><p className={`mt-1 text-xs ${theme.textMuted}`}>{row.note}</p></div>)}</div></div></div><div className={`rounded-3xl border ${theme.border} ${theme.card} p-5 sm:p-7 shadow-sm`}><div className="flex items-center justify-between"><div><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Daily focus</p><h2 className={`mt-1 text-2xl font-black ${theme.text}`}>Three small wins</h2></div><div className="h-12 w-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center"><Target size={24} /></div></div><div className="mt-5 space-y-3">{focusItems.map((item,index)=><button key={item.label} onClick={()=>setPage(item.target)} className={`w-full flex items-center gap-3 rounded-2xl border ${theme.border} px-4 py-3 text-left hover:border-indigo-400/50 hover:bg-indigo-500/5`}><span className="h-8 w-8 shrink-0 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-black">{index+1}</span><span className={`flex-1 text-sm font-bold ${theme.text}`}>{item.label}</span><ArrowRight size={16} className={theme.textMuted} /></button>)}</div><button onClick={()=>setPage('planner')} className="mt-5 w-full rounded-2xl bg-slate-950 dark:bg-white px-4 py-3 text-sm font-black text-white dark:text-slate-950 hover:-translate-y-0.5">Open Study Planner</button></div></section>
+      <section className="mt-10 grid lg:grid-cols-[1.15fr_.85fr] gap-5"><div className={`rounded-3xl border ${theme.border} ${theme.card} p-5 sm:p-7 shadow-sm overflow-hidden relative`}><div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-indigo-500/5 blur-2xl" /><div className="relative"><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Study momentum</p><h2 className={`mt-1 text-2xl font-black ${theme.text}`}>Build a strong session</h2></div><div className="rounded-2xl bg-indigo-500/10 px-4 py-2 text-right"><p className={`text-[10px] font-bold uppercase tracking-wider ${theme.textMuted}`}>Solved MCQs in the bank</p><p className="text-2xl font-black text-indigo-500">{statsLoading || stats.mcqs == null ? '…' : stats.mcqs.toLocaleString()}</p></div></div><div className="mt-7 space-y-5">{[{label:'Study files',value: statsLoading ? '…' : stats.files.toLocaleString(),note: statsLoading ? 'Counting resources…' : 'Handouts, solved papers and notes in the Academic Hub'},{label:'Paper reviews',value: statsLoading || stats.reviews == null ? '…' : stats.reviews.toLocaleString(),note:'Real exam experiences shared by VU students'},{label:'Articles & guides',value: statsLoading ? '…' : stats.articles.toLocaleString(),note:'Study guides, explainers and announcements'}].map((row)=><div key={row.label}><div className="flex items-center justify-between gap-4"><span className={`text-sm font-bold ${theme.text}`}>{row.label}</span><span className={`text-lg font-black ${theme.text}`}>{row.value}</span></div><p className={`mt-1 text-xs ${theme.textMuted}`}>{row.note}</p></div>)}</div></div></div><div className={`rounded-3xl border ${theme.border} ${theme.card} p-5 sm:p-7 shadow-sm`}><div className="flex items-center justify-between"><div><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Daily focus</p><h2 className={`mt-1 text-2xl font-black ${theme.text}`}>Three small wins</h2></div><div className="h-12 w-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center"><Target size={24} /></div></div><div className="mt-5 space-y-3">{focusItems.map((item,index)=><button key={item.label} onClick={()=>setPage(item.target)} className={`w-full flex items-center gap-3 rounded-2xl border ${theme.border} px-4 py-3 text-left hover:border-indigo-400/50 hover:bg-indigo-500/5`}><span className="h-8 w-8 shrink-0 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-black">{index+1}</span><span className={`flex-1 text-sm font-bold ${theme.text}`}>{item.label}</span><ArrowRight size={16} className={theme.textMuted} /></button>)}</div><button onClick={()=>setPage('planner')} className="mt-5 w-full rounded-2xl bg-slate-950 dark:bg-white px-4 py-3 text-sm font-black text-white dark:text-slate-950 hover:-translate-y-0.5">Open Study Planner</button></div></section>
 
       <section className="mt-10"><div className="mb-5"><p className={`text-xs font-black uppercase tracking-[.2em] ${theme.accent}`}>Workspace</p><h2 className={`mt-1 text-2xl sm:text-3xl font-black ${theme.text}`}>Everything stays connected</h2></div><div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">{workspaceCards.map((card)=>{const Icon=card.icon;return <button key={card.id} onClick={()=>setPage(card.id)} className={`group rounded-3xl border ${theme.border} ${theme.card} p-5 text-left shadow-sm hover:shadow-xl hover:-translate-y-1`}><div className="flex items-center justify-between"><span className="h-11 w-11 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center"><Icon size={21}/></span><ArrowUpRight size={18} className={`${theme.textMuted} transition-transform group-hover:translate-x-1 group-hover:-translate-y-1`}/></div><h3 className={`mt-5 font-black ${theme.text}`}>{card.title}</h3><p className={`mt-2 text-sm leading-6 ${theme.textMuted}`}>{card.text}</p><span className="mt-4 inline-flex rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{card.meta}</span></button>})}</div></section>
 

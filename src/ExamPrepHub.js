@@ -5,7 +5,7 @@ import { db } from "./firebase-client";
 import { validateMcq } from "./examMcqImport";
 import { addMcq } from "./db/examMcqs";
 import { EXAM_CATEGORIES, EXAM_SUBJECT_LIMIT, catalogFromCounts, publishedExamCatalog } from "./examCatalog";
-import { readCatalogFromSupabase } from "./examCatalogCounts";
+import { readCatalogFromSupabase, refreshExamCatalogCounts } from "./examCatalogCounts";
 import { routeParamsFromPath } from "./app-routes.mjs";
 import { adminPanelAccess } from './adminSession';
 import NotFoundHelp from './NotFoundHelp';
@@ -151,6 +151,22 @@ function ExamBankStatsCard({ user }) {
     } catch (_) { setBankStatsError('Stats unavailable right now.'); }
     finally { setRefreshing(false); }
   }, [user]);
+  const [recountMsg, setRecountMsg] = React.useState('');
+  // "Refresh stats" used to only RE-READ the pre-computed catalogue, so it
+  // could never fix stale public counts. It now recounts every subject from
+  // the question bank first, then reloads — the button does what its label
+  // promises.
+  const recount = React.useCallback(async () => {
+    if (!adminPanelAccess(user)) { setBankStats(null); return; }
+    setRefreshing(true);
+    setRecountMsg('');
+    try {
+      const { updated, total } = await refreshExamCatalogCounts('all');
+      await load();
+      setRecountMsg('Recounted ' + updated.length + ' subjects · ' + total.toLocaleString() + ' questions.');
+    } catch (e) { setRecountMsg('Recount failed: ' + (e && e.message ? e.message : 'unknown error')); }
+    finally { setRefreshing(false); }
+  }, [user, load]);
   React.useEffect(() => { load(); }, [load]);
   if (bankStatsError) return <div style={{border:'1px solid #e2e8f0', borderRadius:12, padding:16, background:'#fff', marginBottom:16}}><h3 style={{margin:'0 0 6px'}}>📊 MCQ bank stats</h3><p style={{margin:0}}>{bankStatsError}</p></div>;
   if (!bankStats) return <div style={{border:'1px solid #e2e8f0', borderRadius:12, padding:16, background:'#fff', marginBottom:16}}><h3 style={{margin:'0 0 6px'}}>📊 MCQ bank stats</h3><p style={{margin:0}}>Loading bank totals…</p></div>;
@@ -166,9 +182,10 @@ function ExamBankStatsCard({ user }) {
     <div style={{height:4, margin:'-16px -16px 14px', background:'linear-gradient(90deg,#4C4FE0,#8b5cf6,#10b981)'}} />
     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap'}}>
       <h3 style={{margin:0}}>📊 MCQ bank stats ({total.toLocaleString()} questions · {entries.length} subjects)</h3>
-      <button type="button" className="edx-exam-secondary" onClick={load} disabled={refreshing} style={{padding:'6px 14px'}}>{refreshing ? 'Refreshing…' : 'Refresh stats'}</button>
+      <button type="button" className="edx-exam-secondary" onClick={recount} disabled={refreshing} style={{padding:'6px 14px'}}>{refreshing ? 'Refreshing…' : 'Refresh stats'}</button>
     </div>
-    <p style={{margin:'6px 0 12px', fontSize:13, color:'#64748b'}}>Public catalogue counts{bankStats.updatedAt ? ' · last recount ' + new Date(bankStats.updatedAt).toLocaleString() : ''}. Refresh stats after imports or deletions.</p>
+    <p style={{margin:'6px 0 12px', fontSize:13, color:'#64748b'}}>Public catalogue counts{bankStats.updatedAt ? ' · last recount ' + new Date(bankStats.updatedAt).toLocaleString() : ''}. Refresh stats recounts every subject from the question bank, then reloads the public numbers.</p>
+    {recountMsg && <p style={{margin:'-6px 0 12px', fontSize:13, fontWeight:700, color:'#0f766e'}}>{recountMsg}</p>}
     <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10, marginBottom:14}}>
       <div><strong style={{fontSize:20}}>{quiz.toLocaleString()}</strong><div style={{fontSize:12, color:'#64748b', fontWeight:700}}>Quiz</div>{bar(quiz, '#8b5cf6')}</div>
       <div><strong style={{fontSize:20}}>{midterm.toLocaleString()}</strong><div style={{fontSize:12, color:'#64748b', fontWeight:700}}>Midterm</div>{bar(midterm, '#4C4FE0')}</div>
@@ -780,7 +797,7 @@ export default function ExamPrepHub({ user, initialTab = "mcqs", adminWorkspace 
     {tab === "papers" && <React.Suspense fallback={<div role="status" className="edx-exam-card">Loading test papers…</div>}><TestPapersHome paperSlug={paperSlug} onSelectPaper={(slug) => { setPaperSlug(slug); try { window.history.pushState({}, '', slug ? '/test-papers/' + encodeURIComponent(slug) : '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }} /></React.Suspense>}
     {showAdmin && tab === "admin" && <AdminTools user={user} onView={(code, examType) => { selectSubject(code); selectTerm(examType); setTab("mcqs"); }} />}
     {showAdmin && tab === "papertest" && <PaperTestAdmin user={user} />}
-    <section className="edx-exam-seo" aria-label="About VU exam preparation"><h2>Free VU MCQ Practice, Paper Reviews and Study Files</h2><div className="edx-exam-seo-text"><p>EduNexus Exam Prep is built for one kind of student: a VU student with a midterm in three weeks. The MCQ bank holds 27,135 solved questions — 300 per subject per term, from CS101 and MTH101 to ENG201 and PAK301 — and every question carries the correct answer with an explanation, so you learn the concept instead of memorising the letter.</p><p>Pick your subject, pick Midterm or Finalterm, and start. Practice runs timed, like the real paper, with instant scoring — and every attempt is saved, so your mistakes wait for you in one list instead of disappearing. Do 20 questions a day and the bank tells you, lecture by lecture, where you are weak.</p><p>The MCQs are only half of it. 1,344 paper reviews here were written by students who actually sat the paper — which topics dominated, how hard it was, what caught them off guard. Read two or three for your subject before you revise, then write one after your exam. The next student will do the same for you. Everything is free, and nothing here needs a sign-in.</p></div></section>
+    <section className="edx-exam-seo" aria-label="About VU exam preparation"><h2>Free VU MCQ Practice, Paper Reviews and Study Files</h2><div className="edx-exam-seo-text"><p>EduNexus Exam Prep is built for one kind of student: a VU student with a midterm in three weeks. The MCQ bank holds 30,130 solved questions — 300 per subject per term, from CS101 and MTH101 to ENG201 and PAK301 — and every question carries the correct answer with an explanation, so you learn the concept instead of memorising the letter.</p><p>Pick your subject, pick Midterm or Finalterm, and start. Practice runs timed, like the real paper, with instant scoring — and every attempt is saved, so your mistakes wait for you in one list instead of disappearing. Do 20 questions a day and the bank tells you, lecture by lecture, where you are weak.</p><p>The MCQs are only half of it. 1,422 paper reviews here were written by students who actually sat the paper — which topics dominated, how hard it was, what caught them off guard. Read two or three for your subject before you revise, then write one after your exam. The next student will do the same for you. Everything is free, and nothing here needs a sign-in.</p></div></section>
     <p className="edx-exam-disclaimer">EduNexus is an independent study platform, not affiliated with Virtual University. Shared reviews and study materials are not official exam papers.</p>
   </div>;
 }
