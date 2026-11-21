@@ -24,6 +24,7 @@ export const SUBJECTS = [
   'CS636', 'SE602', 'CS508', 'CS609',
   // Other subjects with published content
   'MTH301', 'HRM613',
+  'EDU301', 'EDU402', 'EDU406', 'EDU430', 'EDU601', 'EDU602',
 ];
 
 function buildXml(urls) {
