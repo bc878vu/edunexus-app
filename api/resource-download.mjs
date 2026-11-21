@@ -28,6 +28,8 @@ async function getCachedFile(id) {
 export const maxDuration = 60;
 export default async function handler(req, res) {
   if (!['GET', 'HEAD'].includes(req.method)) return res.status(405).end();
+  // Downloads are files, not pages: never let a search engine index them.
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   const id = String(req.query?.id || '');
   if (!validId(id)) return res.status(404).end();
   try {

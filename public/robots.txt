@@ -2,6 +2,7 @@ User-agent: *
 Disallow: /admin
 Disallow: /login
 Disallow: /dashboard
+Disallow: /api/
 Allow: /
 
 Sitemap: https://edunexus-app.vercel.app/sitemap.xml

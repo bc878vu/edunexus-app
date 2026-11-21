@@ -23,7 +23,7 @@ export const SUBJECTS = [
   // Semester 8
   'CS636', 'SE602', 'CS508', 'CS609',
   // Other subjects with published content
-  'MTH301',
+  'MTH301', 'HRM613',
 ];
 
 function buildXml(urls) {
