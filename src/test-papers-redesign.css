@@ -1137,6 +1137,194 @@ body:has(.edx-paper-runner) .edx-free-orb {
   }
 }
 
+/* ---------- Builder restyle (2026-11-22): professional modern look,
+   same design language as the rest of the module — hero card, toolbar,
+   lecture cards with a custom check tile and count pills, gradient
+   Generate. Behaviour unchanged: same selection, filter, totals, flow. */
+.edx-paper-page.edx-paper-builder .edx-paper-builder-back {
+  margin-bottom: 12px;
+}
+.edx-paper-page .edx-paper-builder-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  margin: 0 0 12px;
+  border: 1px solid var(--pp-line);
+  border-radius: 18px;
+  background: linear-gradient(120deg, rgba(79, 70, 229, .1), rgba(124, 58, 237, .05)), var(--pp-card);
+  box-shadow: 0 10px 26px -18px rgba(30, 41, 59, .4);
+}
+.edx-paper-page .edx-paper-builder-tile {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  height: 52px;
+  padding: 0 8px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0f766e, #059669);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.edx-paper-page .edx-paper-builder-hero-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.edx-paper-page .edx-paper-builder-hero-text h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--pp-ink);
+}
+.edx-paper-page .edx-paper-builder-hero-text p {
+  margin: 3px 0 0;
+  font-size: .9rem;
+  color: var(--pp-muted);
+}
+.edx-paper-page .edx-paper-builder-term {
+  flex: 0 0 auto;
+  font-size: .75rem;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, .12);
+  color: #2563eb;
+}
+.edx-paper-page .edx-paper-builder-term.term-finalterm {
+  background: rgba(124, 58, 237, .12);
+  color: #7c3aed;
+}
+.edx-paper-page .edx-paper-builder-note {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--pp-soft);
+  color: var(--pp-muted);
+  font-size: .88rem;
+}
+.edx-paper-page .edx-paper-builder-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 4px;
+}
+.edx-paper-page .edx-paper-builder-search {
+  flex: 1 1 280px;
+  margin: 0;
+}
+.edx-paper-page .edx-paper-builder-actions-row {
+  margin: 0;
+}
+/* Lecture cards: custom check tile + count pills; selected = accent. */
+.edx-paper-page .edx-paper-lecture-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--pp-line);
+  border-radius: 16px;
+  background: var(--pp-card);
+  color: var(--pp-ink);
+  cursor: pointer;
+  box-shadow: 0 2px 10px -6px rgba(30, 41, 59, .25);
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.edx-paper-page .edx-paper-lecture-card:hover {
+  border-color: var(--pp-accent);
+  box-shadow: 0 8px 20px -10px rgba(30, 41, 59, .35);
+  transform: translateY(-1px);
+}
+.edx-paper-page .edx-paper-lecture-card.selected {
+  border-color: var(--pp-accent);
+  background: rgba(99, 102, 241, .1);
+  box-shadow: 0 10px 24px -12px rgba(79, 70, 229, .5);
+}
+.edx-paper-page .edx-paper-lecture-card.disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+.edx-paper-page .edx-paper-lecture-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.edx-paper-page .edx-paper-lecture-card:has(.edx-paper-lecture-input:focus-visible) {
+  outline: 3px solid rgba(99, 102, 241, .35);
+  outline-offset: 1px;
+}
+.edx-paper-page .edx-paper-lecture-check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
+  border-radius: 8px;
+  border: 2px solid var(--pp-line);
+  background: var(--pp-card);
+  color: transparent;
+  font-size: .95rem;
+  font-weight: 800;
+  transition: background .15s ease, border-color .15s ease;
+}
+.edx-paper-page .edx-paper-lecture-card.selected .edx-paper-lecture-check {
+  border-color: transparent;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+}
+.edx-paper-page .edx-paper-lecture-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.edx-paper-page .edx-paper-lecture-title {
+  font-size: .92rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.edx-paper-page .edx-paper-lecture-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.edx-paper-page .edx-paper-count-pill {
+  font-size: .74rem;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.edx-paper-page .edx-paper-count-pill.mcq { background: rgba(37, 99, 235, .12); color: #2563eb; }
+.edx-paper-page .edx-paper-count-pill.short { background: rgba(217, 119, 6, .13); color: #b45309; }
+.edx-paper-page .edx-paper-count-pill.long { background: rgba(124, 58, 237, .12); color: #7c3aed; }
+.edx-paper-page .edx-paper-lecture-empty {
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--pp-muted);
+}
+/* Generate button: gradient when enabled. */
+.edx-paper-page .edx-paper-builder-actions > .edx-exam-primary:not(:disabled) {
+  background: linear-gradient(100deg, #4f46e5, #7c3aed);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 800;
+  padding: 12px 22px;
+  box-shadow: 0 10px 22px -10px rgba(79, 70, 229, .6);
+}
+@media (max-width: 640px) {
+  .edx-paper-page .edx-paper-builder-hero { flex-wrap: wrap; padding: 14px; }
+  .edx-paper-page .edx-paper-builder-hero-text h2 { font-size: 1.05rem; }
+  .edx-paper-page .edx-paper-builder-toolbar { flex-direction: column; align-items: stretch; }
+  .edx-paper-page .edx-paper-builder-search { flex: 1 1 auto; }
+}
+
 /* ---------- Polish pass 4 (2026-11-22): term-grouped subject cards ---------- */
 
 /* Term filter tabs */

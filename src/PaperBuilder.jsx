@@ -89,25 +89,44 @@ export default function PaperBuilder({ subjectCode, term, onBack }) {
 
   return (
     <section className="edx-exam-card edx-exam-form edx-paper-builder edx-paper-page">
-      <button type="button" className="edx-exam-secondary" onClick={onBack}>Back to test papers</button>
-      <h2>Build your own paper — {subject.code}</h2>
-      <p>{subject.title} · {subject.term} · {subject.scope}. Pick any {units} you want; the paper is built only from verified bank questions for those {units}.</p>
-      <p className="edx-paper-meta-line">Sirf verified questions se paper banega — jis {unit.toLowerCase()} mein koi verified sawal nahi, wo select nahi ho sakta, aur kuch invent nahi kiya jayega.</p>
-      <label className="edx-exam-field">{unit} dhoondhein<input type="text" value={lectureFilter} onChange={(e) => setLectureFilter(e.target.value)} placeholder="Number ya title likhein, jaise 5 ya Kinematics" /></label>
-      <div className="edx-exam-actions">
-        <button type="button" className="edx-exam-secondary" onClick={() => setSelected(available.map((r) => r.n))}>Select all available</button>
-        <button type="button" className="edx-exam-secondary" onClick={() => setSelected([])}>Clear</button>
-        {selected.length > 0 && <span className="edx-paper-selected-chip">{selected.length} selected</span>}
+      <button type="button" className="edx-exam-secondary edx-paper-builder-back" onClick={onBack}>← Back to test papers</button>
+      <div className="edx-paper-builder-hero">
+        <span className="edx-paper-builder-tile" aria-hidden="true">{subject.code.replace(/[0-9].*$/, '') || 'VU'}</span>
+        <div className="edx-paper-builder-hero-text">
+          <h2>Build your own paper — {subject.code}</h2>
+          <p>{subject.title} · {subject.scope}</p>
+        </div>
+        <span className={`edx-paper-builder-term term-${(subject.term || 'Midterm').toLowerCase()}`}>{subject.term}</span>
+      </div>
+      <p className="edx-paper-builder-note">Sirf verified questions se paper banega — jis {unit.toLowerCase()} mein koi verified sawal nahi, wo select nahi ho sakta, aur kuch invent nahi kiya jayega. Pick any {units} you want; the paper is built only from verified bank questions for those {units}.</p>
+      <div className="edx-paper-builder-toolbar">
+        <label className="edx-exam-field edx-paper-builder-search">{unit} dhoondhein<input type="text" value={lectureFilter} onChange={(e) => setLectureFilter(e.target.value)} placeholder="Number ya title likhein, jaise 5 ya Kinematics" /></label>
+        <div className="edx-exam-actions edx-paper-builder-actions-row">
+          <button type="button" className="edx-exam-secondary" onClick={() => setSelected(available.map((r) => r.n))}>Select all available</button>
+          <button type="button" className="edx-exam-secondary" onClick={() => setSelected([])}>Clear</button>
+          {selected.length > 0 && <span className="edx-paper-selected-chip">{selected.length} selected</span>}
+        </div>
       </div>
       {lectureFilter.trim() !== '' && <p className="edx-paper-meta-line">{filteredRows.length} of {rows.length} {units} — “{lectureFilter.trim()}”</p>}
       <div className="edx-paper-lecture-grid">
         {filteredRows.map((r) => {
           const empty = r.mcq + r.short + r.long === 0;
           return (
-            <label key={r.n} className={'edx-paper-lecture' + (empty ? ' disabled' : '')}>
-              <input type="checkbox" disabled={empty} checked={selected.includes(r.n)} onChange={() => toggle(r.n)} />
-              <span><strong>{unit} {r.n}</strong> — {r.title}</span>
-              <span className="edx-paper-count">{empty ? '0 verified questions' : `${r.mcq} MCQs · ${r.short} short · ${r.long} long`}</span>
+            <label key={r.n} className={'edx-paper-lecture-card' + (empty ? ' disabled' : '') + (selected.includes(r.n) ? ' selected' : '')}>
+              <input type="checkbox" className="edx-paper-lecture-input" disabled={empty} checked={selected.includes(r.n)} onChange={() => toggle(r.n)} />
+              <span className="edx-paper-lecture-check" aria-hidden="true">✓</span>
+              <span className="edx-paper-lecture-body">
+                <span className="edx-paper-lecture-title"><strong>{unit} {r.n}</strong> — {r.title}</span>
+                {empty ? (
+                  <span className="edx-paper-lecture-empty">0 verified questions</span>
+                ) : (
+                  <span className="edx-paper-lecture-counts">
+                    <span className="edx-paper-count-pill mcq">{r.mcq} MCQs</span>
+                    <span className="edx-paper-count-pill short">{r.short} short</span>
+                    <span className="edx-paper-count-pill long">{r.long} long</span>
+                  </span>
+                )}
+              </span>
             </label>
           );
         })}
