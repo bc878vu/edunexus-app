@@ -154,14 +154,26 @@ export async function searchFiles(q, { limit: max = 20 } = {}) {
   if (!needle) return [];
   const key = SEARCH_PREFIX + needle + '|' + max;
   return cachedList(key, async () => {
-    const pat = `%${escapeIlike(needle)}%`;
-    const { data, error } = await supabase.from('files').select('*')
-      .eq('is_active', true)
-      .or(`name.ilike.${pat},title.ilike.${pat},description.ilike.${pat},subject.ilike.${pat}`)
+    // BUGFIX (2026-11-22): the old query filtered on `title.ilike...` but the
+    // files table has NO `title` column, so PostgREST answered 42703 and
+    // EVERY free-text search came back empty ("No files found for ..."),
+    // even when the files existed. The single-phrase pattern was also too
+    // strict: "mgt211 midterm" only matched a name containing that exact
+    // phrase. Match each word separately instead — PostgREST ANDs repeated
+    // `or` params, so every word must appear in the name, description or
+    // subject. (Verified by direct PostgREST replication: "mgt211 midterm"
+    // now returns the MT MCQs, MT Subjective and Complete Notes files.)
+    const words = needle.split(/\s+/).filter(Boolean);
+    let query = supabase.from('files').select('*').eq('is_active', true);
+    words.forEach((word) => {
+      const pat = `%${escapeIlike(word)}%`;
+      query = query.or(`name.ilike.${pat},description.ilike.${pat},subject.ilike.${pat}`);
+    });
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .limit(max);
-    // TODO(search): plan §10.1 adds a tsvector column + GIN index; switch this
-    // to search_tsv @@ plainto_tsquery once that migration lands.
+    // TODO(search): plan §10.1's search_tsv column + GIN index now exist;
+    // switch this to search_tsv @@ plainto_tsquery for stemmed matching.
     if (error) throw error;
     return (data || []).map(toFile);
   }, CACHE_TTL.CATALOG);
