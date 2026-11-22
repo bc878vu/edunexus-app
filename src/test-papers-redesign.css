@@ -1172,6 +1172,62 @@ body:has(.edx-paper-runner) .edx-free-orb {
   background: linear-gradient(100deg, #7c3aed, #a855f7);
 }
 
+/* Subject category picker — compact discipline chips (CS, MGT, ENG, ...).
+   One row of chips replaces scrolling past 150+ cards: pick a category and
+   only that discipline's subjects render below. */
+.edx-paper-page .edx-paper-categories {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0 2px;
+}
+.edx-paper-page .edx-paper-category {
+  border: 1px solid var(--pp-line);
+  background: var(--pp-card);
+  color: var(--pp-muted);
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: .82rem;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+  white-space: nowrap;
+}
+.edx-paper-page .edx-paper-category:hover {
+  border-color: var(--pp-accent);
+  color: var(--pp-ink);
+}
+.edx-paper-page .edx-paper-category.active {
+  background: linear-gradient(100deg, #0f766e, #059669);
+  border-color: transparent;
+  color: #fff;
+}
+.edx-paper-page .edx-paper-category-count {
+  display: inline-block;
+  min-width: 20px;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, .12);
+  color: #0f766e;
+  font-size: .75rem;
+  font-weight: 800;
+  text-align: center;
+}
+.edx-paper-page .edx-paper-category.active .edx-paper-category-count {
+  background: rgba(255, 255, 255, .22);
+  color: #fff;
+}
+@media (max-width: 640px) {
+  /* One swipeable row on phones instead of four wrapped rows. */
+  .edx-paper-page .edx-paper-categories {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* Term group headings */
 .edx-paper-page .edx-paper-term-heading {
   display: flex;

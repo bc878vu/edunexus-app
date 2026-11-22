@@ -12,7 +12,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from './firebase-client';
 import { TEST_PAPERS, getTestPaper, paperQuestionCount } from './testPapersData';
-import { SUBJECT_CATALOG, SUBJECT_STATUS_NOTE } from './testPaperSubjects';
+import { SUBJECT_CATALOG, SUBJECT_STATUS_NOTE, subjectPrefix, categoryName } from './testPaperSubjects';
+import { SITE } from './site-seo.mjs';
 import { BANK_SUBJECTS, buildPaper } from './testPapersBank';
 import { mergeBankSubjects, mergeCatalog } from './testPaperBankMerge';
 import { useAdminBanks } from './useAdminBanks';
@@ -493,6 +494,9 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const [builderTerm, setBuilderTerm] = useState(null);
   const [subjectQuery, setSubjectQuery] = useState('');
   const [termFilter, setTermFilter] = useState('all'); // all | Midterm | Finalterm
+  // Subject category (code prefix, e.g. CS / MGT): picking one shows only
+  // that discipline's subjects instead of the whole 150+ card wall.
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [popupSubject, setPopupSubject] = useState(null);
   // Admin-uploaded banks merge over the code banks (admin copy wins on the
   // same code+term); while they load, the code banks render immediately.
@@ -605,6 +609,72 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [savedLoading, adminLoading, savedPapers, savedParam]);
+  // NOTE: everything below up to the early returns must stay hook-free of
+  // conditional placement — the home list, the runner and the builder all
+  // return early, so all hooks and the list derivations live up here.
+  const filteredSubjects = mergedCatalog.filter((s) => {
+    const q = subjectQuery.trim().toUpperCase();
+    if (!q) return true;
+    if (s.code.includes(q)) return true;
+    const bankSub = mergedSubjects.find((x) => x.code === s.code);
+    return bankSub && bankSub.title && bankSub.title.toUpperCase().includes(q);
+  });
+  // Clean by default: only live subjects show until the student searches —
+  // the other 86 buttons were a wall of dead ends. Searching still finds
+  // every subject (with the admin-contact popup for non-live ones).
+  const shownSubjects = subjectQuery.trim() ? filteredSubjects : filteredSubjects.filter((s) => s.status === 'live');
+  // Categories for the picker: distinct codes per code prefix, with the
+  // live-subject count. Sorted by size (biggest discipline first) so the
+  // most-used categories sit at the front of the row.
+  const categories = useMemo(() => {
+    const counts = {};
+    shownSubjects.forEach((s) => {
+      const p = subjectPrefix(s.code);
+      counts[p] = (counts[p] || 0) + 1;
+    });
+    return Object.keys(counts)
+      .map((prefix) => ({ prefix, name: categoryName(prefix), count: counts[prefix] }))
+      .sort((a, b) => b.count - a.count || a.prefix.localeCompare(b.prefix));
+  }, [shownSubjects]);
+  const categorySubjects = selectedCategory === 'all'
+    ? shownSubjects
+    : shownSubjects.filter((s) => subjectPrefix(s.code) === selectedCategory);
+  const activeCategory = selectedCategory === 'all'
+    ? null
+    : categories.find((c) => c.prefix === selectedCategory) || null;
+  // Structured data for crawlers: the live test-paper banks as an ItemList,
+  // so Google sees the catalogue as real links instead of JS-only cards.
+  // Capped at 100 entries to keep the block small.
+  useEffect(() => {
+    if (adminLoading) return undefined;
+    const items = mergedSubjects
+      .filter((s) => s.lectures && s.lectures.length > 0)
+      .slice(0, 100)
+      .map((s, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: s.code + ' ' + (s.term || 'Midterm') + ' Test Paper',
+        url: SITE + '/test-papers?subject=' + s.code + '&term=' + (s.term || 'Midterm')
+          + '&lectures=' + s.lectures.map((l) => l.n).join(',') + '&mcqs=20&shorts=3&longs=3',
+      }));
+    let el = document.head.querySelector('script[data-edunexus-testpapers]');
+    if (!el) {
+      el = document.createElement('script');
+      el.type = 'application/ld+json';
+      el.dataset.edunexusTestpapers = 'true';
+      document.head.appendChild(el);
+    }
+    el.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: 'VU Test Papers',
+      itemListElement: items,
+    }).replace(/</g, '\\u003c');
+    return () => {
+      const stale = document.head.querySelector('script[data-edunexus-testpapers]');
+      if (stale) stale.remove();
+    };
+  }, [mergedSubjects, adminLoading]);
   const paper = paperSlug ? getTestPaper(paperSlug) : null;
   if (paper) return <PaperRunner paper={paper} onBack={() => onSelectPaper('')} />;
   if (builderCode) return <PaperBuilder subjectCode={builderCode} term={builderTerm} onBack={() => { setBuilderCode(null); setBuilderTerm(null); }} />;
@@ -642,17 +712,6 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
     return <div className="edx-exam-stack edx-paper-page"><section className="edx-exam-card" role="status"><p>Paper load ho raha hai…</p></section></div>;
   }
   const clearPatternParams = () => { try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} };
-  const filteredSubjects = mergedCatalog.filter((s) => {
-    const q = subjectQuery.trim().toUpperCase();
-    if (!q) return true;
-    if (s.code.includes(q)) return true;
-    const bankSub = mergedSubjects.find((x) => x.code === s.code);
-    return bankSub && bankSub.title && bankSub.title.toUpperCase().includes(q);
-  });
-  // Clean by default: only live subjects show until the student searches —
-  // the other 86 buttons were a wall of dead ends. Searching still finds
-  // every subject (with the admin-contact popup for non-live ones).
-  const shownSubjects = subjectQuery.trim() ? filteredSubjects : filteredSubjects.filter((s) => s.status === 'live');
   // Ready-made count: the static PHY101 paper plus the live admin-saved
   // papers. Counting only the static list said "1 ready-made paper" while
   // three saved papers were listed below it.
@@ -704,9 +763,9 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         );
       });
   };
-  const midtermCards = shownSubjects.flatMap((s) => subjectCards(s, 'Midterm'));
-  const finaltermCards = shownSubjects.flatMap((s) => subjectCards(s, 'Finalterm'));
-  const comingCards = shownSubjects.flatMap((s) => subjectCards(s, 'coming'));
+  const midtermCards = categorySubjects.flatMap((s) => subjectCards(s, 'Midterm'));
+  const finaltermCards = categorySubjects.flatMap((s) => subjectCards(s, 'Finalterm'));
+  const comingCards = categorySubjects.flatMap((s) => subjectCards(s, 'coming'));
   return (
     <div className="edx-exam-stack edx-paper-page">
       <section className="edx-paper-cover">
@@ -724,12 +783,27 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
       <section className="edx-exam-card">
         <h2>Build your own paper</h2>
         <p>Choose a subject and lectures — your paper is built only from verified questions, most-repeated concepts first.</p>
-        <label className="edx-exam-field">Search subject<input type="text" value={subjectQuery} onChange={(e) => setSubjectQuery(e.target.value.toUpperCase())} placeholder="Subject code likhein, jaise MTH202" /></label>
+        <label className="edx-exam-field">Search subject<input type="text" value={subjectQuery} onChange={(e) => { setSubjectQuery(e.target.value.toUpperCase()); setSelectedCategory('all'); }} placeholder="Subject code likhein, jaise MTH202" /></label>
         <div className="edx-paper-term-tabs" role="tablist" aria-label="Term filter">
           <button type="button" className={termFilter === 'all' ? 'active' : ''} onClick={() => setTermFilter('all')}>All terms</button>
           <button type="button" className={termFilter === 'Midterm' ? 'active term-midterm' : 'term-midterm'} onClick={() => setTermFilter('Midterm')}>Midterm</button>
           <button type="button" className={termFilter === 'Finalterm' ? 'active term-finalterm' : 'term-finalterm'} onClick={() => setTermFilter('Finalterm')}>Final Term</button>
         </div>
+        {categories.length > 0 && (
+          <div className="edx-paper-categories" role="group" aria-label="Subject categories">
+            <button type="button" className={'edx-paper-category' + (selectedCategory === 'all' ? ' active' : '')} aria-pressed={selectedCategory === 'all'} onClick={() => setSelectedCategory('all')}>
+              All subjects <span className="edx-paper-category-count">{shownSubjects.length}</span>
+            </button>
+            {categories.map((c) => (
+              <button key={c.prefix} type="button" className={'edx-paper-category' + (selectedCategory === c.prefix ? ' active' : '')} aria-pressed={selectedCategory === c.prefix} onClick={() => setSelectedCategory(selectedCategory === c.prefix ? 'all' : c.prefix)} title={c.name}>
+                {c.prefix} · {c.name} <span className="edx-paper-category-count">{c.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {activeCategory && (
+          <p className="edx-paper-meta-line">Showing {activeCategory.name} ({activeCategory.prefix}) subjects · {activeCategory.count} subjects</p>
+        )}
         {adminLoading ? (
           <p role="status" className="edx-paper-meta-line">Paper banks load ho rahe hain…</p>
         ) : (
@@ -754,7 +828,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
             )}
           </>
         )}
-        {!adminLoading && shownSubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
+        {!adminLoading && categorySubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
         {popupSubject && <PaperPopup code={popupSubject.code} note={SUBJECT_STATUS_NOTE[popupSubject.status]} onClose={() => setPopupSubject(null)} />}
       </section>
       {savedNote && (

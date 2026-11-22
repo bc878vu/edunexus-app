@@ -168,3 +168,52 @@ export const SUBJECT_STATUS_NOTE = {
   finalonly: 'Is subject ka midterm paper data abhi nahi hai (final-term files maujood hain; lecture-wise mapping ke baad aayega).',
   nodata: 'Is subject ka MCQ/subjective paper data abhi nahi mila. Admin ko batayein taake is subject ka paper ban sake.',
 };
+
+// Subject categories: the letter prefix of a subject code is its discipline
+// (CS = Computer Science, MGT = Management, ...). The home page groups the
+// 150+ subject cards under these categories so a student jumps straight to
+// their discipline instead of scrolling one long flat list.
+export function subjectPrefix(code) {
+  const m = String(code || '').toUpperCase().match(/^([A-Z]+)/);
+  return m ? m[1] : 'OTHER';
+}
+
+// Display names are only listed where the discipline is certain; anything
+// else falls back to the bare prefix (never guess a full name).
+export const CATEGORY_NAMES = {
+  ACC: 'Accounting',
+  BIO: 'Biology',
+  BNK: 'Banking',
+  BT: 'Biotechnology',
+  CS: 'Computer Science',
+  ECE: 'Electronics',
+  ECO: 'Economics',
+  EDU: 'Education',
+  EDUA: 'Education',
+  ENG: 'English',
+  ETH: 'Ethics',
+  FIN: 'Finance',
+  HRM: 'Human Resource Management',
+  HRMI: 'Human Resource Management',
+  ISL: 'Islamic Studies',
+  IT: 'Information Technology',
+  MB: 'Molecular Biology',
+  MCM: 'Mass Communication',
+  MCMP: 'Mass Communication',
+  MGMT: 'Management',
+  MGT: 'Management',
+  MKT: 'Marketing',
+  MTH: 'Mathematics',
+  PAK: 'Pakistan Studies',
+  PHY: 'Physics',
+  PSC: 'Political Science',
+  PSY: 'Psychology',
+  SE: 'Software Engineering',
+  SOC: 'Sociology',
+  STA: 'Statistics',
+  ZOO: 'Zoology',
+};
+
+export function categoryName(prefix) {
+  return CATEGORY_NAMES[prefix] || prefix;
+}

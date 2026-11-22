@@ -23,7 +23,7 @@ const MAX_ROUTES = 60;
 
 // SPA pages that always get a static file, even if the sitemap omits them.
 const FIXED_ROUTES = [
-  '/', '/exam-prep', '/mcq-bank', '/paper-reviews', '/vu-notes', '/articles', '/quizzes', '/cgpa-calculator',
+  '/', '/exam-prep', '/mcq-bank', '/paper-reviews', '/test-papers', '/vu-notes', '/articles', '/quizzes', '/cgpa-calculator',
   '/about', '/contact', '/privacy', '/terms', '/forum', '/tutorials'
 ];
 
@@ -120,7 +120,28 @@ function routeSeo(route) {
       keywords += ', ' + subject + ' notes, ' + subject + ' handouts';
     }
   }
-  const canonical = SITE + canonicalPath(page, search, { subject: subjectRaw, term: termRaw });
+  // Test Papers has its own identity (same rule as the SPA writer): the
+  // exam-prep "Solved MCQs" title must not leak onto test-paper pages.
+  if (pathname === '/test-papers') {
+    bank = null;
+    const subject = subjectRaw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (subject && termLabel) {
+      title = subject + ' ' + termLabel + ' Test Paper | EduNexus';
+      description = 'Take a ' + subject + ' ' + termLabel + ' test paper online on EduNexus — verified MCQs, short and long questions with model answers, timed like the real Virtual University paper.';
+      keywords += ', ' + subject + ' test paper, VU ' + subject + ' paper pattern';
+    } else if (subject) {
+      title = subject + ' Test Papers | EduNexus';
+      description = 'Take ' + subject + ' midterm and final term test papers online on EduNexus — verified MCQs and subjective questions with model answers, timed like the real VU paper.';
+    } else {
+      title = 'VU Test Papers — Midterm & Final Term Practice Papers | EduNexus';
+      description = 'Take free VU test papers online on EduNexus — midterm and final term practice papers for 156 Virtual University subjects (Computer Science, Management, English, Mathematics, Physics and more), built only from verified MCQs and subjective questions with model answers.';
+      keywords += ', vu test papers, vu midterm test paper, vu final term test paper, vu practice papers';
+    }
+  }
+  // Test-paper pages canonicalize to themselves, not to the MCQ bank page.
+  const canonical = pathname === '/test-papers'
+    ? SITE + '/test-papers' + (search || '')
+    : SITE + canonicalPath(page, search, { subject: subjectRaw, term: termRaw });
   const image = page === 'portfolio' ? SITE + '/portfolio-og.jpg?v=2'
     : pathname === '/mcq-bank' ? SITE + '/mcq-bank-og.jpg'
     : pathname === '/paper-reviews' ? SITE + '/paper-reviews-og.jpg'

@@ -76,12 +76,17 @@ function updateSeo() {
   const params = new URLSearchParams(window.location.search || '');
   if (!params.get('subject') && pathParams.subject) params.set('subject', pathParams.subject);
   if (!params.get('term') && pathParams.term) params.set('term', pathParams.term);
-  const canonical = canonicalUrl(page, params.toString() ? '?' + params.toString() : '');
+  const pathname = window.location.pathname || '';
+  // Test-paper pages canonicalize to themselves, not to the MCQ bank page:
+  // /test-papers and its ?subject=&term= pattern links are their own pages.
+  const canonical = pathname === '/test-papers'
+    ? SITE + '/test-papers' + (params.toString() ? '?' + params.toString() : '')
+    : canonicalUrl(page, params.toString() ? '?' + params.toString() : '');
   // Subject/term-specific titles + descriptions so each MCQ bank and subject
   // library view gets its own indexable identity instead of one generic page.
   let title = data[0];
   let description = data[1];
-  const pathname = window.location.pathname || '';
+  let keywords = data[2];
   const articleReadMatch = pathname.match(/^\/articles\/read\/([^/]+)\/([^/]+)/);
   if (articleReadMatch) {
     const slugTitle = decodeURIComponent(articleReadMatch[2] || '')
@@ -114,9 +119,28 @@ function updateSeo() {
       description = 'Download ' + subject + ' notes, handouts and past papers for Virtual University students on EduNexus.';
     }
   }
+  // Test Papers has its own identity: the generic exam-prep title above
+  // would call every test-paper page an "MCQ bank" page. Pattern links
+  // (?subject + &term) get their own paper-specific title too.
+  if (pathname === '/test-papers') {
+    const subject = (params.get('subject') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const term = (params.get('term') || '').toLowerCase();
+    const termLabel = term === 'midterm' ? 'Midterm' : term === 'finalterm' ? 'Final Term' : '';
+    keywords = 'VU test papers, Virtual University test papers, VU midterm test paper, VU final term test paper, VU practice papers, VU solved papers, online test paper Pakistan, VU paper pattern, VU mock test, VU exam preparation, VU midterm preparation, VU final term preparation';
+    if (subject && termLabel) {
+      title = subject + ' ' + termLabel + ' Test Paper | EduNexus';
+      description = 'Take a ' + subject + ' ' + termLabel + ' test paper online on EduNexus — verified MCQs, short and long questions with model answers, timed like the real Virtual University paper.';
+    } else if (subject) {
+      title = subject + ' Test Papers | EduNexus';
+      description = 'Take ' + subject + ' midterm and final term test papers online on EduNexus — verified MCQs and subjective questions with model answers, timed like the real VU paper.';
+    } else {
+      title = 'VU Test Papers — Midterm & Final Term Practice Papers | EduNexus';
+      description = 'Take free VU test papers online on EduNexus — midterm and final term practice papers for 156 Virtual University subjects (Computer Science, Management, English, Mathematics, Physics and more), built only from verified MCQs and subjective questions with model answers.';
+    }
+  }
   document.title = title;
   setMeta('description', description);
-  setMeta('keywords', data[2]);
+  setMeta('keywords', keywords);
   setMeta('robots', page === 'admin'
     ? 'noindex, nofollow'
     : 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1');
@@ -163,7 +187,9 @@ function updateSeo() {
     document.head.appendChild(schema);
   }
   const isArticleDetail = !!articleReadMatch;
-  const schemaType = isArticleDetail ? 'Article' : data[3];
+  const schemaType = isArticleDetail ? 'Article'
+    : pathname === '/test-papers' && !params.get('subject') ? 'CollectionPage'
+    : data[3];
   const schemaObj = {
     '@context': 'https://schema.org', '@type': schemaType,
     name: title.split('|')[0].trim(), url: canonical, description: description,
@@ -202,7 +228,11 @@ function updateSeo() {
   // --- BreadcrumbList for subject/term library pages ---
   let crumbSchema = document.head.querySelector('script[data-edunexus-crumbs]');
   const crumbs = [];
-  if (page === 'academic') {
+  if (pathname === '/test-papers') {
+    crumbs.push(['Home', SITE + '/'], ['Test Papers', SITE + '/test-papers']);
+    const subject = (params.get('subject') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (subject) crumbs.push([subject + ' Test Papers', canonical]);
+  } else if (page === 'academic') {
     crumbs.push(['Home', SITE + '/'], ['VU Notes & Handouts', SITE + '/vu-notes']);
     const subj = displaySubjectName(params.get('subject'));
     if (subj) crumbs.push([subj + ' Notes', canonical]);
