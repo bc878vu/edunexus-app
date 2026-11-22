@@ -1366,7 +1366,7 @@ body:has(.edx-paper-runner) .edx-free-orb {
    below only render in the All view. */
 .edx-paper-page .edx-paper-categories {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
   margin: 14px 0 2px;
 }
@@ -1431,9 +1431,11 @@ body:has(.edx-paper-runner) .edx-free-orb {
 .edx-paper-page .edx-paper-category-body strong {
   font-size: .88rem;
   font-weight: 800;
-  white-space: nowrap;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .edx-paper-page .edx-paper-category-body span {
   font-size: .76rem;
