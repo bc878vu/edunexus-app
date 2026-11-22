@@ -241,16 +241,16 @@ export default function AdminTestPaperBanks({ user }) {
             const editing = editingKey === key;
             return (
               <li key={key} className="edx-paper-admin-row">
-                <strong>{b.code}</strong> — {b.title} ({b.term}) · {b.mcqs.length} MCQs + {b.shorts.length} shorts + {b.longs.length} longs · {b.lectures.length} {(b.unitLabel === 'Topic' ? 'topics' : 'lectures')}
-                {replaces ? ' · code bank ki jagah live' : ' · naya subject'}
-                {' '}
+                <span className="edx-paper-admin-row-text"><strong>{b.code}</strong> — {b.title} ({b.term}) · {b.mcqs.length} MCQs + {b.shorts.length} shorts + {b.longs.length} longs · {b.lectures.length} {(b.unitLabel === 'Topic' ? 'topics' : 'lectures')}
+                {replaces ? ' · code bank ki jagah live' : ' · naya subject'}</span>
+                <span className="edx-paper-admin-row-actions">
                 <button type="button" className="edx-exam-secondary" disabled={busy} onClick={() => (editing ? setEditingKey(null) : startEdit(b))}>
                   {editing ? 'Close edit' : 'Edit'}
                 </button>
-                {' '}
                 <button type="button" className="edx-exam-secondary" disabled={busy} onClick={() => onDelete(b.code, b.term)}>
                   {confirmDelete === key ? 'Confirm delete?' : 'Delete'}
                 </button>
+                </span>
                 {editing && (
                   <div style={{ marginTop: 10, border: '1px solid rgba(127,127,127,0.3)', borderRadius: 12, padding: 12 }}>
                     <label className="edx-exam-field">Title

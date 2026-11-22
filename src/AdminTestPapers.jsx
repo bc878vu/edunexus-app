@@ -244,13 +244,12 @@ export default function AdminTestPapers({ user }) {
           const assigning = assignFor && assignFor.paperType === 'saved' && assignFor.paperId === p.id;
           return (
             <li key={p.id} className="edx-paper-admin-row">
-              <strong>{p.title}</strong> · {p.code} · {(subjects.find((s) => s.code === p.code && (!p.term || s.term === p.term)) || subjects.find((s) => s.code === p.code) || {}).unitLabel === 'Topic' ? 'Topics' : 'Lectures'} {p.lectures.join(', ')} · {p.mcq}/{p.short}/{p.long}
-              {' '}
+              <span className="edx-paper-admin-row-text"><strong>{p.title}</strong> · {p.code} · {(subjects.find((s) => s.code === p.code && (!p.term || s.term === p.term)) || subjects.find((s) => s.code === p.code) || {}).unitLabel === 'Topic' ? 'Topics' : 'Lectures'} {p.lectures.join(', ')} · {p.mcq}/{p.short}/{p.long}</span>
+              <span className="edx-paper-admin-row-actions">
               <button type="button" className="edx-exam-secondary" onClick={() => copy(link, 'paper:' + p.id)}>{copied === 'paper:' + p.id ? 'Copied!' : 'Copy link'}</button>
-              {' '}
               <button type="button" className="edx-exam-secondary" onClick={() => { setAssignFor(assigning ? null : { paperType: 'saved', paperId: p.id, paperTitle: p.title }); setAssignIds(''); }}>Assign</button>
-              {' '}
               <button type="button" className="edx-exam-secondary" disabled={busy} onClick={() => onDelete('paper', p.id)}>{confirmKey === 'paper::' + p.id ? 'Confirm delete?' : 'Delete'}</button>
+              </span>
               {assigning && (
                 <div style={{ marginTop: 8 }}>
                   <label className="edx-exam-field">VU IDs (comma se alag)
@@ -274,13 +273,12 @@ export default function AdminTestPapers({ user }) {
               const assigning = assignFor && assignFor.paperType === 'pattern' && assignFor.paperId === p.id;
               return (
                 <li key={p.id} className="edx-paper-admin-row">
-                  <strong>{p.name}</strong> · {(subjects.find((s) => s.code === p.code) || {}).unitLabel === 'Topic' ? 'Topics' : 'Lectures'} {p.lectures.join(', ')} · {p.mcq}/{p.short}/{p.long}
-                  {' '}
+                  <span className="edx-paper-admin-row-text"><strong>{p.name}</strong> · {(subjects.find((s) => s.code === p.code) || {}).unitLabel === 'Topic' ? 'Topics' : 'Lectures'} {p.lectures.join(', ')} · {p.mcq}/{p.short}/{p.long}</span>
+                  <span className="edx-paper-admin-row-actions">
                   <button type="button" className="edx-exam-secondary" onClick={() => copy(p.link, 'pat:' + p.id)}>{copied === 'pat:' + p.id ? 'Copied!' : 'Copy link'}</button>
-                  {' '}
                   <button type="button" className="edx-exam-secondary" onClick={() => { setAssignFor(assigning ? null : { paperType: 'pattern', paperId: p.id, paperTitle: p.name, link: p.link }); setAssignIds(''); }}>Assign</button>
-                  {' '}
                   <button type="button" className="edx-exam-secondary" disabled={busy} onClick={() => onDelete('pattern', p.id)}>{confirmKey === 'pattern::' + p.id ? 'Confirm delete?' : 'Delete'}</button>
+                  </span>
                   {assigning && (
                     <div style={{ marginTop: 8 }}>
                       <label className="edx-exam-field">VU IDs (comma se alag)
@@ -301,9 +299,10 @@ export default function AdminTestPapers({ user }) {
       <ul className="edx-paper-admin-list">
         {assignments.map((a) => (
           <li key={a.id} className="edx-paper-admin-row">
-            <strong>{a.paperTitle}</strong> · {a.paperType === 'saved' ? 'Fixed paper' : 'Pattern'} · VU IDs: {(a.vuIds || []).join(', ')}
-            {' '}
+            <span className="edx-paper-admin-row-text"><strong>{a.paperTitle}</strong> · {a.paperType === 'saved' ? 'Fixed paper' : 'Pattern'} · VU IDs: {(a.vuIds || []).join(', ')}</span>
+            <span className="edx-paper-admin-row-actions">
             <button type="button" className="edx-exam-secondary" disabled={busy} onClick={() => onDelete('assignment', a.id)}>{confirmKey === 'assignment::' + a.id ? 'Confirm delete?' : 'Delete'}</button>
+            </span>
           </li>
         ))}
       </ul>
