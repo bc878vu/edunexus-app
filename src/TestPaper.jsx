@@ -766,6 +766,57 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const midtermCards = categorySubjects.flatMap((s) => subjectCards(s, 'Midterm'));
   const finaltermCards = categorySubjects.flatMap((s) => subjectCards(s, 'Finalterm'));
   const comingCards = categorySubjects.flatMap((s) => subjectCards(s, 'coming'));
+  // Compact rows for the open category card's panel: the same subjects as
+  // the grid cards above, but as one-line rows that live INSIDE the card.
+  const subjectRows = (s, term) => {
+    if (s.status !== 'live') {
+      if (term !== 'coming') return [];
+      return [(
+        <button key={s.code} type="button" className="edx-paper-category-row coming"
+          onClick={() => setPopupSubject(s)}>
+          <span className="edx-paper-category-row-code">{s.code}</span>
+          <span className="edx-paper-category-row-title">{s.status === 'mapping' ? 'Tayyar ho raha hai' : s.status === 'finalonly' ? 'Midterm data nahi' : 'Data nahi mila'}</span>
+          <span className="edx-paper-category-row-arrow" aria-hidden="true">›</span>
+        </button>
+      )];
+    }
+    const banks = mergedSubjects.filter((x) => x.code === s.code);
+    if (banks.length === 0) {
+      if (term !== 'Midterm') return [];
+      return [(
+        <button key={s.code} type="button" className="edx-paper-category-row"
+          onClick={() => { setBuilderCode(s.code); setBuilderTerm(null); }}>
+          <span className="edx-paper-category-row-code">{s.code}</span>
+          <span className="edx-paper-category-row-title">Live — paper banayein</span>
+          <span className="edx-paper-category-row-term term-midterm">Midterm</span>
+          <span className="edx-paper-category-row-arrow" aria-hidden="true">›</span>
+        </button>
+      )];
+    }
+    return banks
+      .filter((bankSub) => (bankSub.term || 'Midterm') === term)
+      .map((bankSub) => {
+        const rowUnit = bankSub.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
+        const lecRange = bankSub.lectures && bankSub.lectures.length
+          ? `${rowUnit}s ${bankSub.lectures[0].n}–${bankSub.lectures[bankSub.lectures.length - 1].n}`
+          : null;
+        const termClass = (bankSub.term || 'Midterm') === 'Finalterm' ? 'term-finalterm' : 'term-midterm';
+        const mcqCount = bankSub.bank && bankSub.bank.mcqs ? bankSub.bank.mcqs.length : 0;
+        return (
+          <button key={`${s.code}::${bankSub.term}`} type="button" className="edx-paper-category-row"
+            onClick={() => { setBuilderCode(s.code); setBuilderTerm(bankSub.term); }}>
+            <span className="edx-paper-category-row-code">{s.code}</span>
+            <span className="edx-paper-category-row-title">{bankSub.title || s.code}</span>
+            <span className="edx-paper-category-row-meta">{`${lecRange || ''}${lecRange && mcqCount ? ' · ' : ''}${mcqCount ? mcqCount + ' MCQs' : ''}`}</span>
+            <span className={`edx-paper-category-row-term ${termClass}`}>{bankSub.term || 'Midterm'}</span>
+            <span className="edx-paper-category-row-arrow" aria-hidden="true">›</span>
+          </button>
+        );
+      });
+  };
+  const panelMidtermRows = categorySubjects.flatMap((s) => subjectRows(s, 'Midterm'));
+  const panelFinaltermRows = categorySubjects.flatMap((s) => subjectRows(s, 'Finalterm'));
+  const panelComingRows = categorySubjects.flatMap((s) => subjectRows(s, 'coming'));
   return (
     <div className="edx-exam-stack edx-paper-page">
       <section className="edx-paper-cover">
@@ -791,22 +842,62 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         </div>
         {categories.length > 0 && (
           <div className="edx-paper-categories" role="group" aria-label="Subject categories">
-            <button type="button" className={'edx-paper-category' + (selectedCategory === 'all' ? ' active' : '')} aria-pressed={selectedCategory === 'all'} onClick={() => setSelectedCategory('all')}>
-              All subjects <span className="edx-paper-category-count">{shownSubjects.length}</span>
+            <button type="button" className={'edx-paper-category-card' + (selectedCategory === 'all' ? ' active' : '')} aria-pressed={selectedCategory === 'all'} onClick={() => setSelectedCategory('all')}>
+              <span className="edx-paper-category-tile" aria-hidden="true">All</span>
+              <span className="edx-paper-category-body">
+                <strong>All subjects</strong>
+                <span>{shownSubjects.length} subjects</span>
+              </span>
+              <span className="edx-paper-category-chevron" aria-hidden="true">▾</span>
             </button>
             {categories.map((c) => (
-              <button key={c.prefix} type="button" className={'edx-paper-category' + (selectedCategory === c.prefix ? ' active' : '')} aria-pressed={selectedCategory === c.prefix} onClick={() => setSelectedCategory(selectedCategory === c.prefix ? 'all' : c.prefix)} title={c.name}>
-                {c.prefix} · {c.name} <span className="edx-paper-category-count">{c.count}</span>
+              <button key={c.prefix} type="button" className={'edx-paper-category-card' + (selectedCategory === c.prefix ? ' open' : '')} aria-pressed={selectedCategory === c.prefix} aria-expanded={selectedCategory === c.prefix} onClick={() => setSelectedCategory(selectedCategory === c.prefix ? 'all' : c.prefix)} title={c.name + ' — ' + c.count + ' subjects'}>
+                <span className="edx-paper-category-tile" aria-hidden="true">{c.prefix}</span>
+                <span className="edx-paper-category-body">
+                  <strong>{c.name}</strong>
+                  <span>{c.prefix} · {c.count} subjects</span>
+                </span>
+                <span className="edx-paper-category-chevron" aria-hidden="true">▾</span>
               </button>
             ))}
           </div>
         )}
         {activeCategory && (
-          <p className="edx-paper-meta-line">Showing {activeCategory.name} ({activeCategory.prefix}) subjects · {activeCategory.count} subjects</p>
+          <section className="edx-paper-category-panel" aria-label={activeCategory.name + ' subjects'}>
+            <div className="edx-paper-category-panel-head">
+              <span className="edx-paper-category-tile" aria-hidden="true">{activeCategory.prefix}</span>
+              <div className="edx-paper-category-panel-titles">
+                <h3>{activeCategory.name} ({activeCategory.prefix})</h3>
+                <p>{activeCategory.count} subjects · kisi subject par tap karein, us ka paper banayein</p>
+              </div>
+              <button type="button" className="edx-exam-secondary" onClick={() => setSelectedCategory('all')}>✕ Close</button>
+            </div>
+            {(termFilter === 'all' || termFilter === 'Midterm') && panelMidtermRows.length > 0 && (
+              <div>
+                <h4 className="edx-paper-category-panel-term term-midterm">Midterm · {panelMidtermRows.length} subjects</h4>
+                <div className="edx-paper-category-rows">{panelMidtermRows}</div>
+              </div>
+            )}
+            {(termFilter === 'all' || termFilter === 'Finalterm') && panelFinaltermRows.length > 0 && (
+              <div>
+                <h4 className="edx-paper-category-panel-term term-finalterm">Final Term · {panelFinaltermRows.length} subjects</h4>
+                <div className="edx-paper-category-rows">{panelFinaltermRows}</div>
+              </div>
+            )}
+            {termFilter === 'all' && panelComingRows.length > 0 && (
+              <div>
+                <h4 className="edx-paper-category-panel-term">Coming soon · {panelComingRows.length} subjects</h4>
+                <div className="edx-paper-category-rows">{panelComingRows}</div>
+              </div>
+            )}
+            {panelMidtermRows.length + panelFinaltermRows.length + panelComingRows.length === 0 && (
+              <p className="edx-paper-meta-line">Is category mein is term ka koi subject nahi hai.</p>
+            )}
+          </section>
         )}
         {adminLoading ? (
           <p role="status" className="edx-paper-meta-line">Paper banks load ho rahe hain…</p>
-        ) : (
+        ) : !activeCategory ? (
           <>
             {(termFilter === 'all' || termFilter === 'Midterm') && midtermCards.length > 0 && (
               <div>
@@ -827,8 +918,8 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
               </div>
             )}
           </>
-        )}
-        {!adminLoading && categorySubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
+        ) : null}
+        {!adminLoading && !activeCategory && categorySubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
         {popupSubject && <PaperPopup code={popupSubject.code} note={SUBJECT_STATUS_NOTE[popupSubject.status]} onClose={() => setPopupSubject(null)} />}
       </section>
       {savedNote && (
