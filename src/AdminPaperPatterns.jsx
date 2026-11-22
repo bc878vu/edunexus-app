@@ -14,6 +14,12 @@ import { BANK_SUBJECTS } from './testPapersBank';
 import { mergeBankSubjects } from './testPaperBankMerge';
 import { useAdminBanks } from './useAdminBanks';
 
+// Picker key: CODE|Term. The subject picker must distinguish a subject's
+// Midterm and Finalterm banks — using the code alone made every selection
+// resolve to the first (Midterm) bank, so no Finalterm pattern link could
+// ever be built from this tab.
+const subjectKey = (s) => `${s.code}|${s.term}`;
+
 function countsFor(subject, lectureNo) {
   const { bank } = subject;
   return {
@@ -26,8 +32,8 @@ function countsFor(subject, lectureNo) {
 export default function AdminPaperPatterns({ user }) {
   const { banks: adminBanks } = useAdminBanks();
   const subjects = useMemo(() => mergeBankSubjects(BANK_SUBJECTS, adminBanks), [adminBanks]);
-  const [subjectCode, setSubjectCode] = useState(BANK_SUBJECTS[0].code);
-  const subject = subjects.find((s) => s.code === subjectCode) || subjects[0];
+  const [selectedSubjectKey, setSelectedSubjectKey] = useState(subjectKey(BANK_SUBJECTS[0]));
+  const subject = subjects.find((s) => subjectKey(s) === selectedSubjectKey) || subjects[0];
   const [selected, setSelected] = useState([]);
   const [mcqTarget, setMcqTarget] = useState(20);
   const [shortTarget, setShortTarget] = useState(3);
@@ -51,7 +57,7 @@ export default function AdminPaperPatterns({ user }) {
   const createLink = () => {
     if (selected.length === 0) return;
     const params = new URLSearchParams({
-      subject: subject.code, lectures: selected.join(','),
+      subject: subject.code, term: subject.term, lectures: selected.join(','),
       mcqs: String(mcqTarget), shorts: String(shortTarget), longs: String(longTarget),
     });
     setLink(window.location.origin + '/test-papers?' + params.toString());
@@ -68,9 +74,9 @@ export default function AdminPaperPatterns({ user }) {
       <h3>Paper Patterns — share a paper link with any student</h3>
       <p>Pick a subject and lectures, set the counts, and share the link. The student opens it and gets exactly that paper — no login needed. Only verified bank questions are used, never invented ones.</p>
       <label className="edx-exam-field">Subject
-        <select value={subjectCode} onChange={(e) => { setSubjectCode(e.target.value); setSelected([]); setLink(''); }}>
+        <select value={selectedSubjectKey} onChange={(e) => { setSelectedSubjectKey(e.target.value); setSelected([]); setLink(''); }}>
           {subjects.map((s) => (
-            <option key={s.code} value={s.code}>{s.code} — {s.title} ({s.term})</option>
+            <option key={subjectKey(s)} value={subjectKey(s)}>{s.code} — {s.title} ({s.term})</option>
           ))}
         </select>
       </label>

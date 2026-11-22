@@ -649,6 +649,10 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   // the other 86 buttons were a wall of dead ends. Searching still finds
   // every subject (with the admin-contact popup for non-live ones).
   const shownSubjects = subjectQuery.trim() ? filteredSubjects : filteredSubjects.filter((s) => s.status === 'live');
+  // Ready-made count: the static PHY101 paper plus the live admin-saved
+  // papers. Counting only the static list said "1 ready-made paper" while
+  // three saved papers were listed below it.
+  const readyMadeCount = savedLoading ? TEST_PAPERS.length : TEST_PAPERS.length + savedPapers.length;
   return (
     <div className="edx-exam-stack edx-paper-page">
       <section className="edx-paper-cover">
@@ -656,7 +660,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         <p>Take a full paper online — MCQs are checked instantly, subjective answers go to the teacher.</p>
         <div className="edx-paper-cover-meta">
           <span>{mergedCatalog.filter((s) => s.status === 'live').length} live subjects</span>
-          <span>{TEST_PAPERS.length} ready-made paper{TEST_PAPERS.length === 1 ? '' : 's'}</span>
+          <span>{readyMadeCount} ready-made paper{readyMadeCount === 1 ? '' : 's'}</span>
           <span>Free for VU students</span>
         </div>
       </section>
