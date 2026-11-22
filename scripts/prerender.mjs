@@ -146,7 +146,10 @@ function routeSeo(route) {
     : pathname === '/mcq-bank' ? SITE + '/mcq-bank-og.jpg'
     : pathname === '/paper-reviews' ? SITE + '/paper-reviews-og.jpg'
     : SITE + '/logo-wide.jpg';
-  return { page, pathParams, title, description, keywords, canonical, image, schemaType: data[3], bank, subjectRaw };
+  // The list page is a catalogue of papers (CollectionPage); a subject
+  // pattern page stays the exam-prep WebApplication type.
+  const schemaType = pathname === '/test-papers' && !subjectRaw ? 'CollectionPage' : data[3];
+  return { page, pathParams, title, description, keywords, canonical, image, schemaType, bank, subjectRaw };
 }
 
 // ---- static content block ----------------------------------------------------
