@@ -1112,3 +1112,137 @@ body:has(.edx-paper-runner) .edx-free-orb {
   }
 }
 
+/* ---------- Polish pass 4 (2026-11-22): term-grouped subject cards ---------- */
+
+/* Term filter tabs */
+.edx-paper-page .edx-paper-term-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0 4px;
+}
+.edx-paper-page .edx-paper-term-tabs button {
+  border: 1px solid var(--pp-line);
+  background: var(--pp-card);
+  color: var(--pp-muted);
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: .88rem;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.edx-paper-page .edx-paper-term-tabs button:hover {
+  border-color: var(--pp-accent);
+}
+.edx-paper-page .edx-paper-term-tabs button.active {
+  background: linear-gradient(100deg, #4f46e5, #7c3aed);
+  border-color: transparent;
+  color: #fff;
+}
+.edx-paper-page .edx-paper-term-tabs button.active.term-midterm {
+  background: linear-gradient(100deg, #2563eb, #4f46e5);
+}
+.edx-paper-page .edx-paper-term-tabs button.active.term-finalterm {
+  background: linear-gradient(100deg, #7c3aed, #a855f7);
+}
+
+/* Term group headings */
+.edx-paper-page .edx-paper-term-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 2px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--pp-ink);
+}
+.edx-paper-page .edx-paper-term-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: #2563eb;
+  flex-shrink: 0;
+}
+.edx-paper-page .edx-paper-term-heading.term-finalterm .edx-paper-term-dot {
+  background: #9333ea;
+}
+.edx-paper-page .edx-paper-term-dot.coming {
+  background: #94a3b8;
+}
+.edx-paper-page .edx-paper-term-count {
+  margin-left: auto;
+  font-size: .78rem;
+  font-weight: 800;
+  color: var(--pp-muted);
+  background: var(--pp-soft);
+  padding: 5px 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Term-distinct cards: coloured top bar + term pill.
+   Blue = Midterm, violet = Final Term — never mixed in one grid. */
+.edx-paper-page .edx-paper-subject {
+  position: relative;
+  overflow: hidden;
+}
+.edx-paper-page .edx-paper-subject.term-midterm::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #2563eb, #4f46e5);
+}
+.edx-paper-page .edx-paper-subject.term-finalterm::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #7c3aed, #a855f7);
+}
+.edx-paper-page .edx-paper-subject.live.term-finalterm {
+  border-color: #9333ea;
+  background: rgba(147, 51, 234, .07);
+}
+.edx-paper-page .edx-paper-subject.live.term-finalterm:hover {
+  border-color: #7e22ce;
+}
+.edx-paper-page .edx-paper-subject-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+.edx-paper-page .edx-paper-term-pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: .66rem;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.edx-paper-page .edx-paper-term-pill.term-midterm {
+  background: rgba(37, 99, 235, .13);
+  color: #1d4ed8;
+}
+.edx-paper-page .edx-paper-term-pill.term-finalterm {
+  background: rgba(147, 51, 234, .13);
+  color: #7e22ce;
+}
+.dark .edx-paper-page .edx-paper-term-pill.term-midterm {
+  background: rgba(96, 165, 250, .2);
+  color: #bfdbfe;
+}
+.dark .edx-paper-page .edx-paper-term-pill.term-finalterm {
+  background: rgba(192, 132, 252, .2);
+  color: #e9d5ff;
+}
+

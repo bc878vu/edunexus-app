@@ -489,6 +489,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const [builderCode, setBuilderCode] = useState(null);
   const [builderTerm, setBuilderTerm] = useState(null);
   const [subjectQuery, setSubjectQuery] = useState('');
+  const [termFilter, setTermFilter] = useState('all'); // all | Midterm | Finalterm
   const [popupSubject, setPopupSubject] = useState(null);
   // Admin-uploaded banks merge over the code banks (admin copy wins on the
   // same code+term); while they load, the code banks render immediately.
@@ -653,6 +654,56 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   // papers. Counting only the static list said "1 ready-made paper" while
   // three saved papers were listed below it.
   const readyMadeCount = savedLoading ? TEST_PAPERS.length : TEST_PAPERS.length + savedPapers.length;
+  // Term counts for the hero: distinct subjects with a Midterm / Finalterm bank.
+  const midtermSubjectCount = new Set(mergedSubjects.filter((x) => x.term === 'Midterm').map((x) => x.code)).size;
+  const finaltermSubjectCount = new Set(mergedSubjects.filter((x) => x.term === 'Finalterm').map((x) => x.code)).size;
+  // Term grouping: Midterm cards together, Finalterm cards together — never
+  // mixed in one flat grid. Each live subject renders one card per bank,
+  // with the term on a coloured pill and the bank's MCQ count on the card.
+  const subjectCards = (s, term) => {
+    if (s.status !== 'live') {
+      if (term !== 'coming') return [];
+      return [(
+        <button key={s.code} type="button" className="edx-paper-subject"
+          onClick={() => setPopupSubject(s)}>
+          <strong>{s.code}</strong>
+          <span>{s.status === 'mapping' ? 'Tayyar ho raha hai' : s.status === 'finalonly' ? 'Midterm data nahi' : 'Data nahi mila'}</span>
+        </button>
+      )];
+    }
+    const banks = mergedSubjects.filter((x) => x.code === s.code);
+    if (banks.length === 0) {
+      if (term !== 'Midterm') return [];
+      return [(
+        <button key={s.code} type="button" className="edx-paper-subject live term-midterm"
+          onClick={() => { setBuilderCode(s.code); setBuilderTerm(null); }}>
+          <span className="edx-paper-subject-top"><strong>{s.code}</strong><span className="edx-paper-term-pill term-midterm">Midterm</span></span>
+          <span>Live — paper banayein</span>
+        </button>
+      )];
+    }
+    return banks
+      .filter((bankSub) => (bankSub.term || 'Midterm') === term)
+      .map((bankSub) => {
+        const cardUnit = bankSub.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
+        const lecRange = bankSub.lectures && bankSub.lectures.length
+          ? `${cardUnit}s ${bankSub.lectures[0].n}–${bankSub.lectures[bankSub.lectures.length - 1].n}`
+          : null;
+        const termClass = (bankSub.term || 'Midterm') === 'Finalterm' ? 'term-finalterm' : 'term-midterm';
+        const mcqCount = bankSub.bank && bankSub.bank.mcqs ? bankSub.bank.mcqs.length : 0;
+        return (
+          <button key={`${s.code}::${bankSub.term}`} type="button" className={`edx-paper-subject live ${termClass}`}
+            onClick={() => { setBuilderCode(s.code); setBuilderTerm(bankSub.term); }}>
+            <span className="edx-paper-subject-top"><strong>{s.code}</strong><span className={`edx-paper-term-pill ${termClass}`}>{bankSub.term || 'Midterm'}</span></span>
+            {bankSub.title && <span className="edx-paper-subject-title">{bankSub.title}</span>}
+            <span>{`${lecRange || ''}${lecRange && mcqCount ? ' · ' : ''}${mcqCount ? mcqCount + ' MCQs' : ''}`}</span>
+          </button>
+        );
+      });
+  };
+  const midtermCards = shownSubjects.flatMap((s) => subjectCards(s, 'Midterm'));
+  const finaltermCards = shownSubjects.flatMap((s) => subjectCards(s, 'Finalterm'));
+  const comingCards = shownSubjects.flatMap((s) => subjectCards(s, 'coming'));
   return (
     <div className="edx-exam-stack edx-paper-page">
       <section className="edx-paper-cover">
@@ -662,6 +713,8 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           <span>{mergedCatalog.filter((s) => s.status === 'live').length} live subjects</span>
           <span>{readyMadeCount} ready-made paper{readyMadeCount === 1 ? '' : 's'}</span>
           <span>Free for VU students</span>
+          <span>{midtermSubjectCount} Midterm subjects</span>
+          <span>{finaltermSubjectCount} Finalterm subjects</span>
         </div>
       </section>
       {pattern && pattern.error && <PaperPopup code={pattern.error} note="Is subject ka paper data abhi available nahi hai, ya link mein lectures theek nahi hain. Admin se contact karein." onClose={clearPatternParams} />}
@@ -669,48 +722,30 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         <h2>Build your own paper</h2>
         <p>Choose a subject and lectures — your paper is built only from verified questions, most-repeated concepts first.</p>
         <label className="edx-exam-field">Search subject<input type="text" value={subjectQuery} onChange={(e) => setSubjectQuery(e.target.value.toUpperCase())} placeholder="Subject code likhein, jaise MTH202" /></label>
-        <div className="edx-paper-subject-grid">
-          {shownSubjects.map((s) => {
-            if (s.status !== 'live') {
-              return (
-                <button key={s.code} type="button" className="edx-paper-subject"
-                  onClick={() => setPopupSubject(s)}>
-                  <strong>{s.code}</strong>
-                  <span>{s.status === 'mapping' ? 'Tayyar ho raha hai' : s.status === 'finalonly' ? 'Midterm data nahi' : 'Data nahi mila'}</span>
-                </button>
-              );
-            }
-            // One card per bank (term): a subject with both Midterm and
-            // Finalterm banks used to render only the first term's card —
-            // find(code) always returned the Midterm bank, so the Finalterm
-            // bank was unreachable from the home page and the builder.
-            const banks = mergedSubjects.filter((x) => x.code === s.code);
-            if (banks.length === 0) {
-              return (
-                <button key={s.code} type="button" className="edx-paper-subject live"
-                  onClick={() => { setBuilderCode(s.code); setBuilderTerm(null); }}>
-                  <strong>{s.code}</strong>
-                  <span>Live — paper banayein</span>
-                </button>
-              );
-            }
-            return banks.map((bankSub) => {
-              const cardUnit = bankSub.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
-              const lecRange = bankSub.lectures && bankSub.lectures.length
-                ? `${cardUnit}s ${bankSub.lectures[0].n}–${bankSub.lectures[bankSub.lectures.length - 1].n}`
-                : null;
-              return (
-                <button key={`${s.code}::${bankSub.term}`} type="button" className="edx-paper-subject live"
-                  onClick={() => { setBuilderCode(s.code); setBuilderTerm(bankSub.term); }}>
-                  <strong>{s.code}</strong>
-                  {bankSub.title && <span className="edx-paper-subject-title">{bankSub.title}</span>}
-                  <span>{`${bankSub.term || 'Midterm'}${lecRange ? ` · ${lecRange}` : ''}`}</span>
-                </button>
-              );
-            });
-          })}
-          {shownSubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
+        <div className="edx-paper-term-tabs" role="tablist" aria-label="Term filter">
+          <button type="button" className={termFilter === 'all' ? 'active' : ''} onClick={() => setTermFilter('all')}>All terms</button>
+          <button type="button" className={termFilter === 'Midterm' ? 'active term-midterm' : 'term-midterm'} onClick={() => setTermFilter('Midterm')}>Midterm</button>
+          <button type="button" className={termFilter === 'Finalterm' ? 'active term-finalterm' : 'term-finalterm'} onClick={() => setTermFilter('Finalterm')}>Final Term</button>
         </div>
+        {(termFilter === 'all' || termFilter === 'Midterm') && midtermCards.length > 0 && (
+          <div>
+            <h3 className="edx-paper-term-heading term-midterm"><span className="edx-paper-term-dot" />Midterm papers<span className="edx-paper-term-count">{midtermCards.length} subjects</span></h3>
+            <div className="edx-paper-subject-grid">{midtermCards}</div>
+          </div>
+        )}
+        {(termFilter === 'all' || termFilter === 'Finalterm') && finaltermCards.length > 0 && (
+          <div>
+            <h3 className="edx-paper-term-heading term-finalterm"><span className="edx-paper-term-dot" />Final Term papers<span className="edx-paper-term-count">{finaltermCards.length} subjects</span></h3>
+            <div className="edx-paper-subject-grid">{finaltermCards}</div>
+          </div>
+        )}
+        {termFilter === 'all' && comingCards.length > 0 && (
+          <div>
+            <h3 className="edx-paper-term-heading"><span className="edx-paper-term-dot coming" />Coming soon<span className="edx-paper-term-count">{comingCards.length} subjects</span></h3>
+            <div className="edx-paper-subject-grid">{comingCards}</div>
+          </div>
+        )}
+        {shownSubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
         {popupSubject && <PaperPopup code={popupSubject.code} note={SUBJECT_STATUS_NOTE[popupSubject.status]} onClose={() => setPopupSubject(null)} />}
       </section>
       {savedNote && (
