@@ -238,12 +238,12 @@ export default function AdminTestPapers({ user }) {
 
       <h4>Saved fixed papers ({papers.length})</h4>
       {papers.length === 0 && <p>Abhi koi fixed paper save nahi hua.</p>}
-      <ul>
+      <ul className="edx-paper-admin-list">
         {papers.map((p) => {
           const link = window.location.origin + '/test-papers?saved=' + p.id;
           const assigning = assignFor && assignFor.paperType === 'saved' && assignFor.paperId === p.id;
           return (
-            <li key={p.id}>
+            <li key={p.id} className="edx-paper-admin-row">
               <strong>{p.title}</strong> · {p.code} · {(subjects.find((s) => s.code === p.code && (!p.term || s.term === p.term)) || subjects.find((s) => s.code === p.code) || {}).unitLabel === 'Topic' ? 'Topics' : 'Lectures'} {p.lectures.join(', ')} · {p.mcq}/{p.short}/{p.long}
               {' '}
               <button type="button" className="edx-exam-secondary" onClick={() => copy(link, 'paper:' + p.id)}>{copied === 'paper:' + p.id ? 'Copied!' : 'Copy link'}</button>
@@ -269,11 +269,11 @@ export default function AdminTestPapers({ user }) {
       {[...patternsBySubject.entries()].map(([code, list]) => (
         <div key={code}>
           <p><strong>{code}</strong></p>
-          <ul>
+          <ul className="edx-paper-admin-list">
             {list.map((p) => {
               const assigning = assignFor && assignFor.paperType === 'pattern' && assignFor.paperId === p.id;
               return (
-                <li key={p.id}>
+                <li key={p.id} className="edx-paper-admin-row">
                   <strong>{p.name}</strong> · {(subjects.find((s) => s.code === p.code) || {}).unitLabel === 'Topic' ? 'Topics' : 'Lectures'} {p.lectures.join(', ')} · {p.mcq}/{p.short}/{p.long}
                   {' '}
                   <button type="button" className="edx-exam-secondary" onClick={() => copy(p.link, 'pat:' + p.id)}>{copied === 'pat:' + p.id ? 'Copied!' : 'Copy link'}</button>
@@ -298,9 +298,9 @@ export default function AdminTestPapers({ user }) {
 
       <h4>Assignments ({assignments.length})</h4>
       {assignments.length === 0 && <p>Abhi koi assignment nahi hai.</p>}
-      <ul>
+      <ul className="edx-paper-admin-list">
         {assignments.map((a) => (
-          <li key={a.id}>
+          <li key={a.id} className="edx-paper-admin-row">
             <strong>{a.paperTitle}</strong> · {a.paperType === 'saved' ? 'Fixed paper' : 'Pattern'} · VU IDs: {(a.vuIds || []).join(', ')}
             {' '}
             <button type="button" className="edx-exam-secondary" disabled={busy} onClick={() => onDelete('assignment', a.id)}>{confirmKey === 'assignment::' + a.id ? 'Confirm delete?' : 'Delete'}</button>

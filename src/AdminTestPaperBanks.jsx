@@ -234,13 +234,13 @@ export default function AdminTestPaperBanks({ user }) {
       {loading && <p>Loading…</p>}
       {!loading && banks.length === 0 && <p>Abhi koi admin bank upload nahi hua. Code wale banks (PHY101, ACC501) yahan list nahi hote — wo code mein hain.</p>}
       {!loading && banks.length > 0 && (
-        <ul>
+        <ul className="edx-paper-admin-list">
           {banks.map((b) => {
             const key = `${b.code}::${b.term}`;
             const replaces = codeBanked.has(key);
             const editing = editingKey === key;
             return (
-              <li key={key}>
+              <li key={key} className="edx-paper-admin-row">
                 <strong>{b.code}</strong> — {b.title} ({b.term}) · {b.mcqs.length} MCQs + {b.shorts.length} shorts + {b.longs.length} longs · {b.lectures.length} {(b.unitLabel === 'Topic' ? 'topics' : 'lectures')}
                 {replaces ? ' · code bank ki jagah live' : ' · naya subject'}
                 {' '}

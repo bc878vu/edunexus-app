@@ -574,6 +574,18 @@
 .edx-paper-count{font-size:.8rem;color:var(--ex-muted);font-weight:700}
 .edx-paper-meta-line{color:var(--ex-muted)}
 .edx-paper-note{color:var(--ex-muted);font-size:.9rem}
+/* Lecture picker feedback (public builder AND admin tabs — both load this
+   file; the redesign sheet only covers .edx-paper-page, so admin labels
+   had no selected highlight at all). */
+.edx-paper-lecture{transition:border-color .15s ease,background .15s ease}
+.edx-paper-lecture:hover{border-color:#818cf8}
+.edx-paper-lecture:has(input:checked){border-color:#6366f1;background:rgba(99,102,241,.1)}
+/* Admin test-paper lists — clean card rows instead of plain bullets. */
+.edx-paper-admin-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.edx-paper-admin-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:13px 15px;border:1px solid var(--ex-line);border-radius:13px;background:var(--ex-card);overflow-wrap:anywhere}
+.edx-paper-admin-row>div{flex:1 1 100%}
+.edx-paper-admin-row .edx-exam-secondary,.edx-paper-admin-row .edx-exam-primary{flex-shrink:0}
+@media(max-width:640px){.edx-paper-admin-row .edx-exam-secondary,.edx-paper-admin-row .edx-exam-primary{flex:1 1 100%}}
 
 /* Subject picker + missing-data popup */
 .edx-paper-subject-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:14px 0}

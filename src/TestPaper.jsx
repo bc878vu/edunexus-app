@@ -719,6 +719,11 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           <button type="button" className="edx-exam-secondary" onClick={() => { setSavedNote(''); try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }}>Back to test papers</button>
         </section>
       )}
+      {savedLoading && (
+        <section className="edx-exam-card" role="status">
+          <p>Saved papers load ho rahe hain…</p>
+        </section>
+      )}
       {!savedLoading && assignments.length > 0 && (
         <section className="edx-exam-card">
           <h2>Assigned papers</h2>
@@ -730,12 +735,13 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           {vuShown && (
             <div style={{ marginTop: 12 }}>
               {assignments.filter((a) => (a.vuIds || []).map((v) => String(v).toUpperCase()).includes(vuLookup.trim().toUpperCase())).map((a) => (
-                <div key={a.id} style={{ border: '1px solid rgba(127,127,127,0.3)', borderRadius: 12, padding: 12, marginBottom: 10 }}>
-                  <strong>{a.paperTitle}</strong>
-                  {' '}
+                <div key={a.id} className="edx-paper-assigned-row">
+                  <span className="edx-paper-saved-row-title">{a.paperTitle}</span>
+                  <span className="edx-paper-saved-row-actions">
                   {a.paperType === 'saved'
                     ? <button type="button" className="edx-exam-primary" onClick={() => { const p = savedPapers.find((x) => x.id === a.paperId); if (p) buildSavedPaper(p); else setSavedNote('Ye assigned paper ab available nahi hai.'); }}>Start paper</button>
                     : <a className="edx-exam-primary" style={{ textDecoration: 'none', padding: '10px 18px', borderRadius: 10, fontWeight: 700 }} href={a.link}>Start paper</a>}
+                  </span>
                 </div>
               ))}
               {assignments.filter((a) => (a.vuIds || []).map((v) => String(v).toUpperCase()).includes(vuLookup.trim().toUpperCase())).length === 0 && <p>Is VU ID par koi assigned paper nahi mila.</p>}
@@ -750,12 +756,13 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           {savedPapers.map((p) => {
             const savedUnit = ((mergedSubjects.find((x) => x.code === p.code && (!p.term || x.term === p.term)) || mergedSubjects.find((x) => x.code === p.code)) || {}).unitLabel === 'Topic' ? 'Topic' : 'Lecture';
             return (
-            <div key={p.id} style={{ border: '1px solid rgba(127,127,127,0.3)', borderRadius: 12, padding: 12, marginBottom: 10 }}>
-              <strong>{p.title}</strong> · {p.code} ({p.term}) · {savedUnit}s {p.lectures.join(', ')} · {p.mcq} MCQs, {p.short} shorts, {p.long} longs{p.builtCounts ? ` · ${p.builtCounts.marks && typeof p.builtCounts.marks === 'object' ? p.builtCounts.marks.total : p.builtCounts.marks} marks` : ''}
-              {' '}
+            <div key={p.id} className="edx-paper-saved-row">
+              <span className="edx-paper-saved-row-title">{p.title}</span>
+              <span className="edx-paper-saved-row-meta">{p.code} ({p.term}) · {savedUnit}s {p.lectures.join(', ')} · {p.mcq} MCQs, {p.short} shorts, {p.long} longs{p.builtCounts ? ` · ${p.builtCounts.marks && typeof p.builtCounts.marks === 'object' ? p.builtCounts.marks.total : p.builtCounts.marks} marks` : ''}</span>
+              <span className="edx-paper-saved-row-actions">
               <button type="button" className="edx-exam-primary" onClick={() => buildSavedPaper(p)}>Start paper</button>
-              {' '}
               <PaperShareButtons url={savedPaperUrl(p.id)} title={p.title + ' — ' + p.code + ' Test Paper'} />
+              </span>
             </div>
             );
           })}

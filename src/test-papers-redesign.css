@@ -1027,3 +1027,88 @@ body:has(.edx-paper-runner) .edx-free-orb {
 .edx-paper-builder-share .edx-paper-share-row {
   margin-top: 0;
 }
+
+/* ---------- Polish pass 3 (2026-11-22): full-module deep check ---------- */
+
+/* MOBILE RUNNER: the sticky bar becomes a fixed bottom bar at ≤640px, so
+   without bottom room it covered the question card's Previous/Next buttons.
+   Give the runner breathing room, and make the bar itself a little more
+   compact on phones. */
+@media (max-width: 640px) {
+  .edx-paper-page.edx-paper-runner {
+    padding-bottom: 160px;
+  }
+  .edx-paper-page .edx-paper-stickybar {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+}
+
+/* Saved + assigned paper rows: proper card rows instead of inline styles,
+   so long titles wrap cleanly and the buttons stack on narrow phones. */
+.edx-paper-page .edx-paper-saved-row,
+.edx-paper-page .edx-paper-assigned-row {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  border: 1px solid var(--pp-line);
+  border-radius: 14px;
+  background: var(--pp-card);
+}
+.edx-paper-page .edx-paper-saved-row:last-child,
+.edx-paper-page .edx-paper-assigned-row:last-child {
+  margin-bottom: 0;
+}
+.edx-paper-page .edx-paper-saved-row-title {
+  font-weight: 800;
+  color: var(--pp-ink);
+  overflow-wrap: anywhere;
+}
+.edx-paper-page .edx-paper-saved-row-meta {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--pp-muted);
+  overflow-wrap: anywhere;
+}
+.edx-paper-page .edx-paper-saved-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+@media (max-width: 640px) {
+  .edx-paper-page .edx-paper-saved-row-actions > * {
+    flex: 1 1 100%;
+  }
+}
+
+/* Builder: on phones the Generate button sits below a long lecture grid,
+   so pin it to the bottom of the screen while the student is choosing. */
+.edx-paper-page .edx-paper-builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 16px;
+}
+@media (max-width: 640px) {
+  .edx-paper-page .edx-paper-builder-actions {
+    position: sticky;
+    bottom: 12px;
+    z-index: 40;
+    padding: 12px;
+    border: 1px solid var(--pp-line);
+    border-radius: 16px;
+    background: var(--pp-card);
+    box-shadow: var(--pp-shadow);
+  }
+  .edx-paper-page .edx-paper-builder-actions > .edx-exam-primary {
+    flex: 1 1 100%;
+  }
+  .edx-paper-page .edx-paper-builder-actions .edx-paper-builder-share {
+    margin-left: 0;
+  }
+}
+
