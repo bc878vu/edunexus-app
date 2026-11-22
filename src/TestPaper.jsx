@@ -487,6 +487,9 @@ export function PaperRunner({ paper, onBack }) {
 
 export default function TestPapersHome({ paperSlug, onSelectPaper }) {
   const [builderCode, setBuilderCode] = useState(null);
+  // Opening a builder swaps the whole page below the hero — start at the top
+  // so the builder heading is in view instead of wherever the grid was scrolled.
+  useEffect(() => { if (builderCode) window.scrollTo({ top: 0, behavior: 'smooth' }); }, [builderCode]);
   const [builderTerm, setBuilderTerm] = useState(null);
   const [subjectQuery, setSubjectQuery] = useState('');
   const [termFilter, setTermFilter] = useState('all'); // all | Midterm | Finalterm
@@ -727,25 +730,31 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           <button type="button" className={termFilter === 'Midterm' ? 'active term-midterm' : 'term-midterm'} onClick={() => setTermFilter('Midterm')}>Midterm</button>
           <button type="button" className={termFilter === 'Finalterm' ? 'active term-finalterm' : 'term-finalterm'} onClick={() => setTermFilter('Finalterm')}>Final Term</button>
         </div>
-        {(termFilter === 'all' || termFilter === 'Midterm') && midtermCards.length > 0 && (
-          <div>
-            <h3 className="edx-paper-term-heading term-midterm"><span className="edx-paper-term-dot" />Midterm papers<span className="edx-paper-term-count">{midtermCards.length} subjects</span></h3>
-            <div className="edx-paper-subject-grid">{midtermCards}</div>
-          </div>
+        {adminLoading ? (
+          <p role="status" className="edx-paper-meta-line">Paper banks load ho rahe hain…</p>
+        ) : (
+          <>
+            {(termFilter === 'all' || termFilter === 'Midterm') && midtermCards.length > 0 && (
+              <div>
+                <h3 className="edx-paper-term-heading term-midterm"><span className="edx-paper-term-dot" />Midterm papers<span className="edx-paper-term-count">{midtermCards.length} subjects</span></h3>
+                <div className="edx-paper-subject-grid">{midtermCards}</div>
+              </div>
+            )}
+            {(termFilter === 'all' || termFilter === 'Finalterm') && finaltermCards.length > 0 && (
+              <div>
+                <h3 className="edx-paper-term-heading term-finalterm"><span className="edx-paper-term-dot" />Final Term papers<span className="edx-paper-term-count">{finaltermCards.length} subjects</span></h3>
+                <div className="edx-paper-subject-grid">{finaltermCards}</div>
+              </div>
+            )}
+            {termFilter === 'all' && comingCards.length > 0 && (
+              <div>
+                <h3 className="edx-paper-term-heading"><span className="edx-paper-term-dot coming" />Coming soon<span className="edx-paper-term-count">{comingCards.length} subjects</span></h3>
+                <div className="edx-paper-subject-grid">{comingCards}</div>
+              </div>
+            )}
+          </>
         )}
-        {(termFilter === 'all' || termFilter === 'Finalterm') && finaltermCards.length > 0 && (
-          <div>
-            <h3 className="edx-paper-term-heading term-finalterm"><span className="edx-paper-term-dot" />Final Term papers<span className="edx-paper-term-count">{finaltermCards.length} subjects</span></h3>
-            <div className="edx-paper-subject-grid">{finaltermCards}</div>
-          </div>
-        )}
-        {termFilter === 'all' && comingCards.length > 0 && (
-          <div>
-            <h3 className="edx-paper-term-heading"><span className="edx-paper-term-dot coming" />Coming soon<span className="edx-paper-term-count">{comingCards.length} subjects</span></h3>
-            <div className="edx-paper-subject-grid">{comingCards}</div>
-          </div>
-        )}
-        {shownSubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
+        {!adminLoading && shownSubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
         {popupSubject && <PaperPopup code={popupSubject.code} note={SUBJECT_STATUS_NOTE[popupSubject.status]} onClose={() => setPopupSubject(null)} />}
       </section>
       {savedNote && (

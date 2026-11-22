@@ -1084,32 +1084,46 @@ body:has(.edx-paper-runner) .edx-free-orb {
   }
 }
 
-/* Builder: on phones the Generate button sits below a long lecture grid,
-   so pin it to the bottom of the screen while the student is choosing. */
+/* Builder: the Generate button sits below a long lecture grid, so pin the
+   whole actions bar to the bottom of the screen while the student is
+   choosing — on phones AND on desktop, where the grid is just as long. */
 .edx-paper-page .edx-paper-builder-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   margin-top: 16px;
+  position: -webkit-sticky;
+  position: sticky;
+  bottom: 12px;
+  z-index: 40;
+  padding: 12px;
+  border: 1px solid var(--pp-line);
+  border-radius: 16px;
+  background: var(--pp-card);
+  box-shadow: var(--pp-shadow);
 }
 @media (max-width: 640px) {
-  .edx-paper-page .edx-paper-builder-actions {
-    position: sticky;
-    bottom: 12px;
-    z-index: 40;
-    padding: 12px;
-    border: 1px solid var(--pp-line);
-    border-radius: 16px;
-    background: var(--pp-card);
-    box-shadow: var(--pp-shadow);
-  }
   .edx-paper-page .edx-paper-builder-actions > .edx-exam-primary {
     flex: 1 1 100%;
   }
   .edx-paper-page .edx-paper-builder-actions .edx-paper-builder-share {
     margin-left: 0;
   }
+}
+.edx-paper-page .edx-paper-selected-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, .12);
+  color: #4338ca;
+  font-weight: 800;
+  font-size: .85rem;
+}
+.dark .edx-paper-page .edx-paper-selected-chip {
+  background: rgba(129, 140, 248, .2);
+  color: #c7d2fe;
 }
 
 /* ---------- Polish pass 4 (2026-11-22): term-grouped subject cards ---------- */

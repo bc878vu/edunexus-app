@@ -13,7 +13,7 @@
 //   4. Weak-lecture report: after submit, the result names the lectures with
 //      the most wrong MCQ answers (computed in TestPaper.jsx's result view).
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BANK_SUBJECTS, buildPaper } from './testPapersBank';
 import { mergeBankSubjects } from './testPaperBankMerge';
 import { useAdminBanks } from './useAdminBanks';
@@ -39,9 +39,32 @@ export default function PaperBuilder({ subjectCode, term, onBack }) {
   const [selected, setSelected] = useState([]);
   const [paper, setPaper] = useState(null);
   const [noData, setNoData] = useState(false);
+  const [lectureFilter, setLectureFilter] = useState('');
 
   const rows = useMemo(() => subject.lectures.map((l) => ({ ...l, ...countsFor(subject, l.n) })), [subject]);
   const available = rows.filter((r) => r.mcq + r.short + r.long > 0);
+  // Live totals for the current selection — the student sees what their
+  // lectures actually hold (MCQs, shorts, longs) before generating, instead
+  // of discovering it only after the paper is built.
+  const selectedTotals = useMemo(() => {
+    const sel = rows.filter((r) => selected.includes(r.n));
+    return {
+      mcq: sel.reduce((a, r) => a + r.mcq, 0),
+      short: sel.reduce((a, r) => a + r.short, 0),
+      long: sel.reduce((a, r) => a + r.long, 0),
+    };
+  }, [rows, selected]);
+  // Lecture filter: number or title, so a 45-lecture subject does not need
+  // scrolling through the whole grid to find one lecture.
+  const filteredRows = useMemo(() => {
+    const q = lectureFilter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => String(r.n).includes(q) || (r.title || '').toLowerCase().includes(q));
+  }, [rows, lectureFilter]);
+  // The builder opens below the home grid — start at the top so the heading
+  // and the Generate button are in view, and do the same when the paper is ready.
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, []);
+  useEffect(() => { if (paper) window.scrollTo({ top: 0, behavior: 'smooth' }); }, [paper]);
   const unit = subject.unitLabel === 'Topic' ? 'Topic' : 'Lecture';
   const units = unit.toLowerCase() + 's';
 
@@ -70,12 +93,15 @@ export default function PaperBuilder({ subjectCode, term, onBack }) {
       <h2>Build your own paper — {subject.code}</h2>
       <p>{subject.title} · {subject.term} · {subject.scope}. Pick any {units} you want; the paper is built only from verified bank questions for those {units}.</p>
       <p className="edx-paper-meta-line">Sirf verified questions se paper banega — jis {unit.toLowerCase()} mein koi verified sawal nahi, wo select nahi ho sakta, aur kuch invent nahi kiya jayega.</p>
+      <label className="edx-exam-field">{unit} dhoondhein<input type="text" value={lectureFilter} onChange={(e) => setLectureFilter(e.target.value)} placeholder="Number ya title likhein, jaise 5 ya Kinematics" /></label>
       <div className="edx-exam-actions">
         <button type="button" className="edx-exam-secondary" onClick={() => setSelected(available.map((r) => r.n))}>Select all available</button>
         <button type="button" className="edx-exam-secondary" onClick={() => setSelected([])}>Clear</button>
+        {selected.length > 0 && <span className="edx-paper-selected-chip">{selected.length} selected</span>}
       </div>
+      {lectureFilter.trim() !== '' && <p className="edx-paper-meta-line">{filteredRows.length} of {rows.length} {units} — “{lectureFilter.trim()}”</p>}
       <div className="edx-paper-lecture-grid">
-        {rows.map((r) => {
+        {filteredRows.map((r) => {
           const empty = r.mcq + r.short + r.long === 0;
           return (
             <label key={r.n} className={'edx-paper-lecture' + (empty ? ' disabled' : '')}>
@@ -86,7 +112,7 @@ export default function PaperBuilder({ subjectCode, term, onBack }) {
           );
         })}
       </div>
-      <p className="edx-paper-selected-line">{selected.length === 0 ? `Select at least one ${unit.toLowerCase()} to build a paper.` : `Selected: ${units} ${selected.join(', ')}`}</p>
+      <p className="edx-paper-selected-line">{selected.length === 0 ? `Select at least one ${unit.toLowerCase()} to build a paper.` : `${selected.length} ${units} selected · ${selectedTotals.mcq} MCQs · ${selectedTotals.short} short · ${selectedTotals.long} long available`}</p>
       <div className="edx-paper-builder-actions">
         <button type="button" className="edx-exam-primary" disabled={selected.length === 0}
           onClick={() => { const p = buildPaper(subject, selected); if (p.mcqs.length + p.shorts.length + p.longs.length === 0) { setNoData(true); return; } setPaper(p); }}>Generate my paper</button>

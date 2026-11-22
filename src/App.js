@@ -350,10 +350,41 @@ const Navbar = ({
     };
   }, []);
 
+  // Same-page nav tap: the first tap scrolls to the top (the page state does
+  // not change, so the App-level scroll-to-top effect never fires); a second
+  // tap on the same button while already at the top reloads the page.
+  // Tapping a different page navigates normally and forgets the double tap.
+  const lastActiveClickRef = useRef(null);
+  const handleActiveNavClick = (id) => {
+    const now = Date.now();
+    const prev = lastActiveClickRef.current;
+    if (window.scrollY > 10) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      lastActiveClickRef.current = { id, time: now };
+      return;
+    }
+    if (prev && prev.id === id && now - prev.time < 5000) {
+      window.location.reload();
+      return;
+    }
+    lastActiveClickRef.current = { id, time: now };
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleNavClick = (targetPage) => {
+    // Already on this page (logo included): scroll to top, second tap reloads.
+    if (isActive(targetPage)) {
+      if (isMenuOpen) toggleMenu();
+      handleActiveNavClick(targetPage);
+      return;
+    }
+    lastActiveClickRef.current = null;
     if (targetPage === 'mcq-bank' || targetPage === 'paper-reviews' || targetPage === 'test-papers') {
       setPage('exam-prep');
       try { window.history.pushState({}, '', '/' + targetPage); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {}
+      // Section switches keep page 'exam-prep', so the App-level
+      // scroll-to-top effect never fires — scroll explicitly.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       if (isMenuOpen) toggleMenu();
       return;
     }
@@ -529,9 +560,9 @@ const Navbar = ({
             flex flex-col
           `}
         >
-          {/* Drawer header */}
+          {/* Drawer header — logo goes home, like the main header logo */}
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <button type="button" onClick={() => handleNavClick('home')} className="flex items-center gap-2 text-left" aria-label="EduNexus home">
               <div className="h-8 w-8">
                 <svg viewBox="0 0 48 48" className="h-full w-full drop-shadow-[0_4px_12px_rgb(99,102,241,0.5)]">
                   <defs>
@@ -559,7 +590,7 @@ const Navbar = ({
                   Quick navigation
                 </span>
               </div>
-            </div>
+            </button>
             <button
               onClick={toggleMenu}
               aria-label="Close navigation"
