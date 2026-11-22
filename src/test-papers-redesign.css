@@ -1125,6 +1125,17 @@ body:has(.edx-paper-runner) .edx-free-orb {
   background: rgba(129, 140, 248, .2);
   color: #c7d2fe;
 }
+/* The sticky actions bar floats over the grid while scrolling — give the
+   grid room at the bottom so the last lecture row can scroll clear of it
+   and its checkbox stays tappable (same lesson as the runner padding). */
+.edx-paper-page .edx-paper-lecture-grid {
+  padding-bottom: 84px;
+}
+@media (max-width: 640px) {
+  .edx-paper-page .edx-paper-lecture-grid {
+    padding-bottom: 150px;
+  }
+}
 
 /* ---------- Polish pass 4 (2026-11-22): term-grouped subject cards ---------- */
 

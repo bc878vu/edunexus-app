@@ -353,22 +353,24 @@ const Navbar = ({
   // Same-page nav tap: the first tap scrolls to the top (the page state does
   // not change, so the App-level scroll-to-top effect never fires); a second
   // tap on the same button while already at the top reloads the page.
-  // Tapping a different page navigates normally and forgets the double tap.
+  // No time limit on the pair: a tap after the student scrolled down again
+  // is a fresh "take me to the top" tap (scrollY > 10), never a reload.
+  // The scroll is instant, not smooth — a smooth scroll still in progress
+  // would leave scrollY above zero and swallow the second tap.
   const lastActiveClickRef = useRef(null);
   const handleActiveNavClick = (id) => {
-    const now = Date.now();
     const prev = lastActiveClickRef.current;
     if (window.scrollY > 10) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      lastActiveClickRef.current = { id, time: now };
+      window.scrollTo(0, 0);
+      lastActiveClickRef.current = { id };
       return;
     }
-    if (prev && prev.id === id && now - prev.time < 5000) {
+    if (prev && prev.id === id) {
       window.location.reload();
       return;
     }
-    lastActiveClickRef.current = { id, time: now };
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    lastActiveClickRef.current = { id };
+    window.scrollTo(0, 0);
   };
 
   const handleNavClick = (targetPage) => {
