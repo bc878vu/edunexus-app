@@ -150,7 +150,6 @@ export const SUBJECT_CATALOG = [
   { code: 'STA630', status: 'finalonly' },
   { code: 'BIF401', status: 'nodata' },
   { code: 'BT102', status: 'nodata' },
-  { code: 'BT401', status: 'nodata' },
   { code: 'CS202', status: 'nodata' },
   { code: 'CS205', status: 'nodata' },
   { code: 'CS603', status: 'nodata' },

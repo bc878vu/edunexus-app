@@ -710,11 +710,11 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         <h1>Test Papers</h1>
         <p>Take a full paper online — MCQs are checked instantly, subjective answers go to the teacher.</p>
         <div className="edx-paper-cover-meta">
-          <span>{mergedCatalog.filter((s) => s.status === 'live').length} live subjects</span>
+          <span>{adminLoading ? '…' : `${mergedCatalog.filter((s) => s.status === 'live').length} live subjects`}</span>
           <span>{readyMadeCount} ready-made paper{readyMadeCount === 1 ? '' : 's'}</span>
           <span>Free for VU students</span>
-          <span>{midtermSubjectCount} Midterm subjects</span>
-          <span>{finaltermSubjectCount} Finalterm subjects</span>
+          <span>{adminLoading ? '…' : `${midtermSubjectCount} Midterm subjects`}</span>
+          <span>{adminLoading ? '…' : `${finaltermSubjectCount} Finalterm subjects`}</span>
         </div>
       </section>
       {pattern && pattern.error && <PaperPopup code={pattern.error} note="Is subject ka paper data abhi available nahi hai, ya link mein lectures theek nahi hain. Admin se contact karein." onClose={clearPatternParams} />}

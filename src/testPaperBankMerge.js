@@ -25,9 +25,14 @@ export function mergeBankSubjects(codeSubjects, adminBanks) {
 }
 
 export function mergeCatalog(catalog, subjects) {
+  // A code listed twice in the catalog (BT401 was, once 'live' and once
+  // 'nodata') rendered two identical cards and inflated the section count.
+  // First occurrence wins, so a later stale duplicate can never do that again.
+  const seenCodes = new Set();
+  const deduped = catalog.filter((c) => { if (seenCodes.has(c.code)) return false; seenCodes.add(c.code); return true; });
   const liveCodes = new Set(subjects.map((s) => s.code));
-  const merged = catalog.map((c) => (liveCodes.has(c.code) ? { ...c, status: 'live' } : c));
-  const known = new Set(catalog.map((c) => c.code));
+  const merged = deduped.map((c) => (liveCodes.has(c.code) ? { ...c, status: 'live' } : c));
+  const known = new Set(deduped.map((c) => c.code));
   subjects.forEach((s) => {
     if (!known.has(s.code)) {
       // A subject with two banks (Midterm + Finalterm) must still get ONE
