@@ -23,6 +23,39 @@ const CHANNEL_URL = 'https://www.youtube.com/@EduNexusVU';
 const SUBSCRIBE_URL = 'https://www.youtube.com/@EduNexusVU?sub_confirmation=1';
 const EMBED_ALLOW = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
 
+const BANNER_TEXT =
+  '🔔 Subscribe to EduNexus on YouTube  •  New 60-MCQ video every day at 3:00 PM  •  VU lectures, past papers & MCQs  •  ';
+
+// List thumbnail with a fallback chain: mqdefault → hqdefault → subject-code
+// tile. Eager (not lazy): the list lives in a nested scroll container where
+// lazy loading can stall, and a failed image used to stay a dark empty box.
+function LectureThumb({ videoId, subjectCode }) {
+  const mq = 'https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg';
+  const hq = 'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg';
+  const [src, setSrc] = useState(mq);
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <span className="edx-lecture-thumb edx-lecture-thumb-fallback" aria-hidden="true">
+        {subjectCode || 'EDUNEXUS'}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="eager"
+      decoding="async"
+      className="edx-lecture-thumb"
+      onError={() => {
+        if (src.indexOf('mqdefault') !== -1) setSrc(hq);
+        else setFailed(true);
+      }}
+    />
+  );
+}
+
 function embedSrc(videoId, { autoplay = true, muted = false } = {}) {
   const params = new URLSearchParams({
     autoplay: autoplay ? '1' : '0',
@@ -122,6 +155,18 @@ export default function LectureVideosSection({ theme }) {
 
   return (
     <section id="lecture-videos" className="mt-10">
+      <a
+        href={SUBSCRIBE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="edx-lecture-banner"
+        aria-label="EduNexus YouTube channel subscribe karein"
+      >
+        <span className="edx-lecture-banner-track">
+          <span>{BANNER_TEXT.repeat(3)}</span>
+          <span aria-hidden="true">{BANNER_TEXT.repeat(3)}</span>
+        </span>
+      </a>
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: accentColor }}>
@@ -201,12 +246,7 @@ export default function LectureVideosSection({ theme }) {
               onClick={() => setSelectedId(v.id)}
               aria-current={v.id === current.id}
             >
-              <img
-                src={'https://i.ytimg.com/vi/' + v.videoId + '/mqdefault.jpg'}
-                alt=""
-                loading="lazy"
-                className="edx-lecture-thumb"
-              />
+              <LectureThumb videoId={v.videoId} subjectCode={v.subjectCode || v.category} />
               <span className="edx-lecture-item-text">
                 <span className="edx-lecture-item-title" style={{ color: textColor }}>{v.title}</span>
                 <span className="edx-lecture-item-meta" style={{ color: mutedColor }}>

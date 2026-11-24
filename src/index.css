@@ -326,3 +326,58 @@ html.dark{color-scheme:dark}html:not(.dark){color-scheme:light}
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+/* YouTube banner: scrolling strip above the Lecture Videos heading.
+   Right-to-left marquee (translateX 0 → -50% over two identical halves,
+   so the loop is seamless). Pauses on hover; off for reduced motion. */
+.edx-lecture-banner {
+  display: block;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  background: linear-gradient(90deg, #0f2040 0%, #b91c1c 55%, #ff0000 100%);
+  color: #fff;
+  text-decoration: none;
+  margin-bottom: 1rem;
+}
+.edx-lecture-banner-track {
+  display: flex;
+  width: max-content;
+  animation: edx-lecture-marquee 26s linear infinite;
+  padding: 0.55rem 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.edx-lecture-banner-track > span {
+  flex-shrink: 0;
+  padding-right: 0.5rem;
+}
+.edx-lecture-banner:hover .edx-lecture-banner-track {
+  animation-play-state: paused;
+}
+@keyframes edx-lecture-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@media (max-width: 640px) {
+  .edx-lecture-banner-track {
+    font-size: 0.78rem;
+    padding: 0.45rem 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .edx-lecture-banner-track {
+    animation: none;
+  }
+}
+/* List-thumbnail fallback tile (shown when both YouTube thumbnail sizes fail). */
+.edx-lecture-thumb-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f2040, #1b365d);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
