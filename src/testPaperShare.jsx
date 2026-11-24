@@ -116,7 +116,7 @@ export function PaperShareButtons({ url, title }) {
         {state === 'shared' ? 'Shared!' : 'Share'}
       </button>
       {state === 'failed' && (
-        <span role="alert" className="edx-paper-share-failed">Copy nahi hua — link select karke copy karein.</span>
+        <span role="alert" className="edx-paper-share-failed">Copy failed — select the link and copy it.</span>
       )}
     </span>
   );

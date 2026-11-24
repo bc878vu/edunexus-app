@@ -22,7 +22,7 @@ function Bars({ rows, valueLabel }) {
           <span style={{ minWidth: 44, textAlign: 'right', fontSize: 13, fontWeight: 700 }}>{r.value}{valueLabel || ''}</span>
         </div>
       ))}
-      {rows.length === 0 && <p>Koi data nahi.</p>}
+      {rows.length === 0 && <p>No data.</p>}
     </div>
   );
 }
@@ -41,7 +41,7 @@ export default function AdminTestDashboard({ user }) {
     return (
       <section className="edx-exam-card" role="alert">
         <h3>Admin access required</h3>
-        <p>Dashboard sirf verified administrator dekh sakta hai.</p>
+        <p>Only a verified administrator can see this dashboard.</p>
       </section>
     );
   }
@@ -49,7 +49,7 @@ export default function AdminTestDashboard({ user }) {
   return (
     <section className="edx-exam-card edx-exam-form">
       <h3>Test Paper Dashboard</h3>
-      <p>Last 200 attempts ki bunyaad par — poori site ka total nahi, jo list load hoti hai us ka khulasa hai.</p>
+      <p>Based on the last 200 attempts — not the whole site's total, only a summary of the loaded list.</p>
       {loading && <p role="status">Loading…</p>}
       {!loading && (
         <>
@@ -66,7 +66,7 @@ export default function AdminTestDashboard({ user }) {
               </div>
             ))}
           </div>
-          <h4>Attempts — last 14 din</h4>
+          <h4>Attempts — last 14 days</h4>
           <Bars rows={perDay.map((d) => ({ label: d.day.slice(5), value: d.count }))} />
           <h4>Attempts — subject wise</h4>
           <Bars rows={bySubject.map((s) => ({ label: s.code, value: s.attempts }))} />

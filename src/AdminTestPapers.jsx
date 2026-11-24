@@ -67,7 +67,7 @@ export default function AdminTestPapers({ user }) {
       setPatterns(pat);
       setAssignments(asg);
     } catch (e) {
-      setError('List load nahi hui: ' + (e && e.message ? e.message : 'unknown error'));
+      setError('List failed to load: ' + (e && e.message ? e.message : 'unknown error'));
     }
   };
 
@@ -79,7 +79,7 @@ export default function AdminTestPapers({ user }) {
     return (
       <section className="edx-exam-card" role="alert">
         <h3>Admin access required</h3>
-        <p>Papers sirf verified administrator bana sakta hai.</p>
+        <p>Only a verified administrator can create papers.</p>
       </section>
     );
   }
@@ -103,12 +103,12 @@ export default function AdminTestPapers({ user }) {
         mcq: mcqTarget, short: shortTarget, long: longTarget,
         builtCounts: { mcqs: built.mcqs.length, shorts: built.shorts.length, longs: built.longs.length, marks: built.marks },
       });
-      setNotice(`Paper save ho gaya: "${paperTitle.trim()}" — students ko ready-made card dikhega. Link: /test-papers?saved=${id}`);
+      setNotice(`Paper saved: "${paperTitle.trim()}" — students will see a ready-made card. Link: /test-papers?saved=${id}`);
       setPaperTitle('');
       setSelected([]);
       await reload();
     } catch (e) {
-      setError('Save nahi hua: ' + (e && e.message ? e.message : 'unknown error'));
+      setError('Save failed: ' + (e && e.message ? e.message : 'unknown error'));
     }
     setBusy(false);
   };
@@ -124,12 +124,12 @@ export default function AdminTestPapers({ user }) {
     setError('');
     try {
       await saveSavedPattern({ name: patternName.trim(), code: subject.code, link, lectures: selected, mcq: mcqTarget, short: shortTarget, long: longTarget });
-      setNotice(`Pattern save ho gaya: "${patternName.trim()}" (${subject.code}).`);
+      setNotice(`Pattern saved: "${patternName.trim()}" (${subject.code}).`);
       setPatternName('');
       setSelected([]);
       await reload();
     } catch (e) {
-      setError('Save nahi hua: ' + (e && e.message ? e.message : 'unknown error'));
+      setError('Save failed: ' + (e && e.message ? e.message : 'unknown error'));
     }
     setBusy(false);
   };
@@ -141,12 +141,12 @@ export default function AdminTestPapers({ user }) {
     setError('');
     try {
       await saveAssignment({ ...target, vuIds });
-      setNotice(`Assign ho gaya: ${vuIds.length} VU ID(s) — students apni VU ID daal kar ye paper /test-papers par dekh sakenge.`);
+      setNotice(`Assigned to ${vuIds.length} VU ID(s) — students can enter their VU ID to see this paper on /test-papers.`);
       setAssignFor(null);
       setAssignIds('');
       await reload();
     } catch (e) {
-      setError('Assign nahi hua: ' + (e && e.message ? e.message : 'unknown error'));
+      setError('Assign failed: ' + (e && e.message ? e.message : 'unknown error'));
     }
     setBusy(false);
   };
@@ -165,7 +165,7 @@ export default function AdminTestPapers({ user }) {
       setConfirmKey('');
       await reload();
     } catch (e) {
-      setError('Delete nahi hua: ' + (e && e.message ? e.message : 'unknown error'));
+      setError('Delete failed: ' + (e && e.message ? e.message : 'unknown error'));
     }
     setBusy(false);
   };
@@ -185,8 +185,8 @@ export default function AdminTestPapers({ user }) {
 
   return (
     <section className="edx-exam-card edx-exam-form">
-      <h3>Papers — khud paper banayein, patterns save karein, assign karein</h3>
-      <p>Subject aur lectures chunain, counts set karein — paper sirf verified bank questions se banega. Fixed paper save karein (students ko ready-made card dikhega) ya pattern link save karein (subject wise list mein rahega). Kisi bhi paper/pattern ko VU IDs par assign karein.</p>
+      <h3>Papers — create papers, save patterns, assign them</h3>
+      <p>Choose a subject and lectures, set the counts — the paper is built only from verified bank questions. Save a fixed paper (students will see a ready-made card) or save a pattern link (it will stay in the subject-wise list). Assign any paper or pattern to VU IDs.</p>
 
       <label className="edx-exam-field">Subject
         <select value={selectedSubjectKey} onChange={(e) => { setSelectedSubjectKey(e.target.value); setSelected([]); }}>
@@ -220,15 +220,15 @@ export default function AdminTestPapers({ user }) {
           <select value={longTarget} onChange={(e) => setLongTarget(Number(e.target.value))}>{[0, 1, 2, 3, 4, 5].map((n) => (<option key={n} value={n}>{n}</option>))}</select>
         </label>
       </div>
-      {built && <p role="status">Preview: {built.mcqs.length} MCQs + {built.shorts.length} shorts + {built.longs.length} longs, {built.marks.total} marks — {builtTotal === 0 ? 'in lectures mein koi verified sawal nahi, paper nahi banega.' : 'yehi paper banega, kuch invent nahi hoga.'}</p>}
-      <label className="edx-exam-field">Fixed paper ka title
-        <input type="text" value={paperTitle} onChange={(e) => setPaperTitle(e.target.value)} placeholder="Jaise ACC501 Midterm — Lectures 1-9" />
+      {built && <p role="status">Preview: {built.mcqs.length} MCQs + {built.shorts.length} shorts + {built.longs.length} longs, {built.marks.total} marks — {builtTotal === 0 ? 'These lectures have no verified questions, so no paper will be built.' : 'This is the paper that will be built; nothing will be invented.'}</p>}
+      <label className="edx-exam-field">Fixed paper title
+        <input type="text" value={paperTitle} onChange={(e) => setPaperTitle(e.target.value)} placeholder="e.g. ACC501 Midterm — Lectures 1-9" />
       </label>
       <div className="edx-exam-actions">
         <button type="button" className="edx-exam-primary" disabled={!paperTitle.trim() || !built || builtTotal === 0 || busy} onClick={onSavePaper}>Save fixed paper</button>
       </div>
-      <label className="edx-exam-field">Pattern ka naam
-        <input type="text" value={patternName} onChange={(e) => setPatternName(e.target.value)} placeholder="Jaise ACC501 Lec 1-9 Full" />
+      <label className="edx-exam-field">Pattern name
+        <input type="text" value={patternName} onChange={(e) => setPatternName(e.target.value)} placeholder="e.g. ACC501 Lec 1-9 Full" />
       </label>
       <div className="edx-exam-actions">
         <button type="button" className="edx-exam-secondary" disabled={!patternName.trim() || selected.length === 0 || busy} onClick={onSavePattern}>Save pattern link</button>
@@ -237,7 +237,7 @@ export default function AdminTestPapers({ user }) {
       {error && <p role="alert">{error}</p>}
 
       <h4>Saved fixed papers ({papers.length})</h4>
-      {papers.length === 0 && <p>Abhi koi fixed paper save nahi hua.</p>}
+      {papers.length === 0 && <p>No fixed paper has been saved yet.</p>}
       <ul className="edx-paper-admin-list">
         {papers.map((p) => {
           const link = window.location.origin + '/test-papers?saved=' + p.id;
@@ -252,10 +252,10 @@ export default function AdminTestPapers({ user }) {
               </span>
               {assigning && (
                 <div style={{ marginTop: 8 }}>
-                  <label className="edx-exam-field">VU IDs (comma se alag)
+                  <label className="edx-exam-field">VU IDs (comma-separated)
                     <input type="text" value={assignIds} onChange={(e) => setAssignIds(e.target.value)} placeholder="BC230400878, BC230400879" />
                   </label>
-                  <button type="button" className="edx-exam-primary" disabled={busy} onClick={() => onAssign(assignFor)}>Assign karein</button>
+                  <button type="button" className="edx-exam-primary" disabled={busy} onClick={() => onAssign(assignFor)}>Assign</button>
                 </div>
               )}
             </li>
@@ -264,7 +264,7 @@ export default function AdminTestPapers({ user }) {
       </ul>
 
       <h4>Saved patterns — subject wise ({patterns.length})</h4>
-      {patterns.length === 0 && <p>Abhi koi pattern save nahi hua. Patterns tab se banaye links yahan save karein.</p>}
+      {patterns.length === 0 && <p>No pattern has been saved yet. Save links created from the Patterns tab here.</p>}
       {[...patternsBySubject.entries()].map(([code, list]) => (
         <div key={code}>
           <p><strong>{code}</strong></p>
@@ -281,10 +281,10 @@ export default function AdminTestPapers({ user }) {
                   </span>
                   {assigning && (
                     <div style={{ marginTop: 8 }}>
-                      <label className="edx-exam-field">VU IDs (comma se alag)
+                      <label className="edx-exam-field">VU IDs (comma-separated)
                         <input type="text" value={assignIds} onChange={(e) => setAssignIds(e.target.value)} placeholder="BC230400878, BC230400879" />
                       </label>
-                      <button type="button" className="edx-exam-primary" disabled={busy} onClick={() => onAssign(assignFor)}>Assign karein</button>
+                      <button type="button" className="edx-exam-primary" disabled={busy} onClick={() => onAssign(assignFor)}>Assign</button>
                     </div>
                   )}
                 </li>
@@ -295,7 +295,7 @@ export default function AdminTestPapers({ user }) {
       ))}
 
       <h4>Assignments ({assignments.length})</h4>
-      {assignments.length === 0 && <p>Abhi koi assignment nahi hai.</p>}
+      {assignments.length === 0 && <p>There are no assignments yet.</p>}
       <ul className="edx-paper-admin-list">
         {assignments.map((a) => (
           <li key={a.id} className="edx-paper-admin-row">

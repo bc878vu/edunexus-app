@@ -172,7 +172,7 @@ export default function LectureVideosSection({ theme }) {
         target="_blank"
         rel="noopener noreferrer"
         className="edx-lecture-banner"
-        aria-label="EduNexus YouTube channel subscribe karein"
+        aria-label="Subscribe to the EduNexus YouTube channel"
       >
         <span className="edx-lecture-banner-track">
           <span>{BANNER_TEXT.repeat(3)}</span>
@@ -188,7 +188,7 @@ export default function LectureVideosSection({ theme }) {
             Lecture videos
           </h2>
           <p className="text-sm mt-1" style={{ color: mutedColor }}>
-            VU lectures, subject-wise — pehli video khud chalti hai (muted). Sound ke liye “Sound on” dabayein.
+            VU lectures, subject-wise — the first video plays automatically (muted). Tap “Sound on” for sound.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -198,7 +198,7 @@ export default function LectureVideosSection({ theme }) {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
             style={{ background: '#FF0000', color: '#FFFFFF' }}
-            title="YouTube par EduNexus ko subscribe karein"
+            title="Subscribe to EduNexus on YouTube"
           >
             🔔 Subscribe
           </a>
@@ -236,13 +236,13 @@ export default function LectureVideosSection({ theme }) {
               className="edx-lecture-sound"
               onClick={handleUnmute}
               disabled={!playerReady}
-              title="Sound on karein"
+              title="Turn sound on"
             >
               🔊 Sound on
             </button>
           )}
           {soundOn && (
-            <button type="button" className="edx-lecture-sound" onClick={handleMute} title="Mute karein">
+            <button type="button" className="edx-lecture-sound" onClick={handleMute} title="Mute">
               🔇 Mute
             </button>
           )}

@@ -14,7 +14,7 @@ export function explanationPrompt(question, selection) {
   const letter = n => String.fromCharCode(65+n);
   const options = question.options.map((o,i) => letter(i) + ': ' + String(o).slice(0,350)).join('\n');
   return [
-    'You are a concise academic tutor. Explain in the same language as the student question (English, Urdu or Roman Urdu).',
+    'You are a concise academic tutor. Explain in English only, in simple clear English.',
     'Keep the reply under 45 words, preferably one or two short sentences. No Markdown, asterisks, headings, long introductions or unrelated study advice. For an incorrect answer give two very short lines: Why your choice is wrong: ... and Why the correct answer fits: ... . For a correct answer use one short sentence. Do not repeat the question.',
     'Only explain the educational concept. Do not claim independent source verification. The uploaded answer key is the scoring key for this practice.',
     correct !== null

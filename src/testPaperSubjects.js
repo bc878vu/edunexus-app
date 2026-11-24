@@ -164,9 +164,9 @@ export const SUBJECT_CATALOG = [
 ];
 
 export const SUBJECT_STATUS_NOTE = {
-  mapping: 'Is subject ki midterm files maujood hain; lecture-wise paper data tayyar ho raha hai. Agar aap ko ye paper jaldi chahiye to admin se contact karein.',
-  finalonly: 'Is subject ka midterm paper data abhi nahi hai (final-term files maujood hain; lecture-wise mapping ke baad aayega).',
-  nodata: 'Is subject ka MCQ/subjective paper data abhi nahi mila. Admin ko batayein taake is subject ka paper ban sake.',
+  mapping: 'This subject\'s midterm files are available; lecture-wise paper data is being prepared. If you need this paper soon, please contact the admin.',
+  finalonly: 'This subject\'s midterm paper data is not available yet (final-term files are available; it will come after lecture-wise mapping).',
+  nodata: 'This subject\'s MCQ/subjective paper data has not been found yet. Tell the admin so this subject\'s paper can be built.',
 };
 
 // Subject categories: the letter prefix of a subject code is its discipline

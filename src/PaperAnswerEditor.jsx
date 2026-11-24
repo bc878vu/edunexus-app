@@ -121,7 +121,7 @@ export default function PaperAnswerEditor({
       rendered = katex.renderToString(tex, { throwOnError: false });
       setMathError('');
     } catch (_) {
-      setMathError('Equation theek nahi bani — LaTeX dobara check karein.');
+      setMathError('The equation is not formed correctly — please check the LaTeX again.');
       return;
     }
     const el = editorRef.current;
@@ -222,7 +222,7 @@ export default function PaperAnswerEditor({
         <div className="edx-word-preview">
           {html && stripHtmlToText(html).trim()
             ? <SafeHtml html={html} />
-            : <p className="edx-paper-note">Abhi koi jawab nahi likha.</p>}
+            : <p className="edx-paper-note">No answer has been written yet.</p>}
         </div>
       )}
       <div className="edx-word-count">

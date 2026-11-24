@@ -78,7 +78,7 @@ export default function PaperBuilder({ subjectCode, term, onBack }) {
     return (
       <section className="edx-exam-card edx-exam-form edx-paper-builder edx-paper-page">
         <button type="button" className="edx-exam-secondary" onClick={onBack}>Back to test papers</button>
-        <p role="status">Paper bank load ho raha hai…</p>
+        <p role="status">Paper bank loading…</p>
       </section>
     );
   }
@@ -98,9 +98,9 @@ export default function PaperBuilder({ subjectCode, term, onBack }) {
         </div>
         <span className={`edx-paper-builder-term term-${(subject.term || 'Midterm').toLowerCase()}`}>{subject.term}</span>
       </div>
-      <p className="edx-paper-builder-note">Sirf verified questions se paper banega — jis {unit.toLowerCase()} mein koi verified sawal nahi, wo select nahi ho sakta, aur kuch invent nahi kiya jayega. Pick any {units} you want; the paper is built only from verified bank questions for those {units}.</p>
+      <p className="edx-paper-builder-note">The paper is built only from verified questions — a {unit.toLowerCase()} with no verified questions cannot be selected, and nothing will be invented. Pick any {units} you want; the paper is built only from verified bank questions for those {units}.</p>
       <div className="edx-paper-builder-toolbar">
-        <label className="edx-exam-field edx-paper-builder-search">{unit} dhoondhein<input type="text" value={lectureFilter} onChange={(e) => setLectureFilter(e.target.value)} placeholder="Number ya title likhein, jaise 5 ya Kinematics" /></label>
+        <label className="edx-exam-field edx-paper-builder-search">Find {unit}<input type="text" value={lectureFilter} onChange={(e) => setLectureFilter(e.target.value)} placeholder="Enter a number or title, e.g. 5 or Kinematics" /></label>
         <div className="edx-exam-actions edx-paper-builder-actions-row">
           <button type="button" className="edx-exam-secondary" onClick={() => setSelected(available.map((r) => r.n))}>Select all available</button>
           <button type="button" className="edx-exam-secondary" onClick={() => setSelected([])}>Clear</button>
@@ -137,7 +137,7 @@ export default function PaperBuilder({ subjectCode, term, onBack }) {
           onClick={() => { const p = buildPaper(subject, selected); if (p.mcqs.length + p.shorts.length + p.longs.length === 0) { setNoData(true); return; } setPaper(p); }}>Generate my paper</button>
         {selected.length > 0 && (
           <span className="edx-paper-builder-share">
-            <span>Is selection ka link share karein:</span>
+            <span>Share a link to this selection:</span>
             <PaperShareButtons
               url={patternUrl({ subject: subject.code, term: subject.term, lectures: selected, mcq: 20, short: 3, long: 3 })}
               title={subject.code + ' — ' + subject.title + ' — Test Paper'}
@@ -145,7 +145,7 @@ export default function PaperBuilder({ subjectCode, term, onBack }) {
           </span>
         )}
       </div>
-      {noData && <PaperPopup code={subject.code} note={'Selected ' + units + ' (' + selected.join(', ') + ') ke liye koi verified sawal nahi mila. Admin se contact karein.'} onClose={() => setNoData(false)} />}
+      {noData && <PaperPopup code={subject.code} note={'No verified questions were found for the selected ' + units + ' (' + selected.join(', ') + '). Please contact the admin.'} onClose={() => setNoData(false)} />}
       <p className="edx-paper-note">Pattern: up to 20 MCQs, 3 shorts, 3 longs (90 minutes). If your lectures hold fewer verified questions, the paper is shorter and says so — it is never padded with guesses.</p>
     </section>
   );

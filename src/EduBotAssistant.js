@@ -109,7 +109,7 @@ export default function EduBotAssistant() {
       const replay = new Audio(cachedUrl);
       audioRef.current = replay;
       replay.onended = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
-      replay.onerror = () => { audioCacheRef.current.delete(messageId); if (speechTokenRef.current === token) { setSpeakingId(null); if (!silent) setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.'); } };
+      replay.onerror = () => { audioCacheRef.current.delete(messageId); if (speechTokenRef.current === token) { setSpeakingId(null); if (!silent) setVoiceError('The human voice is not available right now. Please tap Listen again.'); } };
       try { await replay.play(); return; } catch (_) { audioCacheRef.current.delete(messageId); }
     }
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -123,7 +123,7 @@ export default function EduBotAssistant() {
         // only burns more quota, so fail fast with an honest quota message.
         if (response.status === 429) {
           setSpeakingId(null);
-          if (!silent) setVoiceError('Awaz ki limit khatam ho gayi hai. Thodi der baad dobara Listen dabayein.');
+          if (!silent) setVoiceError('The voice limit has been reached. Please tap Listen again in a little while.');
           return;
         }
         if (!response.ok || !body.audio) throw new Error('server voice unavailable');
@@ -139,7 +139,7 @@ export default function EduBotAssistant() {
         const audio = new Audio(url);
         audioRef.current = audio;
         audio.onended = () => { if (speechTokenRef.current === token) setSpeakingId(null); };
-        audio.onerror = () => { if (speechTokenRef.current === token) { setSpeakingId(null); if (!silent) setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.'); } };
+        audio.onerror = () => { if (speechTokenRef.current === token) { setSpeakingId(null); if (!silent) setVoiceError('The human voice is not available right now. Please tap Listen again.'); } };
         await audio.play();
         return;
       } catch (_) {
@@ -148,7 +148,7 @@ export default function EduBotAssistant() {
       }
     }
     setSpeakingId(null);
-    if (!silent) setVoiceError('Human voice abhi available nahi hai. Dobara Listen dabayein.');
+    if (!silent) setVoiceError('The human voice is not available right now. Please tap Listen again.');
   };
 
   useEffect(() => {
@@ -352,8 +352,8 @@ export default function EduBotAssistant() {
           <p>{renderableLinks(message.text, message.approvedUrls || []).map((chunk, part) => chunk.url ? <a key={part} href={chunk.url} rel="noopener noreferrer">{chunk.text}<ExternalLink size={12} aria-hidden="true"/></a> : <React.Fragment key={part}>{chunk.text}</React.Fragment>)}</p>
           {message.suggestions?.length > 0 && <div className="edx-bot-resources" aria-label="Verified public study resources"><strong>Available public resources</strong>{message.suggestions.map((file, i) => <a key={file.url + i} href={file.url} rel="noopener noreferrer"><BookOpen size={14}/>{file.title || file.subject || 'Study resource'} <ExternalLink size={13}/></a>)}</div>}
           {message.role === 'ai' && message.question && message.webActions && <div className="edx-bot-web-actions" aria-label="Search the web for this question">
-            <a href={'https://www.google.com/search?q=' + encodeURIComponent(message.question)} target="_blank" rel="noreferrer">Google par search karein <ExternalLink size={12}/></a>
-            <a href={'https://www.youtube.com/results?search_query=' + encodeURIComponent(message.question)} target="_blank" rel="noreferrer">YouTube par dekhein <ExternalLink size={12}/></a>
+            <a href={'https://www.google.com/search?q=' + encodeURIComponent(message.question)} target="_blank" rel="noreferrer">Search on Google <ExternalLink size={12}/></a>
+            <a href={'https://www.youtube.com/results?search_query=' + encodeURIComponent(message.question)} target="_blank" rel="noreferrer">Watch on YouTube <ExternalLink size={12}/></a>
           </div>}
           {message.sources?.length > 0 && <div className="edx-bot-sources" aria-label="Web sources used for this answer"><strong>Web sources</strong>{message.sources.map((s, i) => <a key={s.uri + i} href={s.uri} target="_blank" rel="noreferrer">{s.title} <ExternalLink size={12}/></a>)}</div>}
           {message.role === 'ai' && <button type="button" className="edx-bot-speak"
@@ -363,7 +363,7 @@ export default function EduBotAssistant() {
           </button>}
         </div>)}
         {messages.length === 1 && !busy && <div className="edx-bot-example" aria-label="Suggested questions">
-          {['CS101 ki study files dhoondo', 'Quiz aur Finalterm ki tayari kaise karun?', 'EduNexus WhatsApp number do', 'Mere liye study plan suggest karo'].map(q => (
+          {['Find CS101 study files', 'How do I prepare for quizzes and the final term?', 'Give me the EduNexus WhatsApp number', 'Suggest a study plan for me'].map(q => (
             <button type="button" key={q} onClick={() => void send(q)}>{q}</button>
           ))}
         </div>}

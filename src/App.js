@@ -153,7 +153,7 @@ console.log("CLOUDINARY ENV:", CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET);
 const appId = "edunexus-live"; // Static App ID for your live site
 
 // --- Constants ---
-const WHATSAPP_LINK = "https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye.";
+const WHATSAPP_LINK = "https://wa.me/923098851445?text=Hello%21%20I%20came%20from%20the%20EduNexus%20website.%20I%20need%20information%20about%20VU%20study%20material.";
 // 🔐 Admin credentials (email + password)
 const ADMIN_EMAIL = SECURE_ADMIN_EMAIL;
 
@@ -1496,9 +1496,9 @@ Return the answer in bullet list.
         </div>
 
         <p className={`${theme.textMuted} text-xs md:text-sm mb-4`}>
-          Apni skills ya interest likho (e.g. <strong>React + Firebase</strong>,{" "}
-          <strong>Networking</strong>, <strong>AI + Education</strong>) aur AI
-          aap ke liye project ideas suggest karega.
+          Enter your skills or interests (e.g. <strong>React + Firebase</strong>,{" "}
+          <strong>Networking</strong>, <strong>AI + Education</strong>) and the AI
+          will suggest project ideas for you.
         </p>
 
         <div className="flex flex-col md:flex-row gap-3 mb-4">
@@ -2562,7 +2562,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
 
   const startRenameFolder = (name) => {
     if (DEFAULT_FOLDERS.includes(name)) {
-      showToast("Default folders ko rename nahi kar sakte", "error");
+      showToast("Default folders cannot be renamed", "error");
       return;
     }
     setEditingFolder(name);
@@ -2583,7 +2583,7 @@ const AcademicTab = ({ theme, user, showToast }) => {
 
   const handleDeleteFolder = (name) => {
     if (DEFAULT_FOLDERS.includes(name)) {
-      showToast("Default folders ko delete nahi kar sakte", "error");
+      showToast("Default folders cannot be deleted", "error");
       return;
     }
     // Inline dialog (local state) — the proven BlogTab delete pattern.
@@ -4669,7 +4669,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
           Portfolio Picture Manager
         </h3>
         <p className={`text-xs mb-4 ${theme.textMuted}`}>
-          Ye image <strong>Portfolio page</strong> pe bhi use ho rahi hai.
+          This image is also used on the <strong>Portfolio page</strong>.
         </p>
 
         <div className="flex items-center gap-4 mb-4">
@@ -4687,7 +4687,7 @@ const ProfileTab = ({ theme, user, showToast }) => {
             <p className={`font-bold ${theme.text}`}>{displayName}</p>
             <p className={`text-xs ${theme.textMuted}`}>{email}</p>
             <p className="text-[10px] text-indigo-500 mt-1">
-              Profile image + text sab yahan se control hoga.
+              The profile image and text are all controlled from here.
             </p>
           </div>
         </div>
@@ -4853,9 +4853,9 @@ const ProfileTab = ({ theme, user, showToast }) => {
             <Info size={16} /> Tips
           </h4>
           <ul className={`text-xs space-y-1 ${theme.textMuted}`}>
-            <li>• Ye data Portfolio page pe use ho raha hai.</li>
-            <li>• Agar doc empty ho to static default text show hoga.</li>
-            <li>• Reset button ka matlab delete / default par wapas.</li>
+            <li>• This data is used on the Portfolio page.</li>
+            <li>• If the document is empty, static default text will be shown.</li>
+            <li>• The Reset button means delete / back to default.</li>
           </ul>
         </div>
       </div>
@@ -6462,7 +6462,7 @@ useEffect(() => {
             <Facebook size={16} />
           </a>
           <a
-            href="https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye."
+            href="https://wa.me/923098851445?text=Hello%21%20I%20came%20from%20the%20EduNexus%20website.%20I%20need%20information%20about%20VU%20study%20material."
             target="_blank"
             aria-label="Message EduNexus on WhatsApp — VU past papers, handouts and study updates"
             title="Message EduNexus on WhatsApp"
@@ -6670,7 +6670,7 @@ useEffect(() => {
         </a>
 
         <a
-          href="https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye."
+          href="https://wa.me/923098851445?text=Hello%21%20I%20came%20from%20the%20EduNexus%20website.%20I%20need%20information%20about%20VU%20study%20material."
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Message EduNexus on WhatsApp for VU past papers, handouts and study updates"

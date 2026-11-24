@@ -1,5 +1,5 @@
 export const EXAM_REVIEW_URL = 'https://edunexus-app.vercel.app/paper-reviews';
-export const EDUNEXUS_WHATSAPP_GROUP = 'https://wa.me/923098851445?text=Assalam%20o%20Alaikum%21%20Main%20EduNexus%20website%20se%20aya%20hoon%2C%20mujhe%20VU%20study%20material%20ke%20baare%20mein%20maloomat%20chahiye.';
+export const EDUNEXUS_WHATSAPP_GROUP = 'https://wa.me/923098851445?text=Hello%21%20I%20came%20from%20the%20EduNexus%20website.%20I%20need%20information%20about%20VU%20study%20material.';
 
 // Short review codes: a deterministic 7-char base36 (FNV-1a hash) of the
 // review id, e.g. https://edunexus-app.vercel.app/r/xxxxxxx — far shorter

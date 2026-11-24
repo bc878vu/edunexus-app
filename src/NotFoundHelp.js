@@ -12,9 +12,9 @@ import { EDUNEXUS_WHATSAPP_GROUP } from './examReviewFormat';
 export default function NotFoundHelp({ compact = false }) {
   return (
     <div className="edx-notfound-help">
-      {!compact && <p className="edx-notfound-text">Idhar se ye data nahi mila.</p>}
+      {!compact && <p className="edx-notfound-text">This data was not found here.</p>}
       <a className="edx-notfound-whatsapp" href={EDUNEXUS_WHATSAPP_GROUP} target="_blank" rel="noopener noreferrer">
-        <MessageCircle size={16} /> Admin se WhatsApp par contact karein
+        <MessageCircle size={16} /> Contact the admin on WhatsApp
       </a>
     </div>
   );

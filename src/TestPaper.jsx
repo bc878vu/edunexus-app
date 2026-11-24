@@ -276,7 +276,7 @@ export function PaperRunner({ paper, onBack }) {
             <p><strong>{submitted.studentName}</strong> · VU ID {submitted.studentVuId} · {paper.lectures}</p>
             {teacherTotal === null
               ? (!hasSubjective
-                ? <p>Is paper mein subjective sawal nahi the (selected lectures mein verified subjective sawal nahi mile).</p>
+                ? <p>This paper had no subjective questions (no verified subjective questions were found in the selected lectures).</p>
                 : <p>Subjective answers are submitted to the teacher for review. Teacher marks will appear here after review.</p>)
               : <p className="edx-paper-score">Teacher marks (subjective): {teacherTotal} / {paper.marks.short + paper.marks.long} · Total: {submitted.mcqScore + teacherTotal} / {paper.marks.total}</p>}
             {submitted.teacherFeedback && <p><strong>Teacher feedback:</strong> {submitted.teacherFeedback}</p>}
@@ -368,7 +368,7 @@ export function PaperRunner({ paper, onBack }) {
           </div>
           {paperShareUrl(paper) && (
             <div className="edx-paper-cover-share">
-              <span>Is paper ka link share karein:</span>
+              <span>Share a link to this paper:</span>
               <PaperShareButtons url={paperShareUrl(paper)} title={paper.code + ' — ' + paper.title + ' — Test Paper'} />
             </div>
           )}
@@ -556,12 +556,12 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
     if (!subject) {
       // Admin banks may still be loading: a missing subject right now is not
       // proof the paper is gone — say so instead of a false "not available".
-      setSavedNote(adminLoading ? 'Paper bank load ho raha hai — thodi der baad dobara try karein.' : 'Is paper ka subject data abhi available nahi hai. Admin se contact karein.');
+      setSavedNote(adminLoading ? 'The paper bank is still loading — please try again shortly.' : 'This paper\'s subject data is not available yet. Please contact the admin.');
       return;
     }
     const built = buildPaper(subject, p.lectures, { mcq: p.mcq, short: p.short, long: p.long });
     if (built.mcqs.length + built.shorts.length + built.longs.length === 0) {
-      setSavedNote('Is paper ke lectures mein koi verified sawal nahi mila. Admin se contact karein.');
+      setSavedNote('No verified questions were found for this paper\'s lectures. Please contact the admin.');
       return;
     }
     // Keep the record id on the built paper so the runner can share this
@@ -600,12 +600,12 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           handledSavedId.current = savedParam;
           buildSavedPaper(found);
         } else {
-          setSavedNote('Ye saved paper nahi mila — ho sakta hai admin ne ise delete kar diya ho. Neeche list se koi paper chunain.');
+          setSavedNote('This saved paper was not found — the admin may have deleted it. Choose a paper from the list below.');
         }
       });
       return;
     }
-    setSavedNote('Ye saved paper nahi mila — ho sakta hai admin ne ise delete kar diya ho. Neeche list se koi paper chunain.');
+    setSavedNote('This saved paper was not found — the admin may have deleted it. Choose a paper from the list below.');
   },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [savedLoading, adminLoading, savedPapers, savedParam]);
@@ -709,7 +709,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
     return <PaperRunner paper={pattern.paper} onBack={() => { try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} }} />;
   }
   if (pattern && pattern.loading) {
-    return <div className="edx-exam-stack edx-paper-page"><section className="edx-exam-card" role="status"><p>Paper load ho raha hai…</p></section></div>;
+    return <div className="edx-exam-stack edx-paper-page"><section className="edx-exam-card" role="status"><p>Paper loading…</p></section></div>;
   }
   const clearPatternParams = () => { try { window.history.pushState({}, '', '/test-papers'); window.dispatchEvent(new Event('edunexus:navigation')); } catch (_) {} };
   // Ready-made count: the static PHY101 paper plus the live admin-saved
@@ -729,7 +729,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         <button key={s.code} type="button" className="edx-paper-subject"
           onClick={() => setPopupSubject(s)}>
           <strong>{s.code}</strong>
-          <span>{s.status === 'mapping' ? 'Tayyar ho raha hai' : s.status === 'finalonly' ? 'Midterm data nahi' : 'Data nahi mila'}</span>
+          <span>{s.status === 'mapping' ? 'In preparation' : s.status === 'finalonly' ? 'No midterm data' : 'No data found'}</span>
         </button>
       )];
     }
@@ -775,7 +775,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
         <button key={s.code} type="button" className="edx-paper-category-row coming"
           onClick={() => setPopupSubject(s)}>
           <span className="edx-paper-category-row-code">{s.code}</span>
-          <span className="edx-paper-category-row-title">{s.status === 'mapping' ? 'Tayyar ho raha hai' : s.status === 'finalonly' ? 'Midterm data nahi' : 'Data nahi mila'}</span>
+          <span className="edx-paper-category-row-title">{s.status === 'mapping' ? 'In preparation' : s.status === 'finalonly' ? 'No midterm data' : 'No data found'}</span>
           <span className="edx-paper-category-row-arrow" aria-hidden="true">›</span>
         </button>
       )];
@@ -830,11 +830,11 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
           <span>{adminLoading ? '…' : `${finaltermSubjectCount} Finalterm subjects`}</span>
         </div>
       </section>
-      {pattern && pattern.error && <PaperPopup code={pattern.error} note="Is subject ka paper data abhi available nahi hai, ya link mein lectures theek nahi hain. Admin se contact karein." onClose={clearPatternParams} />}
+      {pattern && pattern.error && <PaperPopup code={pattern.error} note="This subject's paper data is not available yet, or the lectures in the link are incorrect. Please contact the admin." onClose={clearPatternParams} />}
       <section className="edx-exam-card">
         <h2>Build your own paper</h2>
         <p>Choose a subject and lectures — your paper is built only from verified questions, most-repeated concepts first.</p>
-        <label className="edx-exam-field">Search subject<input type="text" value={subjectQuery} onChange={(e) => { setSubjectQuery(e.target.value.toUpperCase()); setSelectedCategory('all'); }} placeholder="Subject code likhein, jaise MTH202" /></label>
+        <label className="edx-exam-field">Search subject<input type="text" value={subjectQuery} onChange={(e) => { setSubjectQuery(e.target.value.toUpperCase()); setSelectedCategory('all'); }} placeholder="Enter a subject code, e.g. MTH202" /></label>
         <div className="edx-paper-term-tabs" role="tablist" aria-label="Term filter">
           <button type="button" className={termFilter === 'all' ? 'active' : ''} onClick={() => setTermFilter('all')}>All terms</button>
           <button type="button" className={termFilter === 'Midterm' ? 'active term-midterm' : 'term-midterm'} onClick={() => setTermFilter('Midterm')}>Midterm</button>
@@ -868,7 +868,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
               <span className="edx-paper-category-tile" aria-hidden="true">{activeCategory.prefix}</span>
               <div className="edx-paper-category-panel-titles">
                 <h3>{activeCategory.name} ({activeCategory.prefix})</h3>
-                <p>{activeCategory.count} subjects · kisi subject par tap karein, us ka paper banayein</p>
+                <p>{activeCategory.count} subjects · tap a subject to build its paper</p>
               </div>
               <button type="button" className="edx-exam-secondary" onClick={() => setSelectedCategory('all')}>✕ Close</button>
             </div>
@@ -891,12 +891,12 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
               </div>
             )}
             {panelMidtermRows.length + panelFinaltermRows.length + panelComingRows.length === 0 && (
-              <p className="edx-paper-meta-line">Is category mein is term ka koi subject nahi hai.</p>
+              <p className="edx-paper-meta-line">This category has no subject for this term.</p>
             )}
           </section>
         )}
         {adminLoading ? (
-          <p role="status" className="edx-paper-meta-line">Paper banks load ho rahe hain…</p>
+          <p role="status" className="edx-paper-meta-line">Paper banks are loading…</p>
         ) : !activeCategory ? (
           <>
             {(termFilter === 'all' || termFilter === 'Midterm') && midtermCards.length > 0 && (
@@ -919,7 +919,7 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
             )}
           </>
         ) : null}
-        {!adminLoading && !activeCategory && categorySubjects.length === 0 && <p>{subjectQuery.trim() ? 'Koi subject nahi mila. Code dobara check karein.' : 'Koi live subject nahi mila.'}</p>}
+        {!adminLoading && !activeCategory && categorySubjects.length === 0 && <p>{subjectQuery.trim() ? 'No subject found. Please check the code again.' : 'No live subject found.'}</p>}
         {popupSubject && <PaperPopup code={popupSubject.code} note={SUBJECT_STATUS_NOTE[popupSubject.status]} onClose={() => setPopupSubject(null)} />}
       </section>
       {savedNote && (
@@ -930,17 +930,17 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
       )}
       {savedLoading && (
         <section className="edx-exam-card" role="status">
-          <p>Saved papers load ho rahe hain…</p>
+          <p>Saved papers are loading…</p>
         </section>
       )}
       {!savedLoading && assignments.length > 0 && (
         <section className="edx-exam-card">
           <h2>Assigned papers</h2>
-          <p>Teacher ne aap ko koi paper assign kiya hai to apni VU ID daal kar dekhein.</p>
-          <label className="edx-exam-field">Apni VU ID
-            <input type="text" value={vuLookup} onChange={(e) => setVuLookup(e.target.value.toUpperCase())} placeholder="Jaise BC230400878" />
+          <p>If your teacher assigned you a paper, enter your VU ID to see it.</p>
+          <label className="edx-exam-field">Your VU ID
+            <input type="text" value={vuLookup} onChange={(e) => setVuLookup(e.target.value.toUpperCase())} placeholder="e.g. BC230400878" />
           </label>
-          <button type="button" className="edx-exam-primary" disabled={!vuLookup.trim()} onClick={() => setVuShown(true)}>Mere assigned papers dekhein</button>
+          <button type="button" className="edx-exam-primary" disabled={!vuLookup.trim()} onClick={() => setVuShown(true)}>See my assigned papers</button>
           {vuShown && (
             <div style={{ marginTop: 12 }}>
               {assignments.filter((a) => (a.vuIds || []).map((v) => String(v).toUpperCase()).includes(vuLookup.trim().toUpperCase())).map((a) => (
@@ -948,20 +948,20 @@ export default function TestPapersHome({ paperSlug, onSelectPaper }) {
                   <span className="edx-paper-saved-row-title">{a.paperTitle}</span>
                   <span className="edx-paper-saved-row-actions">
                   {a.paperType === 'saved'
-                    ? <button type="button" className="edx-exam-primary" onClick={() => { const p = savedPapers.find((x) => x.id === a.paperId); if (p) buildSavedPaper(p); else setSavedNote('Ye assigned paper ab available nahi hai.'); }}>Start paper</button>
+                    ? <button type="button" className="edx-exam-primary" onClick={() => { const p = savedPapers.find((x) => x.id === a.paperId); if (p) buildSavedPaper(p); else setSavedNote('This assigned paper is no longer available.'); }}>Start paper</button>
                     : <a className="edx-exam-primary" style={{ textDecoration: 'none', padding: '10px 18px', borderRadius: 10, fontWeight: 700 }} href={a.link}>Start paper</a>}
                   </span>
                 </div>
               ))}
-              {assignments.filter((a) => (a.vuIds || []).map((v) => String(v).toUpperCase()).includes(vuLookup.trim().toUpperCase())).length === 0 && <p>Is VU ID par koi assigned paper nahi mila.</p>}
+              {assignments.filter((a) => (a.vuIds || []).map((v) => String(v).toUpperCase()).includes(vuLookup.trim().toUpperCase())).length === 0 && <p>No assigned paper was found for this VU ID.</p>}
             </div>
           )}
         </section>
       )}
       {!savedLoading && savedPapers.length > 0 && (
         <section className="edx-exam-card">
-          <h2>Teacher ke banaye papers</h2>
-          <p>Admin ne ye papers khud banaye hain — verified bank questions se, lectures aur counts ke saath.</p>
+          <h2>Papers created by the teacher</h2>
+          <p>The admin created these papers — from verified bank questions, with lectures and counts.</p>
           {savedPapers.map((p) => {
             const savedUnit = ((mergedSubjects.find((x) => x.code === p.code && (!p.term || x.term === p.term)) || mergedSubjects.find((x) => x.code === p.code)) || {}).unitLabel === 'Topic' ? 'Topic' : 'Lecture';
             return (

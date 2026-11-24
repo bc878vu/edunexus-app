@@ -122,7 +122,7 @@ export default function AdminPaperPatterns({ user }) {
             <a className="edx-exam-secondary" href={link} target="_blank" rel="noopener noreferrer">Open link</a>
             <a className="edx-paper-wa-btn" href={waUrl} target="_blank" rel="noopener noreferrer">Share on WhatsApp</a>
           </div>
-          <p className="edx-paper-note">Student ka attempt teacher ko save hone ke liye Firestore rules publish hona zaroori hai (wohi pehle wala step).</p>
+          <p className="edx-paper-note">For a student's attempt to save for the teacher, the Firestore rules must be published (the same step as before).</p>
         </>
       )}
     </section>
