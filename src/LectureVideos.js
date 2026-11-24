@@ -26,15 +26,27 @@ const EMBED_ALLOW = 'accelerometer; autoplay; clipboard-write; encrypted-media; 
 const BANNER_TEXT =
   '🔔 Subscribe to EduNexus on YouTube  •  New 60-MCQ video every day at 3:00 PM  •  VU lectures, past papers & MCQs  •  ';
 
-// List thumbnail with a fallback chain: mqdefault → hqdefault → subject-code
-// tile. Eager (not lazy): the list lives in a nested scroll container where
-// lazy loading can stall, and a failed image used to stay a dark empty box.
+// List thumbnail with a fallback chain across YouTube's thumbnail hosts:
+// i.ytimg.com, img.youtube.com and i4.ytimg.com (mq then hq on each),
+// then a subject-code tile. Eager (not lazy): the list lives in a nested
+// scroll container where lazy loading can stall. Some networks fail one
+// thumbnail host while the others work, so a single host is never trusted.
+const THUMB_HOSTS = ['i.ytimg.com', 'img.youtube.com', 'i4.ytimg.com'];
+function thumbCandidates(videoId) {
+  const out = [];
+  ['mqdefault.jpg', 'hqdefault.jpg'].forEach((size) => {
+    THUMB_HOSTS.forEach((host) => {
+      out.push('https://' + host + '/vi/' + videoId + '/' + size);
+    });
+  });
+  return out;
+}
+
 function LectureThumb({ videoId, subjectCode }) {
-  const mq = 'https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg';
-  const hq = 'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg';
-  const [src, setSrc] = useState(mq);
+  const [idx, setIdx] = useState(0);
   const [failed, setFailed] = useState(false);
-  if (failed) {
+  const candidates = thumbCandidates(videoId);
+  if (failed || idx >= candidates.length) {
     return (
       <span className="edx-lecture-thumb edx-lecture-thumb-fallback" aria-hidden="true">
         {subjectCode || 'EDUNEXUS'}
@@ -43,14 +55,14 @@ function LectureThumb({ videoId, subjectCode }) {
   }
   return (
     <img
-      src={src}
+      src={candidates[idx]}
       alt=""
       loading="eager"
       decoding="async"
       className="edx-lecture-thumb"
       onError={() => {
-        if (src.indexOf('mqdefault') !== -1) setSrc(hq);
-        else setFailed(true);
+        if (idx + 1 >= candidates.length) setFailed(true);
+        else setIdx(idx + 1);
       }}
     />
   );
