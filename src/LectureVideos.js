@@ -20,6 +20,7 @@ import { listTutorials } from './db/tutorials';
 import { youtubeId } from './youtube-video.mjs';
 
 const CHANNEL_URL = 'https://www.youtube.com/@EduNexusVU';
+const SUBSCRIBE_URL = 'https://www.youtube.com/@EduNexusVU?sub_confirmation=1';
 const EMBED_ALLOW = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
 
 function embedSrc(videoId, { autoplay = true, muted = false } = {}) {
@@ -133,15 +134,27 @@ export default function LectureVideosSection({ theme }) {
             VU lectures, subject-wise — pehli video khud chalti hai (muted). Sound ke liye “Sound on” dabayein.
           </p>
         </div>
-        <a
-          href={CHANNEL_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold shrink-0"
-          style={{ background: accentColor || '#38BDF8', color: '#0F172A' }}
-        >
-          YouTube channel ↗
-        </a>
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href={SUBSCRIBE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
+            style={{ background: '#FF0000', color: '#FFFFFF' }}
+            title="YouTube par EduNexus ko subscribe karein"
+          >
+            🔔 Subscribe
+          </a>
+          <a
+            href={CHANNEL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold shrink-0"
+            style={{ background: accentColor || '#38BDF8', color: '#0F172A' }}
+          >
+            YouTube channel ↗
+          </a>
+        </div>
       </div>
 
       <div className="edx-lecture-grid">
