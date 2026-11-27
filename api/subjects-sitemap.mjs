@@ -27,10 +27,27 @@ export const SUBJECTS = [
   'EDU301', 'EDU402', 'EDU406', 'EDU430', 'EDU601', 'EDU602',
 ];
 
+function normalizeSitemapUrl(value) {
+  const parsed = new URL(value);
+  if (parsed.pathname !== '/test-papers') return value;
+  const subject = String(parsed.searchParams.get('subject') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+  const termRaw = String(parsed.searchParams.get('term') || '').toLowerCase().replace(/[^a-z]/g, '');
+  const term = termRaw === 'midterm' ? 'Midterm' : termRaw === 'finalterm' ? 'Finalterm' : '';
+  const lectures = [...new Set(String(parsed.searchParams.get('lectures') || '').split(',')
+    .map((item) => item.trim()).filter((item) => /^\d{1,4}$/.test(item))
+    .map(Number).filter((item) => item >= 1 && item <= 1000))].sort((x, y) => x - y);
+  const params = new URLSearchParams();
+  if (subject) params.set('subject', subject);
+  if (term) params.set('term', term);
+  if (lectures.length) params.set('lectures', lectures.join(','));
+  return parsed.origin + parsed.pathname + (params.toString() ? '?' + params.toString() : '');
+}
+
 function buildXml(urls) {
+  const uniqueUrls = [...new Set(urls.map(normalizeSitemapUrl))];
   return '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-    urls.map((url) => '<url><loc>' + escapeHtml(url) + '</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>').join('\n') +
+    uniqueUrls.map((url) => '<url><loc>' + escapeHtml(url) + '</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>').join('\n') +
     '\n</urlset>';
 }
 
@@ -41,9 +58,8 @@ export default async function handler(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   if (req.method === 'HEAD') return res.status(200).end();
   const urls = SUBJECTS.map((code) => SITE + '/academic/' + encodeURIComponent(code));
-  // Test papers — one full-range pattern URL per LIVE bank (226 banks,
-  // 156 subjects; generated 2026-11-22 from the live test_paper_banks
-  // table, exact lecture/topic numbers + term on every URL so a
+  // Curated full-range pattern URLs for published test-paper banks. Each URL
+  // records its subject, term, and exact lecture/topic range so a
   // Finalterm bank never resolves as Midterm. Pattern links build the
   // paper from the verified bank. Regenerate when banks change.
   urls.push(SITE + '/test-papers', SITE + '/test-papers/phy101-lec1-9');
