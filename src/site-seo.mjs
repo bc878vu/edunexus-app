@@ -8,8 +8,8 @@ export const SITE = 'https://edunexus-app.vercel.app';
 // Only use paths that are actually recognized on a fresh App page load.
 // pathForPage supplies a working ?page= URL for other SPA pages.
 const INDEXABLE_FRIENDLY_PATHS = Object.freeze({
-  home: '/', academic: '/vu-notes', articles: '/articles',
-  aiquiz: '/quizzes', cgpa: '/cgpa-calculator', contact: '/contact',
+  home: '/', academic: '/handouts', articles: '/articles',
+  aiquiz: '/ai-tools', cgpa: '/cgpa-calculator', contact: '/contact',
   forum: '/forum', portfolio: '/portfolio', privacy: '/privacy', terms: '/terms'
 });
 
