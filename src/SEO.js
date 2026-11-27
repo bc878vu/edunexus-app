@@ -77,11 +77,31 @@ function updateSeo() {
   if (!params.get('subject') && pathParams.subject) params.set('subject', pathParams.subject);
   if (!params.get('term') && pathParams.term) params.set('term', pathParams.term);
   const pathname = window.location.pathname || '';
-  // Test-paper pages canonicalize to themselves, not to the MCQ bank page:
-  // /test-papers and its ?subject=&term= pattern links are their own pages.
+  // Canonicalize curated test-paper patterns while excluding user-adjustable
+  // question counts. Those settings change the generated attempt, not the
+  // searchable subject/term/lecture identity, and otherwise multiply URLs.
+  const canonicalTestPaperUrl = () => {
+    const canonicalParams = new URLSearchParams();
+    const subject = String(params.get('subject') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+    const termRaw = String(params.get('term') || '').toLowerCase().replace(/[^a-z]/g, '');
+    const term = termRaw === 'midterm' ? 'Midterm' : termRaw === 'finalterm' ? 'Finalterm' : '';
+    const lectures = [...new Set(String(params.get('lectures') || '').split(',')
+      .map((value) => value.trim())
+      .filter((value) => /^\d{1,4}$/.test(value))
+      .map(Number)
+      .filter((value) => value >= 1 && value <= 1000))].sort((x, y) => x - y);
+    if (subject) canonicalParams.set('subject', subject);
+    if (term) canonicalParams.set('term', term);
+    if (lectures.length) canonicalParams.set('lectures', lectures.join(','));
+    return SITE + '/test-papers' + (canonicalParams.toString() ? '?' + canonicalParams.toString() : '');
+  };
+  // Slugged paper landing pages are distinct curated resources; keep each
+  // stable slug self-canonical rather than collapsing it to the exam hub.
   const canonical = pathname === '/test-papers'
-    ? SITE + '/test-papers' + (params.toString() ? '?' + params.toString() : '')
-    : canonicalUrl(page, params.toString() ? '?' + params.toString() : '');
+    ? canonicalTestPaperUrl()
+    : pathname.startsWith('/test-papers/')
+      ? SITE + pathname
+      : canonicalUrl(page, params.toString() ? '?' + params.toString() : '');
   // Subject/term-specific titles + descriptions so each MCQ bank and subject
   // library view gets its own indexable identity instead of one generic page.
   let title = data[0];
