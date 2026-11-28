@@ -158,7 +158,7 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
       style={{ animationDelay: `${Math.min(idx * 80, 400)}ms` }}
     >
       {/* Cover image - premium full-frame treatment; original remains available in fullscreen */}
-      {art.imageUrl && !(expanded && bodyStartsWithVideo) && (
+      {!(expanded && bodyStartsWithVideo) && (art.imageUrl ? (
         <div
           className="relative w-full h-52 sm:h-64 md:h-80 lg:h-[360px] overflow-hidden bg-slate-950 isolate shadow-inner"
           style={{ width: '100%' }}
@@ -187,7 +187,15 @@ const ArticleCard = ({ art, idx, user, sessionUid, isAdmin, theme, showToast }) 
             <span className="hidden sm:inline">View</span>
           </button>
         </div>
-      )}
+      ) : (
+        <div className="relative w-full h-52 sm:h-64 md:h-80 lg:h-[360px] overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center">
+          <div className="text-center px-6">
+            <BookOpen size={40} className="text-white/80 mx-auto mb-3" />
+            <p className="text-white font-bold text-lg leading-snug">{art.title}</p>
+            <p className="text-white/70 text-xs mt-2 tracking-widest uppercase">EduNexus Official</p>
+          </div>
+        </div>
+      ))}
 
       {/* Fullscreen lightbox */}
       {lightboxOpen && (

@@ -98,7 +98,7 @@ export default async function handler(req,res){
   if (cachedFirst) return res.status(200).send(cachedFirst);
   try{
     const article=await getPublicArticle(id);
-    if(!article || !String(article.title||'').trim())return res.status(404).send('Article not found');
+    if(!article || !String(article.title||'').trim() || article.isActive===false || article.is_active===false)return res.status(404).send('Article not found');
     const title=String(article.title).trim().slice(0,200);
     const rawText=String(article.body ?? article.content ?? '').trim().slice(0,120000);
     const bodyHtml=enhanceArticleBodyHtml(sanitizeArticleHtml(rawText));
@@ -117,7 +117,9 @@ export default async function handler(req,res){
     const description=sharedDescription || excerpt || plainText.replace(/\s+/g,' ').slice(0,155) || 'Article from the EduNexus student learning platform.';
     // Keep historical articles accessible without misrepresenting an empty or
     // one-sentence entry as a substantial indexable article.
-    const indexable=plainText.length>=450;
+    // AdSense low-value guard (2026-11-28): ~300 words of plain text.
+    // The old 450-char bar (~80 words) let stub articles stay indexable.
+    const indexable=plainText.length>=1800;
     // Open Graph image for rich link previews (WhatsApp/Facebook/Twitter).
     const rawImage=String(article.coverUrl ?? article.cover_url ?? article.imageUrl ?? '').trim();
     // Social crawlers need a publicly fetchable HTTP(S) image. Prefer the
@@ -135,9 +137,10 @@ export default async function handler(req,res){
       : '';
     const coverDisplayImage=normalizedImage ? optimizedArticleImage(normalizedImage, 1800) : '';
     const coverSrcSet=normalizedImage ? articleImageSrcSet(normalizedImage) : '';
+    const coverFallbackHtml='<div class="article-cover-wrap" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#4f46e5,#9333ea,#db2777)"><span style="color:#fff;font-weight:800;font-size:1.15rem;padding:24px;text-align:center">' + h(title) + '</span></div>';
     const coverHtml=(normalizedImage && !bodyStartsWithVideo)
       ? '<figure class="article-cover-wrap"><img class="article-cover" src="' + h(coverDisplayImage) + '"' + (coverSrcSet ? ' srcset="' + h(coverSrcSet) + '" sizes="(max-width: 760px) 100vw, 1120px"' : '') + ' alt="' + h(title) + '" loading="eager" decoding="async" fetchpriority="high"><span class="article-cover-shade" aria-hidden="true"></span><span class="article-cover-ring" aria-hidden="true"></span><a class="article-cover-action" href="' + h(normalizedImage) + '" data-shell-image-lightbox data-image-alt="' + h(title) + '" aria-label="Open full-size article image"><span aria-hidden="true">↗</span><span>View full image</span></a></figure>'
-      : '';
+      : (!bodyStartsWithVideo ? coverFallbackHtml : '');
     const date=article.createdAt && !Number.isNaN(Date.parse(article.createdAt)) ? article.createdAt:null;
     const views = Number(article.views ?? (article.extra && article.extra.views) ?? 0) || 0;
     // Related articles: same-topic internal links on every article page, so
@@ -151,7 +154,7 @@ export default async function handler(req,res){
       const others = (await listPublicArticles(3)).filter((item) => {
         if (!item || item.id === id || !String(item.title || '').trim()) return false;
         if (item.isActive === false) return false;
-        return String(item.body ?? item.content ?? '').trim().length >= 450;
+        return String(item.body ?? item.content ?? '').trim().length >= 1800;
       });
       const scored = others.map((item) => {
         const shared = words(item.title).filter((w) => mine.has(w)).length;

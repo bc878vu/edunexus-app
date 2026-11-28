@@ -1,4 +1,5 @@
 import { listPublicArticles, listPublicHighlights, articlePath, highlightPath, SITE, escapeHtml as h } from './resource-data.mjs';
+import { articlePlainText } from '../src/article-sanitize.mjs';
 
 export const maxDuration=60;
 // In-memory caches: survive backend outages so Googlebot never gets a 503.
@@ -38,7 +39,8 @@ export default async function handler(req,res){
     const articles=await listPublicArticles(20);
     const seen=new Set();
     const urls=articles.filter((item)=> {
-      if(!item.id || !String(item.title||'').trim() || String(item.content||item.body||'').trim().length<450 || seen.has(item.id))return false;
+      // AdSense low-value guard (2026-11-28): plain-text ~300 words, not raw HTML length.
+      if(!item.id || !String(item.title||'').trim() || item.isActive===false || item.is_active===false || articlePlainText(String(item.content||item.body||'')).length<1800 || seen.has(item.id))return false;
       seen.add(item.id);return true;
     }).map((item)=>({loc:SITE+articlePath(item.id,item.title),lastmod:item.updatedAt||item.updated_at||item.createdAt||item.created_at}));
     cachedXml=buildXml(urls);cachedAt=Date.now();

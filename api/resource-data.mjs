@@ -202,19 +202,20 @@ export async function listPublicHighlights(max = 100) {
 export async function getPublicArticle(id) {
   if (!validId(id)) return null;
   if (USE_SUPABASE) {
-    const rows = await postgrestGet('articles', 'select=*&id=eq.' + encodeURIComponent(id) + '&limit=1');
-    return rows && rows[0] ? toCamel(rows[0]) : null;
+    const rows = await postgrestGet('articles', 'select=*&id=eq.' + encodeURIComponent(id) + '&is_active=eq.true&limit=1');
+    return rows && rows[0] && rows[0].is_active !== false ? toCamel(rows[0]) : null;
   }
   const doc = await getJson(endpoint(ARTICLES + '/' + encodeURIComponent(id)));
-  return doc ? decodeDoc(doc) : null;
+  const decoded = doc ? decodeDoc(doc) : null;
+  return decoded && decoded.isActive !== false && decoded.is_active !== false ? decoded : null;
 }
 export async function listPublicArticles(maxPages = 10) {
   if (USE_SUPABASE) {
     const result = [];
     for (let i = 0; i < maxPages; i += 1) {
-      const rows = await postgrestGet('articles', 'select=*&order=created_at.desc&limit=100&offset=' + (i * 100));
+      const rows = await postgrestGet('articles', 'select=*&is_active=eq.true&order=created_at.desc&limit=100&offset=' + (i * 100));
       if (!rows || rows.length === 0) break;
-      result.push(...rows.map(toCamel));
+      result.push(...rows.map(toCamel).filter((item) => item.isActive !== false && item.is_active !== false));
       if (rows.length < 100) break;
     }
     return result;
@@ -227,7 +228,7 @@ export async function listPublicArticles(maxPages = 10) {
     if (token) url.searchParams.set('pageToken', token);
     const json = await getJson(url.href);
     if (!json) break;
-    result.push(...(json.documents || []).map(decodeDoc));
+    result.push(...(json.documents || []).map(decodeDoc).filter((item) => item.isActive !== false && item.is_active !== false));
     token = json.nextPageToken || '';
     if (!token) break;
   }

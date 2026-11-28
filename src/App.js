@@ -3655,8 +3655,8 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
     const handleSubmit = async () => {
       const textContent = htmlMode ? content.replace(/<[^>]*>/g, '').trim() : (editorRef.current?.innerText?.trim() || content.replace(/<[^>]*>/g, '').trim());
       if(!title.trim() || !textContent) return;
-      if (!editId && (textContent.length < 450 || !originalConfirmed)) {
-        showToast('New articles need meaningful original content (at least 450 characters) and an authorship/permission declaration.', 'error');
+      if (!editId && (textContent.length < 1800 || !originalConfirmed)) {
+        showToast('New articles need meaningful original content (at least 1800 characters, about 300 words) and an authorship/permission declaration.', 'error');
         return;
       }
       // Never persist headings that wrap whole blocks (paste artifact).
@@ -4046,7 +4046,7 @@ const AdminPanel = ({ theme, user, showToast, isDark = false }) => {
             <input type="checkbox" checked={originalConfirmed} onChange={e=>setOriginalConfirmed(e.target.checked)} />
             <span>I have personally checked that this article adds original learning value and that I hold the rights or permission to publish the text and images. This is my declaration, not an independent certification.</span>
           </label>}
-          <p className={`text-xs ${theme.textMuted} mb-3`}>New articles require original paragraphs and examples (at least 450 characters). Existing articles can still be edited.</p>
+          <p className={`text-xs ${theme.textMuted} mb-3`}>New articles require original paragraphs and examples (at least 1800 characters, about 300 words). Existing articles can still be edited.</p>
           <div className="flex gap-2">
             <button onClick={handleSubmit} className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-bold flex-1 hover:bg-indigo-700">{editId ? 'Update Article' : 'Publish Article'}</button>
             {editId && <button onClick={resetForm} className="bg-slate-500 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-slate-600">Cancel</button>}

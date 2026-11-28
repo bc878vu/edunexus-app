@@ -39,7 +39,7 @@ test('article route renders real stored text without active markup injection',as
   const fetchBefore=global.fetch;
   const record={name:'projects/p/databases/(default)/documents/artifacts/edunexus-live/public/data/articles/abc123',
     fields:{title:{stringValue:'How to study <script>alert(1)</script>'},
-      content:{stringValue:('Original worked example & <img src=x onerror=alert(1)>; '.repeat(25))},
+      content:{stringValue:('Original worked example & <img src=x onerror=alert(1)>; '.repeat(70))},
       createdAt:{timestampValue:'2026-01-01T00:00:00Z'}}};
   global.fetch=async()=>({ok:true,status:200,json:async()=>record});
   try{
@@ -49,7 +49,7 @@ test('article route renders real stored text without active markup injection',as
     assert.equal(res.statusCode,200);
     assert.match(res.body,/meta name="robots" content="index,follow"/);
     assert.match(res.body,/&lt;script&gt;/);
-    assert.match(res.body,/&lt;img src=x onerror=alert\(1\)&gt;/);
+    assert.match(res.body,/Original worked example/); // real stored text renders; the img tag itself is stripped by the sanitizer, not escaped into visible text
     assert.doesNotMatch(res.body,/<img src=x onerror/);
     assert.match(res.body,/aria-label="Main navigation"/);
   }finally{global.fetch=fetchBefore;}
@@ -67,13 +67,28 @@ test('short legacy articles remain accessible but are not marked as indexable ri
     assert.match(res.body,/content="noindex,follow"/);
   }finally{global.fetch=fetchBefore;}
 });
+test('medium articles (~700 chars) are accessible but noindex',async()=>{
+  const fetchBefore=global.fetch;
+  global.fetch=async()=>({ok:true,status:200,json:async()=>({
+    name:'projects/p/databases/(default)/documents/artifacts/edunexus-live/public/data/articles/medium',
+    fields:{title:{stringValue:'Medium note'},content:{stringValue:'A medium-length article body with real sentences. '.repeat(14)}}
+  })});
+  try{
+    const res=response();
+    await articlePage({method:'GET',query:{id:'medium',slug:'medium-note'}},res);
+    assert.equal(res.statusCode,200);
+    assert.match(res.body,/content="noindex,follow"/);
+  }finally{global.fetch=fetchBefore;}
+});
 test('article sitemap excludes thin entries and includes existing substantial originals',async()=>{
   const fetchBefore=global.fetch;
   global.fetch=async()=>({ok:true,status:200,json:async()=>({documents:[
     {name:'projects/p/databases/(default)/documents/artifacts/edunexus-live/public/data/articles/good',
-      fields:{title:{stringValue:'Original article'},content:{stringValue:'A detailed guide. '.repeat(40)}}},
+      fields:{title:{stringValue:'Original article'},content:{stringValue:'A detailed guide. '.repeat(110)}}},
     {name:'projects/p/databases/(default)/documents/artifacts/edunexus-live/public/data/articles/thin',
-      fields:{title:{stringValue:'Thin article'},content:{stringValue:'Too short.'}}}
+      fields:{title:{stringValue:'Thin article'},content:{stringValue:'Too short.'}}},
+    {name:'projects/p/databases/(default)/documents/artifacts/edunexus-live/public/data/articles/mid',
+      fields:{title:{stringValue:'Medium article'},content:{stringValue:'A medium-length guide. '.repeat(30)}}}
   ]})});
   try{
     const res=response();
@@ -81,6 +96,7 @@ test('article sitemap excludes thin entries and includes existing substantial or
     assert.equal(res.statusCode,200);
     assert.match(res.body,/articles\/read\/good\/original-article/);
     assert.doesNotMatch(res.body,/articles\/read\/thin/);
+    assert.doesNotMatch(res.body,/articles\/read\/mid/);
   }finally{global.fetch=fetchBefore;}
 });
 
