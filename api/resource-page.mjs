@@ -2,6 +2,7 @@ import { standaloneAdScript, standaloneContentSecurityPolicy } from './ad-suppor
 import { renderNavbar, renderFooter, renderThemeToggle, shellThemeBoot, navStyles } from './site-shell.mjs';
 import { escapeHtml as h, getPublicFile, getPublicHighlight, getPublicPaperReview, getPaperReviewByShortCode, listPublicFiles, listApprovedReviews, resourcePath, highlightPath, SITE, slugFor, validId } from './resource-data.mjs';
 import { guideForFile, SUBJECT_GUIDES } from './subject-guides.mjs';
+import { TRUST_PAGES } from '../src/trust-pages-content.mjs';
 import { SUBJECTS } from './subjects-sitemap.mjs';
 
 export const navbar = renderNavbar('academic');
@@ -107,6 +108,25 @@ export default async function handler(req, res) {
     const subjectLinks = ogPage === 'academic' ? '<nav aria-label="Browse VU subjects"><h2>Explore subjects</h2><ul>' + SUBJECTS.map(code => '<li><a href="' + h(SITE + '/academic/' + encodeURIComponent(code)) + '">' + h(code) + ' study resources</a></li>').join('') + '</ul></nav>' : '';
     if (!isCrawler) return res.redirect(302, pg.appUrl);
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(pg.title)}</title><meta name="description" content="${h(pg.desc)}"><meta name="robots" content="index,follow"><link rel="canonical" href="${h(pg.appUrl)}"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(pg.title)}"><meta property="og:description" content="${h(pg.desc)}"><meta property="og:url" content="${h(pg.appUrl)}"><meta property="og:image" content="${h(pg.image)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${h(pg.title)}"><meta name="twitter:description" content="${h(pg.desc)}"><meta name="twitter:image" content="${h(pg.image)}"><meta http-equiv="refresh" content="0;url=${h(pg.appUrl)}"></head><body><main><h1>${h(pg.title)}</h1><p>${h(pg.desc)}</p><p><a href="${h(pg.appUrl)}">Open EduNexus</a></p>${subjectLinks}</main></body></html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(html);
+  }
+
+  // Trust pages (/about, /contact, /privacy, /terms): the SPA renders these
+  // client-side, so a non-JS fetcher otherwise sees only the loading shell.
+  // Crawlers get the full page text server-rendered with a self-referencing
+  // canonical; browsers get a 302 to the page (loop-free: the browser
+  // rewrite sends these paths to /index.html, never back to this function).
+  // AdSense low-value-content fix (2026-11-28).
+  if (TRUST_PAGES[ogPage]) {
+    const ua = String(req.headers['user-agent'] || '').toLowerCase();
+    const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
+    const pg = TRUST_PAGES[ogPage];
+    const appUrl = SITE + '/' + ogPage;
+    if (!isCrawler) return res.redirect(302, appUrl);
+    const schema = JSON.stringify({ '@context': 'https://schema.org', '@type': 'WebPage', name: pg.title, description: pg.desc, url: appUrl, inLanguage: 'en', isAccessibleForFree: true });
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(pg.title)}</title><meta name="description" content="${h(pg.desc)}"><meta name="robots" content="index,follow"><link rel="canonical" href="${h(appUrl)}"><meta property="og:type" content="website"><meta property="og:site_name" content="EduNexus"><meta property="og:title" content="${h(pg.title)}"><meta property="og:description" content="${h(pg.desc)}"><meta property="og:url" content="${h(appUrl)}"><meta property="og:image" content="${h(SITE + '/logo512.png')}"><meta name="twitter:card" content="summary"><meta name="twitter:title" content="${h(pg.title)}"><meta name="twitter:description" content="${h(pg.desc)}"><script type="application/ld+json">${schema}</script>${shellThemeBoot}<style>${styles}</style></head><body>${renderNavbar(ogPage)}${renderThemeToggle()}<main><article class="resource">${pg.body}</article></main>${renderFooter()}</body></html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     return res.status(200).send(html);

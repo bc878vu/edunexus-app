@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import guidePage from '../api/learning-page.mjs';
 import articlePage from '../api/article-page.mjs';
 import articleSitemap from '../api/article-sitemap.mjs';
+import resourcePage from '../api/resource-page.mjs';
+import { TRUST_PAGES } from '../src/trust-pages-content.mjs';
+import { canonicalUrl } from '../src/site-seo.mjs';
 import { SUBJECT_GUIDES, GUIDE_CODES, guideForFile } from '../api/subject-guides.mjs';
 import { articlePath, SITE } from '../api/resource-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -117,4 +120,32 @@ test('vercel.app domain is the canonical production origin', () => {
   const edge = readFileSync(new URL('../supabase/functions/edunexus-sign-upload/index.ts', import.meta.url), 'utf8');
   assert.ok(edge.includes('"https://edunexus.dpdns.org"'));
   assert.ok(edge.includes('"https://edunexus-app.vercel.app"'));
+});
+
+test('trust pages serve full server-rendered text with self-referencing canonicals', () => {
+  for (const page of ['about', 'contact', 'privacy', 'terms']) {
+    const res = response();
+    resourcePage({ method: 'GET', query: { ogpage: page }, headers: { 'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' } }, res);
+    assert.equal(res.statusCode, 200, page + ' should render for crawlers');
+    assert.match(res.body, /content="index,follow"/);
+    assert.ok(res.body.includes(`rel="canonical" href="https://edunexus-app.vercel.app/${page}"`), page + ' canonical must be self-referencing');
+    assert.ok(res.body.includes(TRUST_PAGES[page].body.slice(0, 80)), page + ' must render its real content');
+    assert.doesNotMatch(res.body, /Loading your study hub/);
+  }
+  assert.ok(TRUST_PAGES.privacy.body.includes('12. Changes to this policy'));
+  assert.ok(TRUST_PAGES.terms.body.includes('12. Contact and support'));
+});
+
+test('trust pages redirect real browsers to the app page', () => {
+  const res = response();
+  resourcePage({ method: 'GET', query: { ogpage: 'about' }, headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36' } }, res);
+  assert.equal(res.statusCode, 302);
+  assert.equal(res.location, 'https://edunexus-app.vercel.app/about');
+});
+
+test('about canonical is the clean path, not ?page=about', () => {
+  assert.equal(canonicalUrl('about', '', {}), 'https://edunexus-app.vercel.app/about');
+  assert.equal(canonicalUrl('privacy', '', {}), 'https://edunexus-app.vercel.app/privacy');
+  assert.equal(canonicalUrl('contact', '', {}), 'https://edunexus-app.vercel.app/contact');
+  assert.equal(canonicalUrl('terms', '', {}), 'https://edunexus-app.vercel.app/terms');
 });
