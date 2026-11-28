@@ -16,6 +16,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { SITE, canonicalPath, displaySubjectName } from '../src/site-seo.mjs';
 import { routeFromLocation, routeParamsFromPath } from '../src/app-routes.mjs';
 import { SEO_PAGE_DATA } from '../src/SEO.js';
+import { TRUST_PAGES } from '../src/trust-pages-content.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(SCRIPT_DIR, '..');
@@ -158,6 +159,29 @@ function staticBlock(route, seo, banks) {
   const addLink = (href, label) => {
     if (href !== route.pathname) links.push('<a href="' + escapeHtml(href) + '">' + escapeHtml(label) + '</a>');
   };
+  // Trust pages (/about, /contact, /privacy, /terms): the SPA renders these
+  // client-side, so the static block must carry the FULL page text — a
+  // one-line description plus the loading screen is what AdSense flagged as
+  // thin content. The SPA replaces this block on load, so users are
+  // unaffected; crawlers read the real content. AdSense fix (2026-11-28).
+  const trustKey = String(route.pathname || '').replace(/^\//, '');
+  if (TRUST_PAGES[trustKey]) {
+    addLink('/', 'Home');
+    addLink('/vu-notes', 'VU notes & handouts');
+    addLink('/exam-prep', 'Exam MCQ banks');
+    addLink('/articles', 'Study guides & articles');
+    for (const key of ['about', 'contact', 'privacy', 'terms']) {
+      if (key !== trustKey) addLink('/' + key, TRUST_PAGES[key].title.split('|')[0].trim());
+    }
+    const trustLinks = links.length
+      ? '<nav aria-label="Related pages"><p>Related: ' + links.join(' · ') + '</p></nav>'
+      : '';
+    return '<main class="edx-prerender-static" style="margin:0">'
+      + '<div style="max-width:1000px;margin:0 auto;padding:32px 20px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.65;color:#172036">'
+      + TRUST_PAGES[trustKey].body
+      + '<hr/>' + trustLinks
+      + '</div></main>';
+  }
   let h1;
   let paragraphs = [];
   if (seo.bank) {

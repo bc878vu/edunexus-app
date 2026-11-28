@@ -265,6 +265,22 @@ test('prerender writes per-route static HTML from the sitemap without touching t
   assert.doesNotMatch(homeHtml, /old\.example/);
   assert.ok(existsSync(join(stub, 'build', 'exam-prep', 'index.html')));
 
+  // Trust pages carry the FULL page text in the static block (AdSense fix):
+  // no loading screen, real headings and sections, self-referencing canonical.
+  const aboutHtml = readFileSync(join(stub, 'build', 'about', 'index.html'), 'utf8');
+  assert.match(aboutHtml, /A practical study space for university students/);
+  assert.match(aboutHtml, /What EduNexus is not/);
+  assert.doesNotMatch(aboutHtml, /Loading your study hub/);
+  assert.match(aboutHtml, /<link rel="canonical" href="https:\/\/edunexus-app\.vercel\.app\/about"\/>/);
+  const privacyHtml = readFileSync(join(stub, 'build', 'privacy', 'index.html'), 'utf8');
+  assert.match(privacyHtml, /12\. Changes to this policy/);
+  assert.doesNotMatch(privacyHtml, /Loading your study hub/);
+  const contactHtml = readFileSync(join(stub, 'build', 'contact', 'index.html'), 'utf8');
+  assert.match(contactHtml, /a\.m\.a63425@gmail\.com/);
+  const termsHtml = readFileSync(join(stub, 'build', 'terms', 'index.html'), 'utf8');
+  assert.match(termsHtml, /12\. Contact and support/);
+  assert.doesNotMatch(termsHtml, /Loading your study hub/);
+
   // Missing build dir: must not throw and must report zero writes.
   const empty = mkdtempSync(join(tmpdir(), 'edunexus-prerender-empty-'));
   const skipped = await prerender(empty);

@@ -115,10 +115,13 @@ export default async function handler(req, res) {
 
   // Trust pages (/about, /contact, /privacy, /terms): the SPA renders these
   // client-side, so a non-JS fetcher otherwise sees only the loading shell.
-  // Crawlers get the full page text server-rendered with a self-referencing
-  // canonical; browsers get a 302 to the page (loop-free: the browser
-  // rewrite sends these paths to /index.html, never back to this function).
-  // AdSense low-value-content fix (2026-11-28).
+  // NOTE: the build-time prerender (scripts/prerender.mjs) now writes the
+  // full trust text into the static files, and Vercel serves those before
+  // rewrites — so this branch is the fallback for any route the prerender
+  // skips. Crawlers get the full page text server-rendered with a
+  // self-referencing canonical; browsers get a 302 to the page (loop-free:
+  // the browser rewrite sends these paths to /index.html, never back to
+  // this function). AdSense low-value-content fix (2026-11-28).
   if (TRUST_PAGES[ogPage]) {
     const ua = String(req.headers['user-agent'] || '').toLowerCase();
     const isCrawler = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|skypeuripreview|googlebot|bingbot|pinterestbot|embedly|quora|vkshare/.test(ua);
